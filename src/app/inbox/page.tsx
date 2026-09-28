@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { CheckCircle2, CircleAlert, Inbox as InboxIcon, LoaderCircle, UserRound } from "lucide-react";
+import { useShallow } from "zustand/react/shallow";
 import { taskBucket, useTaskStore, type TaskBucket } from "@/store/task-store";
 
 const SECTIONS: Array<{ bucket: TaskBucket; label: string; icon: typeof InboxIcon }> = [
@@ -12,7 +13,7 @@ const SECTIONS: Array<{ bucket: TaskBucket; label: string; icon: typeof InboxIco
 ];
 
 export default function InboxPage() {
-  const tasks = useTaskStore((state) => Object.values(state.tasks));
+  const tasks = useTaskStore(useShallow((state) => Object.values(state.tasks)));
   const sorted = [...tasks].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 
   return (
