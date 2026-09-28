@@ -83,31 +83,14 @@ discovery, streaming, content-type rendering, and sideband decoding.
 
 ## What's not built yet
 
-These are designed (see the design doc referenced below) but intentionally
-out of scope for this first scaffold:
-
-- **Durable, shared task store.** Task state currently lives in
-  browser-local storage (`src/store/task-store.ts`, Zustand + `persist`) —
-  resume-on-refresh only, not shared across users or devices. A task list
-  that a manager can see and act on for a report's task requires a real
-  server-side store; this is the single biggest gap before this is usable
-  by more than one person.
-- **Auth.** Every request currently connects as `{ type: "none" }`. Two
-  independent planes are designed but not implemented: Plane A (OIDC login
-  to use the UI) and Plane B (per-agent auth per the Agent Card's
-  `securitySchemes` — service-identity first, then user-delegated).
-- **RBAC / org model.** Which agents or skills a user may invoke isn't
-  gated at all yet.
-- **Push notifications.** `tasks/pushNotificationConfig/set` isn't wired to
-  a webhook receiver or fan-out; the UI only gets updates from its own open
-  stream.
-- **Workflow audit trail.** No record yet of who started/approved/rejected
-  a task.
-- **Structured start forms.** The composer is always the generic
-  text/JSON/file fallback; rendering a real form from an agent-advertised
-  input schema extension isn't implemented.
-- **Docker/CI hardening, Playwright e2e.** CI currently runs lint + unit
-  tests + build only.
+Task state currently lives in browser-local storage (`src/store/task-store.ts`,
+Zustand + `persist` — resume-on-refresh only, not shared across users or
+devices), and every request connects to agents as `{ type: "none" }` — no
+auth, no RBAC, no push notifications, no audit trail, no structured start
+forms yet. All of it is designed, phased, and tracked in
+[`ROADMAP.md`](./ROADMAP.md), including exit criteria and current
+priorities — that file is the source of truth for what's pending; this
+section intentionally isn't duplicated here.
 
 ## Getting started
 
