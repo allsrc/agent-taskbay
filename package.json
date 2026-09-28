@@ -1,0 +1,61 @@
+{
+  "name": "a2a-agent-workflow-ui",
+  "version": "0.1.0",
+  "description": "A human-in-the-loop console for Agent2Agent (A2A) workflows. Discover an org's registered A2A agents, start tasks, respond to input-required and auth-required steps, and track task execution in real time with full multi-modal message and artifact rendering (text, Markdown, JSON, files, images, audio, video, PDF).",
+  "homepage": "https://github.com/shashikanth-gs/a2a-agent-workflow-ui#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shashikanth-gs/a2a-agent-workflow-ui.git"
+  },
+  "bugs": {
+    "url": "https://github.com/shashikanth-gs/a2a-agent-workflow-ui/issues"
+  },
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "keywords": [
+    "a2a",
+    "agent2agent",
+    "a2a-protocol",
+    "human-in-the-loop",
+    "agent-workflow",
+    "task-inbox",
+    "generative-ui"
+  ],
+  "scripts": {
+    "dev": "next dev -p 3002",
+    "build": "next build",
+    "start": "next start -p 3002",
+    "lint": "eslint",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "check": "npm run lint && npm run test && npm run build"
+  },
+  "dependencies": {
+    "@a2a-js/sdk": "^1.0.1",
+    "@bufbuild/protobuf": "^2.13.0",
+    "@grpc/grpc-js": "^1.14.4",
+    "lucide-react": "^1.27.0",
+    "next": "16.3.6",
+    "postcss": "^8.5.24",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
+    "zod": "^4.4.3",
+    "zustand": "^5.0.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@vitest/coverage-v8": "^4.1.10",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "16.3.6",
+    "typescript": "^5",
+    "vitest": "^4.1.10"
+  }
+}

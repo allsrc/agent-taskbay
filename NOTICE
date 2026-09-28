@@ -1,0 +1,36 @@
+a2a-agent-workflow-ui
+Copyright (c) 2026 Shashi Kanth G S
+
+This project is licensed under the MIT License (see LICENSE).
+
+It includes source adapted from SpanPlane (https://github.com/shashikanth-gs/spanplane),
+which is licensed under the Apache License, Version 2.0
+(https://www.apache.org/licenses/LICENSE-2.0). The following files originate
+from SpanPlane, with demo-deployment-specific and evidence-capture-specific
+branching removed and naming adapted for this project:
+
+  src/lib/gateway.ts             (from src/lib/spanplane-gateway.ts)
+  src/lib/sse.ts
+  src/lib/message-parts.ts
+  src/lib/content.ts
+  src/lib/rich-json.ts
+  src/lib/compliance.ts
+  src/lib/redact.ts
+  src/lib/url-safety.ts
+  src/lib/safe-fetch.ts
+  src/lib/request-guard.ts
+  src/lib/types.ts               (from src/lib/workbench-types.ts)
+  src/lib/api-response.ts
+  src/components/PartRenderer.tsx
+  src/components/ArtifactGallery.tsx
+  src/components/JsonTree.tsx
+  src/components/RichJsonView.tsx
+  src/components/SidebandPanel.tsx
+  src/server/sideband/decoder.ts
+  src/server/sideband/adapters.ts
+  src/server/sideband/extension.ts
+  src/app/globals.css (base styles)
+
+See docs/a2a-lite-chat-ui-design (SpanPlane repo, A2A_LITE_CHAT_UI_DESIGN.md)
+for the full design rationale behind what was lifted, what was left behind,
+and how this project's architecture builds on it.
