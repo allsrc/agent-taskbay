@@ -6,6 +6,10 @@ import { Loader2, Send } from "lucide-react";
 import { sendAndStream } from "@/lib/client-stream";
 import { assembleArtifacts, assembleTasks, extractMessages, normalizeParts } from "@/lib/content";
 import { useTaskStore, type ThreadMessage } from "@/store/task-store";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
 
 interface AgentDetail {
   id: string;
@@ -85,48 +89,83 @@ export default function AgentDetailPage({ params }: { params: Promise<{ agentId:
     }
   }
 
-  if (loadError) return <div className="error-banner"><span>{loadError}</span></div>;
-  if (!agent) return <div className="empty-card"><Loader2 className="spin" size={24} /><strong>Loading agent…</strong></div>;
+  if (loadError) {
+    return (
+      <div className="border-destructive/30 bg-destructive/5 text-destructive rounded-lg border px-4 py-3 text-sm">
+        {loadError}
+      </div>
+    );
+  }
+  if (!agent) {
+    return (
+      <div className="text-muted-foreground flex items-center gap-2 py-16 text-sm">
+        <Loader2 className="size-4 animate-spin" /> Loading agent…
+      </div>
+    );
+  }
 
   return (
-    <section className="agent-detail-page">
-      <header className="agent-hero">
-        <div className="agent-icon">{(agent.card.name ?? "A").slice(0, 2).toUpperCase()}</div>
-        <div>
-          <h1>{agent.card.name ?? agent.id}</h1>
-          <p>{agent.card.description}</p>
-        </div>
-      </header>
+    <section className="flex flex-col gap-6">
+      <Card className="bg-gradient-to-br from-card to-muted/40">
+        <CardContent className="flex items-start gap-4">
+          <div className="bg-primary text-primary-foreground flex size-12 shrink-0 items-center justify-center rounded-2xl text-lg font-bold">
+            {(agent.card.name ?? "A").slice(0, 2).toUpperCase()}
+          </div>
+          <div>
+            <h1 className="text-xl font-semibold tracking-tight">{agent.card.name ?? agent.id}</h1>
+            <p className="text-muted-foreground mt-1 text-sm">{agent.card.description}</p>
+          </div>
+        </CardContent>
+      </Card>
 
       {!!agent.card.skills?.length && (
-        <section className="skills-section">
-          <header><div><strong>Skills</strong></div><span>{agent.card.skills.length}</span></header>
-          <div className="skills-grid">
-            {agent.card.skills.map((skill) => (
-              <article key={skill.id}>
-                <h3>{skill.name}</h3>
-                <p>{skill.description}</p>
-              </article>
-            ))}
-          </div>
-        </section>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <h2 className="font-semibold">Skills</h2>
+            <Badge variant="secondary">{agent.card.skills.length}</Badge>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {agent.card.skills.map((skill) => (
+                <div key={skill.id} className="border-border rounded-xl border p-3.5">
+                  <h3 className="text-sm font-semibold">{skill.name}</h3>
+                  <p className="text-muted-foreground mt-1 text-xs leading-relaxed">{skill.description}</p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       )}
 
-      <section className="composer">
-        <textarea
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          placeholder="Describe what you need this agent to do…"
-          disabled={sending}
-        />
-        <div className="composer-actions">
-          <div>{sending && <span className="part-summary"><Loader2 className="spin" size={12} /> Starting…</span>}</div>
-          <button className="button primary" onClick={startTask} disabled={sending || !draft.trim()}>
-            <Send size={14} />Start task
-          </button>
+      <Card>
+        <CardContent className="flex flex-col gap-3">
+          <Textarea
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            placeholder="Describe what you need this agent to do…"
+            disabled={sending}
+            className="min-h-28"
+          />
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground flex items-center gap-1.5 text-xs">
+              {sending && (
+                <>
+                  <Loader2 className="size-3.5 animate-spin" /> Starting…
+                </>
+              )}
+            </span>
+            <Button onClick={startTask} disabled={sending || !draft.trim()}>
+              <Send />
+              Start task
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+      {sendError && (
+        <div className="border-destructive/30 bg-destructive/5 text-destructive rounded-lg border px-4 py-3 text-sm">
+          {sendError}
         </div>
-      </section>
-      {sendError && <div className="error-banner"><span>{sendError}</span></div>}
+      )}
     </section>
   );
 }

@@ -1,22 +1,25 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import Link from "next/link";
-import { Inbox, LayoutGrid, Workflow } from "lucide-react";
-import "./globals.css";
+import { Plus_Jakarta_Sans, Google_Sans_Code } from "next/font/google";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+import "./globals.css";
+import { ThemeProvider } from "@/components/theme-provider";
+import { Toaster } from "@/components/ui/sonner";
+import { AppNav } from "@/components/app-nav";
+
+const fontSans = Plus_Jakarta_Sans({
+  variable: "--font-plus-jakarta-sans",
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const fontMono = Google_Sans_Code({
+  variable: "--font-google-sans-code",
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
   title: "a2a-agent-workflow-ui",
-  description: "A human-in-the-loop console for Agent2Agent (A2A) workflows.",
+  description:
+    "A human-in-the-loop console for Agent2Agent (A2A) workflows: discover an org's registered agents, start tasks, respond to input-required and auth-required steps, and track execution in real time.",
 };
 
 export default function RootLayout({
@@ -25,21 +28,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
-      <body>
-        <div className="app-shell">
-          <header className="app-topbar">
-            <Link className="app-brand" href="/catalog">
-              <span className="app-brand-mark"><Workflow size={16} /></span>
-              <strong>a2a-agent-workflow-ui</strong>
-            </Link>
-            <nav className="app-nav">
-              <Link href="/catalog"><LayoutGrid size={14} />Catalog</Link>
-              <Link href="/inbox"><Inbox size={14} />Inbox</Link>
-            </nav>
-          </header>
-          <main className="app-main">{children}</main>
-        </div>
+    <html lang="en" suppressHydrationWarning className={`${fontSans.variable} ${fontMono.variable}`}>
+      <body className="flex min-h-svh flex-col">
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+          <AppNav />
+          <main className="app-container flex-1 py-8 sm:py-10">{children}</main>
+          <Toaster />
+        </ThemeProvider>
       </body>
     </html>
   );
