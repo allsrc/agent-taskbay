@@ -20,7 +20,7 @@ export interface StreamCallbacks {
 /** Drives the server-mediated `message/stream` proxy at /api/agents/[agentId]/stream. */
 export async function sendAndStream(
   agentId: string,
-  body: { text: string; taskId?: string; contextId?: string },
+  body: { text?: string; taskId?: string; contextId?: string; resubscribe?: boolean },
   callbacks: StreamCallbacks,
   signal?: AbortSignal,
 ): Promise<void> {

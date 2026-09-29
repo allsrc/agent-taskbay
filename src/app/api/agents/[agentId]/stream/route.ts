@@ -12,6 +12,8 @@ interface SendBody {
   parts?: unknown[];
   taskId?: string;
   contextId?: string;
+  /** Reconnect to an in-flight task's stream (A2A spec §3.1.6, `tasks/resubscribe`) instead of sending a new message. */
+  resubscribe?: boolean;
 }
 
 const encoder = new TextEncoder();
@@ -26,6 +28,12 @@ export async function POST(request: Request, context: { params: Promise<{ agentI
   let body: SendBody;
   try { body = await readJsonRequest<SendBody>(request); }
   catch (error) { return Response.json({ error: { message: error instanceof Error ? error.message : "Invalid request JSON." } }, { status: 400 }); }
+  if (!body.resubscribe && !body.text?.trim()) {
+    return Response.json({ error: { message: "text is required unless resubscribing." } }, { status: 400 });
+  }
+  if (body.resubscribe && !body.taskId) {
+    return Response.json({ error: { message: "taskId is required to resubscribe." } }, { status: 400 });
+  }
 
   const sessionId = crypto.randomUUID();
   const requestId = crypto.randomUUID();
@@ -35,7 +43,9 @@ export async function POST(request: Request, context: { params: Promise<{ agentI
       try {
         const session = await streamOperation({
           connection: { cardUrl: agent.cardUrl, auth: { type: "none" }, headers: {} },
-          action: "send",
+          // Any action other than "send" resubscribes to the existing task's
+          // stream instead of sending a new message (see gateway.ts's streamOperation).
+          action: body.resubscribe ? "getTask" : "send",
           params: { text: body.text, parts: body.parts, taskId: body.taskId, contextId: body.contextId },
           sessionId,
           requestId,
