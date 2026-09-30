@@ -1,20 +1,25 @@
 "use client";
 
-import { useEffect, useRef, useState, use } from "react";
+import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Send } from "lucide-react";
-import { sendAndStream } from "@/lib/client-stream";
-import { assembleArtifacts, assembleTasks, extractMessages, normalizeParts } from "@/lib/content";
-import { useTaskStore, type ThreadMessage } from "@/store/task-store";
+import { Loader2, MessageSquare } from "lucide-react";
+import { runSend, userThreadMessage } from "@/lib/run-message";
+import { useTaskStore } from "@/store/task-store";
+import { MessageComposer, type ComposerSubmit } from "@/components/MessageComposer";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
 
 interface AgentDetail {
   id: string;
   cardUrl: string;
-  card: { name?: string; description?: string; skills?: Array<{ id: string; name: string; description: string; tags: string[] }> };
+  card: {
+    name?: string;
+    description?: string;
+    skills?: Array<{ id: string; name: string; description: string; tags: string[] }>;
+    defaultInputModes?: string[];
+    defaultOutputModes?: string[];
+    capabilities?: { streaming?: boolean; pushNotifications?: boolean };
+  };
 }
 
 export default function AgentDetailPage({ params }: { params: Promise<{ agentId: string }> }) {
@@ -23,10 +28,8 @@ export default function AgentDetailPage({ params }: { params: Promise<{ agentId:
   const upsertTask = useTaskStore((state) => state.upsertTask);
   const [agent, setAgent] = useState<AgentDetail | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
-  const eventsRef = useRef<unknown[]>([]);
 
   useEffect(() => {
     fetch(`/api/agents/${agentId}`)
@@ -38,54 +41,29 @@ export default function AgentDetailPage({ params }: { params: Promise<{ agentId:
       .catch((error: Error) => setLoadError(error.message));
   }, [agentId]);
 
-  async function startTask() {
-    if (!draft.trim() || sending) return;
+  /** Sends the first message. The agent decides whether to answer directly (Message) or open a Task. */
+  async function startTask({ parts, config }: ComposerSubmit) {
+    if (sending) return;
     setSending(true);
     setSendError(null);
-    eventsRef.current = [];
-    const userMessage: ThreadMessage = {
-      id: crypto.randomUUID(),
-      role: "user",
-      parts: normalizeParts([{ text: draft, mediaType: "text/plain" }]),
-      timestamp: new Date().toISOString(),
-    };
-    const text = draft;
-    setDraft("");
-    let taskId: string | undefined;
+    const userMessage = userThreadMessage(parts, {}, config);
+    let landedOn: string | undefined;
     try {
-      await sendAndStream(agentId, { text }, {
-        onEvent: (event) => {
-          eventsRef.current = [...eventsRef.current, event];
-          const [task] = assembleTasks(eventsRef.current);
-          if (!task) return;
-          taskId = String(task.id);
-          const agentMessages: ThreadMessage[] = extractMessages(task, { includeStatusMessages: false })
-            .filter((message) => message.role !== "ROLE_USER")
-            .map((message) => ({
-              id: String(message.messageId ?? crypto.randomUUID()),
-              role: "agent",
-              parts: normalizeParts(message.parts),
-              timestamp: new Date().toISOString(),
-            }));
-          upsertTask({
-            taskId,
-            agentId,
-            agentName: agent?.card.name ?? agentId,
-            contextId: typeof task.contextId === "string" ? task.contextId : undefined,
-            state: (task.status as { state?: string } | undefined)?.state ?? "TASK_STATE_UNSPECIFIED",
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            messages: [userMessage, ...agentMessages],
-            artifacts: assembleArtifacts(eventsRef.current),
-          });
+      await runSend(
+        { agentId, agentName: agent?.card.name ?? agentId, parts, config, userMessage },
+        {
+          onUpdate: (next) => {
+            landedOn = next.taskId;
+            upsertTask(next);
+          },
+          onError: setSendError,
         },
-        onError: (message) => setSendError(message),
-      });
+      );
     } catch (error) {
       setSendError(error instanceof Error ? error.message : "Failed to start the task.");
     } finally {
       setSending(false);
-      if (taskId) router.push(`/tasks/${taskId}`);
+      if (landedOn) router.push(`/tasks/${landedOn}`);
     }
   }
 
@@ -114,6 +92,16 @@ export default function AgentDetailPage({ params }: { params: Promise<{ agentId:
           <div>
             <h1 className="text-xl font-semibold tracking-tight">{agent.card.name ?? agent.id}</h1>
             <p className="text-muted-foreground mt-1 text-sm">{agent.card.description}</p>
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {agent.card.capabilities?.streaming && <Badge variant="secondary">streaming</Badge>}
+              {agent.card.capabilities?.pushNotifications && <Badge variant="secondary">push notifications</Badge>}
+              {agent.card.defaultInputModes?.map((mode) => (
+                <Badge key={`in-${mode}`} variant="outline">in · {mode}</Badge>
+              ))}
+              {agent.card.defaultOutputModes?.map((mode) => (
+                <Badge key={`out-${mode}`} variant="outline">out · {mode}</Badge>
+              ))}
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -139,26 +127,21 @@ export default function AgentDetailPage({ params }: { params: Promise<{ agentId:
 
       <Card>
         <CardContent className="flex flex-col gap-3">
-          <Textarea
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
+          <MessageComposer
             placeholder="Describe what you need this agent to do…"
-            disabled={sending}
-            className="min-h-28"
+            submitLabel="Send"
+            sending={sending}
+            sendingLabel="Sending…"
+            inputModes={agent.card.defaultInputModes}
+            onSubmit={startTask}
           />
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground flex items-center gap-1.5 text-xs">
-              {sending && (
-                <>
-                  <Loader2 className="size-3.5 animate-spin" /> Starting…
-                </>
-              )}
+          <p className="text-muted-foreground flex items-start gap-1.5 border-t pt-3 text-xs">
+            <MessageSquare className="mt-0.5 size-3.5 shrink-0" />
+            <span>
+              The agent decides how to answer: a plain <strong>Message</strong> for simple questions, or a tracked{" "}
+              <strong>Task</strong> (with status, input requests and artifacts) for real work.
             </span>
-            <Button onClick={startTask} disabled={sending || !draft.trim()}>
-              <Send />
-              Start task
-            </Button>
-          </div>
+          </p>
         </CardContent>
       </Card>
       {sendError && (

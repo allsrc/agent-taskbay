@@ -22,11 +22,19 @@ source of truth for *why*; this file tracks *what's done and what's next*.
   (`src/lib/agent-registry.ts`, env-var-backed, behind an `AgentRegistry`
   interface)
 - Start-a-task composer that opens a real `message/stream` against the
-  agent, server-mediated via `/api/agents/[agentId]/stream`
+  agent, server-mediated via `/api/agents/[agentId]/stream`; supports
+  text/Markdown/JSON data parts, file attachments, and per-request options
+  (`returnImmediately`, `historyLength`, `acceptedOutputModes`,
+  `referenceTaskIds`, message/request metadata)
+- Message-or-Task responses: a plain Message reply is tracked as a direct
+  reply thread; a Task gets a lifecycle view
 - Task inbox grouped by A2A's actual lifecycle buckets (needs-my-input /
   in-progress / completed / failed)
-- Task detail view: chat thread + `ArtifactGallery`, resume composer that
-  continues the same `taskId`/`contextId`
+- Task detail view: chat thread + `ArtifactGallery`, lifecycle + status
+  history, identifiers panel (context/task/message/artifact IDs),
+  input-required/auth-required banner, reply composer that continues the same
+  `taskId`/`contextId`, same-conversation task list
+- Inbox: by-status and by-conversation (`contextId`) views
 - Full content-type rendering: text/Markdown/JSON/CSV/images/audio/video/
   PDF/raw files, plus structured and experimental "rich JSON" views
 - Sideband: negotiated A2A extension events decoded and rendered
@@ -57,6 +65,21 @@ of a report's task, and nothing survives a lost tab.
   shows the same state.
 - A task started by one (test) user is visible to another with access,
   without either having the originating tab open.
+
+## Pending A2A-model UI gaps
+
+Smaller than a phase; not yet built, from the A2A 1.0 request/response model.
+
+- Push notification config in the composer (`taskPushNotificationConfig`) —
+  blocked on Phase 1's webhook receiver
+- Message `extensions[]` picker (extensions are only auto-negotiated today)
+- `tenant` routing field (AgentInterface tenant) on sends
+- Explicit `GetTask` refresh / `ListTasks` sync with the agent (state is
+  local-only until Phase 1)
+- AUTH_REQUIRED has a banner but no actual auth hand-off flow (Phase 2)
+- Live agent verification: new flows (input-required reply, file/data parts,
+  direct replies) are unit-tested at the event-folding level only; add e2e
+  in Phase 6
 
 ## Phase 2: auth (design doc §5)
 

@@ -61,16 +61,24 @@ discovery, streaming, content-type rendering, and sideband decoding.
   (currently env-var-backed via `A2A_REGISTERED_AGENTS`; kept behind an
   `AgentRegistry` interface so a real directory service can replace it),
   with live Agent Card discovery and skill listings.
-- **Start a task** (`/catalog/[agentId]`) — a generic text composer that
-  opens a real `message/stream` against the agent (server-mediated via
-  `/api/agents/[agentId]/stream`) and lands you on the new task's detail page.
+- **Start a task** (`/catalog/[agentId]`) — a composer (text / Markdown /
+  structured JSON data part, file attachments, and per-request options:
+  `returnImmediately`, `historyLength`, `acceptedOutputModes`,
+  `referenceTaskIds`, message/request metadata) that opens a real
+  `message/stream` against the agent (server-mediated via
+  `/api/agents/[agentId]/stream`). The agent answers with a Message (kept as
+  a direct-reply thread) or a Task (opens its detail page).
 - **Task inbox** (`/inbox`) — tasks grouped into needs-my-input / in-progress
   / completed / failed buckets, per A2A's actual task lifecycle
   (`submitted → working → input-required/auth-required → completed/failed/
-  canceled/rejected`).
+  canceled/rejected`), plus direct replies and a by-conversation (`contextId`)
+  view.
 - **Task detail** (`/tasks/[taskId]`) — chat thread + `ArtifactGallery`
-  rendering for every A2A content type in scope, and a resume composer for
-  `input-required` tasks that continues the same `taskId`/`contextId`.
+  rendering for every A2A content type in scope, a lifecycle/status-history
+  panel, an identifiers panel (context/task/message/artifact IDs), an
+  input-required/auth-required banner showing the agent's question, and a
+  reply composer that continues the same `taskId`/`contextId`. Terminal tasks
+  start a new task in the same context.
 - **Content rendering** — text/Markdown/JSON/CSV/images/audio/video/PDF/raw
   files, structured + experimental "rich JSON" views, all deterministic
   (never model-guessed).
@@ -86,7 +94,8 @@ discovery, streaming, content-type rendering, and sideband decoding.
 Task state currently lives in browser-local storage (`src/store/task-store.ts`,
 Zustand + `persist` — resume-on-refresh only, not shared across users or
 devices), and every request connects to agents as `{ type: "none" }` — no
-auth, no RBAC, no push notifications, no audit trail, no structured start
+auth, no RBAC, no push notification config (needs the Phase 1 webhook receiver), no
+message `extensions[]` picker, no audit trail, no structured start
 forms yet. All of it is designed, phased, and tracked in
 [`ROADMAP.md`](./ROADMAP.md), including exit criteria and current
 priorities — that file is the source of truth for what's pending; this

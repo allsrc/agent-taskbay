@@ -1,6 +1,8 @@
 "use client";
 
 import { readSse } from "@/lib/sse";
+import type { OutgoingPart } from "@/lib/message-parts";
+import type { SendConfig } from "@/store/task-store";
 
 export interface StreamMeta {
   sessionId: string;
@@ -20,7 +22,14 @@ export interface StreamCallbacks {
 /** Drives the server-mediated `message/stream` proxy at /api/agents/[agentId]/stream. */
 export async function sendAndStream(
   agentId: string,
-  body: { text?: string; taskId?: string; contextId?: string; resubscribe?: boolean },
+  body: {
+    text?: string;
+    parts?: OutgoingPart[];
+    taskId?: string;
+    contextId?: string;
+    resubscribe?: boolean;
+    config?: SendConfig;
+  },
   callbacks: StreamCallbacks,
   signal?: AbortSignal,
 ): Promise<void> {

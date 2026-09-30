@@ -14,6 +14,7 @@ const fontSans = Plus_Jakarta_Sans({
 const fontMono = Google_Sans_Code({
   variable: "--font-google-sans-code",
   subsets: ["latin"],
+  adjustFontFallback: false,
 });
 
 export const metadata: Metadata = {

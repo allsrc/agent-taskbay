@@ -12,6 +12,15 @@ interface SendBody {
   parts?: unknown[];
   taskId?: string;
   contextId?: string;
+  /** Execution preferences: `SendMessageConfiguration` plus message/request metadata. */
+  config?: {
+    returnImmediately?: boolean;
+    historyLength?: number;
+    acceptedOutputModes?: string[];
+    referenceTaskIds?: string[];
+    metadata?: Record<string, unknown>;
+    requestMetadata?: Record<string, unknown>;
+  };
   /** Reconnect to an in-flight task's stream (A2A spec §3.1.6, `tasks/resubscribe`) instead of sending a new message. */
   resubscribe?: boolean;
 }
@@ -28,8 +37,8 @@ export async function POST(request: Request, context: { params: Promise<{ agentI
   let body: SendBody;
   try { body = await readJsonRequest<SendBody>(request); }
   catch (error) { return Response.json({ error: { message: error instanceof Error ? error.message : "Invalid request JSON." } }, { status: 400 }); }
-  if (!body.resubscribe && !body.text?.trim()) {
-    return Response.json({ error: { message: "text is required unless resubscribing." } }, { status: 400 });
+  if (!body.resubscribe && !body.text?.trim() && !body.parts?.length) {
+    return Response.json({ error: { message: "A message needs at least one content part." } }, { status: 400 });
   }
   if (body.resubscribe && !body.taskId) {
     return Response.json({ error: { message: "taskId is required to resubscribe." } }, { status: 400 });
@@ -46,7 +55,18 @@ export async function POST(request: Request, context: { params: Promise<{ agentI
           // Any action other than "send" resubscribes to the existing task's
           // stream instead of sending a new message (see gateway.ts's streamOperation).
           action: body.resubscribe ? "getTask" : "send",
-          params: { text: body.text, parts: body.parts, taskId: body.taskId, contextId: body.contextId },
+          params: {
+            text: body.text,
+            parts: body.parts,
+            taskId: body.taskId,
+            contextId: body.contextId,
+            returnImmediately: body.config?.returnImmediately,
+            historyLength: typeof body.config?.historyLength === "number" ? body.config.historyLength : undefined,
+            acceptedOutputModes: body.config?.acceptedOutputModes?.length ? body.config.acceptedOutputModes : undefined,
+            referenceTaskIds: body.config?.referenceTaskIds,
+            metadata: body.config?.metadata,
+            requestMetadata: body.config?.requestMetadata,
+          },
           sessionId,
           requestId,
         });
