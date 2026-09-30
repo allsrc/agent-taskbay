@@ -14,6 +14,7 @@ export interface CatalogEntry {
   name?: string;
   description?: string;
   skills?: Array<{ id: string; name: string; description: string; tags: string[] }>;
+  card?: unknown;
   error?: string;
 }
 
@@ -29,7 +30,7 @@ export async function GET() {
     try {
       const discovery = await discoverAgent({ cardUrl: agent.cardUrl, auth: { type: "none" }, headers: {} });
       const card = discovery.card as { name?: string; description?: string; skills?: CatalogEntry["skills"] };
-      return { id: agent.id, cardUrl: agent.cardUrl, source: agent.source, name: card.name, description: card.description, skills: card.skills };
+      return { id: agent.id, cardUrl: agent.cardUrl, source: agent.source, name: card.name, description: card.description, skills: card.skills, card: discovery.card };
     } catch (error) {
       return { id: agent.id, cardUrl: agent.cardUrl, source: agent.source, error: error instanceof Error ? error.message : "Agent discovery failed." };
     }

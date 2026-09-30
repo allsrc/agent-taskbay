@@ -18,23 +18,20 @@ source of truth for *why*; this file tracks *what's done and what's next*.
 
 ## Current baseline (shipped)
 
-- Agent/workflow catalog with live Agent Card discovery and skill listing
-  (`src/lib/agent-registry.ts`, env-var-backed, behind an `AgentRegistry`
-  interface)
-- Start-a-task composer that opens a real `message/stream` against the
-  agent, server-mediated via `/api/agents/[agentId]/stream`; supports
-  text/Markdown/JSON data parts, file attachments, and per-request options
+- UI rebuilt from the a2a.client prototype (allsrc.dev theme, shadcn/ui +
+  Tailwind v4 + motion): Agents, Chat, Tasks, Orchestration, Notifications,
+  Settings, plus the Connect-agent flow; responsive desktop/mobile shell
+- Agent catalog with live Agent Card discovery (capabilities, interfaces,
+  skills, security, modes); env-var-backed registry behind an `AgentRegistry`
+  interface
+- Chat: one `contextId` holding many tasks and direct Message replies in a
+  single timeline; per-task status steps, cancel, input/auth-required prompts
+  (with quick replies), streaming artifacts, `{ } Wire` inspector; composer
+  with text/Markdown, file/URL/data parts and per-request options
   (`returnImmediately`, `historyLength`, `acceptedOutputModes`,
-  `referenceTaskIds`, message/request metadata)
-- Message-or-Task responses: a plain Message reply is tracked as a direct
-  reply thread; a Task gets a lifecycle view
-- Task inbox grouped by A2A's actual lifecycle buckets (needs-my-input /
-  in-progress / completed / failed)
-- Task detail view: chat thread + `ArtifactGallery`, lifecycle + status
-  history, identifiers panel (context/task/message/artifact IDs),
-  input-required/auth-required banner, reply composer that continues the same
-  `taskId`/`contextId`, same-conversation task list
-- Inbox: by-status and by-conversation (`contextId`) views
+  `referenceTaskIds`, extensions); open tasks resubscribe on load
+- Tasks view (timeline, history, artifacts, identifiers, SubscribeToTask,
+  CancelTask), orchestration view, derived notifications with read state
 - Full content-type rendering: text/Markdown/JSON/CSV/images/audio/video/
   PDF/raw files, plus structured and experimental "rich JSON" views
 - Sideband: negotiated A2A extension events decoded and rendered
@@ -70,7 +67,8 @@ of a report's task, and nothing survives a lost tab.
 
 Smaller than a phase; not yet built, from the A2A 1.0 request/response model.
 
-- Push notification config in the composer (`taskPushNotificationConfig`) —
+- Push notification config (Settings has a disabled toggle; the Notifications
+  page states push isn't configured) (`taskPushNotificationConfig`) —
   blocked on Phase 1's webhook receiver
 - Message `extensions[]` picker (extensions are only auto-negotiated today)
 - `tenant` routing field (AgentInterface tenant) on sends

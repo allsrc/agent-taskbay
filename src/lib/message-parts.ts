@@ -17,7 +17,8 @@ export interface BinaryAttachment {
 export type OutgoingPart =
   | { text: string; mediaType: string }
   | { data: unknown; mediaType: string }
-  | { raw: string; mediaType: string; filename: string };
+  | { raw: string; mediaType: string; filename: string }
+  | { url: string; mediaType: string; filename?: string };
 
 export const COMPOSER_FORMATS: readonly ComposerFormatDefinition[] = [
   {

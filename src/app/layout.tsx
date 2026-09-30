@@ -1,39 +1,33 @@
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans, Google_Sans_Code } from "next/font/google";
+import { Instrument_Sans, JetBrains_Mono } from "next/font/google";
 
 import "./globals.css";
-import { ThemeProvider } from "@/components/theme-provider";
+import { AppShell } from "@/components/app-shell";
 import { Toaster } from "@/components/ui/sonner";
-import { AppNav } from "@/components/app-nav";
+import { ThemeProvider } from "@/components/theme-provider";
 
-const fontSans = Plus_Jakarta_Sans({
-  variable: "--font-plus-jakarta-sans",
+const fontSans = Instrument_Sans({
+  variable: "--font-instrument-sans",
   subsets: ["latin"],
 });
 
-const fontMono = Google_Sans_Code({
-  variable: "--font-google-sans-code",
+const fontMono = JetBrains_Mono({
+  variable: "--font-jetbrains-mono",
   subsets: ["latin"],
-  adjustFontFallback: false,
 });
 
 export const metadata: Metadata = {
-  title: "a2a-agent-workflow-ui",
+  title: "a2a.client",
   description:
-    "A human-in-the-loop console for Agent2Agent (A2A) workflows: discover an org's registered agents, start tasks, respond to input-required and auth-required steps, and track execution in real time.",
+    "A human-in-the-loop web client for Agent2Agent (A2A) workflows: chat with agents, run tasks, answer input-required and auth-required steps, and watch artifacts stream in.",
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${fontSans.variable} ${fontMono.variable}`}>
-      <body className="flex min-h-svh flex-col">
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-          <AppNav />
-          <main className="app-container flex-1 py-8 sm:py-10">{children}</main>
+    <html lang="en" suppressHydrationWarning className={`dark ${fontSans.variable} ${fontMono.variable}`}>
+      <body>
+        <ThemeProvider attribute="class" forcedTheme="dark" defaultTheme="dark">
+          <AppShell>{children}</AppShell>
           <Toaster />
         </ThemeProvider>
       </body>

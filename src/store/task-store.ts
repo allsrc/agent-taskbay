@@ -30,6 +30,8 @@ export interface SendConfig {
   historyLength?: number;
   acceptedOutputModes?: string[];
   referenceTaskIds?: string[];
+  /** Extension URIs to activate for this request. */
+  extensions?: string[];
   metadata?: Record<string, unknown>;
   requestMetadata?: Record<string, unknown>;
 }

@@ -24,7 +24,7 @@ export interface RunSendInput {
 /** Sends one message and reports each incremental tracked-task snapshot. Resolves with the last one. */
 export async function runSend(
   input: RunSendInput,
-  handlers: { onUpdate: (task: TrackedTask) => void; onError?: (message: string) => void },
+  handlers: { onUpdate: (task: TrackedTask) => void; onError?: (message: string) => void; onRawEvent?: (event: unknown) => void },
   signal?: AbortSignal,
 ): Promise<TrackedTask | undefined> {
   const localReplyId = input.base?.kind === "message" ? input.base.taskId : `reply-${crypto.randomUUID()}`;
@@ -50,6 +50,7 @@ export async function runSend(
     {
       onEvent: (event) => {
         events.push(event);
+        handlers.onRawEvent?.(event);
         // A direct-reply thread that spawns a real Task splits off into its own tracked task.
         const splitsToTask = shell.kind === "message" && shell.taskId && assembleTasks(events).length > 0;
         const next = applyEvents(events, splitsToTask ? freshShell : shell, localReplyId);

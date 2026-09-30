@@ -18,6 +18,7 @@ interface SendBody {
     historyLength?: number;
     acceptedOutputModes?: string[];
     referenceTaskIds?: string[];
+    extensions?: string[];
     metadata?: Record<string, unknown>;
     requestMetadata?: Record<string, unknown>;
   };
@@ -64,6 +65,7 @@ export async function POST(request: Request, context: { params: Promise<{ agentI
             historyLength: typeof body.config?.historyLength === "number" ? body.config.historyLength : undefined,
             acceptedOutputModes: body.config?.acceptedOutputModes?.length ? body.config.acceptedOutputModes : undefined,
             referenceTaskIds: body.config?.referenceTaskIds,
+            extensions: body.config?.extensions,
             metadata: body.config?.metadata,
             requestMetadata: body.config?.requestMetadata,
           },

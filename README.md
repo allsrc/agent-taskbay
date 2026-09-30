@@ -57,28 +57,35 @@ discovery, streaming, content-type rendering, and sideband decoding.
 
 ## What's built
 
-- **Agent catalog** (`/catalog`) — lists agents from `src/lib/agent-registry.ts`
-  (currently env-var-backed via `A2A_REGISTERED_AGENTS`; kept behind an
-  `AgentRegistry` interface so a real directory service can replace it),
-  with live Agent Card discovery and skill listings.
-- **Start a task** (`/catalog/[agentId]`) — a composer (text / Markdown /
-  structured JSON data part, file attachments, and per-request options:
-  `returnImmediately`, `historyLength`, `acceptedOutputModes`,
-  `referenceTaskIds`, message/request metadata) that opens a real
-  `message/stream` against the agent (server-mediated via
-  `/api/agents/[agentId]/stream`). The agent answers with a Message (kept as
-  a direct-reply thread) or a Task (opens its detail page).
-- **Task inbox** (`/inbox`) — tasks grouped into needs-my-input / in-progress
-  / completed / failed buckets, per A2A's actual task lifecycle
-  (`submitted → working → input-required/auth-required → completed/failed/
-  canceled/rejected`), plus direct replies and a by-conversation (`contextId`)
-  view.
-- **Task detail** (`/tasks/[taskId]`) — chat thread + `ArtifactGallery`
-  rendering for every A2A content type in scope, a lifecycle/status-history
-  panel, an identifiers panel (context/task/message/artifact IDs), an
-  input-required/auth-required banner showing the agent's question, and a
-  reply composer that continues the same `taskId`/`contextId`. Terminal tasks
-  start a new task in the same context.
+- **Agents** (`/agents`) — searchable list of registered agents with live
+  Agent Card discovery; the detail pane shows capabilities, interfaces
+  (bindings + tenant), skills, security schemes and input/output modes. A
+  three-step **Connect agent** flow (Agent Card URL → security scheme →
+  connect) registers new ones. Backed by `src/lib/agent-registry.ts`
+  (env-var + JSON file, behind an `AgentRegistry` interface).
+- **Chat** (`/chat`, `/chat/[key]`) — one conversation (`contextId`), many
+  tasks, in a single timeline: Message replies as bubbles, each Task as a card
+  (status steps, cancel), `INPUT_REQUIRED` / `AUTH_REQUIRED` prompts (with
+  quick-reply buttons when the agent sends options), and streaming artifacts.
+  The composer builds a real A2A message: text or Markdown (★ = preferred by the
+  card) plus file / URL / structured-data parts, checked against the card's
+  input modes. **Options** exposes `returnImmediately`, `historyLength`,
+  `acceptedOutputModes` and `referenceTaskIds`; **`{ } Wire`** shows the request
+  and every A2A event. A "Send to" selector replies to a waiting task, follows
+  up on a running one (same `taskId`), or starts a new task in the same context.
+- **Tasks** (`/tasks`, `/tasks/[taskId]`) — filterable list (All / Active /
+  Needs you / Done) and a detail view: status timeline, history, artifacts,
+  identifiers, `SubscribeToTask`, `CancelTask`, open in chat.
+- **Orchestration** (`/flows`) — tasks of a context and the
+  `referenceTaskIds` links between them.
+- **Notifications** (`/notifications`) — input requests, finished tasks and
+  ready artifacts derived from task streams, with read state and an unread badge.
+- **Settings** (`/settings`) — request defaults, extension URIs and a
+  credentials overview.
+- **Design system** — shadcn/ui + Tailwind v4 tokens for the allsrc.dev theme
+  (dark only: #141414 ground, #8C8FFF periwinkle, #FF6B4A coral, JetBrains Mono
+  + Instrument Sans), Radix primitives and `motion` for transitions.
+  Responsive: sidebar on desktop, bottom nav on mobile.
 - **Content rendering** — text/Markdown/JSON/CSV/images/audio/video/PDF/raw
   files, structured + experimental "rich JSON" views, all deterministic
   (never model-guessed).
