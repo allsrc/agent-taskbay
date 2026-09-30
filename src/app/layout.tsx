@@ -24,9 +24,9 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" suppressHydrationWarning className={`dark ${fontSans.variable} ${fontMono.variable}`}>
+    <html lang="en" suppressHydrationWarning className={`${fontSans.variable} ${fontMono.variable}`}>
       <body>
-        <ThemeProvider attribute="class" forcedTheme="dark" defaultTheme="dark">
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <AppShell>{children}</AppShell>
           <Toaster />
         </ThemeProvider>

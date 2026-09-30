@@ -138,7 +138,7 @@ export function Composer({
   }`;
 
   return (
-    <div className="border-border shrink-0 border-t">
+    <div className="shrink-0">
       <div className="flex flex-wrap items-center gap-1.5 px-4 pt-2.5 md:px-6">
         <span className="label-mono mr-0.5">Text as</span>
         {TEXT_TYPES.map((type) => {

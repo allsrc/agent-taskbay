@@ -3,10 +3,55 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* allsrc.dev theme (from the a2a.client prototype): #141414 ground, #8C8FFF periwinkle, #FF6B4A coral. Dark only. */
+/* allsrc.dev theme (from the a2a.client prototype): light by default, dark via the `.dark` class. */
 :root {
   --radius: 0.625rem;
 
+  --background: #faf9f6;
+  --foreground: #141414;
+
+  --card: #ffffff;
+  --card-foreground: #141414;
+
+  --popover: #ffffff;
+  --popover-foreground: #141414;
+
+  --primary: #4f52e0;
+  --primary-foreground: #ffffff;
+
+  --brand: #f0583a;
+  --brand-foreground: #ffffff;
+
+  --secondary: #efeee8;
+  --secondary-foreground: #141414;
+
+  --muted: #f1f0ea;
+  --muted-foreground: #62626b;
+
+  --accent: #efeee8;
+  --accent-foreground: #141414;
+
+  --destructive: #d9442a;
+  --destructive-foreground: #ffffff;
+
+  --success: #15803d;
+  --success-foreground: #ffffff;
+
+  --warning: #b45309;
+  --warning-foreground: #ffffff;
+
+  --auth: #8b3fd9;
+  --auth-foreground: #ffffff;
+
+  --sidebar: #f2f1ec;
+  --inset: #f3f2ec;
+
+  --border: #e4e2da;
+  --input: #dad8cf;
+  --ring: #4f52e0;
+}
+
+.dark {
   --background: #141414;
   --foreground: #f3f2ec;
 
@@ -106,6 +151,9 @@
     @apply border-border outline-ring/50;
   }
   html {
+    color-scheme: light;
+  }
+  html.dark {
     color-scheme: dark;
   }
   ::-webkit-scrollbar {

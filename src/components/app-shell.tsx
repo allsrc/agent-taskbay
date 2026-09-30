@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { Bell, LayoutGrid, ListChecks, MessageSquare, SlidersHorizontal, Workflow, type LucideIcon } from "lucide-react";
 import { motion } from "motion/react";
 import { LogoMark, Wordmark } from "@/components/logo";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { useNotifications } from "@/store/notification-store";
 import { useAgentStore } from "@/store/agent-store";
 import { cn } from "@/lib/utils";
@@ -78,6 +79,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           })}
         </nav>
         <div className="flex-1" />
+        <ThemeToggle className="mb-2" />
         <div className="border-border flex flex-col gap-0.5 rounded-xl border px-3 py-2.5">
           <span className="label-mono">Tenant</span>
           <span className="truncate font-mono text-[13px] font-medium">{tenant}</span>
@@ -89,7 +91,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <header className="border-border flex h-[52px] shrink-0 items-center gap-2.5 border-b px-4 md:hidden">
           <LogoMark size={26} />
           <span className="flex-1 font-mono text-[15px] font-bold">{active?.label ?? "a2a.client"}</span>
-          <span className="text-success font-mono text-[11px] font-medium">● v1.0</span>
+          <ThemeToggle className="w-24" />
         </header>
 
         <main className="flex min-h-0 min-w-0 flex-1 flex-col">{children}</main>

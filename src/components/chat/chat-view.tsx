@@ -8,12 +8,11 @@ import { useShallow } from "zustand/react/shallow";
 import { AgentAvatar } from "@/components/a2a/primitives";
 import { Composer } from "@/components/chat/composer";
 import { AgentBubble, ArtifactCard, TaskCard, UserBubble } from "@/components/chat/timeline";
-import { WirePanel, type WireEntry } from "@/components/chat/wire-panel";
+import { SideRail, useIsDesktop, type RailTab } from "@/components/chat/side-rail";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { Input } from "@/components/ui/input";
 import { conversationKey, groupConversations, isOpenTask } from "@/lib/conversations";
 import type { OutgoingPart } from "@/lib/message-parts";
+import type { WireEntry } from "@/lib/wire-sequence";
 import { runResubscribe, runSend, userThreadMessage } from "@/lib/run-message";
 import { stateName } from "@/lib/task-view";
 import { useAgentStore } from "@/store/agent-store";
@@ -22,7 +21,6 @@ import { useTaskStore, type SendConfig, type ThreadMessage, type TrackedTask } f
 import { cn } from "@/lib/utils";
 
 const NEW_TASK = "new";
-const OUTPUT_CHOICES = ["text/plain", "text/markdown", "application/json", "application/pdf"];
 
 export function ChatView({ conversationKey: initialKey, agentId: initialAgentId }: { conversationKey?: string; agentId?: string }) {
   const router = useRouter();
@@ -36,8 +34,10 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
   const view = agent?.view;
   const settings = useSettingsStore();
 
-  const [optsOpen, setOptsOpen] = useState(false);
-  const [wireOpen, setWireOpen] = useState(false);
+  const desktop = useIsDesktop();
+  const [railOpen, setRailOpen] = useState(true);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [railTab, setRailTab] = useState<RailTab>("sequence");
   const [returnImmediately, setReturnImmediately] = useState(settings.returnImmediately);
   const [historyLength, setHistoryLength] = useState(settings.historyLength);
   const [outOverride, setOutOverride] = useState<string[] | null>(null);
@@ -82,8 +82,20 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
     bottom.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [activity, pending]);
 
-  const pushWire = (title: string, json: unknown) =>
-    setWire((entries) => [...entries.slice(-39), { id: wireId.current++, title, json }]);
+  const pushWire = (dir: WireEntry["dir"], kind: string, json: unknown) =>
+    setWire((entries) => [...entries.slice(-199), { id: wireId.current++, at: Date.now(), dir, kind, json }]);
+
+  /** Opens the side rail (or the sheet on small screens) on `tab`; a second press on the open tab closes it. */
+  const showRail = (tab: RailTab) => {
+    if (desktop) {
+      setRailOpen(railOpen && railTab === tab ? false : true);
+      setRailTab(tab);
+    } else {
+      setRailTab(tab);
+      setSheetOpen(true);
+    }
+  };
+  const railVisible = desktop ? railOpen : sheetOpen;
 
   async function cancelTask(task: TrackedTask) {
     if (cancelingId || !window.confirm("Cancel this task?")) return;
@@ -95,7 +107,8 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
       const state = (body?.result as { status?: { state?: string } } | undefined)?.status?.state ?? "TASK_STATE_CANCELED";
       const timestamp = new Date().toISOString();
       upsertTask({ ...task, state, updatedAt: timestamp, transitions: [...(task.transitions ?? []), { state, timestamp }] });
-      pushWire("CancelTask → task", { method: "CancelTask", params: { id: task.taskId }, result: { status: { state } } });
+      pushWire("out", "CancelTask", { method: "CancelTask", params: { id: task.taskId } });
+      pushWire("in", "task", { task: { id: task.taskId, status: { state } } });
       toast.success("Task canceled");
     } catch (cause) {
       toast.error(cause instanceof Error ? cause.message : "Failed to cancel the task.");
@@ -126,7 +139,7 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
     const base = targetTask ? { ...targetTask, messages: [...targetTask.messages, userMessage], updatedAt: userMessage.timestamp } : undefined;
     if (base) upsertTask(base);
     else setPending(userMessage);
-    pushWire("SendMessage (as sent)", {
+    pushWire("out", "SendMessage", {
       jsonrpc: "2.0",
       method: "SendMessage",
       params: {
@@ -148,7 +161,7 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
           onError: setError,
           onRawEvent: (event) => {
             const kind = event && typeof event === "object" ? (Object.keys(event)[0] ?? "event") : "event";
-            pushWire(kind, event);
+            pushWire("in", kind, event);
           },
         },
       );
@@ -172,178 +185,156 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
   const suggestion = view?.skills.find((skill) => skill.examples.length)?.examples[0] ?? view?.skills[0]?.description;
   const empty = tasks.length === 0 && !pending;
 
-  return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <header className="border-border flex shrink-0 flex-wrap items-center gap-2.5 border-b px-4 py-3 md:px-6">
-        <AgentAvatar name={name} id={agentId} size="sm" />
-        <div className="min-w-28 flex-1">
-          <div className="truncate font-semibold">{name}</div>
-          <div className="text-muted-foreground truncate font-mono text-[11px]">
-            {(tasks.find((task) => task.contextId)?.contextId ?? "new conversation").slice(0, 18)} · {stateLabel}
-          </div>
-        </div>
-        <Button variant="outline" size="sm" onClick={() => setOptsOpen((open) => !open)} aria-pressed={optsOpen}>
-          Options
-        </Button>
-        <Button variant="outline" size="sm" onClick={() => setWireOpen((open) => !open)} aria-pressed={wireOpen} className={cn("font-mono", wireOpen && "border-brand text-brand")}>
-          {"{ } Wire"}
-        </Button>
-        <Button variant="outline" size="sm" onClick={() => router.push(`/chat?agent=${agentId}`)}>
-          Reset
-        </Button>
-      </header>
+  const messageColumn = "mx-auto w-full max-w-[760px]";
 
-      {optsOpen && (
-        <div className="bg-card border-border flex shrink-0 flex-wrap items-center gap-x-4 gap-y-3 border-b px-4 py-3 md:px-6">
-          <label className="flex items-center gap-2 font-mono text-xs">
-            <Switch checked={returnImmediately} onCheckedChange={setReturnImmediately} aria-label="returnImmediately" />
-            returnImmediately
-          </label>
-          <label className="text-muted-foreground flex items-center gap-2 font-mono text-xs">
-            historyLength:
-            <Input value={historyLength} onChange={(event) => setHistoryLength(event.target.value)} placeholder="unset" inputMode="numeric" className="h-7 w-16 px-2 font-mono text-xs" />
-          </label>
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-muted-foreground font-mono text-xs">acceptedOutputModes:</span>
-            {OUTPUT_CHOICES.map((mime) => {
-              const on = outputModes.includes(mime);
+  return (
+    <div className="flex min-h-0 flex-1">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <header className="border-border flex shrink-0 flex-wrap items-center gap-2.5 border-b px-4 py-3 md:px-6">
+          <AgentAvatar name={name} id={agentId} size="sm" />
+          <div className="min-w-28 flex-1">
+            <div className="truncate font-semibold">{name}</div>
+            <div className="text-muted-foreground truncate font-mono text-[11px]">
+              {(tasks.find((task) => task.contextId)?.contextId ?? "new conversation").slice(0, 18)} · {stateLabel}
+            </div>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => showRail("options")} aria-pressed={railVisible && railTab === "options"}>
+            Options
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => showRail("sequence")}
+            aria-pressed={railVisible && railTab === "sequence"}
+            className={cn("font-mono", railVisible && railTab === "sequence" && "border-brand text-brand")}
+          >
+            {"{ } Wire"}
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => router.push(`/chat?agent=${agentId}`)}>
+            Reset
+          </Button>
+        </header>
+
+        <div className="min-h-0 flex-1 overflow-auto">
+          <div className={cn(messageColumn, "flex min-h-full flex-col gap-3.5 p-4 md:p-6")}>
+            {empty && (
+              <div className="m-auto flex max-w-[440px] flex-col items-center gap-3.5 text-center">
+                <h2 className="font-mono text-xl font-bold tracking-tight">
+                  Message = communication.
+                  <br />
+                  <span className="text-brand">Task = execution.</span>
+                </h2>
+                <p className="text-muted-foreground">
+                  Ask {name} to do work. A message holds one or more parts: text, files (inline or by URL) and structured data. Use + to add them.
+                </p>
+                {suggestion && (
+                  <button
+                    type="button"
+                    onClick={() => setSeed({ id: (seed?.id ?? 0) + 1, text: suggestion })}
+                    className="border-primary text-primary hover:bg-primary/10 rounded-[10px] border px-3.5 py-2.5 text-left text-[13px] transition-colors"
+                  >
+                    {suggestion}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {tasks.map((task) => {
+              const firstAgent = task.messages.findIndex((message) => message.role === "agent");
+              const cardAt = task.kind === "message" ? -1 : firstAgent >= 0 ? firstAgent : 0;
+              const rows = task.messages.flatMap((message, index) => [
+                message.role === "user" ? (
+                  <UserBubble key={message.id} message={message} />
+                ) : (
+                  <AgentBubble key={message.id} message={message} taskState={task.kind === "message" ? undefined : task.state} onReply={(text) => void send([{ text, mediaType: "text/plain" }])} />
+                ),
+                ...(index === cardAt ? [<TaskCard key={`card-${task.taskId}`} task={task} canceling={cancelingId === task.taskId} onCancel={() => void cancelTask(task)} />] : []),
+              ]);
               return (
-                <button
-                  key={mime}
-                  type="button"
-                  aria-pressed={on}
-                  onClick={() => setOutOverride(on ? outputModes.filter((item) => item !== mime) : [...outputModes, mime])}
-                  className={cn(
-                    "rounded-md border px-2 py-0.5 font-mono text-[11px] font-medium transition-colors",
-                    on ? "border-primary bg-primary/15 text-foreground" : "border-border text-muted-foreground",
+                <div key={task.taskId} className="flex flex-col gap-3.5">
+                  {rows}
+                  {task.kind !== "message" && task.messages.length === 0 && (
+                    <TaskCard task={task} canceling={cancelingId === task.taskId} onCancel={() => void cancelTask(task)} />
                   )}
-                >
-                  {mime}
-                  {view?.outputModes.includes(mime) && <span className="text-brand"> ★</span>}
-                </button>
+                  {task.artifacts.map((artifact) => (
+                    <ArtifactCard key={artifact.artifactId} artifact={artifact} />
+                  ))}
+                </div>
               );
             })}
+            {pending && <UserBubble message={pending} />}
+            {error && <p className="border-brand/40 bg-brand/10 text-brand rounded-lg border px-3.5 py-2.5 font-mono text-xs">{error}</p>}
+            <div ref={bottom} />
           </div>
-          {tasks.some((task) => task.kind !== "message") && (
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-muted-foreground font-mono text-xs">referenceTaskIds:</span>
-              {tasks
-                .filter((task) => task.kind !== "message")
-                .map((task) => {
-                  const on = refIds.includes(task.taskId);
+        </div>
+
+        <div className="border-border shrink-0 border-t">
+          <div className={messageColumn}>
+            {openTasks.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5 px-4 pt-2.5 md:px-6" role="radiogroup" aria-label="Send to">
+                <span className="label-mono mr-0.5">Send to</span>
+                {openTasks.map((task) => {
+                  const attention = ["INPUT_REQUIRED", "AUTH_REQUIRED"].includes(stateName(task.state));
                   return (
                     <button
                       key={task.taskId}
                       type="button"
-                      aria-pressed={on}
-                      onClick={() => setRefIds(on ? refIds.filter((id) => id !== task.taskId) : [...refIds, task.taskId])}
-                      className={cn("rounded-md border px-2 py-0.5 font-mono text-[11px]", on ? "border-primary bg-primary/15" : "border-border text-muted-foreground")}
+                      role="radio"
+                      aria-checked={target === task.taskId}
+                      onClick={() => setOverride(task.taskId)}
+                      className={cn(
+                        "rounded-full border px-2.5 py-1 font-mono text-[11px] font-medium transition-colors",
+                        target === task.taskId ? "border-primary bg-primary/15 text-primary" : attention ? "border-warning/60 text-warning" : "border-border text-muted-foreground hover:text-foreground",
+                      )}
                     >
-                      {task.taskId.slice(0, 8)}
+                      {task.taskId.slice(0, 8)} · {stateName(task.state).toLowerCase().replaceAll("_", " ")}
                     </button>
                   );
                 })}
-            </div>
-          )}
-          <p className="text-muted-foreground basis-full font-mono text-[11px]">★ = declared by the Agent Card. Tap to override for this request.</p>
-        </div>
-      )}
-
-      <div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-auto p-4 md:p-6">
-        {empty && (
-          <div className="m-auto flex max-w-[440px] flex-col items-center gap-3.5 text-center">
-            <h2 className="font-mono text-xl font-bold tracking-tight">
-              Message = communication.
-              <br />
-              <span className="text-brand">Task = execution.</span>
-            </h2>
-            <p className="text-muted-foreground">
-              Ask {name} to do work. A message holds one or more parts: text, files (inline or by URL) and structured data. Use + to add them.
-            </p>
-            {suggestion && (
-              <button
-                type="button"
-                onClick={() => setSeed({ id: (seed?.id ?? 0) + 1, text: suggestion })}
-                className="border-primary text-primary hover:bg-primary/10 rounded-[10px] border px-3.5 py-2.5 text-left text-[13px] transition-colors"
-              >
-                {suggestion}
-              </button>
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={target === NEW_TASK}
+                  onClick={() => setOverride(NEW_TASK)}
+                  className={cn(
+                    "flex items-center gap-1 rounded-full border px-2.5 py-1 font-mono text-[11px] font-medium transition-colors",
+                    target === NEW_TASK ? "border-primary bg-primary/15 text-primary" : "border-border text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  <Plus className="size-3" /> new task
+                </button>
+              </div>
             )}
+            <Composer
+              inputModes={view?.inputModes ?? []}
+              sending={sending}
+              seed={seed}
+              hint={waiting ? "Reply to the agent, or pick an option above…" : targetTask ? "Send a follow-up to the running task…" : undefined}
+              onSend={send}
+            />
           </div>
-        )}
-
-        {tasks.map((task) => {
-          const firstAgent = task.messages.findIndex((message) => message.role === "agent");
-          const cardAt = task.kind === "message" ? -1 : firstAgent >= 0 ? firstAgent : 0;
-          const rows = task.messages.flatMap((message, index) => [
-            message.role === "user" ? (
-              <UserBubble key={message.id} message={message} />
-            ) : (
-              <AgentBubble key={message.id} message={message} taskState={task.kind === "message" ? undefined : task.state} onReply={(text) => void send([{ text, mediaType: "text/plain" }])} />
-            ),
-            ...(index === cardAt ? [<TaskCard key={`card-${task.taskId}`} task={task} canceling={cancelingId === task.taskId} onCancel={() => void cancelTask(task)} />] : []),
-          ]);
-          return (
-            <div key={task.taskId} className="flex flex-col gap-3.5">
-              {rows}
-              {task.kind !== "message" && task.messages.length === 0 && (
-                <TaskCard task={task} canceling={cancelingId === task.taskId} onCancel={() => void cancelTask(task)} />
-              )}
-              {task.artifacts.map((artifact) => (
-                <ArtifactCard key={artifact.artifactId} artifact={artifact} />
-              ))}
-            </div>
-          );
-        })}
-        {pending && <UserBubble message={pending} />}
-        {error && <p className="border-brand/40 bg-brand/10 text-brand rounded-lg border px-3.5 py-2.5 font-mono text-xs">{error}</p>}
-        <div ref={bottom} />
+        </div>
       </div>
 
-      {wireOpen && <WirePanel entries={wire} />}
-
-      {openTasks.length > 0 && (
-        <div className="border-border flex shrink-0 flex-wrap items-center gap-1.5 border-t px-4 pt-2.5 md:px-6" role="radiogroup" aria-label="Send to">
-          <span className="label-mono mr-0.5">Send to</span>
-          {openTasks.map((task) => {
-            const attention = ["INPUT_REQUIRED", "AUTH_REQUIRED"].includes(stateName(task.state));
-            return (
-              <button
-                key={task.taskId}
-                type="button"
-                role="radio"
-                aria-checked={target === task.taskId}
-                onClick={() => setOverride(task.taskId)}
-                className={cn(
-                  "rounded-full border px-2.5 py-1 font-mono text-[11px] font-medium transition-colors",
-                  target === task.taskId ? "border-primary bg-primary/15 text-primary" : attention ? "border-warning/60 text-warning" : "border-border text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {task.taskId.slice(0, 8)} · {stateName(task.state).toLowerCase().replaceAll("_", " ")}
-              </button>
-            );
-          })}
-          <button
-            type="button"
-            role="radio"
-            aria-checked={target === NEW_TASK}
-            onClick={() => setOverride(NEW_TASK)}
-            className={cn(
-              "flex items-center gap-1 rounded-full border px-2.5 py-1 font-mono text-[11px] font-medium transition-colors",
-              target === NEW_TASK ? "border-primary bg-primary/15 text-primary" : "border-border text-muted-foreground hover:text-foreground",
-            )}
-          >
-            <Plus className="size-3" /> new task
-          </button>
-        </div>
-      )}
-
-      <Composer
-        inputModes={view?.inputModes ?? []}
-        sending={sending}
-        seed={seed}
-        hint={waiting ? "Reply to the agent, or pick an option above…" : targetTask ? "Send a follow-up to the running task…" : undefined}
-        onSend={send}
+      <SideRail
+        open={railVisible}
+        onOpenChange={desktop ? setRailOpen : setSheetOpen}
+        tab={railTab}
+        onTab={setRailTab}
+        entries={wire}
+        agentName={name}
+        options={{
+          returnImmediately,
+          onReturnImmediately: setReturnImmediately,
+          historyLength,
+          onHistoryLength: setHistoryLength,
+          outputModes,
+          declaredOutputModes: view?.outputModes ?? [],
+          onOutputModes: setOutOverride,
+          tasks: tasks.filter((task) => task.kind !== "message"),
+          refIds,
+          onRefIds: setRefIds,
+        }}
       />
     </div>
   );

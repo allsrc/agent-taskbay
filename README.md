@@ -69,9 +69,10 @@ discovery, streaming, content-type rendering, and sideband decoding.
   quick-reply buttons when the agent sends options), and streaming artifacts.
   The composer builds a real A2A message: text or Markdown (★ = preferred by the
   card) plus file / URL / structured-data parts, checked against the card's
-  input modes. **Options** exposes `returnImmediately`, `historyLength`,
-  `acceptedOutputModes` and `referenceTaskIds`; **`{ } Wire`** shows the request
-  and every A2A event. A "Send to" selector replies to a waiting task, follows
+  input modes. A right-hand panel (a sheet on small screens) holds
+  **`{ } Wire`**, the A2A exchange as a numbered request/response sequence with
+  expandable payloads, and **Options** (`returnImmediately`, `historyLength`,
+  `acceptedOutputModes`, `referenceTaskIds`). A "Send to" selector replies to a waiting task, follows
   up on a running one (same `taskId`), or starts a new task in the same context.
 - **Tasks** (`/tasks`, `/tasks/[taskId]`) — filterable list (All / Active /
   Needs you / Done) and a detail view: status timeline, history, artifacts,
@@ -83,8 +84,8 @@ discovery, streaming, content-type rendering, and sideband decoding.
 - **Settings** (`/settings`) — request defaults, extension URIs and a
   credentials overview.
 - **Design system** — shadcn/ui + Tailwind v4 tokens for the allsrc.dev theme
-  (dark only: #141414 ground, #8C8FFF periwinkle, #FF6B4A coral, JetBrains Mono
-  + Instrument Sans), Radix primitives and `motion` for transitions.
+  (light and dark, following the system by default with a manual switch:
+  periwinkle + coral on #FAF9F6 / #141414, JetBrains Mono + Instrument Sans), Radix primitives and `motion` for transitions.
   Responsive: sidebar on desktop, bottom nav on mobile.
 - **Content rendering** — text/Markdown/JSON/CSV/images/audio/video/PDF/raw
   files, structured + experimental "rich JSON" views, all deterministic

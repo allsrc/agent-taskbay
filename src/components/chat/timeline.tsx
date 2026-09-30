@@ -57,9 +57,12 @@ export function AgentBubble({
     >
       {prompt && <span className={cn("font-mono text-[11px] font-medium", prompt === "INPUT_REQUIRED" ? "text-warning" : "text-auth")}>{prompt}</span>}
       <div>
-        {message.parts.map((part, index) => (
-          <BubblePart key={index} part={part} />
-        ))}
+        {message.parts
+          // The options list is shown as buttons below; don't echo it as raw JSON too.
+          .filter((part) => !(options.length > 0 && part.kind === "data"))
+          .map((part, index) => (
+            <BubblePart key={index} part={part} />
+          ))}
       </div>
       {options.length > 0 && (
         <div className="flex flex-wrap gap-2">
