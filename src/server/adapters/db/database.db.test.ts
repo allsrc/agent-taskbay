@@ -1,0 +1,123 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+
+import type { MikroORM } from "@mikro-orm/core";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+
+import type { DatabaseConfig } from "./config";
+import {
+  createDatabaseOrm,
+  withJobEntityManager,
+  withRequestEntityManager,
+} from "./orm";
+
+const migrationNames = [
+  "Migration20261001000000_Baseline",
+  "Migration20261001131340_InitialModel",
+];
+
+async function verifyMigrationContract(config: DatabaseConfig) {
+  const orm = await createDatabaseOrm(config);
+  try {
+    expect(await orm.checkConnection()).toEqual({ ok: true });
+    if ((await orm.migrator.getExecuted()).length > 0) {
+      await orm.migrator.down({ to: 0 });
+    }
+    expect((await orm.migrator.getPending()).map(({ name }) => name)).toEqual(
+      migrationNames,
+    );
+
+    const applied = await orm.migrator.up();
+    expect(applied.map((migration) => migration.name)).toEqual(migrationNames);
+    expect(await orm.migrator.getPending()).toHaveLength(0);
+    expect(await orm.migrator.getExecuted()).toHaveLength(2);
+    expect(await orm.migrator.checkSchema()).toBe(false);
+  } finally {
+    await orm.close(true);
+  }
+}
+
+describe("PGlite database adapter", () => {
+  let dataDir: string;
+  let reopenedOrm: MikroORM | undefined;
+
+  beforeAll(async () => {
+    dataDir = await mkdtemp(path.join(tmpdir(), "a2a-ops-pglite-"));
+  });
+
+  afterAll(async () => {
+    await reopenedOrm?.close(true);
+    await rm(dataDir, { force: true, recursive: true });
+  });
+
+  it("runs the migration contract and persists migration state across restart", async () => {
+    const config = { profile: "pglite" as const, dataDir };
+    await verifyMigrationContract(config);
+
+    reopenedOrm = await createDatabaseOrm(config);
+    expect(await reopenedOrm.migrator.getPending()).toHaveLength(0);
+    expect(await reopenedOrm.migrator.getExecuted()).toHaveLength(2);
+  });
+
+  it("upgrades the immediately previous baseline schema", async () => {
+    const upgradeDataDir = await mkdtemp(
+      path.join(tmpdir(), "a2a-ops-pglite-upgrade-"),
+    );
+    const config = { profile: "pglite" as const, dataDir: upgradeDataDir };
+    try {
+      const previousOrm = await createDatabaseOrm(config);
+      await previousOrm.migrator.up({ to: migrationNames[0] });
+      await previousOrm.close(true);
+
+      const upgradedOrm = await createDatabaseOrm(config);
+      expect(
+        (await upgradedOrm.migrator.getPending()).map(({ name }) => name),
+      ).toEqual([migrationNames[1]]);
+      await upgradedOrm.migrator.up();
+      expect(await upgradedOrm.migrator.checkSchema()).toBe(false);
+      await upgradedOrm.close(true);
+    } finally {
+      await rm(upgradeDataDir, { force: true, recursive: true });
+    }
+  });
+
+  it("forks an isolated EntityManager for each request and worker job", async () => {
+    reopenedOrm ??= await createDatabaseOrm({
+      profile: "pglite",
+      dataDir,
+    });
+
+    const requestManagers = await Promise.all([
+      withRequestEntityManager((entityManager) => entityManager, reopenedOrm),
+      withRequestEntityManager((entityManager) => entityManager, reopenedOrm),
+    ]);
+    const jobManagers = await Promise.all([
+      withJobEntityManager((entityManager) => entityManager, reopenedOrm),
+      withJobEntityManager((entityManager) => entityManager, reopenedOrm),
+    ]);
+
+    expect(requestManagers[0]).not.toBe(reopenedOrm.em);
+    expect(requestManagers[0]).not.toBe(requestManagers[1]);
+    expect(jobManagers[0]).not.toBe(reopenedOrm.em);
+    expect(jobManagers[0]).not.toBe(jobManagers[1]);
+  });
+});
+
+const postgresUrl = process.env.A2A_TEST_POSTGRES_URL;
+if (process.env.CI === "true" && !postgresUrl) {
+  throw new Error("CI must set A2A_TEST_POSTGRES_URL for the PostgreSQL contract");
+}
+if (postgresUrl && !decodeURIComponent(new URL(postgresUrl).pathname).includes("test")) {
+  throw new Error("A2A_TEST_POSTGRES_URL must target a database containing 'test' in its name");
+}
+const describePostgreSql = postgresUrl ? describe : describe.skip;
+
+describePostgreSql("PostgreSQL database adapter", () => {
+  it("runs the same migration contract as PGlite", async () => {
+    await verifyMigrationContract({
+      profile: "postgresql",
+      url: postgresUrl!,
+    });
+  });
+});

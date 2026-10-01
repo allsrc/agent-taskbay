@@ -1,10 +1,11 @@
-# a2a-agent-workflow-ui
+# A2A Ops
 
-A human-in-the-loop console for Agent2Agent (A2A) workflows. Discover an
-org's registered A2A agents, start tasks, respond to input-required and
-auth-required steps, and track task execution in real time with full
-multi-modal message and artifact rendering (text, Markdown, JSON, files,
-images, audio, video, PDF).
+**The human operations console for A2A agent workflows.**
+
+Discover agents, operate durable tasks, handle human approvals, and audit work
+across an Agent2Agent (A2A) agent mesh. A2A Ops supports real-time task
+execution and full multi-modal message and artifact rendering (text, Markdown,
+JSON, files, images, audio, video, and PDF).
 
 Built on the official [`@a2a-js/sdk`](https://www.npmjs.com/package/@a2a-js/sdk).
 
@@ -22,6 +23,29 @@ and working end to end against a live agent. The parts that make this
 enterprise-ready — durable shared task state, auth, RBAC, push notifications,
 an audit trail — are designed but not yet built. See **What's not built yet**
 below before pointing this at anything beyond a single browser/single agent.
+
+## Project specification
+
+This repository uses spec-driven development so implementation can continue
+without relying on prior chat context:
+
+- [`docs/spec/README.md`](./docs/spec/README.md) — how the specifications are
+  organized and how to resume work.
+- [`docs/spec/PRODUCT_SPEC.md`](./docs/spec/PRODUCT_SPEC.md) — requirements,
+  users, invariants, and non-goals.
+- [`ARCHITECTURE.md`](./ARCHITECTURE.md) — the target production architecture.
+- [`docs/spec/DATA_MODEL.md`](./docs/spec/DATA_MODEL.md) — persistent identity,
+  event, projection, and tenancy model.
+- [`ROADMAP.md`](./ROADMAP.md) and
+  [`docs/spec/PHASES.md`](./docs/spec/PHASES.md) — phase summary and detailed
+  acceptance criteria.
+- [`docs/spec/STATUS.md`](./docs/spec/STATUS.md) — current phase, verified
+  baseline, and next executable slice.
+- [`docs/adr`](./docs/adr) — accepted architectural decisions.
+
+The local database target is **PGlite** (embedded PostgreSQL); production uses
+PostgreSQL. SQLite can be supplied as an optional adapter but is not the
+canonical schema or migration target.
 
 ## Architecture
 
@@ -113,16 +137,22 @@ section intentionally isn't duplicated here.
 
 ```bash
 npm install
-cp .env.example .env.local   # set A2A_REGISTERED_AGENTS to a comma-separated
-                              # list of Agent Card URLs
+cp .env.example .env.local   # PGlite is the zero-install database default
+npm run db:migrate           # apply the durable schema baseline
 npm run dev                  # http://localhost:3002
 ```
+
+Set `A2A_DATABASE_PROFILE=postgresql` and `A2A_DATABASE_URL` to use a PostgreSQL
+server instead. `A2A_PGLITE_DATA_DIR` overrides the default `.data/pglite`
+directory. Database credentials are server-only configuration.
 
 ```bash
 npm run lint
 npm run test
+npm run test:db
+npm run db:schema:check
 npm run build
-npm run check   # lint + test + build
+npm run check   # full local quality gate
 ```
 
 ## Design background

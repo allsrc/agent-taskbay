@@ -3,6 +3,9 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { AssembledArtifact, NormalizedPart } from "@/lib/types";
+import { migrateBrowserStorageKey } from "./storage-key";
+
+migrateBrowserStorageKey("a2a-agent-workflow-ui.tasks", "a2a-ops.tasks");
 
 export interface ThreadMessage {
   /** A2A `messageId` when the wire message carried one; otherwise a UI-local id. */
@@ -84,7 +87,7 @@ export const useTaskStore = create<TaskStoreState>()(
         return { tasks: { ...store.tasks, [taskId]: { ...existing, ...patch } } };
       }),
     }),
-    { name: "a2a-agent-workflow-ui.tasks" },
+    { name: "a2a-ops.tasks" },
   ),
 );
 

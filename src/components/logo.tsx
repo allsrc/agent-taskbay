@@ -14,8 +14,8 @@ export function LogoMark({ className, size = 30 }: { className?: string; size?: 
 export function Wordmark({ className }: { className?: string }) {
   return (
     <span className={cn("font-mono font-bold tracking-tight", className)}>
-      <span className="text-primary">a2a</span>
-      <span className="text-brand">.client</span>
+      <span className="text-primary">A2A</span>
+      <span className="text-brand"> Ops</span>
     </span>
   );
 }

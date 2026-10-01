@@ -5,7 +5,10 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { useShallow } from "zustand/react/shallow";
 import { deriveNotifications, type AppNotification } from "@/lib/notifications";
+import { migrateBrowserStorageKey } from "./storage-key";
 import { useTaskStore } from "@/store/task-store";
+
+migrateBrowserStorageKey("a2a-agent-workflow-ui.notifications", "a2a-ops.notifications");
 
 interface ReadState {
   read: Record<string, true>;
@@ -18,7 +21,7 @@ export const useReadStore = create<ReadState>()(
       read: {},
       markRead: (ids) => set((state) => ({ read: { ...state.read, ...Object.fromEntries(ids.map((id) => [id, true as const])) } })),
     }),
-    { name: "a2a-agent-workflow-ui.notifications" },
+    { name: "a2a-ops.notifications" },
   ),
 );
 

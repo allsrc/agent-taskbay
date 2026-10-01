@@ -1,175 +1,78 @@
-# a2a-agent-workflow-ui roadmap
+# A2A Ops roadmap
 
-This roadmap evolves the current scaffold (catalog → start task → inbox →
-task detail, all running against a live agent) into the enterprise
-human-in-the-loop console described in `A2A_LITE_CHAT_UI_DESIGN.md` §7
-(SpanPlane repo, `docs/a2a-lite-chat-ui-design` branch). That document is the
-source of truth for *why*; this file tracks *what's done and what's next*.
+This file is the phase-level view of the project. Detailed deliverables,
+requirement mappings, verification, and exit criteria live in
+[`docs/spec/PHASES.md`](./docs/spec/PHASES.md). The exact current state and next
+executable slice live in [`docs/spec/STATUS.md`](./docs/spec/STATUS.md).
 
-## Guiding principles
+## Product direction
 
-- Server-mediated, never browser-direct: agent credentials stay server-side.
-- A2A's real unit of work is a Task, not a conversation — the inbox, not the
-  chat window, is the home view.
-- Don't build the harder path speculatively (e.g. token-exchange auth,
-  a directory-service-backed registry) until the simpler one is proven.
-- Every "kept" feature (sideband, compliance validation, request safety) is
-  A2A-spec surface, not observability scope creep.
+Build the open-source operations inbox for an organization's A2A agent mesh:
+discover agents, start and track long-running work, resolve human
+interventions, preserve artifacts, and prove who decided what. It is not an
+agent builder, generic workflow engine, or trace explorer.
 
-## Current baseline (shipped)
+## Non-negotiable principles
 
-- UI rebuilt from the a2a.client prototype (allsrc.dev theme, shadcn/ui +
-  Tailwind v4 + motion): Agents, Chat, Tasks, Orchestration, Notifications,
-  Settings, plus the Connect-agent flow; responsive desktop/mobile shell
-- Agent catalog with live Agent Card discovery (capabilities, interfaces,
-  skills, security, modes); env-var-backed registry behind an `AgentRegistry`
-  interface
-- Chat: one `contextId` holding many tasks and direct Message replies in a
-  single timeline; per-task status steps, cancel, input/auth-required prompts
-  (with quick replies), streaming artifacts, `{ } Wire` inspector; composer
-  with text/Markdown, file/URL/data parts and per-request options
-  (`returnImmediately`, `historyLength`, `acceptedOutputModes`,
-  `referenceTaskIds`, extensions); open tasks resubscribe on load
-- Tasks view (timeline, history, artifacts, identifiers, SubscribeToTask,
-  CancelTask), orchestration view, derived notifications with read state
-- Full content-type rendering: text/Markdown/JSON/CSV/images/audio/video/
-  PDF/raw files, plus structured and experimental "rich JSON" views
-- Sideband: negotiated A2A extension events decoded and rendered
-- Request safety: SSRF protections, Agent Card compliance validation,
-  request size limits
-- Lint + unit tests + production build in CI
+- Server-mediated A2A access; credentials never reach the browser.
+- A2A `Task` is the primary unit of work; chat is one view of it.
+- The browser is never the durable source of truth.
+- Streams, webhooks, and polling enter one idempotent event-ingestion path.
+- Remote IDs are scoped by agent and tenant; local UUIDs are primary keys.
+- PostgreSQL semantics are canonical. PGlite is the default local database.
+- Binary artifacts live behind an `ArtifactStore`, not in relational rows.
+- Every externally visible side effect starts from a transactional outbox.
+- Authentication, authorization, and in-task approval are distinct concerns.
+- A phase is complete only when its exit criteria are verified.
 
-Everything above runs, but task state is **browser-local** (Zustand +
-`localStorage`) and every request connects to agents as `{ type: "none" }`.
-Those two gaps are what block everything past "one person, one browser."
+## Phases
 
-## Phase 1: durable, shared task store
+| Phase | Status | Outcome |
+|---|---|---|
+| 0. Specification baseline | Complete | Product, architecture, data, ADR, and execution contracts are stored in-repo. |
+| 1. Persistence foundation | In progress | MikroORM, PGlite/PostgreSQL, migrations, repositories, durable registry and initial task/event storage. |
+| 2. Durable task runtime | Planned | Browser-independent commands, stream workers, webhook ingestion, reconciliation, projections, outbox, and live fan-out. |
+| 3. Identity and security | Planned | OIDC, service credentials, encrypted vault, RBAC, network policy, and Agent Card trust. |
+| 4. Approval-grade HITL | Planned | Typed decisions, assignment, escalation, immutable audit, and notification channels. |
+| 5. Operator experience | Planned | Shared queues, saved views, search, SLAs, notes, bulk triage, and agent health. |
+| 6. Rich interoperability | Planned | Structured forms, A2UI rendering, optional AG-UI adapter, and extension plugins. |
+| 7. Enterprise hardening | Planned | HA, backup/restore, object lifecycle, KMS, load/recovery tests, retention, and administration. |
 
-The single biggest gap. Without this, the inbox can't be a manager's view
-of a report's task, and nothing survives a lost tab.
+## Current baseline
 
-### Deliverables
-- Task store service (durable, queryable) behind an interface, replacing
-  the client-local Zustand store as the source of truth
-- Org/team/owner-scoped task visibility (who can see a task, not yet who
-  can *act* on it — that's Phase 3's RBAC)
-- Webhook receiver for `tasks/pushNotificationConfig/set` + live fan-out
-  to connected clients over SSE/WebSocket
-- Inbox and task detail read from the server store instead of `localStorage`
+The current application already provides:
 
-### Exit criteria
-- Refreshing, or opening the same task from a different browser/device,
-  shows the same state.
-- A task started by one (test) user is visible to another with access,
-  without either having the originating tab open.
+- an Agent Card-backed catalog and connect flow;
+- A2A 1.0 discovery, JSON-RPC, HTTP+JSON, and gRPC client transports through
+  the official JavaScript SDK;
+- streaming sends, task resubscription, cancellation, direct Message replies,
+  input/auth-required prompts, and task references;
+- task, chat, flow, notification, and settings views;
+- deterministic text, Markdown, JSON, CSV, image, audio, video, PDF, and raw
+  file rendering;
+- wire inspection, sideband extension decoding, Agent Card validation,
+  request-size limits, and SSRF checks;
+- lint, unit tests, and a production build in CI.
 
-## Pending A2A-model UI gaps
+The baseline is a single-user scaffold: task and notification state are in
+browser storage and outbound agent authentication is `none`.
 
-Smaller than a phase; not yet built, from the A2A 1.0 request/response model.
+## Cross-cutting work
 
-- Push notification config (Settings has a disabled toggle; the Notifications
-  page states push isn't configured) (`taskPushNotificationConfig`) —
-  blocked on Phase 1's webhook receiver
-- Message `extensions[]` picker (extensions are only auto-negotiated today)
-- `tenant` routing field (AgentInterface tenant) on sends
-- Explicit `GetTask` refresh / `ListTasks` sync with the agent (state is
-  local-only until Phase 1)
-- AUTH_REQUIRED has a banner but no actual auth hand-off flow (Phase 2)
-- Live agent verification: new flows (input-required reply, file/data parts,
-  direct replies) are unit-tested at the event-folding level only; add e2e
-  in Phase 6
+These are not deferred to a final hardening phase:
 
-## Phase 2: auth (design doc §5)
+- Add tests with every vertical slice.
+- Maintain PGlite and PostgreSQL integration coverage from Phase 1 onward.
+- Maintain a threat model from Phase 3 onward.
+- Keep API errors, logs, and audit records free of secrets.
+- Preserve accessibility and responsive behavior in every UI phase.
+- Update `docs/spec/STATUS.md` whenever verified execution state changes.
 
-### Deliverables
-- **Plane B, service-identity** (client-credentials grant or static API
-  key/mTLS) — do this first; it's what lets the UI reach any real
-  credential-protected agent at all
-- **Plane A**, OIDC login to use the UI (Auth.js generic OIDC provider,
-  httpOnly session cookie, optional/off by default)
-- **Plane B, user-delegated** (`authorizationCode` flow, PKCE + `state`,
-  server-side token exchange), keyed by `(session/user, agent card URL or
-  issuer+audience)` — not global
-- Encrypted server-side token storage behind an interface
+## Source-of-truth links
 
-### Exit criteria
-- The UI can start a task against an agent that requires a bearer token or
-  API key, with the credential never reaching the browser.
-- Plane A and Plane B remain independently optional, as designed.
-
-## Phase 3: RBAC and multi-tenancy (§7.2.8, §7.2.10)
-
-### Deliverables
-- Org / user / role model
-- Which agents or skills a user/team may invoke, enforced server-side
-- Task ownership and visibility wired into Phase 1's store (a manager can
-  see and act on a task a report started)
-
-### Exit criteria
-- A user without a grant for an agent cannot see it in the catalog or act
-  on its tasks, even with a direct task URL.
-
-## Phase 4: workflow audit trail (§7.2.9)
-
-### Deliverables
-- Who started / approved / rejected a task, and when — task-lifecycle
-  scoped, append-light, not SpanPlane's evidence-capture-everything model
-- Surfaced on the task detail view, not a separate trace explorer
-
-### Exit criteria
-- Every task's approval history is answerable from the audit log alone,
-  independent of chat transcript retention.
-
-## Phase 5: structured start forms (§7.2.3)
-
-### Deliverables
-- Render a real form when an agent opts into an AgentCard extension that
-  advertises an input schema
-- Generic text/JSON/file composer remains the fallback (A2A doesn't
-  standardize a per-skill JSON Schema, so this is opt-in per agent)
-
-### Exit criteria
-- At least one fixture/reference agent with a schema extension gets a real
-  form instead of the generic composer, with no behavior change for
-  agents that don't advertise one.
-
-## Phase 6: hardening and ops
-
-### Deliverables
-- Dockerfile + optional compose
-- Playwright e2e for streaming chat flows (the one surface none of the
-  prior-art projects in the design doc's survey test)
-- CI: dependency review / basic security scanning alongside lint+test+build
-
-### Exit criteria
-- `docker compose up` runs the app against a configured agent registry
-  with no local Node setup.
-- A streaming send/resume/artifact-render round trip is covered by e2e,
-  not just unit tests of the content model.
-
-## Priorities
-
-### Now
-- Phase 1 (durable task store) — everything else compounds on top of it.
-- Phase 2's service-identity slice, since the catalog is currently useless
-  against any agent that requires credentials.
-
-### Next
-- Phase 2's remaining auth planes (OIDC login, user-delegated).
-- Phase 3 (RBAC), once there's a real store and real identities to scope.
-
-### Later
-- Phase 4 (audit trail), Phase 5 (structured forms), Phase 6 (hardening/ops).
-
-## Non-goals
-
-(Carried over from design doc §1 — this project is deliberately smaller
-than SpanPlane.)
-
-- OpenTelemetry/Phoenix tracing or a trace explorer
-- Append-only evidence capture, session ZIP export, compliance/redaction-
-  for-audit tooling
-- The protocol-operations console (get/list/subscribe/cancel/push-config
-  as a testing surface, distinct from Phase 1's webhook receiver which
-  exists to drive the inbox, not to expose raw operations)
-- TCK/ITK-adjacent conformance tooling
+- [Product specification](./docs/spec/PRODUCT_SPEC.md)
+- [Target architecture](./ARCHITECTURE.md)
+- [Data model](./docs/spec/DATA_MODEL.md)
+- [Detailed phase specifications](./docs/spec/PHASES.md)
+- [Current execution status](./docs/spec/STATUS.md)
+- [Architectural decisions](./docs/adr)

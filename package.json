@@ -1,20 +1,20 @@
 {
-  "name": "a2a-agent-workflow-ui",
+  "name": "a2a-ops",
   "version": "0.1.0",
-  "description": "A human-in-the-loop console for Agent2Agent (A2A) workflows. Discover an org's registered A2A agents, start tasks, respond to input-required and auth-required steps, and track task execution in real time with full multi-modal message and artifact rendering (text, Markdown, JSON, files, images, audio, video, PDF).",
-  "homepage": "https://github.com/shashikanth-gs/a2a-agent-workflow-ui#readme",
+  "description": "The human operations console for A2A agent workflows. Discover agents, operate durable tasks, handle human approvals, and audit work across an A2A agent mesh.",
+  "homepage": "https://github.com/shashikanth-gs/a2a-ops#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/shashikanth-gs/a2a-agent-workflow-ui.git"
+    "url": "git+https://github.com/shashikanth-gs/a2a-ops.git"
   },
   "bugs": {
-    "url": "https://github.com/shashikanth-gs/a2a-agent-workflow-ui/issues"
+    "url": "https://github.com/shashikanth-gs/a2a-ops/issues"
   },
   "license": "MIT",
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=20.9.0"
+    "node": ">=22.17.0"
   },
   "keywords": [
     "a2a",
@@ -30,14 +30,25 @@
     "build": "next build",
     "start": "next start -p 3002",
     "lint": "eslint",
-    "test": "vitest run",
-    "test:coverage": "vitest run --coverage",
-    "check": "npm run lint && npm run test && npm run build"
+    "test": "vitest run --exclude 'src/server/adapters/db/**/*.db.test.ts'",
+    "test:db": "vitest run src/server/adapters/db/database.db.test.ts src/server/adapters/db/repositories.db.test.ts --maxWorkers=1",
+    "test:coverage": "vitest run --coverage --exclude 'src/server/adapters/db/**/*.db.test.ts'",
+    "db:migrate": "mikro-orm migration:up",
+    "db:migrate:down": "mikro-orm migration:down",
+    "db:migration:create": "mikro-orm migration:create",
+    "db:migration:list": "mikro-orm migration:list",
+    "db:migration:pending": "mikro-orm migration:pending",
+    "db:schema:check": "mikro-orm migration:check",
+    "check": "npm run lint && npm run test && npm run test:db && npm run db:schema:check && npm run build"
   },
   "dependencies": {
     "@a2a-js/sdk": "^1.0.1",
     "@bufbuild/protobuf": "^2.13.0",
     "@grpc/grpc-js": "^1.14.4",
+    "@mikro-orm/core": "7.2.3",
+    "@mikro-orm/migrations": "7.2.3",
+    "@mikro-orm/pglite": "7.2.3",
+    "@mikro-orm/postgresql": "7.2.3",
     "@radix-ui/react-avatar": "^1.1.2",
     "@radix-ui/react-dialog": "^1.1.6",
     "@radix-ui/react-dropdown-menu": "^2.1.6",
@@ -65,8 +76,9 @@
     "zustand": "^5.0.2"
   },
   "devDependencies": {
+    "@mikro-orm/cli": "7.2.3",
     "@tailwindcss/postcss": "^4.0.9",
-    "@types/node": "^20",
+    "@types/node": "22.20.4",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitest/coverage-v8": "^4.1.10",

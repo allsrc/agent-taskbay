@@ -90,7 +90,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <header className="border-border flex h-[52px] shrink-0 items-center gap-2.5 border-b px-4 md:hidden">
           <LogoMark size={26} />
-          <span className="flex-1 font-mono text-[15px] font-bold">{active?.label ?? "a2a.client"}</span>
+          <span className="flex-1 font-mono text-[15px] font-bold">{active?.label ?? "A2A Ops"}</span>
           <ThemeToggle className="w-24" />
         </header>
 

@@ -17,9 +17,9 @@ const fontMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "a2a.client",
+  title: "A2A Ops",
   description:
-    "A human-in-the-loop web client for Agent2Agent (A2A) workflows: chat with agents, run tasks, answer input-required and auth-required steps, and watch artifacts stream in.",
+    "The human operations console for A2A agent workflows. Discover agents, operate durable tasks, handle human approvals, and audit work across an A2A agent mesh.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

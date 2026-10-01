@@ -3,7 +3,7 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* allsrc.dev theme (from the a2a.client prototype): light by default, dark via the `.dark` class. */
+/* A2A Ops theme: light by default, dark via the `.dark` class. */
 :root {
   --radius: 0.625rem;
 

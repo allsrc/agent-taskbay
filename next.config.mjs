@@ -1,6 +1,15 @@
 /** @type {import("next").NextConfig} */
 const nextConfig = {
   poweredByHeader: false,
+  // Keep Node-only database drivers (including PGlite's WASM assets) outside
+  // the Server Components/Route Handler bundle. All database entry points run
+  // in the Node.js runtime.
+  serverExternalPackages: [
+    "@electric-sql/pglite",
+    "@mikro-orm/migrations",
+    "@mikro-orm/pglite",
+    "@mikro-orm/postgresql",
+  ],
   async headers() {
     const isProd = process.env.NODE_ENV === "production";
     const scriptSrc = isProd ? "'self' 'unsafe-inline'" : "'self' 'unsafe-inline' 'unsafe-eval'";
