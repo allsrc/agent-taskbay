@@ -1,7 +1,7 @@
 import { assembleArtifacts, assembleTasks, normalizeParts } from "./content";
 import type { OutgoingPart } from "./message-parts";
 import type { AssembledArtifact } from "./types";
-import type { SendConfig, StatusTransition, ThreadMessage, TrackedTask } from "../store/task-store";
+import type { SendConfig, StatusTransition, ThreadMessage, TrackedTask } from "../shared/task-types";
 
 type JsonObject = Record<string, unknown>;
 const isObject = (value: unknown): value is JsonObject => Boolean(value) && typeof value === "object" && !Array.isArray(value);

@@ -1,4 +1,4 @@
-import type { ThreadMessage, TrackedTask } from "../store/task-store";
+import type { ThreadMessage, TrackedTask } from "../shared/task-types";
 
 const bare = (state: string) => state.replace("TASK_STATE_", "");
 
@@ -39,7 +39,7 @@ export function firstText(messages: ThreadMessage[], role?: ThreadMessage["role"
 
 /** A task's display title: what the user first asked for. */
 export function taskTitle(task: TrackedTask, max = 60): string {
-  const text = firstText(task.messages, "user") ?? task.agentName;
+  const text = task.title ?? firstText(task.messages, "user") ?? task.agentName;
   return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 }
 

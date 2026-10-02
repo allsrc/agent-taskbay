@@ -4,6 +4,7 @@ import type { TrackedTask } from "../store/task-store";
 export interface AppNotification {
   id: string;
   taskId: string;
+  localId?: string;
   title: string;
   body: string;
   kind: "statusUpdate" | "artifactUpdate";
@@ -31,8 +32,9 @@ export function deriveNotifications(tasks: TrackedTask[]): AppNotification[] {
     if (title) {
       const agentText = firstText(task.messages.filter((message) => message.role === "agent").reverse(), "agent");
       items.push({
-        id: `${task.taskId}:${state}`,
+        id: `${task.localId ?? JSON.stringify([task.agentId, task.tenant ?? "", task.taskId])}:${state}`,
         taskId: task.taskId,
+        localId: task.localId,
         title,
         body: agentText ? `${task.agentName}: ${agentText.slice(0, 140)}` : `${task.agentName} · ${state.toLowerCase().replaceAll("_", " ")}`,
         kind: "statusUpdate",
@@ -43,8 +45,9 @@ export function deriveNotifications(tasks: TrackedTask[]): AppNotification[] {
     if (state === "COMPLETED") {
       for (const artifact of task.artifacts.filter((item) => item.complete)) {
         items.push({
-          id: `${task.taskId}:artifact:${artifact.artifactId}`,
+          id: `${task.localId ?? JSON.stringify([task.agentId, task.tenant ?? "", task.taskId])}:artifact:${artifact.artifactId}`,
           taskId: task.taskId,
+        localId: task.localId,
           title: "Artifact ready",
           body: `${artifact.name ?? artifact.artifactId} is available from ${task.agentName}.`,
           kind: "artifactUpdate",

@@ -15,7 +15,7 @@ function TaskNode({ task, accent, refs }: { task: TrackedTask; accent?: "brand";
   return (
     <motion.div layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
       <Link
-        href={`/tasks/${task.taskId}`}
+        href={task.localId ? `/tasks/${task.localId}` : "/tasks"}
         className={cn(
           "bg-card hover:bg-accent/40 flex h-full flex-col gap-1 rounded-xl border p-3.5 transition-colors",
           accent === "brand" ? "border-brand" : "border-border",

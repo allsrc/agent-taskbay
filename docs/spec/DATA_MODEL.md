@@ -57,12 +57,15 @@ id, organizationId, agentId, tenant,
 remoteTaskId, remoteContextId, kind, state,
 title, ownerUserId, ownerTeamId,
 createdAt, remoteCreatedAt, updatedAt, remoteUpdatedAt,
-terminalAt, version
+terminalAt, version, contentJson
 ```
 
 Unique: `(agentId, tenant, remoteTaskId)` for real Tasks. Direct Message
 threads use a separate locally generated identity and nullable `remoteTaskId`.
-`version` supports optimistic projection updates.
+`version` supports optimistic projection updates. Slice 1.4 uses `contentJson`
+as a transitional normalized detail projection; typed Task columns remain the
+indexed list/filter path. Message/artifact tables and richer rebuild tooling
+remain Phase 2 work (ADR 0006).
 
 ### TaskEvent
 
@@ -74,6 +77,11 @@ sessionId, requestId, traceId, projectionVersion
 ```
 
 `source` is `stream`, `webhook`, `reconcile`, `command_response`, or `import`.
+Events containing inline binary parts retain their complete original JSON in
+ArtifactStore; `payloadJson` holds `{ event, originalEventObjectKey }`, where
+`event` uses local binary download references. Non-binary events remain inline.
+`payloadDigest` fingerprints the original canonical value (ADR 0006).
+
 The preferred deduplication key is a stable protocol/source identifier. When
 the peer supplies none, use a documented canonical payload digest plus task,
 event kind, and relevant artifact/message identity. Database uniqueness is the

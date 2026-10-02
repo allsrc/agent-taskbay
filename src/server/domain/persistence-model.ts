@@ -40,6 +40,7 @@ export interface AgentCardSnapshotRecord {
 }
 
 export interface TaskRecord {
+  contentJson?: JsonValue;
   id: string;
   organizationId: string;
   agentId: string;
@@ -58,6 +59,8 @@ export interface TaskRecord {
   terminalAt: Date | null;
   version: number;
 }
+
+export type TaskSummaryRecord = Pick<TaskRecord, "id" | "organizationId" | "agentId" | "tenant" | "remoteTaskId" | "remoteContextId" | "kind" | "state" | "title" | "createdAt" | "updatedAt" | "version">;
 
 export type TaskEventSource =
   | "stream"

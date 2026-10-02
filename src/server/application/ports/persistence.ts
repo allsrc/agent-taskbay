@@ -5,6 +5,7 @@ import type {
   OutboxMessageRecord,
   TaskEventRecord,
   TaskRecord,
+  TaskSummaryRecord,
 } from "../../domain/persistence-model";
 
 export interface OrganizationRepository {
@@ -44,6 +45,10 @@ export interface AgentRepository {
 }
 
 export interface TaskRepository {
+  /** Called within an ingestion transaction; returns a row locked for projection updates. */
+  getOrCreate(task: TaskRecord): Promise<TaskRecord>;
+  saveProjection(task: TaskRecord): Promise<TaskRecord>;
+  listByOrganization(organizationId: string, limit: number, offset: number, filter?: string): Promise<TaskSummaryRecord[]>;
   findById(
     organizationId: string,
     id: string,

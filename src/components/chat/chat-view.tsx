@@ -10,7 +10,7 @@ import { Composer } from "@/components/chat/composer";
 import { AgentBubble, ArtifactCard, TaskCard, UserBubble } from "@/components/chat/timeline";
 import { SideRail, useIsDesktop, type RailTab } from "@/components/chat/side-rail";
 import { Button } from "@/components/ui/button";
-import { conversationKey, groupConversations, isOpenTask } from "@/lib/conversations";
+import { conversationKey, findConversation, groupConversations, isOpenTask } from "@/lib/conversations";
 import type { OutgoingPart } from "@/lib/message-parts";
 import type { WireEntry } from "@/lib/wire-sequence";
 import { runResubscribe, runSend, userThreadMessage } from "@/lib/run-message";
@@ -27,7 +27,7 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
   const [key, setKey] = useState(initialKey);
   const allTasks = useTaskStore(useShallow((state) => Object.values(state.tasks)));
   const upsertTask = useTaskStore((state) => state.upsertTask);
-  const conversation = useMemo(() => (key ? groupConversations(allTasks).find((item) => item.key === key) : undefined), [allTasks, key]);
+  const conversation = useMemo(() => (key ? findConversation(groupConversations(allTasks), key) : undefined), [allTasks, key]);
   const tasks = useMemo(() => conversation?.tasks ?? [], [conversation]);
   const agentId = conversation?.agentId ?? initialAgentId ?? "";
   const agent = useAgentStore((state) => state.agents.find((item) => item.id === agentId));
@@ -101,7 +101,7 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
     if (cancelingId || !window.confirm("Cancel this task?")) return;
     setCancelingId(task.taskId);
     try {
-      const response = await fetch(`/api/agents/${task.agentId}/tasks/${task.taskId}/cancel`, { method: "POST" });
+      const response = await fetch(`/api/agents/${task.agentId}/tasks/${encodeURIComponent(task.taskId)}/cancel?tenant=${encodeURIComponent(task.tenant ?? "")}`, { method: "POST" });
       const body = await response.json();
       if (!response.ok) throw new Error(body?.error?.message ?? "Failed to cancel the task.");
       const state = (body?.result as { status?: { state?: string } } | undefined)?.status?.state ?? "TASK_STATE_CANCELED";

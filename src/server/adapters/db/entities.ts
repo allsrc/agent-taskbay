@@ -100,6 +100,7 @@ const TaskSchema = defineEntity({
     kind: p.string().length(64),
     state: p.string().length(64),
     title: p.string().length(500).nullable(),
+    contentJson: p.json<JsonValue>().defaultRaw("'{}'::jsonb"),
     ownerUserId: p.uuid().nullable(),
     ownerTeamId: p.uuid().nullable(),
     createdAt: p.datetime(),

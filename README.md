@@ -17,12 +17,11 @@ when an agent needs a decision, and see it through to done.
 
 ## Status
 
-This is an early scaffold: the foundation (gateway, content model, rendering,
-sideband, request safety, the catalog/inbox/task-detail app shape) is real
-and working end to end against a live agent. The parts that make this
-enterprise-ready — durable shared task state, auth, RBAC, push notifications,
-an audit trail — are designed but not yet built. See **What's not built yet**
-below before pointing this at anything beyond a single browser/single agent.
+Phase 1 is complete: the agent registry and observed task history persist in
+PGlite or PostgreSQL, and Tasks views read shared server state. Streams still
+run while a browser request is connected. Browser-independent execution,
+authentication, RBAC, push notifications, and an approval audit trail are
+planned in the following phases. See **What's not built yet** below.
 
 ## Project specification
 
@@ -58,13 +57,13 @@ canonical schema or migration target.
 ├─────────────────────────────────────────────────────────────┤
 │  API layer                                                    │
 │  ├─ Gateway (src/lib/gateway.ts → @a2a-js/sdk)                │
-│  ├─ Task store service        (durable, queryable)   [TODO]   │
+│  ├─ Task query/observation services (durable, queryable)     │
 │  ├─ Webhook receiver           (pushNotificationConfig) [TODO]│
 │  ├─ Live fan-out (SSE/WS)      (webhook → clients)   [TODO]   │
 │  └─ Agent registry service     (catalog, pluggable)           │
 ├─────────────────────────────────────────────────────────────┤
 │  Data layer                                                    │
-│  ├─ Tasks (org/team/owner-scoped, not per-browser)   [TODO]   │
+│  ├─ Observed tasks/events (organization-scoped)             │
 │  ├─ Org / users / roles (RBAC)                       [TODO]   │
 │  ├─ Per-agent auth tokens (server-side, encrypted)   [TODO]   │
 │  └─ Workflow audit log                               [TODO]   │
@@ -102,7 +101,12 @@ discovery, streaming, content-type rendering, and sideband decoding.
   up on a running one (same `taskId`), or starts a new task in the same context.
 - **Tasks** (`/tasks`, `/tasks/[taskId]`) — filterable list (All / Active /
   Needs you / Done) and a detail view: status timeline, history, artifacts,
-  identifiers, `SubscribeToTask`, `CancelTask`, open in chat.
+  identifiers, `SubscribeToTask`, `CancelTask`, open in chat. List and detail
+  read the database, refresh every five seconds and on focus, and use local
+  UUID URLs. Observed streams, blocking replies, and cancellation responses
+  atomically persist events and task projections. Remote IDs are scoped by
+  agent and tenant. Binary output is stored outside the database and offered
+  as an attachment download.
 - **Orchestration** (`/flows`) — tasks of a context and the
   `referenceTaskIds` links between them.
 - **Notifications** (`/notifications`) — input requests, finished tasks and
@@ -125,15 +129,15 @@ discovery, streaming, content-type rendering, and sideband decoding.
 
 ## What's not built yet
 
-Task state currently lives in browser-local storage (`src/store/task-store.ts`,
-Zustand + `persist` — resume-on-refresh only, not shared across users or
-devices), and every request connects to agents as `{ type: "none" }` — no
-auth, no RBAC, no push notification config (needs the Phase 1 webhook receiver), no
-message `extensions[]` picker, no audit trail, no structured start
-forms yet. All of it is designed, phased, and tracked in
-[`ROADMAP.md`](./ROADMAP.md), including exit criteria and current
-priorities — that file is the source of truth for what's pending; this
-section intentionally isn't duplicated here.
+Long-lived streams still depend on the browser's connected request; durable
+commands, worker execution, webhooks, and reconciliation are Phase 2 work.
+Chat, orchestration, and notifications still use browser caches, including
+notification read state. Existing browser history is not automatically imported
+into the database; new observations become durable. Every request connects to
+agents as `{ type: "none" }`; authentication, RBAC, credential storage, typed
+approvals, structured start forms, and an audit trail remain planned.
+[`docs/spec/STATUS.md`](./docs/spec/STATUS.md) identifies the next executable
+slice, with phase deliverables in [`ROADMAP.md`](./ROADMAP.md).
 
 ## Getting started
 
@@ -147,6 +151,11 @@ npm run dev                  # http://localhost:3002
 Set `A2A_DATABASE_PROFILE=postgresql` and `A2A_DATABASE_URL` to use a PostgreSQL
 server instead. `A2A_PGLITE_DATA_DIR` overrides the default `.data/pglite`
 directory. Database credentials are server-only configuration.
+
+Binary output and original events containing inline bytes are archived under
+`.data/artifacts` (override with `A2A_ARTIFACT_DATA_DIR`). Back up this directory
+alongside the database. The initial adapter limits each object to 16 MiB and
+serves downloads as attachments; richer content policies remain Phase 3 work.
 
 Existing `.data/agents.json` entries (or `A2A_DATA_DIR/agents.json`) are
 automatically imported on first registry access after migrations. The legacy
@@ -163,8 +172,14 @@ npm run test
 npm run test:db
 npm run db:schema:check
 npm run build
+npm run test:http # production build required; isolated fixture and restart test
 npm run check   # full local quality gate
 ```
+
+`npm run check` includes the production HTTP test. Database contract tests
+always exercise PGlite; set `A2A_TEST_POSTGRES_URL` to exercise PostgreSQL too,
+as CI does. The HTTP test uses a fresh PGlite database and local fixture agents,
+then verifies task recovery after a full server restart.
 
 ## Design background
 

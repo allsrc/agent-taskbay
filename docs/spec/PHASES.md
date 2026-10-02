@@ -28,7 +28,7 @@ Requirements: all, as planning coverage.
 
 ## Phase 1 — persistence foundation
 
-**Status:** In progress
+**Status:** Complete; exit criteria verified on 2026-10-03 in `STATUS.md`.
 
 ### Slice 1.1: database bootstrap
 
@@ -56,20 +56,20 @@ Requirements: all, as planning coverage.
 
 ### Slice 1.4: first durable task read path
 
-- [ ] Persist task snapshots/events produced by the existing stream path.
-- [ ] Add organization-scoped task list/detail query services and APIs.
-- [ ] Change Tasks views to read server state while retaining the existing
+- [x] Persist task snapshots/events produced by the existing stream path.
+- [x] Add organization-scoped task list/detail query services and APIs.
+- [x] Change Tasks views to read server state while retaining the existing
   browser stream as a temporary writer.
-- [ ] Add restart/recovery and remote-ID collision tests.
+- [x] Add restart/recovery and remote-ID collision tests.
 
 ### Exit criteria
 
-- Agents and observed tasks survive application restart without browser
+- [x] Agents and observed tasks survive application restart without browser
   `localStorage` as the authoritative source.
-- The same durable task is visible from two clean browser sessions.
-- Local setup starts with PGlite and no external database process.
-- The repository contract suite passes against PGlite and PostgreSQL.
-- Migrations create a clean database and upgrade the immediately previous test
+- [x] The same durable task is visible from two clean browser sessions.
+- [x] Local setup starts with PGlite and no external database process.
+- [x] The repository contract suite passes against PGlite and PostgreSQL.
+- [x] Migrations create a clean database and upgrade the immediately previous test
   schema.
 
 Requirements: `AGT-001..003`, `TSK-002`, `REL-001`, `PERF-001`, `OPS-001`,
@@ -77,12 +77,20 @@ Requirements: `AGT-001..003`, `TSK-002`, `REL-001`, `PERF-001`, `OPS-001`,
 
 ## Phase 2 — durable task runtime
 
-**Status:** Planned; depends on Phase 1.
+**Status:** Planned; active phase with Phase 1 prerequisites verified.
 
-### Deliverables
+### Slice 2.1: durable command dispatch
 
 - [ ] Persist commands with stable message/idempotency IDs.
 - [ ] Dispatch commands through the transactional outbox.
+
+This slice persists command intent and its outbox record atomically, then
+dispatches with durable delivery state and retry behavior. Verify stable IDs,
+duplicate submissions, restart recovery, and organization scope before moving
+long-lived streams to workers in the next slice.
+
+### Remaining deliverables
+
 - [ ] Move long-lived A2A streams and resubscription into a worker entry point.
 - [ ] Implement authenticated webhook receipt and push-config lifecycle.
 - [ ] Implement `GetTask`/`ListTasks` reconciliation and sync cursors.

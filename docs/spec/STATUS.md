@@ -4,9 +4,9 @@ Last updated: 2026-10-03
 
 ## Active position
 
-- Last completed phase: **Phase 0 — specification baseline**
-- Active phase: **Phase 1 — persistence foundation**
-- Next executable slice: **1.4 — first durable task read path**
+- Last completed phase: **Phase 1 — persistence foundation**
+- Active phase: **Phase 2 — durable task runtime**
+- Next executable slice: **2.1 — durable command dispatch**
 - Blocking decisions: none
 
 ## Accepted implementation choices
@@ -241,6 +241,91 @@ Next executable slice: **1.4 — first durable task read path**. Persist observe
 stream task snapshots/events, add organization-scoped task list/detail query
 services and APIs, switch Tasks views to server reads, and add restart/recovery
 and remote-ID collision tests. Do not begin Phase 2.
+
+## Phase 1 Slice 1.4 verified evidence
+
+Date: 2026-10-03
+
+Slice: **1.4 — first durable task read path**
+
+Changes:
+
+- Added organization-scoped task observation and query services behind the
+  persistence ports. Streams, blocking replies, and cancellation responses
+  persist their event ledger and current projection in one locked transaction
+  before acknowledging persistence to the browser.
+- Added the task-content migration, initial history/status/artifact projection,
+  scoped local UUIDs, direct-message identities without fake remote tasks,
+  stable user message IDs, and duplicate/stale-event handling. Accepted
+  ADR 0006 documents the transitional projection and fingerprint limits.
+- Tasks list/detail now use paginated server APIs, indexed state filters,
+  five-second/focus refresh, retry controls, local UUID links, and scoped task
+  references. Chat conversation keys include agent and tenant to avoid remote
+  context collisions.
+- Added a filesystem ArtifactStore with organization-scoped, content-addressed
+  binary objects and original-event archives. Ledger rows retain safe object
+  references rather than inline bytes. Downloads are attachment-only.
+- Added shared adapter contracts and a production HTTP fixture/restart test
+  to the quality gate, with no external database required for that HTTP test.
+
+Verification commands and results:
+
+- Before implementation, the previous quality gate passed: 29 unit tests,
+  10 database tests across PGlite and PostgreSQL, lint, schema, and build.
+- `A2A_TEST_POSTGRES_URL=postgresql://postgres:postgres@127.0.0.1:55432/a2a_ops_test npm run check`:
+  passed lint; 11 unit files and 35 tests; 4 database files and 12 tests on
+  PGlite and PostgreSQL 18; schema check; production build; and production
+  HTTP verification.
+- Adapter tests verify concurrent registration, scoped remote-ID collisions,
+  atomic rollback, duplicate/repeated artifact chunks, stale status handling,
+  user turns, direct messages, binary archives, cross-organization isolation,
+  pagination, scoped references, and database close/reopen recovery.
+  User attachments retain reachable original-event archives as well as safe
+  projection references.
+- Production HTTP verification covers streaming, resubscription, cancellation,
+  blocking direct replies, binary downloads, invalid requests, agent/tenant
+  collisions, and two independent readers after a complete web-server restart.
+- Browser verification with two fresh tabs showed the same durable task,
+  user history, input prompt, timeline, and binary download. Keyboard selection
+  of Done showed only the canceled task; the browser console had no errors.
+- `npm run db:migrate`: applied the task-content migration to the local
+  database. Schema check reported no drift.
+- `npm audit`: zero reported vulnerabilities.
+
+Migration tested from:
+
+- Clean file-backed PGlite and PostgreSQL 18 databases through all three
+  migrations, with the same adapter contract.
+- The immediately previous initial-model PGlite schema containing an existing
+  task row. Upgrade preserves its remote ID and state and initializes empty
+  content without schema drift.
+- Complete ORM and production web-server restart with persisted task content
+  and filesystem artifacts recovered successfully.
+
+Remaining risks:
+
+- Streams remain tied to connected browser requests until the Phase 2 worker
+  runtime. Chat, orchestration, and notification caches remain browser-local;
+  old browser history is not automatically imported into durable storage.
+- Events lacking stable remote IDs/timestamps use canonical fingerprints,
+  occurrence counts, and persisted user turns. Arbitrary partial artifact
+  replays remain ambiguous; reconciliation and versioned replay are Phase 2.
+- Immutable files can remain orphaned after a failed database transaction.
+  Retention and garbage collection remain future ArtifactStore work; back up
+  the artifact directory alongside the database.
+- Routes use the development local organization. Authentication and production
+  authorization/content policy remain Phase 3; runtime migrations remain an
+  explicit setup/deployment step.
+
+**Phase 1 exit criteria are verified.** The registry and observed tasks survive
+restart; clean readers share task state; PGlite needs no external database;
+both adapters pass the same contract; clean and previous-schema migrations
+pass. Phase 2 is now active, with no Phase 2 implementation started.
+
+Next executable slice: **2.1 — durable command dispatch**. Persist command
+intent with stable message/idempotency IDs and its outbox record atomically,
+then implement durable dispatch/retry state. Verify duplicates, organization
+scope, and restart recovery before moving long-lived streams into workers.
 
 ## Known repository-state issue
 

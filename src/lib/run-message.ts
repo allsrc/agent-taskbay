@@ -1,5 +1,6 @@
 "use client";
 
+import { taskStorageKey } from "../shared/task-types";
 import { sendAndStream } from "@/lib/client-stream";
 import { assembleTasks } from "@/lib/content";
 import type { OutgoingPart } from "@/lib/message-parts";
@@ -44,10 +45,12 @@ export async function runSend(
   const shell: TrackedTask = input.base ? { ...input.base, messages: [...input.base.messages] } : freshShell;
   const events: unknown[] = [];
   let latest: TrackedTask | undefined;
+  let identity: { localId: string; taskId: string; tenant: string } | undefined;
   await sendAndStream(
     input.agentId,
-    { parts: input.parts, taskId: input.taskId, contextId: input.contextId, config: input.config },
+    { parts: input.parts, taskId: input.taskId, contextId: input.contextId, config: input.config, messageId: input.userMessage.id, tenant: input.base?.tenant },
     {
+      onTaskIdentity: (value) => { identity = value; },
       onEvent: (event) => {
         events.push(event);
         handlers.onRawEvent?.(event);
@@ -55,8 +58,8 @@ export async function runSend(
         const splitsToTask = shell.kind === "message" && shell.taskId && assembleTasks(events).length > 0;
         const next = applyEvents(events, splitsToTask ? freshShell : shell, localReplyId);
         if (!next.taskId) return;
-        latest = next;
-        handlers.onUpdate(next);
+        latest = identity ? { ...next, localId: identity.localId, tenant: identity.tenant } : next;
+        handlers.onUpdate(latest);
       },
       onError: handlers.onError,
     },
@@ -72,12 +75,14 @@ export async function runResubscribe(
   signal?: AbortSignal,
 ): Promise<void> {
   const events: unknown[] = [];
-  await sendAndStream(task.agentId, { taskId: task.taskId, contextId: task.contextId, resubscribe: true }, {
+  let identity: { localId: string; taskId: string; tenant: string } | undefined;
+  await sendAndStream(task.agentId, { taskId: task.taskId, contextId: task.contextId, resubscribe: true, tenant: task.tenant }, {
+    onTaskIdentity: (value) => { identity = value; },
     onEvent: (event) => {
       events.push(event);
-      const applied = applyEvents(events, task, task.taskId);
+      const applied = { ...applyEvents(events, task, task.taskId), ...(identity ? { localId: identity.localId, tenant: identity.tenant } : {}) };
       // The user may have sent a message since this stream opened; don't drop it.
-      const latest = useTaskStore.getState().tasks[task.taskId];
+      const latest = useTaskStore.getState().tasks[taskStorageKey(task)];
       const known = new Set(applied.messages.map((message) => message.id));
       const extra = latest ? latest.messages.filter((message) => !known.has(message.id)) : [];
       handlers.onUpdate(extra.length ? { ...applied, messages: [...applied.messages, ...extra].sort((a, b) => a.timestamp.localeCompare(b.timestamp)) } : applied);

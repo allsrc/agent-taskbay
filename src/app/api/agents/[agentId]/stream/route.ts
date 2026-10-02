@@ -1,6 +1,8 @@
 import { agentRegistry } from "@/lib/agent-registry";
 import { serializeStreamEvent, streamOperation } from "@/lib/gateway";
 import { readJsonRequest } from "@/lib/request-guard";
+import { createTaskObserver } from "@/server/runtime/task-persistence";
+import type { JsonValue } from "@/server/domain/persistence-model";
 import { extractSidebandEvents } from "@/server/sideband/decoder";
 
 export const runtime = "nodejs";
@@ -8,6 +10,8 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 interface SendBody {
+  tenant?: string;
+  messageId?: string;
   text?: string;
   parts?: unknown[];
   taskId?: string;
@@ -47,6 +51,14 @@ export async function POST(request: Request, context: { params: Promise<{ agentI
 
   const sessionId = crypto.randomUUID();
   const requestId = crypto.randomUUID();
+  const messageId = body.messageId || crypto.randomUUID();
+  const observer = createTaskObserver({
+    agentId: agent.id, tenant: body.tenant, sessionId, requestId,
+    userMessage: body.resubscribe ? undefined : JSON.parse(JSON.stringify({
+      messageId, role: "ROLE_USER", parts: body.text?.trim() ? [{ text: body.text }, ...(body.parts ?? [])] : body.parts,
+      referenceTaskIds: body.config?.referenceTaskIds, metadata: body.config?.metadata,
+    })) as JsonValue,
+  });
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -58,6 +70,8 @@ export async function POST(request: Request, context: { params: Promise<{ agentI
           action: body.resubscribe ? "getTask" : "send",
           params: {
             text: body.text,
+            tenant: body.tenant,
+            messageId,
             parts: body.parts,
             taskId: body.taskId,
             contextId: body.contextId,
@@ -81,6 +95,8 @@ export async function POST(request: Request, context: { params: Promise<{ agentI
         }));
         for await (const event of session.events) {
           const serialized = serializeStreamEvent(event);
+          const durable = await observer(serialized as JsonValue);
+          controller.enqueue(frame("persisted", { localId: durable.localId, taskId: durable.taskId, tenant: durable.tenant }));
           controller.enqueue(frame("a2a", serialized));
           const sidebandEvents = extractSidebandEvents(serialized, { sessionId, requestId, negotiatedExtensions: session.negotiatedExtensions });
           for (const sidebandEvent of sidebandEvents) controller.enqueue(frame("sideband", sidebandEvent));

@@ -63,6 +63,7 @@ function task(
     remoteUpdatedAt: null,
     terminalAt: null,
     version: 1,
+    contentJson: {},
     ...overrides,
   };
 }

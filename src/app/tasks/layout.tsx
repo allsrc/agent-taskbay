@@ -1,12 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useShallow } from "zustand/react/shallow";
 import { SplitPane, StateChip } from "@/components/a2a/primitives";
 import { isActiveState, needsYou, relativeTime, taskTitle } from "@/lib/task-view";
-import { useTaskStore } from "@/store/task-store";
+import { useServerResource } from "@/lib/use-server-resource";
+import type { DurableTaskView } from "@/shared/task-types";
 import { cn } from "@/lib/utils";
 
 const FILTERS = {
@@ -19,15 +19,11 @@ const FILTERS = {
 export default function TasksLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() ?? "";
   const activeId = pathname.split("/")[2];
-  const tasks = useTaskStore(useShallow((state) => Object.values(state.tasks)));
   const [filter, setFilter] = useState<keyof typeof FILTERS>("All");
-  const rows = useMemo(
-    () =>
-      tasks
-        .filter((task) => task.kind !== "message" && FILTERS[filter](task.state))
-        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
-    [tasks, filter],
-  );
+  const [offset, setOffset] = useState(0);
+  const apiFilter = { All: "all", Active: "active", "Needs you": "needs-input", Done: "done" }[filter];
+  const resource = useServerResource<{ tasks: DurableTaskView[] }>(`/api/tasks?filter=${apiFilter}&limit=50&offset=${offset}`);
+  const rows = resource.data?.tasks ?? [];
 
   return (
     <SplitPane
@@ -41,7 +37,7 @@ export default function TasksLayout({ children }: { children: React.ReactNode })
                 key={name}
                 role="tab"
                 aria-selected={filter === name}
-                onClick={() => setFilter(name)}
+                onClick={() => { setFilter(name); setOffset(0); }}
                 className={cn(
                   "rounded-full border px-2.5 py-1 font-mono text-xs font-medium transition-colors",
                   filter === name ? "border-primary text-primary" : "border-border text-muted-foreground hover:text-foreground",
@@ -52,12 +48,14 @@ export default function TasksLayout({ children }: { children: React.ReactNode })
             ))}
           </div>
           <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-auto px-2 pb-3">
-            {rows.length === 0 && <p className="text-muted-foreground px-3 py-2 text-sm">No tasks here yet. Start a chat and ask an agent to do work.</p>}
+            {resource.loading && <p className="px-3 py-2 text-sm" role="status">Loading tasks…</p>}
+            {resource.error && <div className="px-3 py-2 text-sm" role="alert">{resource.error} <button onClick={resource.refresh} className="text-primary underline">Retry</button></div>}
+            {!resource.loading && !resource.error && rows.length === 0 && <p className="text-muted-foreground px-3 py-2 text-sm">No tasks here yet. Start a chat and ask an agent to do work.</p>}
             {rows.map((task) => (
               <Link
-                key={task.taskId}
-                href={`/tasks/${task.taskId}`}
-                className={cn("flex flex-col gap-1 rounded-[10px] px-3 py-2.5 transition-colors", activeId === task.taskId ? "bg-accent" : "hover:bg-accent/50")}
+                key={task.localId}
+                href={`/tasks/${task.localId}`}
+                className={cn("flex flex-col gap-1 rounded-[10px] px-3 py-2.5 transition-colors", activeId === task.localId ? "bg-accent" : "hover:bg-accent/50")}
               >
                 <div className="flex items-center gap-2">
                   <span className="min-w-0 flex-1 truncate font-semibold">{taskTitle(task)}</span>
@@ -68,6 +66,11 @@ export default function TasksLayout({ children }: { children: React.ReactNode })
                 </div>
               </Link>
             ))}
+          </div>
+          <div className="flex items-center justify-between px-4 pb-3 text-sm">
+            <button disabled={!offset} onClick={() => setOffset(Math.max(0, offset - 50))} className="disabled:opacity-40">Previous</button>
+            <button onClick={resource.refresh} className="text-primary">Refresh</button>
+            <button disabled={rows.length < 50} onClick={() => setOffset(offset + 50)} className="disabled:opacity-40">Next</button>
           </div>
         </>
       }

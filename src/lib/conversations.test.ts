@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupConversations, isOpenTask } from "./conversations";
+import { findConversation, groupConversations, isOpenTask } from "./conversations";
 import type { TrackedTask } from "../store/task-store";
 
 const make = (over: Partial<TrackedTask>): TrackedTask => ({
@@ -46,5 +46,23 @@ describe("groupConversations", () => {
     expect(isOpenTask(make({ state: "TASK_STATE_WORKING" }))).toBe(true);
     expect(isOpenTask(make({ state: "TASK_STATE_CANCELED" }))).toBe(false);
     expect(isOpenTask(make({ kind: "message", state: "MESSAGE_ONLY" }))).toBe(false);
+  });
+});
+
+
+describe("scoped context identity", () => {
+  it("separates identical contexts across agents and tenants", () => {
+    const conversations = groupConversations([
+      make({ contextId: "same", agentId: "a" }),
+      make({ contextId: "same", agentId: "b" }),
+      make({ contextId: "same", agentId: "a", tenant: "other" }),
+    ]);
+    expect(conversations).toHaveLength(3);
+    expect(findConversation(conversations, "same")).toBeUndefined();
+    expect(findConversation(conversations, conversations[0].key)).toBe(conversations[0]);
+  });
+  it("resolves an old context-only link when it is unambiguous", () => {
+    const conversations = groupConversations([make({ contextId: "legacy" })]);
+    expect(findConversation(conversations, "legacy")).toBe(conversations[0]);
   });
 });

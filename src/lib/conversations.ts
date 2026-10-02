@@ -1,7 +1,11 @@
 import { taskBucket, type TaskBucket, type TrackedTask } from "../store/task-store";
 
 /** A2A groups tasks and messages by `contextId`; a direct reply with no context stands alone under its own id. */
-export const conversationKey = (task: TrackedTask) => task.contextId || task.taskId;
+export const conversationKey = (task: TrackedTask) => {
+  const bytes = new TextEncoder().encode(JSON.stringify([task.agentId, task.tenant ?? "", task.contextId || task.taskId]));
+  const encoded = btoa(Array.from(bytes, (byte) => String.fromCharCode(byte)).join(""));
+  return `c-${encoded.replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "")}`;
+};
 
 export interface Conversation {
   key: string;
@@ -53,4 +57,12 @@ export function groupConversations(tasks: TrackedTask[]): Conversation[] {
       };
     })
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+}
+
+/** Old unscoped chat links are accepted only when exactly one scoped context matches. */
+export function findConversation(conversations: Conversation[], key: string): Conversation | undefined {
+  const exact = conversations.find((conversation) => conversation.key === key);
+  if (exact) return exact;
+  const matches = conversations.filter((conversation) => conversation.tasks.some((task) => (task.contextId || task.taskId) === key));
+  return matches.length === 1 ? matches[0] : undefined;
 }

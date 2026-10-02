@@ -17,3 +17,5 @@ accepted ADR. Small implementation details do not require an ADR.
 - [0003 — Local identity for remote A2A resources](./0003-local-and-remote-identity.md)
 - [0004 — Modular monolith with separate workers](./0004-modular-monolith-workers.md)
 - [0005 — Separate user, agent, and in-task authorization](./0005-authentication-planes.md)
+
+- [0006 — Initial task projections and binary protocol archives](./0006-initial-task-projections.md)

@@ -1,4 +1,4 @@
-import type { EntityManager, QueryResult } from "@mikro-orm/core";
+import { LockMode, type EntityManager, type QueryResult } from "@mikro-orm/core";
 import type { EntityManager as SqlEntityManager } from "@mikro-orm/sql";
 
 import type {
@@ -70,6 +70,7 @@ function agentCardSnapshotRecord(
 
 function taskRecord(entity: TaskEntity): TaskRecord {
   return {
+    contentJson: entity.contentJson,
     id: entity.id,
     organizationId: entity.organizationId,
     agentId: entity.agentId,
@@ -243,6 +244,45 @@ export class MikroOrmAgentRepository implements AgentRepository {
 
 export class MikroOrmTaskRepository implements TaskRepository {
   constructor(private readonly entityManager: EntityManager) {}
+
+  async getOrCreate(task: TaskRecord) {
+    await this.entityManager.upsert(TaskEntity, task, {
+      disableIdentityMap: true, onConflictAction: "ignore",
+      onConflictFields: task.remoteTaskId === null ? ["id"] : ["agentId", "tenant", "remoteTaskId"],
+    });
+    const where = task.remoteTaskId === null ? { id: task.id, organizationId: task.organizationId } : {
+      organizationId: task.organizationId, agentId: task.agentId, tenant: task.tenant, remoteTaskId: task.remoteTaskId,
+    };
+    const entity = await this.entityManager.findOneOrFail(TaskEntity, where, {
+      lockMode: LockMode.PESSIMISTIC_WRITE, refresh: true,
+    });
+    return taskRecord(entity);
+  }
+
+  async saveProjection(task: TaskRecord) {
+    const entity = await this.entityManager.findOneOrFail(TaskEntity, {
+      id: task.id, organizationId: task.organizationId,
+    });
+    this.entityManager.assign(entity, task);
+    await this.entityManager.flush();
+    return taskRecord(entity);
+  }
+
+  async listByOrganization(organizationId: string, limit: number, offset: number, filter = "all") {
+    const terminal = ["TASK_STATE_COMPLETED", "TASK_STATE_FAILED", "TASK_STATE_CANCELED", "TASK_STATE_REJECTED"];
+    const state = filter === "active" ? { $nin: terminal } : filter === "needs-input" ? { $in: ["TASK_STATE_INPUT_REQUIRED", "TASK_STATE_AUTH_REQUIRED"] } : filter === "done" ? { $in: terminal } : undefined;
+    const entities = await this.entityManager.find(TaskEntity, { organizationId, kind: "task", ...(state ? { state } : {}) }, {
+      orderBy: { updatedAt: "desc", id: "asc" }, limit, offset,
+      fields: ["id", "organizationId", "agentId", "tenant", "remoteTaskId", "remoteContextId", "kind", "state", "title", "createdAt", "updatedAt", "version"],
+    });
+    return entities.map((entity) => ({
+      id: entity.id, organizationId: entity.organizationId, agentId: entity.agentId,
+      tenant: entity.tenant, remoteTaskId: entity.remoteTaskId ?? null, remoteContextId: entity.remoteContextId ?? null,
+      kind: entity.kind, state: entity.state, title: entity.title ?? null,
+      createdAt: entity.createdAt, updatedAt: entity.updatedAt, version: entity.version,
+    }));
+  }
+
 
   async findById(organizationId: string, id: string) {
     const entity = await this.entityManager.findOne(TaskEntity, {

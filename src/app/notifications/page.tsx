@@ -47,7 +47,7 @@ export default function NotificationsPage() {
                 type="button"
                 onClick={() => {
                   markRead([item.id]);
-                  router.push(`/tasks/${item.taskId}`);
+                  router.push(item.localId ? `/tasks/${item.localId}` : "/tasks");
                 }}
                 className={cn(
                   "border-border flex items-start gap-3 rounded-xl border p-3 text-left transition-colors",
