@@ -89,6 +89,24 @@ export interface TaskEventRecord {
 
 export type OutboxStatus = "pending" | "processing" | "processed" | "failed";
 
+export type CommandStatus = "pending" | "dispatching" | "succeeded" | "failed" | "uncertain";
+export interface TaskCommandRecord {
+  id: string;
+  organizationId: string;
+  agentId: string;
+  tenant: string;
+  action: "send" | "cancelTask";
+  idempotencyKey: string;
+  messageId: string;
+  payloadDigest: string;
+  payloadObjectKey: string;
+  status: CommandStatus;
+  resultJson: JsonValue | null;
+  lastError: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface OutboxMessageRecord {
   id: string;
   organizationId: string;

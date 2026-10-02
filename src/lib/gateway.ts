@@ -206,6 +206,8 @@ async function createClient(config: ConnectionConfig): Promise<{ client: Client;
 }
 
 export interface OperationInput {
+  /** Server dispatcher records whether a side effect may have reached the peer. */
+  onDispatch?: () => void;
   connection: ConnectionConfig;
   action: OperationAction;
   params?: Record<string, unknown>;
@@ -292,7 +294,9 @@ export async function executeOperation(input: OperationInput): Promise<Operation
   let result: unknown;
   switch (input.action) {
     case "send": {
-      try { result = serializeSendResult(await client.sendMessage(buildSendRequest(withNegotiatedExtensions(params, negotiatedExtensions)), options)); }
+      const request = buildSendRequest(withNegotiatedExtensions(params, negotiatedExtensions));
+      input.onDispatch?.();
+      try { result = serializeSendResult(await client.sendMessage(request, options)); }
       catch (error) {
         const recovered = input.connection.diagnosticMode ? recoverMalformedLegacyResult(telemetry) : undefined;
         if (recovered === undefined) throw error;
@@ -317,7 +321,7 @@ export async function executeOperation(input: OperationInput): Promise<Operation
       pageToken: params.pageToken ?? "", historyLength: params.historyLength, statusTimestampAfter: params.statusTimestampAfter,
       includeArtifacts: params.includeArtifacts ?? true,
     }), options)); break;
-    case "cancelTask": result = Task.toJSON(await client.cancelTask(CancelTaskRequest.fromJSON({ tenant: params.tenant ?? "", id: params.taskId, metadata: params.metadata }), options)); break;
+    case "cancelTask": input.onDispatch?.(); result = Task.toJSON(await client.cancelTask(CancelTaskRequest.fromJSON({ tenant: params.tenant ?? "", id: params.taskId, metadata: params.metadata }), options)); break;
     case "extendedCard": result = AgentCard.toJSON(await client.getAgentCard(options)); break;
     case "createPushConfig": result = TaskPushNotificationConfig.toJSON(await client.createTaskPushNotificationConfig(TaskPushNotificationConfig.fromJSON({
       tenant: params.tenant ?? "", id: params.configId ?? "", taskId: params.taskId, url: params.url, token: params.token ?? "",

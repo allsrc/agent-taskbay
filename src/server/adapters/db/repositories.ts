@@ -7,6 +7,7 @@ import type {
   OutboxRepository,
   TaskEventRepository,
   TaskRepository,
+  TaskCommandRepository,
 } from "../../application/ports/persistence";
 import type {
   AgentCardSnapshotRecord,
@@ -15,6 +16,7 @@ import type {
   OutboxMessageRecord,
   TaskEventRecord,
   TaskRecord,
+  TaskCommandRecord,
 } from "../../domain/persistence-model";
 import {
   AgentCardSnapshotEntity,
@@ -23,6 +25,7 @@ import {
   OutboxMessageEntity,
   TaskEntity,
   TaskEventEntity,
+  TaskCommandEntity,
 } from "./entities";
 
 function organizationRecord(entity: OrganizationEntity): OrganizationRecord {
@@ -337,6 +340,28 @@ export class MikroOrmTaskEventRepository implements TaskEventRepository {
 export class MikroOrmOutboxRepository implements OutboxRepository {
   constructor(private readonly entityManager: EntityManager) {}
 
+  async claim(topic: string, owner: string, now: Date, leaseUntil: Date) {
+    const entity = await this.entityManager.findOne(OutboxMessageEntity, {
+      topic, $or: [{ status: "pending", availableAt: { $lte: now } }, { status: "processing", leaseUntil: { $lte: now } }],
+    }, { orderBy: { availableAt: "asc", id: "asc" }, lockMode: LockMode.PESSIMISTIC_PARTIAL_WRITE, refresh: true });
+    if (!entity) return undefined;
+    const recovered = entity.status === "processing";
+    this.entityManager.assign(entity, { status: "processing", leaseOwner: owner, leaseUntil, attempts: entity.attempts + 1 });
+    await this.entityManager.flush();
+    return { message: outboxMessageRecord(entity), recovered };
+  }
+
+  async renew(id: string, organizationId: string, owner: string, now: Date, until: Date) {
+    return (await this.entityManager.nativeUpdate(OutboxMessageEntity,
+      { id, organizationId, status: "processing", leaseOwner: owner, leaseUntil: { $gt: now } }, { leaseUntil: until })) === 1;
+  }
+
+  async finish(id: string, organizationId: string, owner: string, now: Date, changes: Pick<OutboxMessageRecord, "status" | "availableAt" | "lastError" | "processedAt">) {
+    return (await this.entityManager.nativeUpdate(OutboxMessageEntity,
+      { id, organizationId, status: "processing", leaseOwner: owner, leaseUntil: { $gt: now } },
+      { ...changes, leaseOwner: null, leaseUntil: null })) === 1;
+  }
+
   async enqueue(message: OutboxMessageRecord) {
     const entity = this.entityManager.create(OutboxMessageEntity, message);
     this.entityManager.persist(entity);
@@ -353,6 +378,31 @@ export class MikroOrmOutboxRepository implements OutboxRepository {
   }
 }
 
+export class MikroOrmTaskCommandRepository implements TaskCommandRepository {
+  constructor(private readonly entityManager: EntityManager) {}
+  async getOrCreate(input: TaskCommandRecord) {
+    await this.entityManager.upsert(TaskCommandEntity, input, {
+      onConflictFields: ["organizationId", "idempotencyKey"], onConflictAction: "ignore",
+    });
+    const entity = await this.entityManager.findOneOrFail(TaskCommandEntity,
+      { organizationId: input.organizationId, idempotencyKey: input.idempotencyKey }, { refresh: true });
+    return { command: this.record(entity), created: entity.id === input.id };
+  }
+  async findById(organizationId: string, id: string) {
+    const entity = await this.entityManager.findOne(TaskCommandEntity, { organizationId, id }, { refresh: true });
+    return entity ? this.record(entity) : undefined;
+  }
+  async update(organizationId: string, id: string, changes: Pick<TaskCommandRecord, "status" | "resultJson" | "lastError" | "updatedAt">) {
+    await this.entityManager.nativeUpdate(TaskCommandEntity, { organizationId, id }, changes);
+  }
+  private record(entity: TaskCommandEntity): TaskCommandRecord {
+    return { id: entity.id, organizationId: entity.organizationId, agentId: entity.agentId, tenant: entity.tenant,
+      action: entity.action, idempotencyKey: entity.idempotencyKey, messageId: entity.messageId,
+      payloadDigest: entity.payloadDigest, payloadObjectKey: entity.payloadObjectKey, status: entity.status,
+      resultJson: entity.resultJson ?? null, lastError: entity.lastError ?? null, createdAt: entity.createdAt, updatedAt: entity.updatedAt };
+  }
+}
+
 export function createPersistenceRepositories(entityManager: EntityManager) {
   return {
     organizations: new MikroOrmOrganizationRepository(entityManager),
@@ -360,5 +410,6 @@ export function createPersistenceRepositories(entityManager: EntityManager) {
     tasks: new MikroOrmTaskRepository(entityManager),
     taskEvents: new MikroOrmTaskEventRepository(entityManager),
     outbox: new MikroOrmOutboxRepository(entityManager),
+    commands: new MikroOrmTaskCommandRepository(entityManager),
   };
 }

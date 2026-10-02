@@ -50,6 +50,7 @@ export async function runSend(
     input.agentId,
     { parts: input.parts, taskId: input.taskId, contextId: input.contextId, config: input.config, messageId: input.userMessage.id, tenant: input.base?.tenant },
     {
+      onAccepted: (commandId) => handlers.onRawEvent?.({ commandAccepted: { commandId } }),
       onTaskIdentity: (value) => { identity = value; },
       onEvent: (event) => {
         events.push(event);

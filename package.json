@@ -31,7 +31,7 @@
     "start": "next start -p 3002",
     "lint": "eslint",
     "test": "vitest run --exclude 'src/server/adapters/db/**/*.db.test.ts'",
-    "test:db": "vitest run src/server/adapters/db/database.db.test.ts src/server/adapters/db/repositories.db.test.ts src/server/adapters/db/agent-registry.db.test.ts src/server/adapters/db/task-observation.db.test.ts --maxWorkers=1",
+    "test:db": "vitest run src/server/adapters/db/database.db.test.ts src/server/adapters/db/repositories.db.test.ts src/server/adapters/db/agent-registry.db.test.ts src/server/adapters/db/task-observation.db.test.ts src/server/adapters/db/commands.db.test.ts --maxWorkers=1",
     "test:http": "node scripts/verify-task-http.mjs",
     "test:coverage": "vitest run --coverage --exclude 'src/server/adapters/db/**/*.db.test.ts'",
     "db:migrate": "mikro-orm migration:up",
@@ -40,7 +40,8 @@
     "db:migration:list": "mikro-orm migration:list",
     "db:migration:pending": "mikro-orm migration:pending",
     "db:schema:check": "mikro-orm migration:check",
-    "check": "npm run lint && npm run test && npm run test:db && npm run db:schema:check && npm run build && npm run test:http"
+    "check": "npm run lint && npm run test && npm run test:db && npm run db:schema:check && npm run build && npm run test:http",
+    "worker:commands": "tsx scripts/command-worker.ts"
   },
   "dependencies": {
     "@a2a-js/sdk": "^1.0.1",
@@ -86,6 +87,7 @@
     "eslint": "^9.39.5",
     "eslint-config-next": "16.3.6",
     "tailwindcss": "^4.0.9",
+    "tsx": "4.23.15",
     "tw-animate-css": "^1.2.4",
     "typescript": "^5",
     "vitest": "^4.1.10"

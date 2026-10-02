@@ -98,6 +98,26 @@ leaseOwner, leaseUntil, lastError, createdAt, processedAt
 Outbox rows are committed in the same transaction as the state that caused the
 side effect. Workers claim rows with bounded leases.
 
+### TaskCommand (Slice 2.1)
+
+```text
+id, organizationId, agentId, tenant, action,
+idempotencyKey, messageId, payloadDigest, payloadObjectKey,
+status, resultJson, lastError, createdAt, updatedAt
+```
+
+Unique: `(organizationId, idempotencyKey)`. Reusing a key with different scoped
+intent is a conflict. Input, including binary parts, lives in ArtifactStore;
+the row contains its digest/object key. Outbox payloads contain the command ID.
+Safe command responses reference externalized binary parts. Command status is
+`pending`, `dispatching`, `succeeded`, `failed`, or `uncertain`.
+
+Lease renewal and completion are fenced by owner and unexpired lease. Response
+ingestion, command success, and outbox completion are one transaction. Known
+pre-dispatch failures retry at most three times with stable message IDs;
+expired attempts and uncertain remote results do not automatically resend
+(ADR 0007). Command intent is distinct from the future workflow audit model.
+
 ## Later entities
 
 ### Identity and access

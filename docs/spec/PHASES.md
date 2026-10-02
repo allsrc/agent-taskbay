@@ -77,21 +77,29 @@ Requirements: `AGT-001..003`, `TSK-002`, `REL-001`, `PERF-001`, `OPS-001`,
 
 ## Phase 2 — durable task runtime
 
-**Status:** Planned; active phase with Phase 1 prerequisites verified.
+**Status:** In progress; Slice 2.1 verified with Phase 1 prerequisites complete.
 
 ### Slice 2.1: durable command dispatch
 
-- [ ] Persist commands with stable message/idempotency IDs.
-- [ ] Dispatch commands through the transactional outbox.
+- [x] Persist commands with stable message/idempotency IDs.
+- [x] Dispatch commands through the transactional outbox.
 
 This slice persists command intent and its outbox record atomically, then
 dispatches with durable delivery state and retry behavior. Verify stable IDs,
 duplicate submissions, restart recovery, and organization scope before moving
 long-lived streams to workers in the next slice.
 
-### Remaining deliverables
+### Slice 2.2: worker-owned subscriptions
 
 - [ ] Move long-lived A2A streams and resubscription into a worker entry point.
+
+Persist subscription intent and leases, reconnect outside browser requests,
+and retain server ingestion as the authority. Verify continued observation
+after all browsers close, worker restart, input-required and artifact updates.
+Use the embedded PGlite owner or separate PostgreSQL workers per ADR 0007.
+
+### Remaining deliverables
+
 - [ ] Implement authenticated webhook receipt and push-config lifecycle.
 - [ ] Implement `GetTask`/`ListTasks` reconciliation and sync cursors.
 - [ ] Send all sources through one idempotent ingestion transaction.

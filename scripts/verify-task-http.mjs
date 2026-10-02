@@ -3,6 +3,8 @@ import { createServer } from "node:http";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { randomUUID } from "node:crypto";
+import pg from "pg";
 import { spawn, execFile } from "node:child_process";
 import { promisify } from "node:util";
 
@@ -12,6 +14,7 @@ const requestHistory = new Map();
 const remoteId = "same-remote-id";
 const contextId = "same-context";
 let fixturePort;
+let sends = 0;
 const fixture = createServer(async (request, response) => {
   const agent = request.url.split("/")[1];
   if (request.method === "GET") {
@@ -30,6 +33,20 @@ const fixture = createServer(async (request, response) => {
     response.setHeader("Content-Type", "application/json");
     response.end(JSON.stringify({ jsonrpc: "2.0", id: rpc.id, result: status("TASK_STATE_CANCELED", "2026-10-03T00:00:03Z") }));
   } else if (rpc.method === "SendMessage") {
+    sends++;
+    requestHistory.set(key, rpc.params.message);
+    const text = rpc.params.message.parts?.[0]?.text;
+    if (text === "Disconnect") {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      response.setHeader("Content-Type", "application/json");
+      response.end(JSON.stringify({ jsonrpc: "2.0", id: rpc.id, result: { task: { id: "disconnect-task", status: { state: "TASK_STATE_COMPLETED" } } } }));
+      return;
+    }
+    if (text === "Shared durable task" || text === "Accepted without browser") {
+      response.setHeader("Content-Type", "application/json");
+      response.end(JSON.stringify({ jsonrpc: "2.0", id: rpc.id, result: { task: { ...status("TASK_STATE_WORKING", "2026-10-03T00:00:00Z"), history: [rpc.params.message] } } }));
+      return;
+    }
     response.setHeader("Content-Type", "application/json");
     response.end(JSON.stringify({ jsonrpc: "2.0", id: rpc.id, result: { message: { messageId: `direct-${agent}`, role: "ROLE_AGENT", parts: [{ text: "Direct answer" }] } } }));
   } else if (["SendStreamingMessage", "SubscribeToTask"].includes(rpc.method)) {
@@ -48,8 +65,24 @@ const fixture = createServer(async (request, response) => {
 });
 await new Promise((resolve) => fixture.listen(0, "127.0.0.1", resolve));
 fixturePort = fixture.address().port;
-const env = { ...process.env, A2A_DATABASE_PROFILE: "pglite", A2A_PGLITE_DATA_DIR: join(directory, "db"),
+const env = { ...process.env, A2A_COMMAND_WORKER_MODE: "embedded", A2A_DATABASE_PROFILE: "pglite", A2A_PGLITE_DATA_DIR: join(directory, "db"),
   A2A_ARTIFACT_DATA_DIR: join(directory, "artifacts"), A2A_DATA_DIR: directory, A2A_REGISTERED_AGENTS: "", A2A_ALLOW_PRIVATE_NETWORKS: "true" };
+let admin;
+let testDatabase;
+if (process.env.A2A_HTTP_TEST_PROFILE === "postgresql") {
+  const url = new URL(process.env.A2A_TEST_POSTGRES_URL);
+  if (!decodeURIComponent(url.pathname).includes("test")) throw new Error("HTTP PostgreSQL verification requires a test database URL.");
+  admin = new pg.Client({ connectionString: url.toString() });
+  await admin.connect();
+  testDatabase = `a2a_ops_http_test_${randomUUID().replaceAll("-", "")}`;
+  await admin.query(`create database "${testDatabase}"`);
+  url.pathname = "/" + testDatabase;
+  env.A2A_DATABASE_PROFILE = "postgresql";
+  env.A2A_DATABASE_URL = url.toString();
+  env.A2A_COMMAND_WORKER_MODE = "external";
+}
+let worker;
+let workerLog = "";
 const appPort = Number(process.env.A2A_HTTP_TEST_PORT ?? 3103);
 const base = `http://127.0.0.1:${appPort}`;
 let app;
@@ -88,6 +121,12 @@ async function stream(agentId, tenant = "", resubscribe = false) {
 }
 try {
   await promisify(execFile)(process.execPath, ["node_modules/@mikro-orm/cli/cli.js", "migration:up"], { env });
+  if (testDatabase) {
+    worker = spawn(process.execPath, ["--import", "tsx", "scripts/command-worker.ts"], { env });
+    worker.stdout.on("data", (data) => { workerLog += data; });
+    worker.stderr.on("data", (data) => { workerLog += data; });
+    worker.once("exit", (code) => { if (code) console.error(workerLog); });
+  }
   await start();
   const one = (await json("/api/agents", { method: "POST", body: JSON.stringify({ cardUrl: `http://127.0.0.1:${fixturePort}/one/card.json` }) })).agent;
   const two = (await json("/api/agents", { method: "POST", body: JSON.stringify({ cardUrl: `http://127.0.0.1:${fixturePort}/two/card.json` }) })).agent;
@@ -105,22 +144,71 @@ try {
   assert.match(artifact.headers.get("content-disposition"), /^attachment/);
   assert.equal(artifact.headers.get("x-content-type-options"), "nosniff");
   assert.equal((await json("/api/tasks?filter=needs-input")).tasks.length, 3);
+  // Command API acknowledges persisted intent; no browser stream owns dispatch.
+  const commandBody = { text: "Accepted without browser", messageId: "accepted-user", tenant: "tenant-command" };
+  const sendsBeforeCommand = sends;
+  const accepted = await json(`/api/agents/${one.id}/commands`, { method: "POST", headers: { "Idempotency-Key": "http-command" }, body: JSON.stringify(commandBody) });
+  const duplicate = await json(`/api/agents/${one.id}/commands`, { method: "POST", headers: { "Idempotency-Key": "http-command" }, body: JSON.stringify(commandBody) });
+  assert.equal(duplicate.command.id, accepted.command.id);
+  assert.equal((await fetch(`${base}/api/agents/${one.id}/commands`, { method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": "http-command" }, body: JSON.stringify({ text: "Conflict" }) })).status, 409);
+  let completed;
+  for (let attempt = 0; attempt < 100; attempt++) {
+    completed = await json(`/api/commands/${accepted.command.id}`);
+    if (completed.command.status === "succeeded") break;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  assert.equal(completed.command.status, "succeeded");
+  assert.equal(sends, sendsBeforeCommand + 1, "Duplicate intent dispatched more than once");
+  assert.equal(completed.command.messageId, "accepted-user");
+  assert.equal(completed.command.result.event.task.id, remoteId);
+  assert.equal((await fetch(`${base}/api/agents/${one.id}/commands`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: "Missing key" }) })).status, 400);
+  assert.equal((await fetch(base + "/api/commands/not-a-uuid")).status, 404);
+  // Canceling the browser's stream does not cancel the persisted command.
+  const disconnected = await fetch(`${base}/api/agents/${one.id}/stream`, { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text: "Disconnect", messageId: "disconnect-user" }) });
+  const reader = disconnected.body.getReader();
+  const firstFrame = new TextDecoder().decode((await reader.read()).value);
+  const acceptedMatch = firstFrame.match(/event: accepted\ndata: ([^\n]+)/);
+  assert.ok(acceptedMatch, firstFrame);
+  const disconnectedId = JSON.parse(acceptedMatch[1]).commandId;
+  await reader.cancel();
+  let disconnectedCommand;
+  for (let attempt = 0; attempt < 100; attempt++) {
+    disconnectedCommand = await json(`/api/commands/${disconnectedId}`);
+    if (disconnectedCommand.command.status === "succeeded") break;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  assert.equal(disconnectedCommand.command.status, "succeeded");
+  assert.equal(disconnectedCommand.command.result.event.task.id, "disconnect-task");
   await json(`/api/agents/${one.id}/messages`, { method: "POST", body: JSON.stringify({ text: "Direct", messageId: "direct-user" }) });
-  assert.equal((await json("/api/tasks")).tasks.length, 3);
+  assert.equal((await json("/api/tasks")).tasks.length, 5);
   assert.equal((await fetch(base + "/api/tasks/" + remoteId)).status, 404);
   assert.equal((await fetch(base + "/api/tasks?limit=0")).status, 400);
   await stop(); await start();
+  assert.deepEqual(await json(`/api/commands/${accepted.command.id}`), completed);
   const cleanOne = await json(`/api/tasks/${ids[0]}`, { headers: { Cookie: "clean-session=one" } });
   const cleanTwo = await json(`/api/tasks/${ids[0]}`, { headers: { Cookie: "clean-session=two" } });
   assert.deepEqual(cleanOne, initial); assert.deepEqual(cleanTwo, initial);
-  assert.equal((await json("/api/tasks")).tasks.length, 3);
+  assert.equal((await json("/api/tasks")).tasks.length, 5);
   await json(`/api/agents/${one.id}/tasks/${remoteId}/cancel?tenant=tenant-b`, { method: "POST" });
   assert.equal((await json(`/api/tasks/${ids[2]}`)).task.state, "TASK_STATE_CANCELED");
   assert.equal((await json(`/api/tasks/${ids[0]}`)).task.state, "TASK_STATE_INPUT_REQUIRED");
-  console.log(`Production HTTP task smoke passed. UI: ${base}/tasks/${ids[0]}`);
+  console.log(`Production HTTP task/command smoke passed (${env.A2A_DATABASE_PROFILE}, ${env.A2A_COMMAND_WORKER_MODE} worker). UI: ${base}/tasks/${ids[0]}`);
   if (process.env.A2A_HTTP_TEST_KEEP_SERVER === "true") {
     console.log("Keeping the fixture and production server available for UI verification; press Ctrl-C to finish.");
     await new Promise((resolve) => { process.once("SIGINT", resolve); process.once("SIGTERM", resolve); });
   }
-} catch (error) { console.error(log); throw error; }
-finally { await stop(); fixture.closeAllConnections(); await new Promise((resolve) => fixture.close(resolve)); await rm(directory, { recursive: true, force: true }); }
+} catch (error) { console.error(log + workerLog); throw error; }
+finally {
+  await stop();
+  if (worker && worker.exitCode === null) { const closed = new Promise((resolve) => worker.once("exit", resolve)); worker.kill("SIGTERM"); await closed; }
+  fixture.closeAllConnections(); await new Promise((resolve) => fixture.close(resolve));
+  await rm(directory, { recursive: true, force: true });
+  if (admin) { try { await admin.query(`drop database "${testDatabase}" with (force)`); } finally { await admin.end(); } }
+}
+if (process.env.A2A_TEST_POSTGRES_URL && !testDatabase && process.env.A2A_HTTP_TEST_KEEP_SERVER !== "true") {
+  const { stdout, stderr } = await promisify(execFile)(process.execPath, ["scripts/verify-task-http.mjs"], {
+    env: { ...process.env, A2A_HTTP_TEST_PROFILE: "postgresql" }, timeout: 120_000,
+  });
+  process.stdout.write(stdout); process.stderr.write(stderr);
+}

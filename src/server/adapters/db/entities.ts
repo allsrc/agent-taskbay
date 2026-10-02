@@ -4,8 +4,10 @@ import type {
   JsonValue,
   OutboxStatus,
   TaskEventSource,
+  CommandStatus,
 } from "../../domain/persistence-model";
 
+// Entity names must remain stable across independently minified Next.js chunks.
 const OrganizationSchema = defineEntity({
   name: "OrganizationEntity",
   tableName: "organizations",
@@ -19,6 +21,7 @@ const OrganizationSchema = defineEntity({
 });
 
 export class OrganizationEntity extends OrganizationSchema.class {}
+Object.defineProperty(OrganizationEntity, "name", { value: "OrganizationEntity" });
 OrganizationSchema.setClass(OrganizationEntity);
 
 const AgentSchema = defineEntity({
@@ -54,6 +57,7 @@ const AgentSchema = defineEntity({
 });
 
 export class AgentEntity extends AgentSchema.class {}
+Object.defineProperty(AgentEntity, "name", { value: "AgentEntity" });
 AgentSchema.setClass(AgentEntity);
 
 const AgentCardSnapshotSchema = defineEntity({
@@ -80,6 +84,7 @@ const AgentCardSnapshotSchema = defineEntity({
 });
 
 export class AgentCardSnapshotEntity extends AgentCardSnapshotSchema.class {}
+Object.defineProperty(AgentCardSnapshotEntity, "name", { value: "AgentCardSnapshotEntity" });
 AgentCardSnapshotSchema.setClass(AgentCardSnapshotEntity);
 
 const TaskSchema = defineEntity({
@@ -129,6 +134,7 @@ const TaskSchema = defineEntity({
 });
 
 export class TaskEntity extends TaskSchema.class {}
+Object.defineProperty(TaskEntity, "name", { value: "TaskEntity" });
 TaskSchema.setClass(TaskEntity);
 
 const TaskEventSchema = defineEntity({
@@ -176,6 +182,7 @@ const TaskEventSchema = defineEntity({
 });
 
 export class TaskEventEntity extends TaskEventSchema.class {}
+Object.defineProperty(TaskEventEntity, "name", { value: "TaskEventEntity" });
 TaskEventSchema.setClass(TaskEventEntity);
 
 const OutboxMessageSchema = defineEntity({
@@ -218,7 +225,27 @@ const OutboxMessageSchema = defineEntity({
 });
 
 export class OutboxMessageEntity extends OutboxMessageSchema.class {}
+Object.defineProperty(OutboxMessageEntity, "name", { value: "OutboxMessageEntity" });
 OutboxMessageSchema.setClass(OutboxMessageEntity);
+
+const TaskCommandSchema = defineEntity({
+  name: "TaskCommandEntity", tableName: "task_commands",
+  properties: {
+    id: p.uuid().primary(),
+    organizationId: () => p.manyToOne(OrganizationEntity).mapToPk().joinColumn("organization_id"),
+    agentId: () => p.manyToOne(AgentEntity).mapToPk().joinColumn("agent_id"),
+    tenant: p.string().length(255), action: p.string().length(32).$type<"send" | "cancelTask">(),
+    idempotencyKey: p.string().length(255), messageId: p.string().length(255),
+    payloadDigest: p.string().length(64), payloadObjectKey: p.text(),
+    status: p.string().length(32).$type<CommandStatus>(), resultJson: p.json<JsonValue>().nullable(),
+    lastError: p.text().nullable(), createdAt: p.datetime(), updatedAt: p.datetime(),
+  },
+  uniques: [{ name: "uq_task_commands_org_key", properties: ["organizationId", "idempotencyKey"] }],
+  indexes: [{ name: "idx_task_commands_org_created", properties: ["organizationId", "createdAt"] }],
+});
+export class TaskCommandEntity extends TaskCommandSchema.class {}
+Object.defineProperty(TaskCommandEntity, "name", { value: "TaskCommandEntity" });
+TaskCommandSchema.setClass(TaskCommandEntity);
 
 export const persistenceEntities = [
   OrganizationEntity,
@@ -227,4 +254,5 @@ export const persistenceEntities = [
   TaskEntity,
   TaskEventEntity,
   OutboxMessageEntity,
+  TaskCommandEntity,
 ];

@@ -31,7 +31,7 @@ agent builder, generic workflow engine, or trace explorer.
 |---|---|---|
 | 0. Specification baseline | Complete | Product, architecture, data, ADR, and execution contracts are stored in-repo. |
 | 1. Persistence foundation | Complete | MikroORM, PGlite/PostgreSQL, migrations, repositories, durable registry and initial task/event storage. |
-| 2. Durable task runtime | Planned | Browser-independent commands, stream workers, webhook ingestion, reconciliation, projections, outbox, and live fan-out. |
+| 2. Durable task runtime | In progress | Browser-independent commands, stream workers, webhook ingestion, reconciliation, projections, outbox, and live fan-out. |
 | 3. Identity and security | Planned | OIDC, service credentials, encrypted vault, RBAC, network policy, and Agent Card trust. |
 | 4. Approval-grade HITL | Planned | Typed decisions, assignment, escalation, immutable audit, and notification channels. |
 | 5. Operator experience | Planned | Shared queues, saved views, search, SLAs, notes, bulk triage, and agent health. |
@@ -56,9 +56,10 @@ The current application already provides:
 
 Observed task state and registry data now persist on the server. Tasks views
 read that durable state across browser sessions. Chat, orchestration, and
-notification caches remain in browser storage; streams depend on connected
+notification caches remain in browser storage. Initial sends and cancellation
+use durable outbox dispatch; follow-up subscriptions still depend on connected
 browser requests and outbound agent authentication is `none`. The next slice
-is Phase 2.1, durable command dispatch.
+is Phase 2.2, worker-owned subscriptions.
 
 ## Cross-cutting work
 

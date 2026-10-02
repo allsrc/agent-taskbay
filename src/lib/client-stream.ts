@@ -13,6 +13,7 @@ export interface StreamMeta {
 }
 
 export interface StreamCallbacks {
+  onAccepted?: (commandId: string) => void;
   onTaskIdentity?: (identity: { localId: string; taskId: string; tenant: string }) => void;
   onMeta?: (meta: StreamMeta) => void;
   onEvent?: (event: unknown) => void;
@@ -43,7 +44,8 @@ export async function sendAndStream(
     signal,
   });
   for await (const { event, data } of readSse(response, signal)) {
-    if (event === "meta") callbacks.onMeta?.(data as StreamMeta);
+    if (event === "accepted") callbacks.onAccepted?.((data as { commandId: string }).commandId);
+    else if (event === "meta") callbacks.onMeta?.(data as StreamMeta);
     else if (event === "persisted") callbacks.onTaskIdentity?.(data as { localId: string; taskId: string; tenant: string });
     else if (event === "a2a") callbacks.onEvent?.(data);
     else if (event === "sideband") callbacks.onSideband?.(data);

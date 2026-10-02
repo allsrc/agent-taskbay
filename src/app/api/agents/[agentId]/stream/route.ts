@@ -3,6 +3,8 @@ import { serializeStreamEvent, streamOperation } from "@/lib/gateway";
 import { readJsonRequest } from "@/lib/request-guard";
 import { createTaskObserver } from "@/server/runtime/task-persistence";
 import type { JsonValue } from "@/server/domain/persistence-model";
+import { acceptCommand, waitForCommand, compatibilityCommandKey } from "@/server/runtime/commands";
+import { apiError } from "@/lib/api-response";
 import { extractSidebandEvents } from "@/server/sideband/decoder";
 
 export const runtime = "nodejs";
@@ -42,72 +44,75 @@ export async function POST(request: Request, context: { params: Promise<{ agentI
   let body: SendBody;
   try { body = await readJsonRequest<SendBody>(request); }
   catch (error) { return Response.json({ error: { message: error instanceof Error ? error.message : "Invalid request JSON." } }, { status: 400 }); }
-  if (!body.resubscribe && !body.text?.trim() && !body.parts?.length) {
-    return Response.json({ error: { message: "A message needs at least one content part." } }, { status: 400 });
+  if (!body || typeof body !== "object" || Array.isArray(body) || (body.resubscribe !== undefined && typeof body.resubscribe !== "boolean")) {
+    return Response.json({ error: { message: "A valid send or subscription object is required." } }, { status: 400 });
   }
-  if (body.resubscribe && !body.taskId) {
+  if (body.resubscribe && (typeof body.taskId !== "string" || !body.taskId || (body.tenant !== undefined && (typeof body.tenant !== "string" || body.tenant.length > 255)))) {
     return Response.json({ error: { message: "taskId is required to resubscribe." } }, { status: 400 });
   }
 
   const sessionId = crypto.randomUUID();
   const requestId = crypto.randomUUID();
-  const messageId = body.messageId || crypto.randomUUID();
-  const observer = createTaskObserver({
-    agentId: agent.id, tenant: body.tenant, sessionId, requestId,
-    userMessage: body.resubscribe ? undefined : JSON.parse(JSON.stringify({
-      messageId, role: "ROLE_USER", parts: body.text?.trim() ? [{ text: body.text }, ...(body.parts ?? [])] : body.parts,
-      referenceTaskIds: body.config?.referenceTaskIds, metadata: body.config?.metadata,
-    })) as JsonValue,
-  });
+  let commandId: string | undefined;
+  if (!body.resubscribe) {
+    try {
+      const input = { ...body };
+      delete input.resubscribe;
+      const command = await acceptCommand(agent.id, input, request.headers.get("Idempotency-Key") ?? compatibilityCommandKey(agent.id, body.tenant, body.messageId));
+      commandId = command.id;
+    } catch (error) { return apiError(error, 400); }
+  }
+  const observer = createTaskObserver({ agentId: agent.id, tenant: body.tenant, sessionId, requestId });
 
+  let disconnected = false;
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
+      const emit = (event: string, data: unknown) => { if (!disconnected) controller.enqueue(frame(event, data)); };
       try {
+        let taskId = body.taskId;
+        if (commandId) {
+          emit("accepted", { commandId });
+          const command = await waitForCommand(commandId, request.signal);
+          const result = command.resultJson as { event: JsonValue; localId: string; taskId: string; tenant: string };
+          emit("persisted", { localId: result.localId, taskId: result.taskId, tenant: result.tenant });
+          emit("a2a", result.event);
+          const task = (result.event as { task?: { id: string; status?: { state: string } } }).task;
+          if (!task || ["TASK_STATE_COMPLETED", "TASK_STATE_FAILED", "TASK_STATE_CANCELED", "TASK_STATE_REJECTED", "TASK_STATE_INPUT_REQUIRED", "TASK_STATE_AUTH_REQUIRED"].includes(task.status?.state ?? "")) {
+            emit("end", { sessionId, requestId, commandId });
+            return;
+          }
+          taskId = task.id;
+        }
+        // Initial sends are worker-dispatched. Only the follow-up subscription
+        // remains attached to this browser request until Slice 2.2.
         const session = await streamOperation({
           connection: { cardUrl: agent.cardUrl, auth: { type: "none" }, headers: {} },
-          // Any action other than "send" resubscribes to the existing task's
-          // stream instead of sending a new message (see gateway.ts's streamOperation).
-          action: body.resubscribe ? "getTask" : "send",
-          params: {
-            text: body.text,
-            tenant: body.tenant,
-            messageId,
-            parts: body.parts,
-            taskId: body.taskId,
-            contextId: body.contextId,
-            returnImmediately: body.config?.returnImmediately,
-            historyLength: typeof body.config?.historyLength === "number" ? body.config.historyLength : undefined,
-            acceptedOutputModes: body.config?.acceptedOutputModes?.length ? body.config.acceptedOutputModes : undefined,
-            referenceTaskIds: body.config?.referenceTaskIds,
-            extensions: body.config?.extensions,
-            metadata: body.config?.metadata,
-            requestMetadata: body.config?.requestMetadata,
-          },
-          sessionId,
-          requestId,
+          action: "getTask", params: { tenant: body.tenant, taskId }, sessionId, requestId,
         });
-        controller.enqueue(frame("meta", {
+        emit("meta", {
           sessionId,
           requestId,
           protocolVersion: session.client.protocolVersion,
           transport: session.client.transport.protocolName,
           negotiatedExtensions: session.negotiatedExtensions,
-        }));
+        });
         for await (const event of session.events) {
+          if (disconnected || request.signal.aborted) break;
           const serialized = serializeStreamEvent(event);
           const durable = await observer(serialized as JsonValue);
-          controller.enqueue(frame("persisted", { localId: durable.localId, taskId: durable.taskId, tenant: durable.tenant }));
-          controller.enqueue(frame("a2a", serialized));
+          emit("persisted", { localId: durable.localId, taskId: durable.taskId, tenant: durable.tenant });
+          emit("a2a", serialized);
           const sidebandEvents = extractSidebandEvents(serialized, { sessionId, requestId, negotiatedExtensions: session.negotiatedExtensions });
-          for (const sidebandEvent of sidebandEvents) controller.enqueue(frame("sideband", sidebandEvent));
+          for (const sidebandEvent of sidebandEvents) emit("sideband", sidebandEvent);
         }
-        controller.enqueue(frame("end", { sessionId, requestId }));
+        emit("end", { sessionId, requestId });
       } catch (error) {
-        controller.enqueue(frame("error", { sessionId, requestId, message: error instanceof Error ? error.message : "Streaming request failed." }));
+        emit("error", { sessionId, requestId, commandId, message: error instanceof Error ? error.message : "Streaming request failed." });
       } finally {
-        controller.close();
+        if (!disconnected) controller.close();
       }
     },
+    cancel() { disconnected = true; },
   });
 
   return new Response(stream, {

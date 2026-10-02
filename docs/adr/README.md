@@ -19,3 +19,4 @@ accepted ADR. Small implementation details do not require an ADR.
 - [0005 — Separate user, agent, and in-task authorization](./0005-authentication-planes.md)
 
 - [0006 — Initial task projections and binary protocol archives](./0006-initial-task-projections.md)
+- [0007 — Durable commands, uncertain outcomes, and local dispatch](./0007-command-dispatch-and-local-worker.md)

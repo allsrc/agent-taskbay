@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
-import type { MikroORM } from "@mikro-orm/core";
+import type { MikroORM, EntityManager } from "@mikro-orm/core";
+import type { DurableTaskView } from "../../shared/task-types";
 import type { ArtifactStore } from "../application/ports/artifact-store";
 import { ObserveTaskService, eventDigest } from "../application/services/observe-task";
 import { TaskQueryService } from "../application/services/task-query";
@@ -46,6 +47,7 @@ async function externalizeBinary(event: JsonValue, organizationId: string, store
 }
 
 export interface ObservationSession {
+  organizationId?: string;
   agentId: string;
   tenant?: string;
   sessionId: string;
@@ -55,12 +57,17 @@ export interface ObservationSession {
 }
 
 /** Browser-triggered streams remain temporary writers until the Phase 2 worker. */
-export function createTaskObserver(session: ObservationSession, options: { orm?: MikroORM; store?: ArtifactStore } = {}) {
+export function createTaskObserver(session: ObservationSession, options: {
+  orm?: MikroORM; store?: ArtifactStore;
+  onObserved?: (view: DurableTaskView, event: JsonValue, transaction: EntityManager) => Promise<void>;
+} = {}) {
   const occurrences = new Map<string, number>();
   const directThreadId = randomUUID();
   return async (event: JsonValue) => withRequestEntityManager(async (em) => {
     const repositories = createPersistenceRepositories(em);
-    const organization = await bootstrapDefaultLocalOrganization(repositories.organizations);
+    const organization = session.organizationId ? await repositories.organizations.findById(session.organizationId) :
+      await bootstrapDefaultLocalOrganization(repositories.organizations);
+    if (!organization) throw new Error("Unknown observation organization.");
     const archived = await externalizeBinary(event, organization.id, options.store ?? artifactStore);
     const user = session.userMessage ? await externalizeBinary(session.userMessage, organization.id, options.store ?? artifactStore) : undefined;
     const digest = eventDigest(event);
@@ -70,7 +77,7 @@ export function createTaskObserver(session: ObservationSession, options: { orm?:
     return em.transactional(async (transaction) => {
       const ports = createPersistenceRepositories(transaction);
       const service = new ObserveTaskService(ports.agents, ports.tasks, ports.taskEvents);
-      return service.observe({
+      const view = await service.observe({
         ...session, organizationId: organization.id, tenant: session.tenant ?? "",
         event: archived.event, originalEventObjectKey: archived.originalEventObjectKey,
         payloadDigest: digest, source: session.source ?? "stream", sourceKey: `${kind}:${digest}:${ordinal}`,
@@ -78,6 +85,8 @@ export function createTaskObserver(session: ObservationSession, options: { orm?:
         userMessagePayloadDigest: session.userMessage ? eventDigest(session.userMessage) : undefined,
         userMessageOriginalObjectKey: user?.originalEventObjectKey,
       });
+      await options.onObserved?.(view, archived.event, transaction);
+      return view;
     });
   }, options.orm);
 }

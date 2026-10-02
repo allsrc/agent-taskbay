@@ -6,7 +6,7 @@ Last updated: 2026-10-03
 
 - Last completed phase: **Phase 1 — persistence foundation**
 - Active phase: **Phase 2 — durable task runtime**
-- Next executable slice: **2.1 — durable command dispatch**
+- Next executable slice: **2.2 — worker-owned subscriptions**
 - Blocking decisions: none
 
 ## Accepted implementation choices
@@ -326,6 +326,91 @@ Next executable slice: **2.1 — durable command dispatch**. Persist command
 intent with stable message/idempotency IDs and its outbox record atomically,
 then implement durable dispatch/retry state. Verify duplicates, organization
 scope, and restart recovery before moving long-lived streams into workers.
+
+## Phase 2 Slice 2.1 verified evidence
+
+Date: 2026-10-03
+
+Slice: **2.1 — durable command dispatch**
+
+Changes:
+
+- Added TaskCommand, its migration, organization-scoped command repository,
+  intent service, gateway port/adapter, and command dispatcher. Intent and the
+  command-ID-only outbox row commit atomically. Command input, including inline
+  binary parts, is archived in ArtifactStore rather than relational rows.
+- Idempotency keys return the original command for identical intent and reject
+  changed intent with 409. Message IDs persist across dispatch attempts.
+  Compatibility keys include agent and tenant scope.
+- Added leased, concurrently claimable outbox dispatch, heartbeat renewal,
+  fenced completion, and bounded pre-dispatch retry. Response ingestion,
+  projection updates, command success, and outbox completion share a transaction.
+  Uncertain remote failures and expired attempts never automatically resend.
+- Added a 202 command submission API and scoped status/result API. Existing
+  send, streaming-send, and cancellation entry points now commit intent before
+  remote dispatch. Streaming sends receive a worker-dispatched SendMessage
+  snapshot, then keep browser-owned follow-up subscriptions until Slice 2.2.
+- Added embedded local dispatch at Node server startup and a separate
+  PostgreSQL command worker. ADR 0007 adjusts the local process topology because
+  independent web/worker processes cannot own the same PGlite directory.
+- Stabilized ORM entity names across separately minified Next.js startup and
+  route chunks; production HTTP tests verify both paths use the same mappings.
+
+Verification commands and results:
+
+- Before implementation, the Phase 1 quality gate passed against PGlite and
+  PostgreSQL 18: 35 unit tests, 12 database tests, lint, schema, build, and HTTP
+  restart verification. The initial PostgreSQL attempt failed because its
+  disposable container was absent; recreating it restored the baseline.
+- `A2A_TEST_POSTGRES_URL=postgresql://postgres:postgres@127.0.0.1:55432/a2a_ops_test npm run check`:
+  passed lint; 11 unit files and 36 tests; 5 database files and 14 tests on
+  PGlite/PostgreSQL 18; schema check; production build; and HTTP verification
+  on PGlite with embedded dispatch and PostgreSQL with a separate worker.
+- Shared command contract verifies concurrent duplicate acceptance, conflict
+  detection, command/outbox rollback, two-worker claim races, restart recovery,
+  stable IDs, bounded retries, expired leases, fenced response rollback,
+  redacted errors, binary input archives, and cross-organization dispatch/read
+  isolation, including direct Message replies.
+- Production HTTP checks verify all command entry points, command status,
+  duplicate dispatch count, input errors, scoped tasks/artifacts, full web
+  restart, and a browser stream closed immediately after acceptance while the
+  command still completes. The PostgreSQL test creates and removes its own
+  temporary test database and exercises the actual worker entry point.
+- Browser chat verification passed through the existing composer: command
+  acceptance appeared in Wire, the direct Message reply rendered, and the
+  browser console reported no errors.
+- `npm run db:migrate`: applied the command migration locally. The first gate
+  correctly detected the pending local schema; rerunning after migration passed.
+- `npm audit`: zero reported vulnerabilities.
+
+Migration tested from:
+
+- Clean PGlite and PostgreSQL 18 databases through all four migrations.
+- The immediately previous task-content PGlite schema with an existing task,
+  upgraded to the command schema without losing its remote identity or state.
+- Command and task recovery after database-owner and production web restart.
+
+Remaining risks:
+
+- Phase 2 is still in progress. Long-lived task subscriptions remain owned by
+  browser requests; worker reconnect, reconciliation, webhooks, versioned replay,
+  live freshness signals, and browser-cache removal are subsequent slices.
+- Unknown remote outcomes are recorded as uncertain; no exactly-once remote
+  execution guarantee is claimed. Reconciliation/recovery controls are pending.
+- Initial sends use SendMessage. Explicit returnImmediately=false can hold a
+  dispatch until the peer responds or the existing gateway timeout expires.
+  The initial dispatcher processes commands serially per loop; additional
+  PostgreSQL workers can claim other commands concurrently.
+- Embedded dispatch requires a long-running Node server. External dispatch
+  requires PostgreSQL, shared artifacts, and the initial tsx/dev dependencies.
+- Development routes still use the local organization; production identity,
+  authorization, actor audit, object retention and content policies remain in
+  their assigned phases. Files can remain orphaned after rollback.
+
+Next executable slice: **2.2 — worker-owned subscriptions**. Persist
+subscription intent/leases, reconnect and ingest independently of browser
+lifetimes, and verify worker restart, input-required prompts, and artifacts.
+Do not begin webhook or reconciliation implementation in the same slice.
 
 ## Known repository-state issue
 

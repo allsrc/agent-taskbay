@@ -6,6 +6,7 @@ import type {
   TaskEventRecord,
   TaskRecord,
   TaskSummaryRecord,
+  TaskCommandRecord,
 } from "../../domain/persistence-model";
 
 export interface OrganizationRepository {
@@ -71,9 +72,19 @@ export interface TaskEventRepository {
 }
 
 export interface OutboxRepository {
+  /** Must be called inside a transaction. Reclaimed leases are uncertain. */
+  claim(topic: string, owner: string, now: Date, leaseUntil: Date): Promise<{ message: OutboxMessageRecord; recovered: boolean } | undefined>;
+  renew(id: string, organizationId: string, owner: string, now: Date, until: Date): Promise<boolean>;
+  finish(id: string, organizationId: string, owner: string, now: Date, changes: Pick<OutboxMessageRecord, "status" | "availableAt" | "lastError" | "processedAt">): Promise<boolean>;
   enqueue(message: OutboxMessageRecord): Promise<OutboxMessageRecord>;
   findById(
     organizationId: string,
     id: string,
   ): Promise<OutboxMessageRecord | undefined>;
+}
+
+export interface TaskCommandRepository {
+  getOrCreate(command: TaskCommandRecord): Promise<{ command: TaskCommandRecord; created: boolean }>;
+  findById(organizationId: string, id: string): Promise<TaskCommandRecord | undefined>;
+  update(organizationId: string, id: string, changes: Pick<TaskCommandRecord, "status" | "resultJson" | "lastError" | "updatedAt">): Promise<void>;
 }

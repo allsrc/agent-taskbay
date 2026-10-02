@@ -18,8 +18,9 @@ when an agent needs a decision, and see it through to done.
 ## Status
 
 Phase 1 is complete: the agent registry and observed task history persist in
-PGlite or PostgreSQL, and Tasks views read shared server state. Streams still
-run while a browser request is connected. Browser-independent execution,
+PGlite or PostgreSQL, and Tasks views read shared server state. Slice 2.1 adds
+durable commands and outbox dispatch; follow-up task streams still run while
+a browser request is connected. Continuous background task tracking,
 authentication, RBAC, push notifications, and an approval audit trail are
 planned in the following phases. See **What's not built yet** below.
 
@@ -129,8 +130,8 @@ discovery, streaming, content-type rendering, and sideband decoding.
 
 ## What's not built yet
 
-Long-lived streams still depend on the browser's connected request; durable
-commands, worker execution, webhooks, and reconciliation are Phase 2 work.
+Long-lived subscriptions still depend on the browser's connected request;
+worker subscriptions, webhooks, and reconciliation are subsequent Phase 2 work.
 Chat, orchestration, and notifications still use browser caches, including
 notification read state. Existing browser history is not automatically imported
 into the database; new observations become durable. Every request connects to
@@ -157,6 +158,30 @@ Binary output and original events containing inline bytes are archived under
 alongside the database. The initial adapter limits each object to 16 MiB and
 serves downloads as attachments; richer content policies remain Phase 3 work.
 
+Initial sends and cancellations persist command intent before dispatch. The
+local default starts an embedded dispatcher in the Next.js Node server; use a
+long-running server for this profile. For separate workers, configure
+PostgreSQL and `A2A_COMMAND_WORKER_MODE=external`, then run
+`npm run worker:commands` alongside the web server. Both processes need the
+same database, artifact directory, and server configuration. The worker
+requires dev dependencies (`tsx`) in this initial packaging.
+
+Scripts can submit `POST /api/agents/<local-agent-id>/commands` with an
+`Idempotency-Key` header and a send body (`text`/`parts`, optional tenant,
+messageId, taskId, contextId, and config), or `action: "cancelTask"` plus
+taskId. The API returns 202 and a local command ID; poll
+`GET /api/commands/<id>` for status/result. Repeat the same key and content to
+recover the original operation; changed content returns 409. Command input is
+archived outside relational rows. Discovery failures retry up to three times;
+uncertain remote outcomes and expired attempts require investigation and are
+never automatically resent.
+
+Compatibility send/cancel routes wait for the durable result. Initial sends
+use A2A SendMessage, defaulting to returnImmediately unless config explicitly
+sets it; the stream route then subscribes to open tasks while the browser is
+connected. These subscriptions are the next slice. Command acceptance appears
+in the wire view, and closing that view does not cancel dispatch.
+
 Existing `.data/agents.json` entries (or `A2A_DATA_DIR/agents.json`) are
 automatically imported on first registry access after migrations. The legacy
 file is kept unchanged. Imports are repeatable and preserve removed entries as
@@ -178,8 +203,10 @@ npm run check   # full local quality gate
 
 `npm run check` includes the production HTTP test. Database contract tests
 always exercise PGlite; set `A2A_TEST_POSTGRES_URL` to exercise PostgreSQL too,
-as CI does. The HTTP test uses a fresh PGlite database and local fixture agents,
-then verifies task recovery after a full server restart.
+as CI does. The HTTP test uses fresh PGlite and local fixture agents, verifies
+commands after browser disconnect and recovery after web restart, then also
+tests a separate PostgreSQL worker when the test URL is set. That test account
+needs permission to create/drop its temporary test database.
 
 ## Design background
 

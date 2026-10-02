@@ -226,10 +226,16 @@ Missing a live signal is harmless because clients re-query durable state.
 ### Local
 
 - Next.js web process
-- worker process
+- embedded command dispatcher sharing the PGlite owner (ADR 0007)
 - file-backed PGlite
 - local artifact directory
 - development identity and locally encrypted secrets
+
+Slice 2.1 uses an embedded worker loop in the long-running Next.js Node server
+for the local PGlite profile. PostgreSQL supports a separate command worker
+with `A2A_COMMAND_WORKER_MODE=external` and `npm run worker:commands`. Both
+profiles use the same ports, lease protocol, and dispatch application service.
+Long-lived subscriptions remain browser-triggered until Slice 2.2.
 
 ### Docker/demo
 
