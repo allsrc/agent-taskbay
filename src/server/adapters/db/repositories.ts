@@ -162,6 +162,45 @@ export class MikroOrmOrganizationRepository implements OrganizationRepository {
 export class MikroOrmAgentRepository implements AgentRepository {
   constructor(private readonly entityManager: EntityManager) {}
 
+  async listByOrganization(organizationId: string) {
+    const entities = await this.entityManager.find(
+      AgentEntity,
+      { organizationId },
+      { orderBy: { createdAt: "asc", id: "asc" }, refresh: true },
+    );
+    return entities.map(agentRecord);
+  }
+
+  async getOrCreate(agent: AgentRecord) {
+    await this.entityManager.upsert(AgentEntity, agent, {
+      disableIdentityMap: true,
+      onConflictAction: "ignore",
+      onConflictFields: ["organizationId", "cardUrl"],
+    });
+    const entity = await this.entityManager.findOneOrFail(
+      AgentEntity,
+      { organizationId: agent.organizationId, cardUrl: agent.cardUrl },
+      { refresh: true },
+    );
+    return agentRecord(entity);
+  }
+
+  async updateRegistration(
+    organizationId: string,
+    id: string,
+    registration: Pick<AgentRecord, "source" | "enabled" | "updatedAt">,
+  ) {
+    return (await this.entityManager.nativeUpdate(AgentEntity, { organizationId, id }, registration)) > 0;
+  }
+
+  async updateDiscovery(
+    organizationId: string,
+    id: string,
+    discovery: Pick<AgentRecord, "displayName" | "description" | "protocolSnapshotVersion" | "lastDiscoveryAt" | "lastHealthyAt" | "updatedAt">,
+  ) {
+    return (await this.entityManager.nativeUpdate(AgentEntity, { organizationId, id }, discovery)) > 0;
+  }
+
   async findById(organizationId: string, id: string) {
     const entity = await this.entityManager.findOne(AgentEntity, {
       id,

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { discoverAgent } from "@/lib/gateway";
+import { discoverRegisteredAgent } from "@/server/runtime/agent-discovery";
 import { agentRegistry } from "@/lib/agent-registry";
 import { apiError } from "@/lib/api-response";
 import { readJsonRequest } from "@/lib/request-guard";
@@ -28,7 +28,7 @@ export async function GET() {
   const agents = await agentRegistry().list();
   const entries: CatalogEntry[] = await Promise.all(agents.map(async (agent) => {
     try {
-      const discovery = await discoverAgent({ cardUrl: agent.cardUrl, auth: { type: "none" }, headers: {} });
+      const discovery = await discoverRegisteredAgent(agent);
       const card = discovery.card as { name?: string; description?: string; skills?: CatalogEntry["skills"] };
       return { id: agent.id, cardUrl: agent.cardUrl, source: agent.source, name: card.name, description: card.description, skills: card.skills, card: discovery.card };
     } catch (error) {

@@ -1,12 +1,12 @@
 # Execution status
 
-Last updated: 2026-10-01
+Last updated: 2026-10-03
 
 ## Active position
 
 - Last completed phase: **Phase 0 — specification baseline**
 - Active phase: **Phase 1 — persistence foundation**
-- Next executable slice: **1.3 — durable registry**
+- Next executable slice: **1.4 — first durable task read path**
 - Blocking decisions: none
 
 ## Accepted implementation choices
@@ -164,6 +164,83 @@ Next executable slice: **1.3 — durable registry**. Replace the JSON-file
 managed-agent adapter, preserve environment-seeded non-removable entries,
 persist discovery/compliance snapshots, and migrate existing managed entries
 idempotently. Do not begin Slice 1.4.
+
+## Phase 1 Slice 1.3 verified evidence
+
+Date: 2026-10-03
+
+Slice: **1.3 — durable registry**
+
+Changes:
+
+- Replaced the JSON-file registry writer with a MikroORM database adapter,
+  backed by the existing organization-scoped Agent repository port and a
+  framework-independent AgentCatalogService.
+- New catalog identities are local UUIDs. Legacy URL-hash IDs remain accepted
+  for reads and removal so existing agent links and browser conversations can
+  resolve their registered agent.
+- Environment-seeded agents are deduplicated, persisted, and non-removable.
+  A managed entry overlapping a seed remains protected while configured;
+  environment-only entries leave the active catalog when unconfigured while
+  keeping their persisted identity and history.
+- Catalog and registered-agent detail discovery now atomically append raw and
+  normalized Agent Card snapshots, compliance reports, digest, unverified
+  signature status, and discovery/healthy timestamps. Wire telemetry is not
+  included in the snapshot.
+- Legacy agents.json entries are imported transactionally on first registry
+  access. The original file is retained unchanged, malformed imports fail
+  without partial writes, and failed imports can retry after repair.
+- Managed removal disables the record, preserving task references, snapshots,
+  and identity. Repeat imports cannot restore removed agents; explicit
+  registration re-enables the original UUID.
+- Added concurrent registration, restart/recovery, import, rollback, seed
+  protection, discovery, and organization-isolation coverage and documented
+  the registry migration and configuration.
+
+Verification commands and results:
+
+- Before implementation, the existing full quality gate passed against
+  PGlite and PostgreSQL 18: 31 unit tests, 6 database tests, lint, schema check,
+  and production build.
+- `A2A_TEST_POSTGRES_URL=postgresql://postgres:postgres@127.0.0.1:55432/a2a_ops_test npm run check`:
+  passed lint; 9 unit files and 29 tests; 3 database files and 10 tests across
+  PGlite and PostgreSQL; schema check; and the Next.js production build.
+- `npm run build`: passed again after excluding runtime import data from
+  Turbopack filesystem tracing, with no build warnings.
+- `npx tsc --noEmit`: passed.
+- `npm audit`: zero reported vulnerabilities.
+- `git diff --check`: passed.
+- Production HTTP smoke with `next start -p 3103`, a fresh file-backed PGlite
+  database, and a local fixture Agent Card server passed: legacy import,
+  catalog/detail discovery, old-ID resolution, environment deletion returning
+  409, managed registration/removal, and recovery after a complete server
+  restart. The removed legacy entry stayed absent and the original JSON file
+  stayed unchanged.
+
+Migration tested from:
+
+- Clean PGlite and PostgreSQL 18 databases using the existing migrations.
+- The previous baseline-only PGlite schema upgraded to the initial-model
+  schema, using the existing shared migration contract.
+- Existing agents.json data with duplicates and overlapping environment seeds,
+  imported repeatedly across independent registry instances and ORM restart.
+- No schema change was required for this slice; the Slice 1.2 schema remains
+  current with no drift.
+
+Remaining risks:
+
+- Task views still use browser state until Slice 1.4; Phase 1 is not complete.
+- Signature status is explicitly unverified; cryptographic trust and access
+  policy remain Phase 3 work.
+- Snapshot persistence covers registered-agent catalog/detail discovery.
+  Unregistered previews and transport-internal discovery are not snapshot
+  writers in this slice.
+- Runtime database migrations remain an explicit setup/deployment step.
+
+Next executable slice: **1.4 — first durable task read path**. Persist observed
+stream task snapshots/events, add organization-scoped task list/detail query
+services and APIs, switch Tasks views to server reads, and add restart/recovery
+and remote-ID collision tests. Do not begin Phase 2.
 
 ## Known repository-state issue
 

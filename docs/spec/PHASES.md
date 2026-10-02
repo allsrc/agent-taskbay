@@ -49,10 +49,10 @@ Requirements: all, as planning coverage.
 
 ### Slice 1.3: durable registry
 
-- [ ] Replace the JSON-file managed-agent registry with a database adapter.
-- [ ] Preserve environment-seeded non-removable entries.
-- [ ] Persist discovery snapshots and card compliance results.
-- [ ] Migrate existing managed registry entries idempotently when present.
+- [x] Replace the JSON-file managed-agent registry with a database adapter.
+- [x] Preserve environment-seeded non-removable entries.
+- [x] Persist discovery snapshots and card compliance results.
+- [x] Migrate existing managed registry entries idempotently when present.
 
 ### Slice 1.4: first durable task read path
 

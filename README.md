@@ -86,7 +86,9 @@ discovery, streaming, content-type rendering, and sideband decoding.
   (bindings + tenant), skills, security schemes and input/output modes. A
   three-step **Connect agent** flow (Agent Card URL → security scheme →
   connect) registers new ones. Backed by `src/lib/agent-registry.ts`
-  (env-var + JSON file, behind an `AgentRegistry` interface).
+  (PGlite/PostgreSQL, behind an `AgentRegistry` interface). Registered-agent
+  catalog and detail discovery persist raw/normalized cards and compliance
+  snapshots. Environment-seeded entries remain non-removable.
 - **Chat** (`/chat`, `/chat/[key]`) — one conversation (`contextId`), many
   tasks, in a single timeline: Message replies as bubbles, each Task as a card
   (status steps, cancel), `INPUT_REQUIRED` / `AUTH_REQUIRED` prompts (with
@@ -145,6 +147,15 @@ npm run dev                  # http://localhost:3002
 Set `A2A_DATABASE_PROFILE=postgresql` and `A2A_DATABASE_URL` to use a PostgreSQL
 server instead. `A2A_PGLITE_DATA_DIR` overrides the default `.data/pglite`
 directory. Database credentials are server-only configuration.
+
+Existing `.data/agents.json` entries (or `A2A_DATA_DIR/agents.json`) are
+automatically imported on first registry access after migrations. The legacy
+file is kept unchanged. Imports are repeatable and preserve removed entries as
+disabled database records, so restarting cannot restore them. Explicitly
+registering a removed URL re-enables its original UUID. Old URL-hash agent
+links continue to resolve; new catalog entries expose durable local UUIDs.
+Environment-only agents disappear from the active catalog when removed from
+`A2A_REGISTERED_AGENTS`; their stored history remains intact.
 
 ```bash
 npm run lint

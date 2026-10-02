@@ -14,6 +14,18 @@ export interface OrganizationRepository {
 }
 
 export interface AgentRepository {
+  listByOrganization(organizationId: string): Promise<AgentRecord[]>;
+  getOrCreate(agent: AgentRecord): Promise<AgentRecord>;
+  updateRegistration(
+    organizationId: string,
+    id: string,
+    registration: Pick<AgentRecord, "source" | "enabled" | "updatedAt">,
+  ): Promise<boolean>;
+  updateDiscovery(
+    organizationId: string,
+    id: string,
+    discovery: Pick<AgentRecord, "displayName" | "description" | "protocolSnapshotVersion" | "lastDiscoveryAt" | "lastHealthyAt" | "updatedAt">,
+  ): Promise<boolean>;
   findById(
     organizationId: string,
     id: string,

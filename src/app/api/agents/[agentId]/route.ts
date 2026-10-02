@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { discoverAgent } from "@/lib/gateway";
+import { discoverRegisteredAgent } from "@/server/runtime/agent-discovery";
 import { agentRegistry } from "@/lib/agent-registry";
 import { apiError } from "@/lib/api-response";
 
@@ -11,7 +11,7 @@ export async function GET(_request: Request, context: { params: Promise<{ agentI
   const agent = await agentRegistry().get(agentId);
   if (!agent) return NextResponse.json({ error: { message: "Unknown agent." } }, { status: 404 });
   try {
-    const discovery = await discoverAgent({ cardUrl: agent.cardUrl, auth: { type: "none" }, headers: {} });
+    const discovery = await discoverRegisteredAgent(agent);
     return NextResponse.json(
       { id: agent.id, cardUrl: agent.cardUrl, source: agent.source, card: discovery.card, report: discovery.report },
       { headers: { "Cache-Control": "no-store" } },
@@ -32,6 +32,7 @@ export async function DELETE(_request: Request, context: { params: Promise<{ age
       { status: 409 },
     );
   }
-  await agentRegistry().remove(agentId);
+  const removed = await agentRegistry().remove(agentId);
+  if (!removed) return NextResponse.json({ error: { message: "Agent could not be removed." } }, { status: 409 });
   return NextResponse.json({ removed: true }, { headers: { "Cache-Control": "no-store" } });
 }

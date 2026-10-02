@@ -37,7 +37,7 @@ yarn-error.log*
 # vercel
 .vercel
 
-# local catalog-management data (JSON-file-backed agent registry, see ROADMAP.md Phase 1)
+# local PGlite database and legacy catalog import data
 /.data
 
 # typescript

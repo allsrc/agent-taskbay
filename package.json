@@ -31,7 +31,7 @@
     "start": "next start -p 3002",
     "lint": "eslint",
     "test": "vitest run --exclude 'src/server/adapters/db/**/*.db.test.ts'",
-    "test:db": "vitest run src/server/adapters/db/database.db.test.ts src/server/adapters/db/repositories.db.test.ts --maxWorkers=1",
+    "test:db": "vitest run src/server/adapters/db/database.db.test.ts src/server/adapters/db/repositories.db.test.ts src/server/adapters/db/agent-registry.db.test.ts --maxWorkers=1",
     "test:coverage": "vitest run --coverage --exclude 'src/server/adapters/db/**/*.db.test.ts'",
     "db:migrate": "mikro-orm migration:up",
     "db:migrate:down": "mikro-orm migration:down",
