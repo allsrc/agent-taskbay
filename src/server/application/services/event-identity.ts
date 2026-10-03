@@ -7,4 +7,3 @@ export function canonicalJson(value: JsonValue): string {
   return JSON.stringify(value);
 }
 export function eventDigest(event: JsonValue) { return createHash("sha256").update(canonicalJson(event)).digest("hex"); }
-
