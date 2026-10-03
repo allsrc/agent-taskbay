@@ -1,0 +1,227 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* A2A Ops theme: light by default, dark via the `.dark` class. */
+:root {
+  --radius: 0.625rem;
+
+  --background: #faf9f6;
+  --foreground: #141414;
+
+  --card: #ffffff;
+  --card-foreground: #141414;
+
+  --popover: #ffffff;
+  --popover-foreground: #141414;
+
+  --primary: #4f52e0;
+  --primary-foreground: #ffffff;
+
+  --brand: #f0583a;
+  --brand-foreground: #ffffff;
+
+  --secondary: #efeee8;
+  --secondary-foreground: #141414;
+
+  --muted: #f1f0ea;
+  --muted-foreground: #62626b;
+
+  --accent: #efeee8;
+  --accent-foreground: #141414;
+
+  --destructive: #d9442a;
+  --destructive-foreground: #ffffff;
+
+  --success: #15803d;
+  --success-foreground: #ffffff;
+
+  --warning: #b45309;
+  --warning-foreground: #ffffff;
+
+  --auth: #8b3fd9;
+  --auth-foreground: #ffffff;
+
+  --sidebar: #f2f1ec;
+  --inset: #f3f2ec;
+
+  --border: #e4e2da;
+  --input: #dad8cf;
+  --ring: #4f52e0;
+}
+
+.dark {
+  --background: #141414;
+  --foreground: #f3f2ec;
+
+  --card: #1a1a1c;
+  --card-foreground: #f3f2ec;
+
+  --popover: #1e1e21;
+  --popover-foreground: #f3f2ec;
+
+  --primary: #8c8fff;
+  --primary-foreground: #141414;
+
+  --brand: #ff6b4a;
+  --brand-foreground: #141414;
+
+  --secondary: #26262a;
+  --secondary-foreground: #f3f2ec;
+
+  --muted: #1e1e21;
+  --muted-foreground: #a3a3aa;
+
+  --accent: #232327;
+  --accent-foreground: #f3f2ec;
+
+  --destructive: #ff6b4a;
+  --destructive-foreground: #141414;
+
+  --success: #5ee0a0;
+  --success-foreground: #141414;
+
+  --warning: #ffc65c;
+  --warning-foreground: #141414;
+
+  --auth: #d08cff;
+  --auth-foreground: #141414;
+
+  --sidebar: #101011;
+  --inset: #0e0e0f;
+
+  --border: #2e2e33;
+  --input: #2e2e33;
+  --ring: #8c8fff;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-auth: var(--auth);
+  --color-auth-foreground: var(--auth-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-inset: var(--inset);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --font-sans: var(--font-instrument-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, "SFMono-Regular", monospace;
+
+  --animate-pulse-soft: pulse-soft 1.2s ease-in-out infinite;
+  --animate-caret: caret 1s steps(1) infinite;
+  @keyframes pulse-soft {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+  }
+  @keyframes caret {
+    50% { opacity: 0; }
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 3px;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+}
+
+@layer components {
+  /* Small mono caption used for card labels throughout: "CAPABILITIES", "TASK", ... */
+  .label-mono {
+    @apply text-muted-foreground font-mono text-[11px] font-medium tracking-[0.06em] uppercase;
+  }
+
+  .markdown-content {
+    @apply text-sm leading-relaxed;
+  }
+  .markdown-content > :first-child {
+    @apply mt-0;
+  }
+  .markdown-content > :last-child {
+    @apply mb-0;
+  }
+  .markdown-content h1,
+  .markdown-content h2,
+  .markdown-content h3 {
+    @apply mt-4 mb-2 font-semibold tracking-tight;
+  }
+  .markdown-content p {
+    @apply my-2;
+  }
+  .markdown-content ul,
+  .markdown-content ol {
+    @apply my-2 ps-5;
+  }
+  .markdown-content ul {
+    @apply list-disc;
+  }
+  .markdown-content ol {
+    @apply list-decimal;
+  }
+  .markdown-content a {
+    @apply text-primary underline-offset-2 hover:underline;
+  }
+  .markdown-content code {
+    @apply bg-muted rounded px-1 py-0.5 font-mono text-[0.85em];
+  }
+  .markdown-content pre {
+    @apply bg-muted/60 my-2 overflow-auto rounded-lg p-3;
+  }
+  .markdown-content pre code {
+    @apply bg-transparent p-0;
+  }
+  .markdown-content blockquote {
+    @apply border-border text-muted-foreground my-2 border-l-2 pl-3 italic;
+  }
+  .markdown-content table {
+    @apply my-2 w-full border-collapse text-xs;
+  }
+  .markdown-content th,
+  .markdown-content td {
+    @apply border-border border px-2 py-1 text-left;
+  }
+}

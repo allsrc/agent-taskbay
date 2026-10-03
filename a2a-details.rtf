@@ -1,0 +1,3543 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2908
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\froman\fcharset0 Times-Roman;\f1\froman\fcharset0 Times-Bold;\f2\fmodern\fcharset0 Courier;
+\f3\fnil\fcharset0 Menlo-Regular;\f4\fmodern\fcharset0 Courier-Bold;}
+{\colortbl;\red255\green255\blue255;\red0\green0\blue0;\red0\green0\blue233;\red109\green109\blue109;
+}
+{\*\expandedcolortbl;;\cssrgb\c0\c0\c0;\cssrgb\c0\c0\c93333;\cssrgb\c50196\c50196\c50196;
+}
+\paperw11900\paperh16840\margl1440\margr1440\vieww11520\viewh8400\viewkind0
+\deftab720
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 \expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 I\'92ll use the 
+\f1\b current A2A 1.0 model
+\f0\b0 . This matters because A2A 1.0 changed several names and semantics from 0.3.x\'97for example 
+\f2\fs26 message/send
+\f0\fs24  became 
+\f2\fs26 SendMessage
+\f0\fs24 , 
+\f2\fs26 blocking
+\f0\fs24  became effectively 
+\f2\fs26 returnImmediately
+\f0\fs24  with reversed semantics, and streaming event discriminators changed. {\field{\*\fldinst{HYPERLINK "https://github.com/a2aproject/A2A/blob/main/docs/specification.md?plain=1&utm_source=chatgpt.com"}}{\fldrslt \cf3 \ul \ulc3 \strokec3 GitHub}}\
+\pard\pardeftab720\sa298\partightenfactor0
+
+\f1\b\fs36 \cf0 1. Mental model first\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 Think of a request like this:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 A2A Request\
+
+\f3 \uc0\u9474 
+\f2 \
+
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  Protocol envelope\
+
+\f3 \uc0\u9474 
+\f2 \
+
+\f3 \uc0\u9492 \u9472 \u9472 
+\f2  SendMessageRequest\
+    
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  tenant\
+    
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  message\
+    
+\f3 \uc0\u9474 
+\f2    
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  messageId\
+    
+\f3 \uc0\u9474 
+\f2    
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  contextId\
+    
+\f3 \uc0\u9474 
+\f2    
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  taskId\
+    
+\f3 \uc0\u9474 
+\f2    
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  role\
+    
+\f3 \uc0\u9474 
+\f2    
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  parts[]\
+    
+\f3 \uc0\u9474 
+\f2    
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  metadata\
+    
+\f3 \uc0\u9474 
+\f2    
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  extensions[]\
+    
+\f3 \uc0\u9474 
+\f2    
+\f3 \uc0\u9492 \u9472 \u9472 
+\f2  referenceTaskIds[]\
+    
+\f3 \uc0\u9474 
+\f2 \
+    
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  configuration\
+    
+\f3 \uc0\u9474 
+\f2    
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  acceptedOutputModes[]\
+    
+\f3 \uc0\u9474 
+\f2    
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  historyLength\
+    
+\f3 \uc0\u9474 
+\f2    
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  returnImmediately\
+    
+\f3 \uc0\u9474 
+\f2    
+\f3 \uc0\u9492 \u9472 \u9472 
+\f2  taskPushNotificationConfig\
+    
+\f3 \uc0\u9474 
+\f2 \
+    
+\f3 \uc0\u9492 \u9472 \u9472 
+\f2  metadata\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 The response is fundamentally:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 SendMessageResponse\
+        
+\f3 \uc0\u9474 
+\f2 \
+        
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  Task\
+        
+\f3 \uc0\u9474 
+\f2 \
+        
+\f3 \uc0\u9492 \u9472 \u9472 
+\f2  Message\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 Exactly 
+\f1\b one
+\f0\b0  of those is returned. {\field{\*\fldinst{HYPERLINK "https://a2a-protocol.org/dev/specification/?utm_source=chatgpt.com"}}{\fldrslt \cf3 \ul \ulc3 \strokec3 A2A Protocol}}\
+\pard\pardeftab720\partightenfactor0
+\cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 2. A complete request\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 Conceptually:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 \{\
+  "jsonrpc": "2.0",\
+  "id": "req-123",\
+  "method": "SendMessage",\
+  "params": \{\
+    "message": \{\
+      "messageId": "msg-001",\
+      "contextId": "ctx-123",\
+      "taskId": "task-456",\
+      "role": "ROLE_USER",\
+      "parts": [\
+        \{\
+          "text": "Find flights from BLR to LHR"\
+        \}\
+      ],\
+      "metadata": \{\
+        "source": "web-chat"\
+      \},\
+      "extensions": [],\
+      "referenceTaskIds": []\
+    \},\
+    "configuration": \{\
+      "acceptedOutputModes": [\
+        "text/plain",\
+        "application/json"\
+      ],\
+      "historyLength": 10,\
+      "returnImmediately": false\
+    \},\
+    "metadata": \{\
+      "traceId": "trace-789"\
+    \}\
+  \}\
+\}\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 The exact outer transport representation varies depending on whether you're using JSON-RPC, gRPC, or HTTP+JSON, because A2A 1.0 formally separates the canonical data model from protocol bindings. {\field{\*\fldinst{HYPERLINK "https://github.com/a2aproject/A2A/blob/main/docs/specification.md?plain=1&utm_source=chatgpt.com"}}{\fldrslt \cf3 \ul \ulc3 \strokec3 GitHub}}\
+\pard\pardeftab720\partightenfactor0
+\cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 3. Request: top-level attributes\
+\pard\pardeftab720\sa280\partightenfactor0
+
+\f4\fs30\fsmilli15210 \cf0 jsonrpc
+\f1\fs28 \
+\pard\pardeftab720\partightenfactor0
+
+\f2\b0\fs26 \cf0 "jsonrpc": "2.0"\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 This belongs to the 
+\f1\b JSON-RPC binding
+\f0\b0 , not to the conceptual A2A message itself.\
+It tells the server:\
+\pard\pardeftab720\sa240\partightenfactor0
+\cf0 Interpret this envelope according to JSON-RPC 2.0.\
+Don't confuse it with the A2A protocol version.\
+\pard\pardeftab720\partightenfactor0
+\cf4 \strokec4 \
+\pard\pardeftab720\sa280\partightenfactor0
+
+\f4\b\fs30\fsmilli15210 \cf0 \strokec2 id
+\f1\fs28 \
+\pard\pardeftab720\partightenfactor0
+
+\f2\b0\fs26 \cf0 "id": "req-123"\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 This is the 
+\f1\b RPC request correlation ID
+\f0\b0 .\
+Very important distinction:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 id             = RPC request ID\
+messageId      = individual message ID\
+taskId         = work/task ID\
+contextId      = conversation/context ID\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 These four IDs solve completely different problems.\
+\pard\pardeftab720\partightenfactor0
+\cf4 \strokec4 \
+\pard\pardeftab720\sa280\partightenfactor0
+
+\f4\b\fs30\fsmilli15210 \cf0 \strokec2 method
+\f1\fs28 \
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 For A2A 1.0:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 "method": "SendMessage"\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 In A2A 0.3:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 "method": "message/send"\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 This is one of the explicit v1 breaking/renaming changes. {\field{\*\fldinst{HYPERLINK "https://a2a-protocol.org/latest/whats-new-v1/?utm_source=chatgpt.com"}}{\fldrslt \cf3 \ul \ulc3 \strokec3 A2A Protocol}}\
+\pard\pardeftab720\partightenfactor0
+\cf4 \strokec4 \
+\pard\pardeftab720\sa280\partightenfactor0
+
+\f4\b\fs30\fsmilli15210 \cf0 \strokec2 params
+\f1\fs28 \
+\pard\pardeftab720\partightenfactor0
+
+\f2\b0\fs26 \cf0 "params": \{ ... \}\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 This contains the actual:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 SendMessageRequest\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 So from here onward we are in the A2A domain model.\
+\pard\pardeftab720\partightenfactor0
+\cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 4. 
+\f4\fs52 SendMessageRequest
+\f1\fs48 \
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 The current request object consists of:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 SendMessageRequest\
+\
+tenant?          string\
+message          Message       REQUIRED\
+configuration?   SendMessageConfiguration\
+metadata?        object\
+``` :chatgpt-content-reference\{index="4"\}\
+\
+\
+---\
+\
+## 5. `tenant`\
+\
+Example:\
+\
+```json\
+"tenant": "airline-prod"\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 Optional.\
+This is primarily a 
+\f1\b routing identifier
+\f0\b0 .\
+It becomes useful when one A2A endpoint hosts:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 https://agents.company.com/a2a\
+\
+             
+\f3 \uc0\u9474 
+\f2 \
+             
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  Airline Agent\
+             
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  Hotel Agent\
+             
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  Finance Agent\
+             
+\f3 \uc0\u9492 \u9472 \u9472 
+\f2  Different tenants/customers\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 An 
+\f2\fs26 AgentInterface
+\f0\fs24  in the Agent Card can specify a tenant value; if it does, requests using that interface must carry the matching tenant. {\field{\*\fldinst{HYPERLINK "https://a2a-protocol.org/latest/definitions/?utm_source=chatgpt.com"}}{\fldrslt \cf3 \ul \ulc3 \strokec3 A2A Protocol}}\
+This should not be treated as your application authentication mechanism.\
+\pard\pardeftab720\partightenfactor0
+\cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 6. 
+\f4\fs52 message
+\f1\fs48 \
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 This is the most important object.\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 "message": \{\
+    ...\
+\}\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 A 
+\f2\fs26 Message
+\f0\fs24  represents 
+\f1\b one communication turn
+\f0\b0  between client and agent. {\field{\*\fldinst{HYPERLINK "https://a2a-protocol.org/latest/topics/key-concepts/?utm_source=chatgpt.com"}}{\fldrslt \cf3 \ul \ulc3 \strokec3 A2A Protocol}}\
+Think:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 Conversation/context\
+   
+\f3 \uc0\u9474 
+\f2 \
+   
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  Message 1\
+   
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  Message 2\
+   
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  Message 3\
+   
+\f3 \uc0\u9492 \u9472 \u9472 
+\f2  Message 4\
+\pard\pardeftab720\partightenfactor0
+
+\f0\fs24 \cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 7. 
+\f4\fs52 message.messageId
+\f1\fs48 \
+\pard\pardeftab720\partightenfactor0
+
+\f2\b0\fs26 \cf0 "messageId": "msg-001"\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 Required.\
+Created by whoever creates the message.\
+For an incoming client request:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 Client creates message\
+
+\f3 \uc0\u8594 
+\f2  client creates messageId\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 For an agent response:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 Agent creates message\
+
+\f3 \uc0\u8594 
+\f2  agent creates another messageId\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 Therefore:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 msg-user-001\
+      
+\f3 \uc0\u8595 
+\f2 \
+Agent\
+      
+\f3 \uc0\u8595 
+\f2 \
+msg-agent-002\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 It is 
+\f1\b not reused for the reply
+\f0\b0 .\
+The specification describes this as a unique identifier created by the message creator. {\field{\*\fldinst{HYPERLINK "https://a2a-protocol.org/latest/definitions/?utm_source=chatgpt.com"}}{\fldrslt \cf3 \ul \ulc3 \strokec3 A2A Protocol}}\
+\pard\pardeftab720\partightenfactor0
+\cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 8. 
+\f4\fs52 message.role
+\f1\fs48 \
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 Usually:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 "role": "ROLE_USER"\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 or:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 "role": "ROLE_AGENT"\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 Conceptually:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 ROLE_USER\
+   client 
+\f3 \uc0\u8594 
+\f2  agent\
+\
+ROLE_AGENT\
+   agent 
+\f3 \uc0\u8594 
+\f2  client\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 One subtlety: 
+\f2\fs26 "user"
+\f0\fs24  does not necessarily mean a human.\
+If your LangGraph agent calls another A2A agent:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 LangGraph Agent\
+      
+\f3 \uc0\u9474 
+\f2 \
+      
+\f3 \uc0\u9474 
+\f2  A2A\
+      
+\f3 \uc0\u9660 
+\f2 \
+Flight Agent\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 From the Flight Agent's A2A interaction perspective, the caller's message still occupies the requester/user role.\
+\pard\pardeftab720\partightenfactor0
+\cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 9. 
+\f4\fs52 message.contextId
+\f1\fs48 \
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 Example:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 "contextId": "ctx-123"\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 This is one of the most important fields to understand.\
+A context groups 
+\f1\b related interactions/tasks
+\f0\b0 .\
+Think of it as:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 Context = conversation / business interaction\
+\
+ctx-123\
+
+\f3 \uc0\u9474 
+\f2 \
+
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  task-001 Search flights\
+
+\f3 \uc0\u9474 
+\f2 \
+
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  task-002 Check baggage\
+
+\f3 \uc0\u9474 
+\f2 \
+
+\f3 \uc0\u9492 \u9472 \u9472 
+\f2  task-003 Change booking\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 The server normally creates the context for a new interaction.\
+Then subsequent calls can attach to it.\
+The current spec says client messages may omit both 
+\f2\fs26 contextId
+\f0\fs24  and 
+\f2\fs26 taskId
+\f0\fs24 ; if 
+\f2\fs26 taskId
+\f0\fs24  alone is supplied, the server can infer its corresponding context. If both are supplied, they must agree. Server-originated messages include a context ID. {\field{\*\fldinst{HYPERLINK "https://a2a-protocol.org/latest/definitions/?utm_source=chatgpt.com"}}{\fldrslt \cf3 \ul \ulc3 \strokec3 A2A Protocol}}\
+\pard\pardeftab720\partightenfactor0
+\cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 10. 
+\f4\fs52 message.taskId
+\f1\fs48 \
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 Example:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 "taskId": "task-456"\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 Optional.\
+This says:\
+\pard\pardeftab720\sa240\partightenfactor0
+\cf0 This message belongs to / continues this specific task.\
+For the first request:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 message\
+taskId = absent\
+\
+        
+\f3 \uc0\u8595 
+\f2 \
+\
+server decides task required\
+\
+        
+\f3 \uc0\u8595 
+\f2 \
+\
+Task\
+id = task-456\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 Then later:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 \{\
+  "messageId": "msg-002",\
+  "taskId": "task-456",\
+  "contextId": "ctx-123",\
+  ...\
+\}\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 means:\
+\pard\pardeftab720\sa240\partightenfactor0
+\cf0 Continue task 
+\f2\fs26 task-456
+\f0\fs24 .\
+\pard\pardeftab720\partightenfactor0
+\cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 11. 
+\f4\fs52 contextId
+\f1\fs48  vs 
+\f4\fs52 taskId
+\f1\fs48 \
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 This distinction is critical.\
+Suppose you're planning a vacation.\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 contextId = trip-planning-123\
+\
+                
+\f3 \uc0\u9474 
+\f2 \
+                
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  task-1 Search flights\
+                
+\f3 \uc0\u9474 
+\f2 \
+                
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  task-2 Find hotel\
+                
+\f3 \uc0\u9474 
+\f2 \
+                
+\f3 \uc0\u9492 \u9472 \u9472 
+\f2  task-3 Build itinerary\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 Therefore:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 contextId\
+    = broader conversational/business context\
+\
+taskId\
+    = one stateful piece of work\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 A context can span multiple tasks.\
+\pard\pardeftab720\partightenfactor0
+\cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 12. 
+\f4\fs52 message.parts
+\f1\fs48 \
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 Example:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 "parts": [\
+  \{\
+    "text": "Find flights from BLR to LHR"\
+  \}\
+]\
+\pard\pardeftab720\sa240\partightenfactor0
+\cf0 parts
+\f0\fs24  contains the actual content.\
+A2A deliberately does 
+\f1\b not
+\f0\b0  make a Message simply:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 \{\
+  "prompt": "..."\
+\}\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 Instead:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 Message\
+   
+\f3 \uc0\u9474 
+\f2 \
+   
+\f3 \uc0\u9492 \u9472 \u9472 
+\f2  Parts[]\
+          
+\f3 \uc0\u9474 
+\f2 \
+          
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  text\
+          
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  raw/file\
+          
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  URL/file\
+          
+\f3 \uc0\u9492 \u9472 \u9472 
+\f2  structured data\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 This makes A2A modality-independent. {\field{\*\fldinst{HYPERLINK "https://a2a-protocol.org/latest/topics/key-concepts/?utm_source=chatgpt.com"}}{\fldrslt \cf3 \ul \ulc3 \strokec3 A2A Protocol}}\
+\pard\pardeftab720\partightenfactor0
+\cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 13. Text Part\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 Conceptually:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 \{\
+  "text": "Find flights to London"\
+\}\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 Use this for:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 natural language\
+instructions\
+questions\
+descriptions\
+agent responses\
+\pard\pardeftab720\partightenfactor0
+
+\f0\fs24 \cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 14. Data Part\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 Example conceptually:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 \{\
+  "data": \{\
+    "origin": "BLR",\
+    "destination": "LHR",\
+    "date": "2026-11-21",\
+    "passengers": 2\
+  \}\
+\}\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 This is very important for agent interoperability.\
+Instead of forcing another agent to parse:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 "Find me a flight from BLR to LHR on November 21 for 2 adults"\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 you can communicate structured data:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 \{\
+  "origin": "BLR",\
+  "destination": "LHR",\
+  "passengers": \{\
+    "adult": 2\
+  \}\
+\}\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 For 
+\f2\fs26 a2a-wrapper
+\f0\fs24 , this is especially useful because the underlying agent doesn't have to be an LLM.\
+You could wrap:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 REST service\
+CLI\
+MCP server\
+workflow engine\
+rules engine\
+another agent\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 behind A2A.\
+\pard\pardeftab720\partightenfactor0
+\cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 15. File / raw / URL content\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 A Part can also represent file-style content.\
+Conceptually:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 Part\
+ 
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  inline binary/raw\
+ OR\
+ 
+\f3 \uc0\u9492 \u9472 \u9472 
+\f2  URL\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 For example:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 "Analyse this PDF"\
++\
+https://storage.example.com/ticket.pdf\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 or inline bytes depending on the binding.\
+The current conceptual model defines parts around text, raw bytes, URLs and structured data. {\field{\*\fldinst{HYPERLINK "https://a2a-protocol.org/latest/topics/key-concepts/?utm_source=chatgpt.com"}}{\fldrslt \cf3 \ul \ulc3 \strokec3 A2A Protocol}}\
+\pard\pardeftab720\partightenfactor0
+\cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 16. Why 
+\f4\fs52 parts[]
+\f1\fs48 , plural?\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 Because one message can contain mixed modalities.\
+Example:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 Message\
+
+\f3 \uc0\u9474 
+\f2 \
+
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  Part 1: Text\
+
+\f3 \uc0\u9474 
+\f2    "Analyze this invoice"\
+
+\f3 \uc0\u9474 
+\f2 \
+
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  Part 2: File\
+
+\f3 \uc0\u9474 
+\f2    invoice.pdf\
+
+\f3 \uc0\u9474 
+\f2 \
+
+\f3 \uc0\u9492 \u9472 \u9472 
+\f2  Part 3: Data\
+    \{\
+       "customerId": "C123"\
+    \}\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 That's considerably cleaner than cramming everything into one prompt.\
+\pard\pardeftab720\partightenfactor0
+\cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 17. 
+\f4\fs52 message.metadata
+\f1\fs48 \
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 Example:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 "metadata": \{\
+  "source": "customer-support-ui",\
+  "locale": "en-IN"\
+\}\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 This is arbitrary extension/application metadata.\
+The crucial architectural rule is:\
+\pard\pardeftab720\sa240\partightenfactor0
+\cf0 Metadata should not become your main application payload.\
+Bad:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 "metadata": \{\
+   "origin": "BLR",\
+   "destination": "LHR"\
+\}\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 when those are actually part of the agent input.\
+Better:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 parts.data\
+   = semantic/business payload\
+\
+metadata\
+   = auxiliary transport/application context\
+\pard\pardeftab720\partightenfactor0
+
+\f0\fs24 \cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 18. 
+\f4\fs52 message.extensions
+\f1\fs48 \
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 Example:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 "extensions": [\
+  "https://example.com/a2a/extensions/citations/v1"\
+]\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 These identify A2A extensions applicable to the message.\
+Think of them as:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 Base A2A semantics\
+       +\
+optional negotiated semantics\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 rather than putting arbitrary custom properties directly onto standard protocol types.\
+\pard\pardeftab720\partightenfactor0
+\cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 19. 
+\f4\fs52 referenceTaskIds
+\f1\fs48 \
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 Example:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 "referenceTaskIds": [\
+  "task-101",\
+  "task-102"\
+]\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 This means:\
+\pard\pardeftab720\sa240\partightenfactor0
+\cf0 This message refers to these other A2A tasks for additional context.\
+Useful for composition:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 task-101\
+Flight search\
+\
+task-102\
+Hotel search\
+\
+      
+\f3 \uc0\u8595 
+\f2 \
+\
+task-103\
+"Build itinerary based on task-101 and task-102"\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 This is different from:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 taskId\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 because:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 taskId\
+= this message belongs to this task\
+\
+referenceTaskIds\
+= this message references other tasks\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 The field exists specifically for cross-task contextual references. {\field{\*\fldinst{HYPERLINK "https://a2a-protocol.org/latest/definitions/?utm_source=chatgpt.com"}}{\fldrslt \cf3 \ul \ulc3 \strokec3 A2A Protocol}}\
+\pard\pardeftab720\partightenfactor0
+\cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 20. 
+\f4\fs52 configuration
+\f1\fs48 \
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 Now come the execution preferences.\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 "configuration": \{\
+  "acceptedOutputModes": ["text/plain"],\
+  "historyLength": 10,\
+  "returnImmediately": false\
+\}\
+\pard\pardeftab720\partightenfactor0
+
+\f0\fs24 \cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 21. 
+\f4\fs52 acceptedOutputModes
+\f1\fs48 \
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 Example:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 "acceptedOutputModes": [\
+  "text/plain",\
+  "application/json"\
+]\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 This tells the agent:\
+\pard\pardeftab720\sa240\partightenfactor0
+\cf0 These are the media types I can consume.\
+It is essentially 
+\f1\b output content negotiation
+\f0\b0 .\
+For an A2A client UI:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 Web Chat\
+supports:\
+\
+text/plain\
+text/markdown\
+image/png\
+application/json\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 while a machine orchestrator may prefer:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 application/json\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 The server should use this information when selecting response representations. {\field{\*\fldinst{HYPERLINK "https://a2a-protocol.org/dev/specification/?utm_source=chatgpt.com"}}{\fldrslt \cf3 \ul \ulc3 \strokec3 A2A Protocol}}\
+\pard\pardeftab720\partightenfactor0
+\cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 22. 
+\f4\fs52 historyLength
+\f1\fs48 \
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 Example:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 "historyLength": 5\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 It controls how much task message history should come back with a Task.\
+Current semantics are important:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 unset\
+
+\f3 \uc0\u8594 
+\f2  client imposes no specific limit\
+\
+0\
+
+\f3 \uc0\u8594 
+\f2  request no history\
+\
+5\
+
+\f3 \uc0\u8594 
+\f2  maximum five recent messages\
+``` :chatgpt-content-reference\{index="13"\}\
+\
+\
+This differs from some older A2A semantics, so it's worth versioning carefully in `a2a-wrapper`.\
+\
+---\
+\
+# 23. `returnImmediately`\
+\
+Example:\
+\
+```json\
+"returnImmediately": true\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 This controls execution behavior.\
+\pard\pardeftab720\sa280\partightenfactor0
+
+\f4\b\fs30\fsmilli15210 \cf0 true
+\f1\fs28 \
+\pard\pardeftab720\partightenfactor0
+
+\f2\b0\fs26 \cf0 Client\
+  
+\f3 \uc0\u8595 
+\f2 \
+SendMessage\
+  
+\f3 \uc0\u8595 
+\f2 \
+Agent creates task\
+  
+\f3 \uc0\u8595 
+\f2 \
+returns Task immediately\
+\
+TASK_STATE_WORKING\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 Client can then:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 poll\
+subscribe\
+stream\
+receive push notifications\
+\pard\pardeftab720\sa280\partightenfactor0
+
+\f4\b\fs30\fsmilli15210 \cf0 false
+\f1\fs28 \
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 Default behavior:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 Client\
+  
+\f3 \uc0\u8595 
+\f2 \
+SendMessage\
+  
+\f3 \uc0\u8595 
+\f2 \
+          agent works...\
+          agent works...\
+          agent works...\
+  
+\f3 \uc0\u8595 
+\f2 \
+return when:\
+ completed\
+ failed\
+ canceled\
+ rejected\
+ input required\
+ auth required\
+``` :chatgpt-content-reference\{index="14"\}\
+\
+\
+This is one place where **v0.3 vs v1.0** matters significantly.\
+\
+Earlier:\
+\
+```json\
+"blocking": true\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 Current concept:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 "returnImmediately": false\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 The meaning is effectively inverted. {\field{\*\fldinst{HYPERLINK "https://a2a-protocol.org/v0.3.0/specification/?utm_source=chatgpt.com"}}{\fldrslt \cf3 \ul \ulc3 \strokec3 A2A Protocol}}\
+\pard\pardeftab720\partightenfactor0
+\cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 24. 
+\f4\fs52 taskPushNotificationConfig
+\f1\fs48 \
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 Conceptually:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 "taskPushNotificationConfig": \{\
+   ...\
+\}\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 This says:\
+\pard\pardeftab720\sa240\partightenfactor0
+\cf0 Don't require me to keep polling/streaming. Notify this endpoint when the task changes.\
+Useful for long-running tasks:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 Client\
+   
+\f3 \uc0\u9474 
+\f2 \
+   
+\f3 \uc0\u9474 
+\f2  SendMessage\
+   
+\f3 \uc0\u9660 
+\f2 \
+Agent\
+   
+\f3 \uc0\u9474 
+\f2 \
+   
+\f3 \uc0\u9492 \u9472 \u9472 
+\f2  task takes 20 minutes\
+\
+Client disconnects\
+\
+20 minutes later\
+\
+Agent\
+   
+\f3 \uc0\u9474 
+\f2 \
+   
+\f3 \uc0\u9474 
+\f2  webhook\
+   
+\f3 \uc0\u9660 
+\f2 \
+Client callback\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 This is asynchronous task notification.\
+\pard\pardeftab720\partightenfactor0
+\cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 25. Top-level request 
+\f4\fs52 metadata
+\f1\fs48 \
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 Notice there are several metadata levels.\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 SendMessageRequest.metadata\
+Message.metadata\
+Part.metadata\
+Task.metadata\
+Artifact.metadata\
+event.metadata\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 That is intentional.\
+For example:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 Request.metadata\
+    traceId\
+    requestSource\
+\
+Message.metadata\
+    locale\
+    semantic annotation\
+\
+Part.metadata\
+    encoding\
+    content-specific information\
+\
+Task.metadata\
+    workflow metadata\
+\
+Artifact.metadata\
+    generated-output metadata\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 Your wrapper should preserve these rather than flatten them.\
+\pard\pardeftab720\partightenfactor0
+\cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 26. Now the RESPONSE\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 A synchronous 
+\f2\fs26 SendMessage
+\f0\fs24  returns exactly one of:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 SendMessageResponse\
+
+\f3 \uc0\u9474 
+\f2 \
+
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  message\
+
+\f3 \uc0\u9474 
+\f2 \
+
+\f3 \uc0\u9492 \u9472 \u9472 
+\f2  task\
+``` :chatgpt-content-reference\{index="16"\}\
+\
+\
+This distinction is one of the central A2A concepts.\
+\
+---\
+\
+# 27. Why can a response simply be `Message`?\
+\
+Suppose:\
+\
+```text\
+Client:\
+"What is 2 + 2?"\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 The agent doesn't need:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 Task lifecycle\
+status\
+artifacts\
+polling\
+history\
+streaming\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 It can simply return:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 \{\
+  "message": \{\
+    "messageId": "msg-server-1",\
+    "contextId": "ctx-1",\
+    "role": "ROLE_AGENT",\
+    "parts": [\
+      \{\
+        "text": "4"\
+      \}\
+    ]\
+  \}\
+\}\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 This is a 
+\f1\b direct response
+\f0\b0 .\
+\pard\pardeftab720\partightenfactor0
+\cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 28. When should it return 
+\f4\fs52 Task
+\f1\fs48 ?\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 Example:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 "Analyse these 20 services and generate a migration plan"\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 Agent determines that it represents stateful work.\
+Response:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 \{\
+  "task": \{\
+    "id": "task-456",\
+    "contextId": "ctx-123",\
+    "status": \{\
+      "state": "TASK_STATE_WORKING"\
+    \}\
+  \}\
+\}\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 Now the interaction becomes:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 Message\
+   
+\f3 \uc0\u8595 
+\f2 \
+Task created\
+   
+\f3 \uc0\u8595 
+\f2 \
+WORKING\
+   
+\f3 \uc0\u8595 
+\f2 \
+Artifacts generated\
+   
+\f3 \uc0\u8595 
+\f2 \
+COMPLETED\
+\pard\pardeftab720\partightenfactor0
+
+\f0\fs24 \cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 29. 
+\f4\fs52 Task
+\f1\fs48 \
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 Core structure:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 Task\
+
+\f3 \uc0\u9474 
+\f2 \
+
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  id\
+
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  contextId\
+
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  status\
+
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  history[]\
+
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  artifacts[]\
+
+\f3 \uc0\u9492 \u9472 \u9472 
+\f2  metadata\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 The Task is A2A's 
+\f1\b stateful unit of work
+\f0\b0 . {\field{\*\fldinst{HYPERLINK "https://a2a-protocol.org/latest/topics/key-concepts/?utm_source=chatgpt.com"}}{\fldrslt \cf3 \ul \ulc3 \strokec3 A2A Protocol}}\
+\pard\pardeftab720\partightenfactor0
+\cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 30. 
+\f4\fs52 Task.id
+\f1\fs48 \
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 Example:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 "id": "task-456"\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 Server-generated task identity.\
+Use it later for:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 GetTask\
+CancelTask\
+SubscribeToTask\
+Continue task\
+Push configuration\
+\pard\pardeftab720\partightenfactor0
+
+\f0\fs24 \cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 31. 
+\f4\fs52 Task.contextId
+\f1\fs48 \
+\pard\pardeftab720\partightenfactor0
+
+\f2\b0\fs26 \cf0 "contextId": "ctx-123"\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 Connects this Task to the broader interaction context.\
+Again:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 Context\
+
+\f3 \uc0\u9474 
+\f2 \
+
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  Task A\
+
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  Task B\
+
+\f3 \uc0\u9492 \u9472 \u9472 
+\f2  Task C\
+\pard\pardeftab720\partightenfactor0
+
+\f0\fs24 \cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 32. 
+\f4\fs52 Task.status
+\f1\fs48 \
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 Example:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 "status": \{\
+  "state": "TASK_STATE_WORKING",\
+  "timestamp": "2026-09-30T09:00:00Z"\
+\}\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 Structure:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 TaskStatus\
+
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  state\
+
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  message?\
+
+\f3 \uc0\u9492 \u9472 \u9472 
+\f2  timestamp?\
+``` :chatgpt-content-reference\{index="18"\}\
+\
+\
+---\
+\
+# 33. `TaskStatus.state`\
+\
+The main states include:\
+\
+```text\
+UNSPECIFIED\
+SUBMITTED\
+WORKING\
+COMPLETED\
+FAILED\
+CANCELED\
+REJECTED\
+INPUT_REQUIRED\
+AUTH_REQUIRED\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 The important categories are:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 Normal progression:\
+\
+SUBMITTED\
+    
+\f3 \uc0\u8595 
+\f2 \
+WORKING\
+    
+\f3 \uc0\u8595 
+\f2 \
+COMPLETED\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 Failure:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 WORKING\
+   
+\f3 \uc0\u8595 
+\f2 \
+FAILED\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 Human/user interaction:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 WORKING\
+   
+\f3 \uc0\u8595 
+\f2 \
+INPUT_REQUIRED\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 Authentication:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 WORKING\
+   
+\f3 \uc0\u8595 
+\f2 \
+AUTH_REQUIRED\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 Terminal states include completed, failed, canceled, and rejected. {\field{\*\fldinst{HYPERLINK "https://a2a-protocol.org/dev/specification/?utm_source=chatgpt.com"}}{\fldrslt \cf3 \ul \ulc3 \strokec3 A2A Protocol}}\
+\pard\pardeftab720\partightenfactor0
+\cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 34. 
+\f4\fs52 TaskStatus.message
+\f1\fs48 \
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 This one is interesting.\
+Status isn't merely:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 \{\
+  "state": "INPUT_REQUIRED"\
+\}\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 It can have a Message associated with it.\
+Conceptually:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 \{\
+  "state": "TASK_STATE_INPUT_REQUIRED",\
+  "message": \{\
+    "role": "ROLE_AGENT",\
+    "parts": [\
+      \{\
+        "text": "Which cabin class do you want?"\
+      \}\
+    ]\
+  \}\
+\}\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 Therefore A2A supports a natural state machine:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 Task WORKING\
+\
+     
+\f3 \uc0\u8595 
+\f2 \
+\
+INPUT_REQUIRED\
+"Which cabin?"\
+\
+     
+\f3 \uc0\u8595 
+\f2 \
+\
+Client sends:\
+"Business"\
+\
+     
+\f3 \uc0\u8595 
+\f2 \
+\
+WORKING\
+\
+     
+\f3 \uc0\u8595 
+\f2 \
+\
+COMPLETED\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 This is particularly useful for HITL workflows.\
+\pard\pardeftab720\partightenfactor0
+\cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 35. 
+\f4\fs52 TaskStatus.timestamp
+\f1\fs48 \
+\pard\pardeftab720\partightenfactor0
+
+\f2\b0\fs26 \cf0 "timestamp": "2026-09-30T09:01:33Z"\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 This indicates when that status was recorded.\
+Useful for:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 observability\
+timeouts\
+SLA monitoring\
+task timeline\
+debugging\
+\pard\pardeftab720\partightenfactor0
+
+\f0\fs24 \cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 36. 
+\f4\fs52 Task.history
+\f1\fs48 \
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 Conceptually:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 "history": [\
+  \{\
+    "role": "ROLE_USER",\
+    "parts": [...]\
+  \},\
+  \{\
+    "role": "ROLE_AGENT",\
+    "parts": [...]\
+  \}\
+]\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 This represents messages associated with the task.\
+Don't confuse:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 Task.history\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 with:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 LLM internal conversation memory\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 A2A defines protocol-visible interaction history, not the agent's private memory or reasoning state.\
+\pard\pardeftab720\partightenfactor0
+\cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 37. 
+\f4\fs52 Task.artifacts
+\f1\fs48 \
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 Example:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 "artifacts": [\
+  \{\
+    "artifactId": "artifact-1",\
+    "name": "flight-options",\
+    "parts": [\
+      \{\
+        "data": \{\
+          "flights": [...]\
+        \}\
+      \}\
+    ]\
+  \}\
+]\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 This distinction matters enormously:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 Message\
+= communication\
+\
+Artifact\
+= product/output of the work\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 The A2A concepts explicitly distinguish a Message from an Artifact. {\field{\*\fldinst{HYPERLINK "https://a2a-protocol.org/latest/topics/key-concepts/?utm_source=chatgpt.com"}}{\fldrslt \cf3 \ul \ulc3 \strokec3 A2A Protocol}}\
+\pard\pardeftab720\partightenfactor0
+\cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 38. Message vs Artifact\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 For example:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 Agent Message:\
+\
+"I've completed the architecture analysis."\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 vs:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 Artifact:\
+\
+architecture-report.md\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 Or:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 Message:\
+\
+"I found 7 matching flights."\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 Artifact:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 \{\
+  "flights": [...]\
+\}\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 For completed tasks, artifacts are the natural place for generated outputs. {\field{\*\fldinst{HYPERLINK "https://a2a-protocol.org/v0.2.6/specification/?utm_source=chatgpt.com"}}{\fldrslt \cf3 \ul \ulc3 \strokec3 A2A Protocol}}\
+\pard\pardeftab720\partightenfactor0
+\cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 39. 
+\f4\fs52 Artifact.artifactId
+\f1\fs48 \
+\pard\pardeftab720\partightenfactor0
+
+\f2\b0\fs26 \cf0 "artifactId": "artifact-123"\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 Unique at least within the Task.\
+This becomes especially important with streaming because multiple updates can target the 
+\f1\b same artifact ID
+\f0\b0 .\
+\pard\pardeftab720\partightenfactor0
+\cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 40. 
+\f4\fs52 Artifact.name
+\f1\fs48 \
+\pard\pardeftab720\partightenfactor0
+
+\f2\b0\fs26 \cf0 "name": "architecture-report"\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 Human-readable identifier.\
+Optional.\
+\pard\pardeftab720\partightenfactor0
+\cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 41. 
+\f4\fs52 Artifact.description
+\f1\fs48 \
+\pard\pardeftab720\partightenfactor0
+
+\f2\b0\fs26 \cf0 "description": "Architecture review findings"\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 Optional description of what the artifact represents.\
+\pard\pardeftab720\partightenfactor0
+\cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 42. 
+\f4\fs52 Artifact.parts
+\f1\fs48 \
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 Same 
+\f2\fs26 Part
+\f0\fs24  model again.\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 Artifact\
+   
+\f3 \uc0\u9474 
+\f2 \
+   
+\f3 \uc0\u9492 \u9472 \u9472 
+\f2  Parts[]\
+       
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  text\
+       
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  file\
+       
+\f3 \uc0\u9492 \u9472 \u9472 
+\f2  data\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 This reuse is elegant:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 Message.parts\
+Artifact.parts\
+\
+          
+\f3 \uc0\u8595 
+\f2 \
+\
+same content model\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 The current definitions require an Artifact to contain one or more parts. {\field{\*\fldinst{HYPERLINK "https://a2a-protocol.org/latest/definitions/?utm_source=chatgpt.com"}}{\fldrslt \cf3 \ul \ulc3 \strokec3 A2A Protocol}}\
+\pard\pardeftab720\partightenfactor0
+\cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 43. Response architecture visually\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 The whole thing can now be visualized as:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 CLIENT\
+  
+\f3 \uc0\u9474 
+\f2 \
+  
+\f3 \uc0\u9474 
+\f2  SendMessage\
+  
+\f3 \uc0\u9474 
+\f2 \
+  
+\f3 \uc0\u9474 
+\f2  Message\
+  
+\f3 \uc0\u9474 
+\f2   
+\f3 \uc0\u9500 
+\f2  messageId\
+  
+\f3 \uc0\u9474 
+\f2   
+\f3 \uc0\u9500 
+\f2  contextId?\
+  
+\f3 \uc0\u9474 
+\f2   
+\f3 \uc0\u9500 
+\f2  taskId?\
+  
+\f3 \uc0\u9474 
+\f2   
+\f3 \uc0\u9500 
+\f2  role\
+  
+\f3 \uc0\u9474 
+\f2   
+\f3 \uc0\u9492 
+\f2  parts[]\
+  
+\f3 \uc0\u9474 
+\f2 \
+  
+\f3 \uc0\u9660 
+\f2 \
+A2A AGENT\
+  
+\f3 \uc0\u9474 
+\f2 \
+  
+\f3 \uc0\u9500 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9488 
+\f2 \
+  
+\f3 \uc0\u9474 
+\f2                     
+\f3 \uc0\u9474 
+\f2 \
+simple answer        stateful work\
+  
+\f3 \uc0\u9474 
+\f2                     
+\f3 \uc0\u9474 
+\f2 \
+  
+\f3 \uc0\u9660 
+\f2                     
+\f3 \uc0\u9660 
+\f2 \
+Message              Task\
+                       
+\f3 \uc0\u9474 
+\f2 \
+                       
+\f3 \uc0\u9500 
+\f2  id\
+                       
+\f3 \uc0\u9500 
+\f2  contextId\
+                       
+\f3 \uc0\u9500 
+\f2  status\
+                       
+\f3 \uc0\u9500 
+\f2  history[]\
+                       
+\f3 \uc0\u9474 
+\f2 \
+                       
+\f3 \uc0\u9492 
+\f2  artifacts[]\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 That is probably the single most important A2A diagram to keep in your head.\
+\pard\pardeftab720\partightenfactor0
+\cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 44. Streaming changes the response slightly\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 For 
+\f2\fs26 SendStreamingMessage
+\f0\fs24 , the server doesn't just return one final object.\
+The stream can contain:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 StreamResponse\
+      
+\f3 \uc0\u9474 
+\f2 \
+      
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  task\
+      
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  message\
+      
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  statusUpdate\
+      
+\f3 \uc0\u9492 \u9472 \u9472 
+\f2  artifactUpdate\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 Exactly one per stream response envelope. {\field{\*\fldinst{HYPERLINK "https://a2a-protocol.org/dev/specification/?utm_source=chatgpt.com"}}{\fldrslt \cf3 \ul \ulc3 \strokec3 A2A Protocol}}\
+\pard\pardeftab720\partightenfactor0
+\cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 45. Example streaming lifecycle\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 You might receive:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 1. Task\
+\{\
+  "task": \{\
+    "id": "task-1",\
+    "contextId": "ctx-1",\
+    "status": \{\
+      "state": "TASK_STATE_SUBMITTED"\
+    \}\
+  \}\
+\}\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 Then:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 2. Status update\
+\{\
+  "statusUpdate": \{\
+    "taskId": "task-1",\
+    "contextId": "ctx-1",\
+    "status": \{\
+      "state": "TASK_STATE_WORKING"\
+    \}\
+  \}\
+\}\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 Then:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 3. Artifact chunk\
+\{\
+  "artifactUpdate": \{\
+    "taskId": "task-1",\
+    "contextId": "ctx-1",\
+    "artifact": \{\
+      "artifactId": "report-1",\
+      "parts": [...]\
+    \}\
+  \}\
+\}\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 Then another artifact update.\
+Then:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 COMPLETED\
+\pard\pardeftab720\partightenfactor0
+
+\f0\fs24 \cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 46. 
+\f4\fs52 TaskStatusUpdateEvent
+\f1\fs48 \
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 Structure:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 TaskStatusUpdateEvent\
+
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  taskId\
+
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  contextId\
+
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  status\
+
+\f3 \uc0\u9492 \u9472 \u9472 
+\f2  metadata?\
+``` :chatgpt-content-reference\{index="24"\}\
+\
+\
+Notice something significant if you've implemented A2A 0.3:\
+\
+### v0.3\
+\
+```json\
+\{\
+  "kind": "status-update",\
+  "final": true\
+\}\
+\pard\pardeftab720\sa280\partightenfactor0
+
+\f1\b\fs28 \cf0 v1.0\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 Those fields were removed from the event model.\
+In v1, the wrapping field:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 \{\
+  "statusUpdate": \{ ... \}\
+\}\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 identifies the event type, while protocol stream closure provides completion semantics. {\field{\*\fldinst{HYPERLINK "https://a2a-protocol.org/latest/whats-new-v1/?utm_source=chatgpt.com"}}{\fldrslt \cf3 \ul \ulc3 \strokec3 A2A Protocol}}\
+This is directly relevant to your 
+\f2\fs26 a2a-wrapper
+\f0\fs24 .\
+\pard\pardeftab720\partightenfactor0
+\cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 47. 
+\f4\fs52 TaskArtifactUpdateEvent
+\f1\fs48 \
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 Structure:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 TaskArtifactUpdateEvent\
+
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  taskId\
+
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  contextId\
+
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  artifact\
+
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  append?\
+
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  lastChunk?\
+
+\f3 \uc0\u9492 \u9472 \u9472 
+\f2  metadata?\
+``` :chatgpt-content-reference\{index="26"\}\
+\
+\
+---\
+\
+# 48. `append`\
+\
+Imagine the agent streams:\
+\
+```text\
+"Architecture "\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 then:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 "review "\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 then:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 "completed."\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 The same:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 artifactId = report-1\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 can arrive repeatedly with:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 "append": true\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 meaning:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 Existing artifact\
+       +\
+new content\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 rather than replace the artifact.\
+\pard\pardeftab720\partightenfactor0
+\cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 49. 
+\f4\fs52 lastChunk
+\f1\fs48 \
+\pard\pardeftab720\partightenfactor0
+
+\f2\b0\fs26 \cf0 "lastChunk": true\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 Means:\
+\pard\pardeftab720\sa240\partightenfactor0
+\cf0 This is the final chunk for this artifact.\
+Important distinction:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 lastChunk = artifact finished\
+\
+Task COMPLETED = task finished\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 A task might generate:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 artifact A complete\
+artifact B complete\
+artifact C still streaming\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 So they are not equivalent.\
+\pard\pardeftab720\partightenfactor0
+\cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 50. The IDs together\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 For your wrapper, I would model these IDs very explicitly:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 RPC Request ID\
+    req-100\
+       
+\f3 \uc0\u9474 
+\f2 \
+       
+\f3 \uc0\u9660 
+\f2 \
+Message ID\
+    msg-200\
+       
+\f3 \uc0\u9474 
+\f2 \
+       
+\f3 \uc0\u9660 
+\f2 \
+Context ID\
+    ctx-300\
+       
+\f3 \uc0\u9474 
+\f2 \
+       
+\f3 \uc0\u9500 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9488 
+\f2 \
+       
+\f3 \uc0\u9660 
+\f2                
+\f3 \uc0\u9660 
+\f2 \
+Task ID            Task ID\
+task-400           task-401\
+   
+\f3 \uc0\u9474 
+\f2 \
+   
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  artifact-1\
+   
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  artifact-2\
+   
+\f3 \uc0\u9492 \u9472 \u9472 
+\f2  messages...\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 Meaning:\
+
+\itap1\trowd \taflags0 \trgaph108\trleft-108 \trbrdrt\brdrnil \trbrdrl\brdrnil \trbrdrr\brdrnil 
+\clvertalc \clshdrawnil \clwWidth1560\clftsWidth3 \clmart10 \clmarl10 \clmarb10 \clmarr10 \clbrdrt\brdrnil \clbrdrl\brdrnil \clbrdrb\brdrnil \clbrdrr\brdrnil \clpadt20 \clpadl20 \clpadb20 \clpadr20 \gaph\cellx2160
+\clvertalc \clshdrawnil \clwWidth1373\clftsWidth3 \clmart10 \clmarl10 \clmarb10 \clmarr10 \clbrdrt\brdrnil \clbrdrl\brdrnil \clbrdrb\brdrnil \clbrdrr\brdrnil \clpadt20 \clpadl20 \clpadb20 \clpadr20 \gaph\cellx4320
+\clvertalc \clshdrawnil \clwWidth1539\clftsWidth3 \clmart10 \clmarl10 \clmarb10 \clmarr10 \clbrdrt\brdrnil \clbrdrl\brdrnil \clbrdrb\brdrnil \clbrdrr\brdrnil \clpadt20 \clpadl20 \clpadb20 \clpadr20 \gaph\cellx6480
+\clvertalc \clshdrawnil \clwWidth2459\clftsWidth3 \clmart10 \clmarl10 \clmarb10 \clmarr10 \clbrdrt\brdrnil \clbrdrl\brdrnil \clbrdrb\brdrnil \clbrdrr\brdrnil \clpadt20 \clpadl20 \clpadb20 \clpadr20 \gaph\cellx8640
+\pard\intbl\itap1\pardeftab720\qc\partightenfactor0
+
+\f1\b \cf0 ID\cell 
+\pard\intbl\itap1\pardeftab720\qc\partightenfactor0
+\cf0 Scope\cell 
+\pard\intbl\itap1\pardeftab720\qc\partightenfactor0
+\cf0 Creator\cell 
+\pard\intbl\itap1\pardeftab720\qc\partightenfactor0
+\cf0 Purpose\cell \row
+
+\itap1\trowd \taflags0 \trgaph108\trleft-108 \trbrdrl\brdrnil \trbrdrr\brdrnil 
+\clvertalc \clshdrawnil \clwWidth1560\clftsWidth3 \clmart10 \clmarl10 \clmarb10 \clmarr10 \clbrdrt\brdrnil \clbrdrl\brdrnil \clbrdrb\brdrnil \clbrdrr\brdrnil \clpadt20 \clpadl20 \clpadb20 \clpadr20 \gaph\cellx2160
+\clvertalc \clshdrawnil \clwWidth1373\clftsWidth3 \clmart10 \clmarl10 \clmarb10 \clmarr10 \clbrdrt\brdrnil \clbrdrl\brdrnil \clbrdrb\brdrnil \clbrdrr\brdrnil \clpadt20 \clpadl20 \clpadb20 \clpadr20 \gaph\cellx4320
+\clvertalc \clshdrawnil \clwWidth1539\clftsWidth3 \clmart10 \clmarl10 \clmarb10 \clmarr10 \clbrdrt\brdrnil \clbrdrl\brdrnil \clbrdrb\brdrnil \clbrdrr\brdrnil \clpadt20 \clpadl20 \clpadb20 \clpadr20 \gaph\cellx6480
+\clvertalc \clshdrawnil \clwWidth2459\clftsWidth3 \clmart10 \clmarl10 \clmarb10 \clmarr10 \clbrdrt\brdrnil \clbrdrl\brdrnil \clbrdrb\brdrnil \clbrdrr\brdrnil \clpadt20 \clpadl20 \clpadb20 \clpadr20 \gaph\cellx8640
+\pard\intbl\itap1\pardeftab720\partightenfactor0
+
+\f2\b0\fs26 \cf0 id
+\f0\fs24 \cell 
+\pard\intbl\itap1\pardeftab720\partightenfactor0
+\cf0 transport/RPC\cell 
+\pard\intbl\itap1\pardeftab720\partightenfactor0
+\cf0 client\cell 
+\pard\intbl\itap1\pardeftab720\partightenfactor0
+\cf0 correlate RPC\cell \row
+
+\itap1\trowd \taflags0 \trgaph108\trleft-108 \trbrdrl\brdrnil \trbrdrr\brdrnil 
+\clvertalc \clshdrawnil \clwWidth1560\clftsWidth3 \clmart10 \clmarl10 \clmarb10 \clmarr10 \clbrdrt\brdrnil \clbrdrl\brdrnil \clbrdrb\brdrnil \clbrdrr\brdrnil \clpadt20 \clpadl20 \clpadb20 \clpadr20 \gaph\cellx2160
+\clvertalc \clshdrawnil \clwWidth1373\clftsWidth3 \clmart10 \clmarl10 \clmarb10 \clmarr10 \clbrdrt\brdrnil \clbrdrl\brdrnil \clbrdrb\brdrnil \clbrdrr\brdrnil \clpadt20 \clpadl20 \clpadb20 \clpadr20 \gaph\cellx4320
+\clvertalc \clshdrawnil \clwWidth1539\clftsWidth3 \clmart10 \clmarl10 \clmarb10 \clmarr10 \clbrdrt\brdrnil \clbrdrl\brdrnil \clbrdrb\brdrnil \clbrdrr\brdrnil \clpadt20 \clpadl20 \clpadb20 \clpadr20 \gaph\cellx6480
+\clvertalc \clshdrawnil \clwWidth2459\clftsWidth3 \clmart10 \clmarl10 \clmarb10 \clmarr10 \clbrdrt\brdrnil \clbrdrl\brdrnil \clbrdrb\brdrnil \clbrdrr\brdrnil \clpadt20 \clpadl20 \clpadb20 \clpadr20 \gaph\cellx8640
+\pard\intbl\itap1\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 messageId
+\f0\fs24 \cell 
+\pard\intbl\itap1\pardeftab720\partightenfactor0
+\cf0 Message\cell 
+\pard\intbl\itap1\pardeftab720\partightenfactor0
+\cf0 message creator\cell 
+\pard\intbl\itap1\pardeftab720\partightenfactor0
+\cf0 identify turn\cell \row
+
+\itap1\trowd \taflags0 \trgaph108\trleft-108 \trbrdrl\brdrnil \trbrdrr\brdrnil 
+\clvertalc \clshdrawnil \clwWidth1560\clftsWidth3 \clmart10 \clmarl10 \clmarb10 \clmarr10 \clbrdrt\brdrnil \clbrdrl\brdrnil \clbrdrb\brdrnil \clbrdrr\brdrnil \clpadt20 \clpadl20 \clpadb20 \clpadr20 \gaph\cellx2160
+\clvertalc \clshdrawnil \clwWidth1373\clftsWidth3 \clmart10 \clmarl10 \clmarb10 \clmarr10 \clbrdrt\brdrnil \clbrdrl\brdrnil \clbrdrb\brdrnil \clbrdrr\brdrnil \clpadt20 \clpadl20 \clpadb20 \clpadr20 \gaph\cellx4320
+\clvertalc \clshdrawnil \clwWidth1539\clftsWidth3 \clmart10 \clmarl10 \clmarb10 \clmarr10 \clbrdrt\brdrnil \clbrdrl\brdrnil \clbrdrb\brdrnil \clbrdrr\brdrnil \clpadt20 \clpadl20 \clpadb20 \clpadr20 \gaph\cellx6480
+\clvertalc \clshdrawnil \clwWidth2459\clftsWidth3 \clmart10 \clmarl10 \clmarb10 \clmarr10 \clbrdrt\brdrnil \clbrdrl\brdrnil \clbrdrb\brdrnil \clbrdrr\brdrnil \clpadt20 \clpadl20 \clpadb20 \clpadr20 \gaph\cellx8640
+\pard\intbl\itap1\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 contextId
+\f0\fs24 \cell 
+\pard\intbl\itap1\pardeftab720\partightenfactor0
+\cf0 interaction\cell 
+\pard\intbl\itap1\pardeftab720\partightenfactor0
+\cf0 usually server\cell 
+\pard\intbl\itap1\pardeftab720\partightenfactor0
+\cf0 relate conversations/tasks\cell \row
+
+\itap1\trowd \taflags0 \trgaph108\trleft-108 \trbrdrl\brdrnil \trbrdrr\brdrnil 
+\clvertalc \clshdrawnil \clwWidth1560\clftsWidth3 \clmart10 \clmarl10 \clmarb10 \clmarr10 \clbrdrt\brdrnil \clbrdrl\brdrnil \clbrdrb\brdrnil \clbrdrr\brdrnil \clpadt20 \clpadl20 \clpadb20 \clpadr20 \gaph\cellx2160
+\clvertalc \clshdrawnil \clwWidth1373\clftsWidth3 \clmart10 \clmarl10 \clmarb10 \clmarr10 \clbrdrt\brdrnil \clbrdrl\brdrnil \clbrdrb\brdrnil \clbrdrr\brdrnil \clpadt20 \clpadl20 \clpadb20 \clpadr20 \gaph\cellx4320
+\clvertalc \clshdrawnil \clwWidth1539\clftsWidth3 \clmart10 \clmarl10 \clmarb10 \clmarr10 \clbrdrt\brdrnil \clbrdrl\brdrnil \clbrdrb\brdrnil \clbrdrr\brdrnil \clpadt20 \clpadl20 \clpadb20 \clpadr20 \gaph\cellx6480
+\clvertalc \clshdrawnil \clwWidth2459\clftsWidth3 \clmart10 \clmarl10 \clmarb10 \clmarr10 \clbrdrt\brdrnil \clbrdrl\brdrnil \clbrdrb\brdrnil \clbrdrr\brdrnil \clpadt20 \clpadl20 \clpadb20 \clpadr20 \gaph\cellx8640
+\pard\intbl\itap1\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 taskId
+\f0\fs24 \cell 
+\pard\intbl\itap1\pardeftab720\partightenfactor0
+\cf0 Task\cell 
+\pard\intbl\itap1\pardeftab720\partightenfactor0
+\cf0 server\cell 
+\pard\intbl\itap1\pardeftab720\partightenfactor0
+\cf0 identify stateful work\cell \row
+
+\itap1\trowd \taflags0 \trgaph108\trleft-108 \trbrdrl\brdrnil \trbrdrt\brdrnil \trbrdrr\brdrnil 
+\clvertalc \clshdrawnil \clwWidth1560\clftsWidth3 \clmart10 \clmarl10 \clmarb10 \clmarr10 \clbrdrt\brdrnil \clbrdrl\brdrnil \clbrdrb\brdrnil \clbrdrr\brdrnil \clpadt20 \clpadl20 \clpadb20 \clpadr20 \gaph\cellx2160
+\clvertalc \clshdrawnil \clwWidth1373\clftsWidth3 \clmart10 \clmarl10 \clmarb10 \clmarr10 \clbrdrt\brdrnil \clbrdrl\brdrnil \clbrdrb\brdrnil \clbrdrr\brdrnil \clpadt20 \clpadl20 \clpadb20 \clpadr20 \gaph\cellx4320
+\clvertalc \clshdrawnil \clwWidth1539\clftsWidth3 \clmart10 \clmarl10 \clmarb10 \clmarr10 \clbrdrt\brdrnil \clbrdrl\brdrnil \clbrdrb\brdrnil \clbrdrr\brdrnil \clpadt20 \clpadl20 \clpadb20 \clpadr20 \gaph\cellx6480
+\clvertalc \clshdrawnil \clwWidth2459\clftsWidth3 \clmart10 \clmarl10 \clmarb10 \clmarr10 \clbrdrt\brdrnil \clbrdrl\brdrnil \clbrdrb\brdrnil \clbrdrr\brdrnil \clpadt20 \clpadl20 \clpadb20 \clpadr20 \gaph\cellx8640
+\pard\intbl\itap1\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 artifactId
+\f0\fs24 \cell 
+\pard\intbl\itap1\pardeftab720\partightenfactor0
+\cf0 Artifact\cell 
+\pard\intbl\itap1\pardeftab720\partightenfactor0
+\cf0 agent/server\cell 
+\pard\intbl\itap1\pardeftab720\partightenfactor0
+\cf0 identify generated output\cell \lastrow\row
+\pard\pardeftab720\sa240\partightenfactor0
+\cf0 That table is probably the most important implementation takeaway.\
+\pard\pardeftab720\partightenfactor0
+\cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 51. For 
+\f4\fs52 a2a-wrapper
+\f1\fs48 , I would normalize it like this\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 Internally, avoid exposing provider concepts directly:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 Claude\
+Codex\
+Kiro\
+LangGraph\
+ADK\
+OpenAI\
+Custom CLI\
+       
+\f3 \uc0\u9474 
+\f2 \
+       
+\f3 \uc0\u9660 
+\f2 \
+
+\f3 \uc0\u9484 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9488 
+\f2 \
+
+\f3 \uc0\u9474 
+\f2      a2a-wrapper core       
+\f3 \uc0\u9474 
+\f2 \
+
+\f3 \uc0\u9474 
+\f2                             
+\f3 \uc0\u9474 
+\f2 \
+
+\f3 \uc0\u9474 
+\f2  Request                    
+\f3 \uc0\u9474 
+\f2 \
+
+\f3 \uc0\u9474 
+\f2  
+\f3 \uc0\u9500 
+\f2  Message                  
+\f3 \uc0\u9474 
+\f2 \
+
+\f3 \uc0\u9474 
+\f2  
+\f3 \uc0\u9474 
+\f2  
+\f3 \uc0\u9500 
+\f2  ids                    
+\f3 \uc0\u9474 
+\f2 \
+
+\f3 \uc0\u9474 
+\f2  
+\f3 \uc0\u9474 
+\f2  
+\f3 \uc0\u9500 
+\f2  role                   
+\f3 \uc0\u9474 
+\f2 \
+
+\f3 \uc0\u9474 
+\f2  
+\f3 \uc0\u9474 
+\f2  
+\f3 \uc0\u9492 
+\f2  Part[]                 
+\f3 \uc0\u9474 
+\f2 \
+
+\f3 \uc0\u9474 
+\f2  
+\f3 \uc0\u9474 
+\f2                           
+\f3 \uc0\u9474 
+\f2 \
+
+\f3 \uc0\u9474 
+\f2  
+\f3 \uc0\u9500 
+\f2  Configuration            
+\f3 \uc0\u9474 
+\f2 \
+
+\f3 \uc0\u9474 
+\f2  
+\f3 \uc0\u9492 
+\f2  Metadata                 
+\f3 \uc0\u9474 
+\f2 \
+
+\f3 \uc0\u9474 
+\f2                             
+\f3 \uc0\u9474 
+\f2 \
+
+\f3 \uc0\u9474 
+\f2  Response                   
+\f3 \uc0\u9474 
+\f2 \
+
+\f3 \uc0\u9474 
+\f2  
+\f3 \uc0\u9500 
+\f2  Message                  
+\f3 \uc0\u9474 
+\f2 \
+
+\f3 \uc0\u9474 
+\f2  
+\f3 \uc0\u9492 
+\f2  Task                     
+\f3 \uc0\u9474 
+\f2 \
+
+\f3 \uc0\u9474 
+\f2     
+\f3 \uc0\u9500 
+\f2  Status                
+\f3 \uc0\u9474 
+\f2 \
+
+\f3 \uc0\u9474 
+\f2     
+\f3 \uc0\u9500 
+\f2  History               
+\f3 \uc0\u9474 
+\f2 \
+
+\f3 \uc0\u9474 
+\f2     
+\f3 \uc0\u9492 
+\f2  Artifact[]            
+\f3 \uc0\u9474 
+\f2 \
+
+\f3 \uc0\u9474 
+\f2                             
+\f3 \uc0\u9474 
+\f2 \
+
+\f3 \uc0\u9474 
+\f2  Streaming                  
+\f3 \uc0\u9474 
+\f2 \
+
+\f3 \uc0\u9474 
+\f2  
+\f3 \uc0\u9500 
+\f2  StatusUpdate             
+\f3 \uc0\u9474 
+\f2 \
+
+\f3 \uc0\u9474 
+\f2  
+\f3 \uc0\u9492 
+\f2  ArtifactUpdate           
+\f3 \uc0\u9474 
+\f2 \
+
+\f3 \uc0\u9492 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9496 
+\f2 \
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 Then each provider adapter translates only:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 A2A Message\
+      
+\f3 \uc0\u8597 
+\f2 \
+Provider-native input/output\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 This is why your existing idea of keeping provider-specific configuration under a provider-specific property while keeping the core A2A contract clean makes architectural sense.\
+\pard\pardeftab720\sa280\partightenfactor0
+
+\f1\b\fs28 \cf0 The shortest mental model\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 If you remember only this:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 Message = what somebody says\
+\
+Part = content inside what they say\
+\
+Context = the broader conversation\
+\
+Task = stateful work\
+\
+Status = where that work currently is\
+\
+Artifact = what the work produced\
+\
+StatusUpdate = task lifecycle delta\
+\
+ArtifactUpdate = output delta\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 And:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 SendMessage\
+       
+\f3 \uc0\u8595 
+\f2 \
+   Message\
+       
+\f3 \uc0\u8595 
+\f2 \
+ Agent decides\
+    
+\f3 \uc0\u8601 
+\f2      
+\f3 \uc0\u8600 
+\f2 \
+Message   Task\
+           
+\f3 \uc0\u8595 
+\f2 \
+       Artifacts\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 That's essentially the A2A runtime model. {\field{\*\fldinst{HYPERLINK "https://a2a-protocol.org/latest/topics/key-concepts/?utm_source=chatgpt.com"}}{\fldrslt \cf3 \ul \ulc3 \strokec3 A2A Protocol}}\
+\pard\pardeftab720\partightenfactor0
+\cf0 \
+So what is that task ? how to udnerstand that , its not like a just chatbot api with message id and context id right, what is task\
+\
+\pard\pardeftab720\sa240\partightenfactor0
+\cf0 Exactly. 
+\f1\b A2A is not merely a chatbot API with 
+\f4\fs26 messageId
+\f1\fs24  + 
+\f4\fs26 contextId
+\f1\fs24 .
+\f0\b0  The 
+\f2\fs26 Task
+\f0\fs24  is the part that makes it an 
+\f1\b agent protocol rather than just a conversational messaging protocol
+\f0\b0 .\
+The cleanest way to understand it is:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 Message = "something was said"\
+\
+Context = "these interactions belong together"\
+\
+Task = "there is a piece of work being performed"\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 A2A explicitly defines a Task as a 
+\f1\b stateful unit of work with its own lifecycle
+\f0\b0 . An agent may answer a message directly, or it may create a Task when the interaction represents work that needs to be tracked. {\field{\*\fldinst{HYPERLINK "https://a2a-protocol.org/latest/topics/key-concepts/?utm_source=chatgpt.com"}}{\fldrslt \cf3 \ul \ulc3 \strokec3 A2A Protocol}}\
+\pard\pardeftab720\sa298\partightenfactor0
+
+\f1\b\fs36 \cf0 Think about a normal chatbot first\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 With a normal chatbot API:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 User\
+  
+\f3 \uc0\u9474 
+\f2 \
+  
+\f3 \uc0\u9474 
+\f2  "Find me a flight from BLR to London"\
+  
+\f3 \uc0\u9660 
+\f2 \
+Chat API\
+  
+\f3 \uc0\u9474 
+\f2 \
+  
+\f3 \uc0\u9474 
+\f2  "Here are the flights..."\
+  
+\f3 \uc0\u9660 
+\f2 \
+User\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 You basically have:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 conversationId\
+messageId\
+messages[]\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 The only real abstraction is 
+\f1\b conversation
+\f0\b0 .\
+Even if processing takes 20 seconds, conceptually you're still waiting for:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 request 
+\f3 \uc0\u8594 
+\f2  response\
+\pard\pardeftab720\partightenfactor0
+
+\f0\fs24 \cf4 \strokec4 \
+\pard\pardeftab720\sa298\partightenfactor0
+
+\f1\b\fs36 \cf0 \strokec2 A2A adds another abstraction: Work\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 Suppose you tell an agent:\
+\pard\pardeftab720\sa240\partightenfactor0
+\cf0 Analyse my application architecture, inspect 20 repositories, check dependencies, identify security issues and generate a report.\
+This isn't really just:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 message 
+\f3 \uc0\u8594 
+\f2  message\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 There is something happening independently:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0                      Task\
+                       
+\f3 \uc0\u9474 
+\f2 \
+                "Architecture Review"\
+                       
+\f3 \uc0\u9474 
+\f2 \
+             
+\f3 \uc0\u9484 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9524 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9488 
+\f2 \
+             
+\f3 \uc0\u9474 
+\f2                    
+\f3 \uc0\u9474 
+\f2 \
+          status              outputs\
+             
+\f3 \uc0\u9474 
+\f2                    
+\f3 \uc0\u9474 
+\f2 \
+         WORKING              report.md\
+             
+\f3 \uc0\u9474 
+\f2                 findings.json\
+             
+\f3 \uc0\u9474 
+\f2 \
+        COMPLETED\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 That object is the 
+\f1\b Task
+\f0\b0 .\
+The client can now ask:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 What is the status?\
+What outputs have been produced?\
+Does the agent need more information?\
+Can I cancel it?\
+Can I reconnect to it?\
+Can I subscribe to updates?\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 That's the key difference. {\field{\*\fldinst{HYPERLINK "https://a2a-protocol.org/dev/specification/?utm_source=chatgpt.com"}}{\fldrslt \cf3 \ul \ulc3 \strokec3 A2A Protocol}}\
+\pard\pardeftab720\partightenfactor0
+\cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 A concrete example\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 Imagine your Architecture Review Agent.\
+You send:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 Message:\
+\
+"Review this architecture against our security standards."\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 The A2A server decides this requires work.\
+It creates:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 taskId = task-8421\
+contextId = ctx-123\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 and returns:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 \{\
+  "id": "task-8421",\
+  "contextId": "ctx-123",\
+  "status": \{\
+    "state": "TASK_STATE_WORKING"\
+  \}\
+\}\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 Now there is a persistent protocol object representing:\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f1\b \cf0 Architecture review #8421 is currently being executed.
+\f0\b0 \
+That's what the Task means.\
+\pard\pardeftab720\partightenfactor0
+\cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 What can happen to this Task?\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 It has a lifecycle.\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0                  Task created\
+                      
+\f3 \uc0\u9474 
+\f2 \
+                      
+\f3 \uc0\u9660 
+\f2 \
+                  SUBMITTED\
+                      
+\f3 \uc0\u9474 
+\f2 \
+                      
+\f3 \uc0\u9660 
+\f2 \
+                   WORKING\
+                  /   |    \\\
+                 /    |     \\\
+                
+\f3 \uc0\u9660 
+\f2      
+\f3 \uc0\u9660 
+\f2       
+\f3 \uc0\u9660 
+\f2 \
+       INPUT_REQUIRED |   AUTH_REQUIRED\
+                
+\f3 \uc0\u9474 
+\f2      |      
+\f3 \uc0\u9474 
+\f2 \
+             input    |    authenticate\
+                
+\f3 \uc0\u9474 
+\f2      |      
+\f3 \uc0\u9474 
+\f2 \
+                
+\f3 \uc0\u9492 \u9472 \u9472 \u9472 \u9472 \u9472 \u9532 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9496 
+\f2 \
+                      
+\f3 \uc0\u9660 
+\f2 \
+                   WORKING\
+                      
+\f3 \uc0\u9474 
+\f2 \
+          
+\f3 \uc0\u9484 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9532 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9488 
+\f2 \
+          
+\f3 \uc0\u9660 
+\f2            
+\f3 \uc0\u9660 
+\f2            
+\f3 \uc0\u9660 
+\f2 \
+      COMPLETED     FAILED      CANCELED\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 So Task is essentially an 
+\f1\b agent execution state machine exposed through the protocol
+\f0\b0 . A2A specifically uses Tasks to represent stateful interactions and supports interrupted states such as input-required/auth-required as well as terminal states such as completed, failed, canceled, and rejected. {\field{\*\fldinst{HYPERLINK "https://a2a-protocol.org/dev/topics/life-of-a-task/?utm_source=chatgpt.com"}}{\fldrslt \cf3 \ul \ulc3 \strokec3 A2A Protocol}}\
+\pard\pardeftab720\partightenfactor0
+\cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 Here's where it becomes different from chat\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 Suppose the agent gets halfway through and discovers:\
+\pard\pardeftab720\sa240\partightenfactor0
+\cf0 I need to know which environment you want me to analyse: DEV or PROD.\
+A chatbot might simply respond:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 "Which environment?"\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 And now your application has to invent its own state management.\
+A2A instead says:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 Task task-8421\
+\
+status:\
+    INPUT_REQUIRED\
+\
+message:\
+    "Which environment should I analyse?"\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 The Task is still alive.\
+Client sends:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 Message:\
+    "PROD"\
+\
+taskId:\
+    task-8421\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 Now:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 task-8421\
+\
+INPUT_REQUIRED\
+      
+\f3 \uc0\u9474 
+\f2 \
+      
+\f3 \uc0\u9474 
+\f2  "PROD"\
+      
+\f3 \uc0\u9660 
+\f2 \
+WORKING\
+      
+\f3 \uc0\u9474 
+\f2 \
+      
+\f3 \uc0\u9660 
+\f2 \
+COMPLETED\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 That's considerably richer than ordinary chatbot semantics.\
+\pard\pardeftab720\partightenfactor0
+\cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 This distinction is important\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 Think of these three IDs separately:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 contextId\
+    
+\f3 \uc0\u8595 
+\f2 \
+"What's the overall conversation/business context?"\
+\
+taskId\
+    
+\f3 \uc0\u8595 
+\f2 \
+"What piece of work are we currently doing?"\
+\
+messageId\
+    
+\f3 \uc0\u8595 
+\f2 \
+"What individual communication happened?"\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 For example:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 contextId = architecture-session-123\
+\
+    
+\f3 \uc0\u9474 
+\f2 \
+    
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  task-001\
+    
+\f3 \uc0\u9474 
+\f2      Review security\
+    
+\f3 \uc0\u9474 
+\f2 \
+    
+\f3 \uc0\u9474 
+\f2      
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  msg-01 "Review security"\
+    
+\f3 \uc0\u9474 
+\f2      
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  msg-02 "Which environment?"\
+    
+\f3 \uc0\u9474 
+\f2      
+\f3 \uc0\u9492 \u9472 \u9472 
+\f2  msg-03 "PROD"\
+    
+\f3 \uc0\u9474 
+\f2 \
+    
+\f3 \uc0\u9500 \u9472 \u9472 
+\f2  task-002\
+    
+\f3 \uc0\u9474 
+\f2      Generate deployment architecture\
+    
+\f3 \uc0\u9474 
+\f2 \
+    
+\f3 \uc0\u9492 \u9472 \u9472 
+\f2  task-003\
+          Estimate infrastructure cost\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 One 
+\f1\b context
+\f0\b0  can contain multiple 
+\f1\b tasks
+\f0\b0 , and each task can involve multiple 
+\f1\b messages
+\f0\b0 . A2A's current specification explicitly describes 
+\f2\fs26 contextId
+\f0\fs24  as grouping related tasks/messages, while 
+\f2\fs26 taskId
+\f0\fs24  identifies a specific stateful unit of work. {\field{\*\fldinst{HYPERLINK "https://a2a-protocol.org/dev/specification/?utm_source=chatgpt.com"}}{\fldrslt \cf3 \ul \ulc3 \strokec3 A2A Protocol}}\
+\pard\pardeftab720\partightenfactor0
+\cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 Another analogy: Jira\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 This is actually a useful analogy.\
+Think of:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 A2A Context\
+\uc0\u8776  Jira Epic / broader work context\
+\
+A2A Task\
+\uc0\u8776  Jira ticket\
+\
+A2A Message\
+\uc0\u8776  comments/messages on the ticket\
+\
+A2A Artifact\
+\uc0\u8776  attachments/deliverables\
+\
+TaskStatus\
+\uc0\u8776  To Do / In Progress / Blocked / Done\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 Not exactly technically, but mentally it's quite close.\
+You wouldn't identify a Jira issue by the individual comment.\
+Likewise:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 Message != Task\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 A message may 
+\f1\b cause
+\f0\b0  a Task to be created.\
+\pard\pardeftab720\partightenfactor0
+\cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 Another analogy: HTTP API vs job API\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 Consider an ordinary REST API:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 POST /reports\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 Response:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 \{\
+  "report": "..."\
+\}\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 That's equivalent to:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 A2A Message 
+\f3 \uc0\u8594 
+\f2  Message\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 But a long-running API might instead do:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 POST /reports\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 Response:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 \{\
+  "jobId": "job-123",\
+  "status": "processing"\
+\}\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 Then:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 GET /jobs/job-123\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 returns:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 \{\
+  "status": "completed",\
+  "result": "report.pdf"\
+\}\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 A2A Task is conceptually close to that 
+\f2\fs26 jobId
+\f0\fs24 .\
+Except it's standardized for agents and includes:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 status lifecycle\
+messages\
+human input\
+authentication interruptions\
+artifacts\
+streaming\
+push notifications\
+continuations\
+context\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 So:\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f1\b \cf0 Task is basically a standardized agent job/workflow primitive.
+\f0\b0 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 But here's an important nuance\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 Not every incoming A2A Message creates a Task.\
+For example:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 Client:\
+"What capabilities do you support?"\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 Agent could simply answer:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 Message:\
+"I support architecture review..."\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 No Task necessary.\
+A2A explicitly permits the server to return either a stateless 
+\f2\fs26 Message
+\f0\fs24  for immediate interactions or initiate a stateful 
+\f2\fs26 Task
+\f0\fs24 . {\field{\*\fldinst{HYPERLINK "https://a2a-protocol.org/dev/topics/life-of-a-task/?utm_source=chatgpt.com"}}{\fldrslt \cf3 \ul \ulc3 \strokec3 A2A Protocol}}\
+Think:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0              Message received\
+                    
+\f3 \uc0\u9474 
+\f2 \
+                    
+\f3 \uc0\u9660 
+\f2 \
+          Does this require stateful\
+               tracked work?\
+                 /      \\\
+               NO        YES\
+               
+\f3 \uc0\u9474 
+\f2           
+\f3 \uc0\u9474 
+\f2 \
+               
+\f3 \uc0\u9660 
+\f2           
+\f3 \uc0\u9660 
+\f2 \
+            Message      Task\
+            response      
+\f3 \uc0\u9474 
+\f2 \
+                          
+\f3 \uc0\u9660 
+\f2 \
+                       lifecycle\
+\pard\pardeftab720\partightenfactor0
+
+\f0\fs24 \cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 Why does A2A need Task at all?\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 Because agents increasingly do things rather than merely say things.\
+For example:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 "Book me a flight"\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 potentially involves:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 search\
+ 
+\f3 \uc0\u8595 
+\f2 \
+select\
+ 
+\f3 \uc0\u8595 
+\f2 \
+ask user approval\
+ 
+\f3 \uc0\u8595 
+\f2 \
+authenticate\
+ 
+\f3 \uc0\u8595 
+\f2 \
+payment\
+ 
+\f3 \uc0\u8595 
+\f2 \
+ticket issuance\
+ 
+\f3 \uc0\u8595 
+\f2 \
+return ticket\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 That's not naturally modeled as:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 prompt 
+\f3 \uc0\u8594 
+\f2  completion\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 It is much better modeled as:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 Task: Book Flight\
+\
+SUBMITTED\
+   
+\f3 \uc0\u8595 
+\f2 \
+WORKING\
+   
+\f3 \uc0\u8595 
+\f2 \
+INPUT_REQUIRED\
+"Choose option A or B"\
+   
+\f3 \uc0\u8595 
+\f2 \
+WORKING\
+   
+\f3 \uc0\u8595 
+\f2 \
+AUTH_REQUIRED\
+"Authenticate with airline"\
+   
+\f3 \uc0\u8595 
+\f2 \
+WORKING\
+   
+\f3 \uc0\u8595 
+\f2 \
+COMPLETED\
+\
+Artifacts:\
+  ticket.pdf\
+  booking.json\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 Now you can see why 
+\f2\fs26 Task
+\f0\fs24  exists.\
+\pard\pardeftab720\partightenfactor0
+\cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 For your LangGraph / ADK comparison\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 This is where A2A becomes particularly useful.\
+Suppose behind your A2A endpoint you have:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0                   A2A\
+                   
+\f3 \uc0\u9474 
+\f2 \
+              task-123\
+                   
+\f3 \uc0\u9474 
+\f2 \
+        
+\f3 \uc0\u9484 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9524 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9488 
+\f2 \
+        
+\f3 \uc0\u9474 
+\f2                      
+\f3 \uc0\u9474 
+\f2 \
+    LangGraph               ADK\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 Internally LangGraph might call it:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 graph execution\
+thread\
+run\
+checkpoint\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 ADK might have its own:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 session\
+invocation\
+workflow state\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 Claude Code or Kiro may have another execution concept entirely.\
+Your A2A layer normalizes all of those into:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 Task\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 That's powerful.\
+From the client:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 I don't care whether this is:\
+\
+LangGraph run\
+ADK workflow\
+Kiro execution\
+Claude session\
+custom Python worker\
+\
+I see:\
+\
+taskId = 123\
+status = WORKING\
+artifacts = [...]\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 That is essentially one of the interoperability benefits A2A provides.\
+\pard\pardeftab720\partightenfactor0
+\cf4 \strokec4 \
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f1\b\fs48 \cf0 \strokec2 And this relates directly to your A2A web chat idea\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 Your A2A client UI should probably not model everything as:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 ChatBubble[]\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 It can visually show:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 You\
+"Review this application architecture."\
+\
+Agent\
+"Starting architecture review."\
+\
+
+\f3 \uc0\u9484 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9488 
+\f2 \
+
+\f3 \uc0\u9474 
+\f2  Architecture Review            
+\f3 \uc0\u9474 
+\f2 \
+
+\f3 \uc0\u9474 
+\f2  task-8421                      
+\f3 \uc0\u9474 
+\f2 \
+
+\f3 \uc0\u9474 
+\f2                                 
+\f3 \uc0\u9474 
+\f2 \
+
+\f3 \uc0\u9474 
+\f2  
+\f3 \uc0\u9679 
+\f2  Working                      
+\f3 \uc0\u9474 
+\f2 \
+
+\f3 \uc0\u9474 
+\f2                                 
+\f3 \uc0\u9474 
+\f2 \
+
+\f3 \uc0\u9474 
+\f2  
+\f3 \uc0\u10003 
+\f2  Repository inspected         
+\f3 \uc0\u9474 
+\f2 \
+
+\f3 \uc0\u9474 
+\f2  
+\f3 \uc0\u10003 
+\f2  Dependencies mapped          
+\f3 \uc0\u9474 
+\f2 \
+
+\f3 \uc0\u9474 
+\f2  
+\f3 \uc0\u9675 
+\f2  Security analysis            
+\f3 \uc0\u9474 
+\f2 \
+
+\f3 \uc0\u9474 
+\f2  
+\f3 \uc0\u9675 
+\f2  Report generation            
+\f3 \uc0\u9474 
+\f2 \
+
+\f3 \uc0\u9492 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9496 
+\f2 \
+\
+Agent\
+"Which cloud environment should I use?"\
+\
+[ AWS ] [ Azure ] [ GCP ]\
+\
+            
+\f3 \uc0\u8595 
+\f2 \
+\
+Task continues...\
+\
+            
+\f3 \uc0\u8595 
+\f2 \
+\
+
+\f3 \uc0\u9484 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9488 
+\f2 \
+
+\f3 \uc0\u9474 
+\f2  Architecture Review            
+\f3 \uc0\u9474 
+\f2 \
+
+\f3 \uc0\u9474 
+\f2  
+\f3 \uc0\u10003 
+\f2  Completed                    
+\f3 \uc0\u9474 
+\f2 \
+
+\f3 \uc0\u9474 
+\f2                                 
+\f3 \uc0\u9474 
+\f2 \
+
+\f3 \uc0\u9474 
+\f2  Artifacts                      
+\f3 \uc0\u9474 
+\f2 \
+
+\f3 \uc0\u9474 
+\f2  architecture-report.md         
+\f3 \uc0\u9474 
+\f2 \
+
+\f3 \uc0\u9474 
+\f2  findings.json                  
+\f3 \uc0\u9474 
+\f2 \
+
+\f3 \uc0\u9492 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9496 
+\f2 \
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 Now it becomes an 
+\f1\b agent client
+\f0\b0 , not simply a chatbot.\
+\pard\pardeftab720\sa298\partightenfactor0
+
+\f1\b\fs36 \cf0 The one-line definition I would keep\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\fs24 \cf0 An A2A Task is a server-managed, addressable unit of agent work that can live across multiple messages, change state over time, request additional input, and produce artifacts.
+\f0\b0 \
+Or even shorter:\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 Message = communication.\
+Task = execution.\
+Context = continuity.\
+Artifact = result.\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 That distinction is probably the key concept to understand before going further into A2A.\
+}

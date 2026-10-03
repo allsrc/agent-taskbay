@@ -1,0 +1,391 @@
+import {
+  AgentCard,
+  CancelTaskRequest,
+  DeleteTaskPushNotificationConfigRequest,
+  GetTaskPushNotificationConfigRequest,
+  GetTaskRequest,
+  ListTaskPushNotificationConfigsRequest,
+  ListTaskPushNotificationConfigsResponse,
+  ListTasksRequest,
+  ListTasksResponse,
+  Message,
+  SendMessageRequest,
+  StreamResponse,
+  SubscribeToTaskRequest,
+  Task,
+  TaskPushNotificationConfig,
+} from "@a2a-js/sdk";
+import {
+  ClientFactory,
+  DefaultAgentCardResolver,
+  JsonRpcTransportFactory,
+  RestTransportFactory,
+  ServiceParameters,
+  withA2AExtensions,
+  type Client,
+  type RequestOptions,
+} from "@a2a-js/sdk/client";
+import { verifyCardTrust } from "../server/adapters/auth/card-trust";
+import { validateAgentCard } from "./compliance";
+import { createSafeFetch, redactSecrets } from "./safe-fetch";
+import { assertSafeAgentCard, assertSafeInterfaceUrl, assertSafeUrl } from "./url-safety";
+import type { ConnectionConfig, DiscoverResponse, OperationAction, OperationResponse, WireEvent } from "./types";
+import { advertisedExtensionUris, negotiateSidebandExtensions } from "../server/sideband/extension";
+import { extractSidebandEvents } from "../server/sideband/decoder";
+
+const DEFAULT_TIMEOUT = 60_000;
+const MAX_TIMEOUT = 180_000;
+const MAX_CARD_BYTES = 2 * 1024 * 1024;
+const DEFAULT_AGENT_CARD_PATH = ".well-known/agent-card.json";
+
+export function agentCardUrlCandidates(input: string): string[] {
+  const supplied = new URL(input);
+  const suppliedUrl = supplied.toString();
+  const looksLikeCardUrl = supplied.pathname.toLowerCase().endsWith(".json");
+  if (looksLikeCardUrl) return [suppliedUrl];
+
+  supplied.search = "";
+  supplied.hash = "";
+  const candidates = [
+    new URL(DEFAULT_AGENT_CARD_PATH, supplied).toString(),
+    new URL(`/${DEFAULT_AGENT_CARD_PATH}`, supplied.origin).toString(),
+    supplied.toString(),
+  ];
+  return [...new Set(candidates)];
+}
+
+function timeout(config: ConnectionConfig) {
+  return Math.min(Math.max(config.timeoutMs ?? DEFAULT_TIMEOUT, 1_000), MAX_TIMEOUT);
+}
+
+async function readTextWithinLimit(response: Response, limit: number): Promise<string> {
+  const reader = response.body?.getReader();
+  if (!reader) return "";
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) return new TextDecoder().decode(Buffer.concat(chunks));
+      total += value.byteLength;
+      if (total > limit) {
+        await reader.cancel();
+        throw new Error(`Agent Card exceeds the ${Math.floor(limit / 1024 / 1024)} MB safety limit.`);
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+function compatibleProtocolVersion(value: string) {
+  return value.match(/^\d+\.\d+/)?.[0] ?? value;
+}
+
+/** Removes resolver-created duplicates such as v0.3 `url` plus an identical
+ * additionalInterface. Different major/minor protocol versions remain distinct. */
+export function dedupeSupportedInterfaces(interfaces: AgentCard["supportedInterfaces"]): AgentCard["supportedInterfaces"] {
+  const seen = new Set<string>();
+  return interfaces.filter((item) => {
+    const key = [
+      item.protocolBinding.toUpperCase(), compatibleProtocolVersion(item.protocolVersion), item.url, item.tenant ?? "",
+    ].join("|");
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function requestOptions(config: ConnectionConfig, extensions: string[] = [], traceparent?: string): RequestOptions {
+  const parameters = { ...config.headers, ...(traceparent ? { traceparent } : {}) };
+  return {
+    signal: AbortSignal.timeout(timeout(config)),
+    serviceParameters: extensions.length
+      ? ServiceParameters.createFrom(parameters, withA2AExtensions(...extensions))
+      : parameters,
+  };
+}
+
+export function selectAdvertisedInterface(
+  interfaces: AgentCard["supportedInterfaces"],
+  config: Pick<ConnectionConfig, "interfaceUrl" | "protocolBinding" | "protocolVersion">,
+) {
+  return interfaces.find((item) =>
+    (!config.interfaceUrl || item.url === config.interfaceUrl) &&
+    (!config.protocolBinding || item.protocolBinding.toUpperCase() === config.protocolBinding.toUpperCase()) &&
+    (!config.protocolVersion || item.protocolVersion === config.protocolVersion),
+  );
+}
+
+export async function discoverAgent(config: ConnectionConfig): Promise<DiscoverResponse & { normalizedCard: AgentCard }> {
+  await assertSafeUrl(config.cardUrl);
+  const telemetry: WireEvent[] = [];
+  const started = performance.now();
+  const fetchImpl = createSafeFetch({ ...config, telemetry, timeoutMs: timeout(config) });
+  const attempts: string[] = [];
+  let rawCard: Record<string, unknown> | undefined;
+  let resolvedCardUrl = config.cardUrl;
+  for (const candidate of agentCardUrlCandidates(config.cardUrl)) {
+    await assertSafeUrl(candidate);
+    const response = await fetchImpl(candidate, { headers: { Accept: "application/json", "A2A-Version": "1.0" } });
+    const body = await readTextWithinLimit(response, MAX_CARD_BYTES);
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(body);
+    } catch {
+      attempts.push(`${candidate} (HTTP ${response.status}, invalid JSON)`);
+      continue;
+    }
+    if (!response.ok) {
+      attempts.push(`${candidate} (HTTP ${response.status})`);
+      continue;
+    }
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      attempts.push(`${candidate} (HTTP ${response.status}, JSON was not an object)`);
+      continue;
+    }
+    rawCard = parsed as Record<string, unknown>;
+    resolvedCardUrl = candidate;
+    break;
+  }
+  if (!rawCard) {
+    throw new Error(`Agent Card discovery failed. Tried: ${attempts.join("; ")}.`);
+  }
+  rawCard = redactSecrets(rawCard, config.secretValues);
+  const report = validateAgentCard(rawCard);
+  const resolver = new DefaultAgentCardResolver({ fetchImpl, legacyCompat: { enabled: true } });
+  let normalizedCard: AgentCard;
+  try {
+    normalizedCard = AgentCard.fromJSON(AgentCard.toJSON(resolver.normalizeAgentCard(rawCard)));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Card normalization failed";
+    throw new Error(`The card could not be normalized by the official A2A SDK: ${message}`);
+  }
+  await assertSafeAgentCard(AgentCard.toJSON(normalizedCard) as Record<string, unknown>);
+  const trust = await verifyCardTrust(normalizedCard, new URL(config.cardUrl).origin);
+  normalizedCard = { ...normalizedCard, supportedInterfaces: dedupeSupportedInterfaces(normalizedCard.supportedInterfaces) };
+  return {
+    trust,
+    resolvedCardUrl,
+    card: AgentCard.toJSON(normalizedCard) as Record<string, unknown>,
+    rawCard,
+    normalizedCard,
+    report,
+    telemetry,
+    latencyMs: Math.round(performance.now() - started),
+    sideband: {
+      advertisedUris: advertisedExtensionUris(normalizedCard),
+      negotiatedUris: negotiateSidebandExtensions(normalizedCard),
+    },
+  };
+}
+
+async function createClient(config: ConnectionConfig): Promise<{ client: Client; telemetry: WireEvent[]; negotiatedExtensions: string[] }> {
+  const discovery = await discoverAgent(config);
+  if (discovery.trust !== "verified" && (discovery.trust !== "unsigned" || process.env.A2A_REQUIRE_SIGNED_CARDS === "true"))
+    throw new Error("Agent Card trust policy rejected this connection.");
+  if (config.auth.type === "none" && !config.tls && discovery.normalizedCard.securityRequirements?.length)
+    throw new Error("Agent credentials are required.");
+  const fetchImpl = createSafeFetch({ ...config, telemetry: discovery.telemetry, timeoutMs: timeout(config) });
+  const transports = [
+    new JsonRpcTransportFactory({ fetchImpl, legacyCompat: { enabled: true } }),
+    new RestTransportFactory({ fetchImpl, legacyCompat: { enabled: true } }),
+  ];
+  let card = { ...discovery.normalizedCard, supportedInterfaces: discovery.normalizedCard.supportedInterfaces.filter((item) => item.protocolBinding.toUpperCase() !== "GRPC") };
+  if (config.interfaceUrl || config.protocolBinding || config.protocolVersion) {
+    const selected = selectAdvertisedInterface(card.supportedInterfaces, config);
+    if (!selected) throw new Error("The selected interface is no longer advertised by the Agent Card.");
+    await assertSafeInterfaceUrl(selected.url, selected.protocolBinding);
+    card = { ...card, supportedInterfaces: [selected] };
+  }
+  const factory = new ClientFactory({
+    transports,
+    preferredTransports: config.protocolBinding ? [config.protocolBinding.toUpperCase()] : undefined,
+    cardResolver: new DefaultAgentCardResolver({ fetchImpl, legacyCompat: { enabled: true } }),
+  });
+  return {
+    client: await factory.createFromAgentCard(card),
+    telemetry: discovery.telemetry,
+    negotiatedExtensions: negotiateSidebandExtensions(card),
+  };
+}
+
+export interface OperationInput {
+  signal?: AbortSignal;
+  /** Server dispatcher records whether a side effect may have reached the peer. */
+  onDispatch?: () => void;
+  connection: ConnectionConfig;
+  action: OperationAction;
+  params?: Record<string, unknown>;
+  sessionId?: string;
+  requestId?: string;
+  traceContext?: { traceId: string; spanId: string; traceparent: string };
+}
+
+function withNegotiatedExtensions(params: Record<string, unknown>, negotiatedExtensions: string[]) {
+  const supplied = Array.isArray(params.extensions) ? params.extensions.filter((value): value is string => typeof value === "string") : [];
+  return { ...params, extensions: [...new Set([...supplied, ...negotiatedExtensions])] };
+}
+
+export function buildSendRequest(params: Record<string, unknown> = {}): SendMessageRequest {
+  const text = typeof params.text === "string" ? params.text : "";
+  const suppliedParts = Array.isArray(params.parts) ? params.parts : [];
+  const parts = text.trim() ? [{ text, mediaType: "text/plain" }, ...suppliedParts] : suppliedParts;
+  if (!parts.length) throw new Error("A message needs at least one content part.");
+  return SendMessageRequest.fromJSON({
+    tenant: params.tenant ?? "",
+    message: {
+      messageId: typeof params.messageId === "string" ? params.messageId : crypto.randomUUID(),
+      contextId: params.contextId ?? "",
+      taskId: params.taskId ?? "",
+      role: "ROLE_USER",
+      parts,
+      metadata: params.metadata,
+      extensions: params.extensions ?? [],
+      referenceTaskIds: params.referenceTaskIds ?? [],
+    },
+    configuration: {
+      acceptedOutputModes: params.acceptedOutputModes ?? [
+        "text/plain", "text/markdown", "text/csv", "application/json", "application/pdf",
+        "application/octet-stream", "application/zip", "image/*", "audio/*", "video/*",
+      ],
+      historyLength: params.historyLength,
+      returnImmediately: params.returnImmediately ?? false,
+    },
+    metadata: params.requestMetadata,
+  });
+}
+
+function serializeSendResult(value: Awaited<ReturnType<Client["sendMessage"]>>) {
+  return "status" in value ? Task.toJSON(value) : Message.toJSON(value);
+}
+
+function diagnosticEnvelope(telemetry: WireEvent[]): Record<string, unknown> | undefined {
+  const body = [...telemetry].reverse().find((event) => event.phase === "response" && event.body && typeof event.body === "object")?.body;
+  return body && typeof body === "object" ? body as Record<string, unknown> : undefined;
+}
+
+export function recoverMalformedLegacyResult(telemetry: WireEvent[]): unknown | undefined {
+  const envelope = diagnosticEnvelope(telemetry);
+  if (!envelope || !("result" in envelope)) return undefined;
+  const result = envelope.result;
+  if (!result || typeof result !== "object") return result;
+  const value = result as Record<string, unknown>;
+  const task = value.task;
+  if (!task || typeof task !== "object") return result;
+  const rawTask = task as Record<string, unknown>;
+  const output = rawTask.output && typeof rawTask.output === "object" ? rawTask.output as Record<string, unknown> : {};
+  const status = rawTask.status && typeof rawTask.status === "object" ? rawTask.status as Record<string, unknown> : {};
+  const state = String(status.state ?? "unknown").toUpperCase();
+  return {
+    id: rawTask.id ?? `diagnostic-${crypto.randomUUID()}`,
+    contextId: rawTask.contextId ?? "",
+    status: { ...status, state: state.startsWith("TASK_STATE_") ? state : `TASK_STATE_${state}` },
+    artifacts: Array.isArray(output.artifacts) ? output.artifacts : [],
+    history: [],
+    metadata: {
+      diagnosticRecovery: true,
+      outputText: output.text,
+      outputParts: output.parts,
+      originalResult: result,
+    },
+  };
+}
+
+async function executeOperationInternal(input: OperationInput): Promise<OperationResponse> {
+  const started = performance.now();
+  const { client, telemetry, negotiatedExtensions } = await createClient(input.connection);
+  const params = input.params ?? {};
+  const options = requestOptions(input.connection, negotiatedExtensions, input.traceContext?.traceparent);
+  if (input.signal) options.signal = AbortSignal.any([input.signal, options.signal!]);
+  let result: unknown;
+  switch (input.action) {
+    case "send": {
+      const request = buildSendRequest(withNegotiatedExtensions(params, negotiatedExtensions));
+      input.onDispatch?.();
+      try { result = serializeSendResult(await client.sendMessage(request, options)); }
+      catch (error) {
+        const recovered = input.connection.diagnosticMode ? recoverMalformedLegacyResult(telemetry) : undefined;
+        if (recovered === undefined) throw error;
+        result = redactSecrets(recovered, input.connection.secretValues);
+        const sessionId = input.sessionId ?? crypto.randomUUID();
+        const requestId = input.requestId ?? crypto.randomUUID();
+        return {
+          result, telemetry, latencyMs: Math.round(performance.now() - started), protocolVersion: client.protocolVersion, transport: client.transport.protocolName,
+          diagnostics: [{ id: "legacy.malformed-result", severity: "warning", path: "$.result", message: `Rendered a non-compliant legacy response after the strict SDK rejected it: ${error instanceof Error ? error.message : "invalid response"}` }],
+          sessionId,
+          requestId,
+          negotiatedExtensions,
+          sidebandEvents: extractSidebandEvents(result, { sessionId, requestId, negotiatedExtensions }),
+          traceId: input.traceContext?.traceId,
+        };
+      }
+      break;
+    }
+    case "getTask": result = Task.toJSON(await client.getTask(GetTaskRequest.fromJSON({ tenant: params.tenant ?? "", id: params.taskId, historyLength: params.historyLength }), options)); break;
+    case "listTasks": result = ListTasksResponse.toJSON(await client.listTasks(ListTasksRequest.fromJSON({
+      tenant: params.tenant ?? "", contextId: params.contextId ?? "", status: params.status ?? "TASK_STATE_UNSPECIFIED", pageSize: params.pageSize ?? 25,
+      pageToken: params.pageToken ?? "", historyLength: params.historyLength, statusTimestampAfter: params.statusTimestampAfter,
+      includeArtifacts: params.includeArtifacts ?? true,
+    }), options)); break;
+    case "cancelTask": input.onDispatch?.(); result = Task.toJSON(await client.cancelTask(CancelTaskRequest.fromJSON({ tenant: params.tenant ?? "", id: params.taskId, metadata: params.metadata }), options)); break;
+    case "extendedCard": result = AgentCard.toJSON(await client.getAgentCard(options)); break;
+    case "createPushConfig": result = TaskPushNotificationConfig.toJSON(await client.createTaskPushNotificationConfig(TaskPushNotificationConfig.fromJSON({
+      tenant: params.tenant ?? "", id: params.configId ?? "", taskId: params.taskId, url: params.url, token: params.token ?? "",
+      authentication: params.authentication,
+    }), options)); break;
+    case "getPushConfig": result = TaskPushNotificationConfig.toJSON(await client.getTaskPushNotificationConfig(GetTaskPushNotificationConfigRequest.fromJSON({ tenant: params.tenant ?? "", taskId: params.taskId, id: params.configId }), options)); break;
+    case "listPushConfigs": result = ListTaskPushNotificationConfigsResponse.toJSON(await client.listTaskPushNotificationConfig(ListTaskPushNotificationConfigsRequest.fromJSON({ tenant: params.tenant ?? "", taskId: params.taskId, pageSize: params.pageSize ?? 25, pageToken: params.pageToken ?? "" }), options)); break;
+    case "deletePushConfig": await client.deleteTaskPushNotificationConfig(DeleteTaskPushNotificationConfigRequest.fromJSON({ tenant: params.tenant ?? "", taskId: params.taskId, id: params.configId }), options); result = { deleted: true }; break;
+    default: throw new Error(`Unsupported operation: ${input.action satisfies never}`);
+  }
+  result = redactSecrets(result, input.connection.secretValues);
+  const sessionId = input.sessionId ?? crypto.randomUUID();
+  const requestId = input.requestId ?? crypto.randomUUID();
+  return {
+    result,
+    telemetry,
+    latencyMs: Math.round(performance.now() - started),
+    protocolVersion: client.protocolVersion,
+    transport: client.transport.protocolName,
+    sessionId,
+    requestId,
+    negotiatedExtensions,
+    sidebandEvents: extractSidebandEvents(result, { sessionId, requestId, negotiatedExtensions }),
+    traceId: input.traceContext?.traceId,
+  };
+}
+
+export async function streamOperation(input: OperationInput): Promise<{
+  events: AsyncGenerator<StreamResponse, void, undefined>;
+  client: Client;
+  telemetry: WireEvent[];
+  negotiatedExtensions: string[];
+}> {
+  const { client, telemetry, negotiatedExtensions } = await createClient(input.connection);
+  const params = input.params ?? {};
+  const options = requestOptions(input.connection, negotiatedExtensions, input.traceContext?.traceparent);
+  if (input.signal) options.signal = AbortSignal.any([input.signal, options.signal!]);
+  if (!(await client.getAgentCard()).capabilities?.streaming) throw new Error("STREAMING_UNSUPPORTED");
+  const events = input.action === "send"
+    ? client.sendMessageStream(buildSendRequest(withNegotiatedExtensions(params, negotiatedExtensions)), options)
+    : client.resubscribeTask(SubscribeToTaskRequest.fromJSON({ tenant: params.tenant ?? "", id: params.taskId }), options);
+  return { events, client, telemetry, negotiatedExtensions };
+}
+
+export function serializeStreamEvent(event: StreamResponse): unknown {
+  return StreamResponse.toJSON(event);
+}
+
+export async function executeOperation(input: OperationInput): Promise<OperationResponse> {
+  try { return await executeOperationInternal(input); }
+  catch (error) {
+    if (!input.connection.secretValues?.length) throw error;
+    const safe = new Error("Protected agent operation failed.");
+    if (error instanceof Error) safe.name = error.name;
+    if (error && typeof error === "object" && "envelopeCode" in error && typeof error.envelopeCode === "number")
+      Object.assign(safe, {envelopeCode: error.envelopeCode});
+    throw safe;
+  }
+}
