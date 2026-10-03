@@ -41,7 +41,12 @@ async function contract(config: DatabaseConfig, directory: string) {
       [randomUUID(), org.id, agent.id, legacyId, new Date(legacyView.createdAt), new Date(legacyView.createdAt), eventDigest(raw), JSON.stringify(safe)]);
     await orm.migrator.up();
     const ports = () => createPersistenceRepositories(orm.em.fork());
-    const read = (id: string = legacyId, organizationId: string = org.id) => withTaskQueries((queries) => queries.detail(organizationId, id), orm);
+    // Operational revision changes on rebuild; deterministic content excludes it.
+    const read = async (id: string = legacyId, organizationId: string = org.id) => {
+      const view = await withTaskQueries((queries) => queries.detail(organizationId, id), orm);
+      if (view) delete view.version;
+      return view;
+    };
     expect(await read()).toMatchObject({ messages: [], artifacts: [] });
     expect(await orm.em.fork().count(TaskProjectionEntity, {})).toBe(0);
     const rebuilder = () => createProjectionRebuilder({ orm, store });
@@ -142,7 +147,7 @@ async function contract(config: DatabaseConfig, directory: string) {
     expect(await orm.em.fork().count(TaskEventEntity, { taskId: shared.localId })).toBeGreaterThan(0);
     // Rollback exports the active generation, then re-upgrade retains readable
     // legacy state until an explicit rebuild switches back to version 2.
-    await orm.migrator.down();
+    await orm.migrator.down({ to: "Migration20261003045027_TaskReconciliation" });
     const legacyExport = await orm.em.getConnection().execute(`select content_json from tasks where id = ?`, [shared.localId]);
     expect(legacyExport[0].content_json).toEqual(final);
     await orm.migrator.up();

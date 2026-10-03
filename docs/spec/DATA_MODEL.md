@@ -225,14 +225,84 @@ snapshot for the active pointer/header/parts; list queries do not read the ledge
 Schema rollback exports the active view into legacy JSON before dropping tables.
 See ADR 0011 for ambiguous untimestamped append policy and scaling limits.
 
+### Application freshness (Slice 2.6)
+
+Projection ingestion and rebuild activation enqueue `task.freshness` outbox
+rows atomically, keyed by organization and local task aggregate, with an empty
+payload. Duplicate ingestion enqueues nothing. Delivery uses fifteen-second
+leases and safe retry state; expired ownership republishes without remote work.
+
+`organization_freshness` stores `(organizationId primary key, token UUID)` for
+the PostgreSQL polling adapter. A token is only an opaque equality marker.
+Concurrent publications replace it atomically; readers may coalesce several
+signals. PGlite uses a shared in-memory token instead. Signals contain no task
+content or identifiers. Ready/resync/reconnect/fallback reads restore freshness
+from scoped projections without requiring signal replay or a global sequence.
+Rollback drops tokens and freshness intent while preserving tasks and events.
+See ADR 0012.
+
+### Browser reads (Slice 2.7)
+
+The content-query port pages by local task UUID within the server-resolved
+organization and includes both Tasks and direct Messages. It reads active
+content projections, never protocol events. Responses expose the database task
+version as an operational snapshot fence, separate from deterministic content.
+A rebuild with unchanged task columns may retain its version; freshness still
+re-queries the repaired content. No schema change is required for this slice.
+
+Browser caches are disposable in-memory mirrors. Legacy persisted task content
+and notification read keys are retired without importing them. Current alerts
+are derived from durable task projections, while read marks are session-only
+presentation state. Notification/recipient/read entities remain Phase 4 work.
+
 ## Later entities
+
+### Phase 3 Slice 3.1 identity/session baseline
+
+Implemented identities use local UUIDs and exact external identity mappings:
+
+- `User`: `id, displayName, enabled, createdAt`.
+- `ExternalIdentity`: `id, userId, issuer, subject`; unique `(issuer, subject)`.
+  Email and provider role/organization claims are never identity or grants.
+- `Membership`: `id, organizationId, userId, role, enabled`; unique
+  `(organizationId, userId)`. Roles are initially admin/operator/viewer.
+- `UserSession`: `tokenHash, membershipId, expiresAt, createdAt`. Only SHA-256
+  of the random opaque cookie is stored. Current membership/user enabled state
+  and role are resolved at every admitted request; sessions survive restart.
+- `LoginAttempt`: `tokenHash, encryptedFlow, expiresAt`. This is transient,
+  pre-membership global state: ten-minute login flows use `jose` authenticated
+  JWE and a server-only key, and are atomically consumed once. No provider token
+  is persisted. Expired attempts/sessions are cleaned on login.
+- `SecurityAuditEvent`: `id, organizationId, actorUserId?, actorType, action,
+  targetId, eventKey, createdAt`. The append-only port stores fixed safe facts.
+  Provisioning has a system actor; command audit keys are unique and stable.
+  Audit and accepted command/catalog intent commit atomically. Full workflow
+  AuditEvent semantics/views remain Phase 4 work.
+
+Users/identities are global mappings reachable through organization memberships;
+sessions are reachable only through their membership. Browser identity/scope
+headers and IdP claims cannot create memberships. Local development provisions
+one local administrator; production memberships are operator provisioned.
+Slice 3.2 adds `Team`, `TeamMembership` and `AccessGrant` with enabled organization,
+membership/team subject, agent, optional skill and read/operate permission. Membership
+roles remain the baseline ceiling. Task and command `skillId` are nullable typed columns;
+null records require whole-agent access, and continuation cannot change skill scope.
+
+The CredentialVault adapter owns `AgentCredential`: organization/agent-unique JWE
+ciphertext, kind, key ID, enabled state, revision and update time. The authenticated
+payload binds organization and agent. Domain task/event/outbox entities carry no
+credential values or ciphertext. Keys are server environment configuration.
+
+`ArtifactAccess` uniquely associates task and digest within the organization. Only
+server-externalized inline bytes or digest-verified original archives may create these
+rows; remote URL/metadata cannot grant access. Downloads join against currently visible
+tasks. `SecurityRateBucket` has a fixed scope ID, count and expiry; locking increments
+within a transaction and resets expired windows. All new tables/columns share the
+PostgreSQL-compatible migration and adapter contract.
 
 ### Identity and access
 
-- `User`
-- `ExternalIdentity`
 - `Team`
-- `Membership`
 - `Role`
 - `RoleGrant`
 - `AgentAccessGrant`

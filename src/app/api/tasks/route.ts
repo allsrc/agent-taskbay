@@ -1,8 +1,9 @@
+import { authenticatedRoute } from "@/server/runtime/identity";
 import { apiError } from "@/lib/api-response";
 import { withTaskQueries } from "@/server/runtime/task-persistence";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export async function GET(request: Request) {
+async function handleGET(request: Request) {
   try {
     const url = new URL(request.url);
     const filter = url.searchParams.get("filter") ?? "all";
@@ -16,3 +17,5 @@ export async function GET(request: Request) {
     return Response.json({ tasks }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) { return apiError(error, 500); }
 }
+
+export const GET = authenticatedRoute("read", handleGET);

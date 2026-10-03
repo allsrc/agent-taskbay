@@ -43,6 +43,7 @@ export type TaskBucket = "needs-input" | "in-progress" | "completed" | "failed" 
 export const MESSAGE_ONLY_STATE = "MESSAGE_ONLY";
 
 export interface TrackedTask {
+  skillId?: string;
   taskId: string;
   localId?: string;
   tenant?: string;
@@ -62,6 +63,8 @@ export interface TrackedTask {
 
 
 export interface DurableTaskView extends TrackedTask {
+  /** Optimistic database version; fences delayed committed snapshots in the UI. */
+  version?: number;
   localId: string;
   tenant: string;
   referenceLinks: Record<string, string>;

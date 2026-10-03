@@ -13,6 +13,10 @@ export interface ConnectionConfig {
   protocolVersion?: string;
   timeoutMs?: number;
   diagnosticMode?: boolean;
+  /** Server-only resolved Plane B values. Never accepted from application request bodies. */
+  credentialOrigins?: string[];
+  secretValues?: string[];
+  tls?: { cert?: string; key?: string; ca?: string };
 }
 
 export type ComplianceSeverity = "error" | "warning" | "info";
@@ -46,6 +50,7 @@ export interface WireEvent {
 }
 
 export interface DiscoverResponse {
+  trust?: import("../server/adapters/auth/card-trust").CardTrust;
   resolvedCardUrl?: string;
   card: Record<string, unknown>;
   rawCard: Record<string, unknown>;

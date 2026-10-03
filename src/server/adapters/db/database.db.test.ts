@@ -21,6 +21,9 @@ const migrationNames = [
   "Migration20261003030000_TaskPushRegistrations",
   "Migration20261003045027_TaskReconciliation",
   "Migration20261003052730_VersionedTaskProjections",
+  "Migration20261003060000_ApplicationFreshness",
+  "Migration20261003080625_IdentitySessions",
+  "Migration20261003100926_ScopedSecurity",
 ];
 
 async function verifyMigrationContract(config: DatabaseConfig) {
@@ -37,7 +40,7 @@ async function verifyMigrationContract(config: DatabaseConfig) {
     const applied = await orm.migrator.up();
     expect(applied.map((migration) => migration.name)).toEqual(migrationNames);
     expect(await orm.migrator.getPending()).toHaveLength(0);
-    expect(await orm.migrator.getExecuted()).toHaveLength(8);
+    expect(await orm.migrator.getExecuted()).toHaveLength(11);
     expect(await orm.migrator.checkSchema()).toBe(false);
   } finally {
     await orm.close(true);
@@ -63,7 +66,7 @@ describe("PGlite database adapter", () => {
 
     reopenedOrm = await createDatabaseOrm(config);
     expect(await reopenedOrm.migrator.getPending()).toHaveLength(0);
-    expect(await reopenedOrm.migrator.getExecuted()).toHaveLength(8);
+    expect(await reopenedOrm.migrator.getExecuted()).toHaveLength(11);
   });
 
   it("upgrades the immediately previous push schema", async () => {
@@ -83,7 +86,7 @@ describe("PGlite database adapter", () => {
       const upgradedOrm = await createDatabaseOrm(config);
       expect(
         (await upgradedOrm.migrator.getPending()).map(({ name }) => name),
-      ).toEqual([migrationNames[6], migrationNames[7]]);
+      ).toEqual([migrationNames[6], migrationNames[7], migrationNames[8], migrationNames[9], migrationNames[10]]);
       await upgradedOrm.migrator.up();
       const rows = await upgradedOrm.em.getConnection().execute(`select remote_task_id, state, content_json from tasks where id = '00000000-0000-4000-a000-000000000003'`);
       expect(rows).toEqual([{ remote_task_id: "retained", state: "TASK_STATE_WORKING", content_json: {} }]);

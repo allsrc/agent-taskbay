@@ -47,6 +47,8 @@ export interface AgentRepository {
 }
 
 export interface TaskRepository {
+  /** Stable local-ID pagination includes direct Messages, without reading the ledger. */
+  listContentPage(organizationId: string, limit: number, after?: string): Promise<TaskRecord[]>;
   /** Called within an ingestion transaction; returns a row locked for projection updates. */
   getOrCreate(task: TaskRecord): Promise<TaskRecord>;
   saveProjection(task: TaskRecord): Promise<TaskRecord>;

@@ -10,13 +10,15 @@ const { startPushLoop } = await import("../src/server/workers/push-loop");
 const stopPush = startPushLoop();
 const { startReconciliationLoop } = await import("../src/server/workers/reconciliation-loop");
 const stopReconciliation = startReconciliationLoop();
+const { startFreshnessLoop } = await import("../src/server/workers/freshness-loop");
+const stopFreshness = startFreshnessLoop();
 // Keep this entry point alive even while its polling timer is idle.
 const keepAlive = setInterval(() => undefined, 60_000);
 let stopping = false;
 async function shutdown() {
   if (stopping) return;
   stopping = true;
-  await Promise.all([stop(), stopSubscriptions(), stopPush(), stopReconciliation()]); await closeDatabaseOrm(); clearInterval(keepAlive);
+  await Promise.all([stop(), stopSubscriptions(), stopPush(), stopReconciliation(), stopFreshness()]); await closeDatabaseOrm(); clearInterval(keepAlive);
 }
 process.once("SIGTERM", () => { void shutdown(); });
 process.once("SIGINT", () => { void shutdown(); });

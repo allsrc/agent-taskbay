@@ -1,12 +1,13 @@
+import { agentConnection } from "./agent-connection";
 import { executeOperation, discoverAgent } from "../../../lib/gateway";
 import type { A2APushGateway } from "../../application/ports/push";
 import { PushUnsupported } from "../../application/ports/push";
 import type { AgentRecord, TaskRecord } from "../../domain/persistence-model";
 
 export class SdkPushGateway implements A2APushGateway {
-  private connection(agent: AgentRecord) { return { cardUrl: agent.cardUrl, auth: { type: "none" as const }, headers: {} }; }
+  private connection(agent: AgentRecord) { return agentConnection(agent); }
   async register(agent: AgentRecord, task: TaskRecord, id: string, url: string, credential: string, signal: AbortSignal) {
-    const connection = this.connection(agent);
+    const connection = await this.connection(agent);
     if (!(await discoverAgent(connection)).normalizedCard.capabilities?.pushNotifications) throw new PushUnsupported();
     // Do not expose or persist config responses, including echoed credentials/telemetry.
     try {
@@ -28,7 +29,7 @@ export class SdkPushGateway implements A2APushGateway {
   }
   async remove(agent: AgentRecord, task: TaskRecord, id: string, signal: AbortSignal) {
     try {
-      await executeOperation({ connection: this.connection(agent), signal, action: "deletePushConfig",
+      await executeOperation({ connection: await this.connection(agent), signal, action: "deletePushConfig",
         params: { taskId: task.remoteTaskId, tenant: task.tenant, configId: id } });
     } catch (error) {
       // A2A has no separate config-not-found type; peers use TaskNotFoundError.

@@ -29,6 +29,7 @@ export async function sendAndStream(
     text?: string;
     tenant?: string;
     messageId?: string;
+    skillId?: string;
     parts?: OutgoingPart[];
     taskId?: string;
     contextId?: string;

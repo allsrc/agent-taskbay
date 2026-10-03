@@ -10,6 +10,7 @@ export class CommandError extends Error {
   constructor(message: string, public readonly status: number) { super(message); }
 }
 export interface CommandIntent {
+  skillId?: string | null;
   organizationId: string;
   agentId: string;
   tenant: string;
@@ -34,7 +35,7 @@ export class TaskCommandService {
     const stored = await this.store.put(input.organizationId, Buffer.from(JSON.stringify({ ...input.params, tenant: input.tenant, messageId })));
     const { command, created } = await this.commands.getOrCreate({
       id: randomUUID(), organizationId: input.organizationId, agentId: input.agentId,
-      tenant: input.tenant, action: input.action, idempotencyKey: input.idempotencyKey, messageId,
+      tenant: input.tenant, skillId: input.skillId ?? null, action: input.action, idempotencyKey: input.idempotencyKey, messageId,
       payloadDigest, payloadObjectKey: stored.objectKey, status: "pending", resultJson: null, lastError: null, createdAt: now, updatedAt: now,
     });
     if (command.payloadDigest !== payloadDigest) throw new CommandError("This idempotency key already belongs to different command content.", 409);

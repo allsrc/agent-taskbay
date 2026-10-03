@@ -9,6 +9,7 @@ export interface CatalogAgent {
   source: "env" | "managed";
   /** Undefined when discovery failed; see `error`. */
   view?: AgentView;
+  trust?: string;
   error?: string;
 }
 
@@ -29,13 +30,13 @@ export const useAgentStore = create<AgentStoreState>()((set, get) => ({
       const response = await fetch("/api/agents", { cache: "no-store" });
       const body = await response.json();
       if (!response.ok) throw new Error(body?.error?.message ?? "Could not load agents.");
-      const agents: CatalogAgent[] = (body.agents as Array<{ id: string; cardUrl: string; source: "env" | "managed"; card?: unknown; error?: string }>).map(
+      const agents: CatalogAgent[] = (body.agents as Array<{ id: string; cardUrl: string; source: "env" | "managed"; card?: unknown; trust?: string; error?: string }>).map(
         (entry) => ({
           id: entry.id,
           cardUrl: entry.cardUrl,
           source: entry.source,
           view: entry.card ? viewAgentCard(entry.card) : undefined,
-          error: entry.error,
+          error: entry.error, trust: entry.trust,
         }),
       );
       set({ agents, status: "ready" });

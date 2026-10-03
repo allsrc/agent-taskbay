@@ -7,6 +7,7 @@ export interface RegisteredAgent {
 }
 
 export interface AgentDiscoverySnapshot {
+  signatureStatus?: string;
   resolvedCardUrl: string | null;
   rawCardJson: JsonValue;
   normalizedCardJson: JsonValue;

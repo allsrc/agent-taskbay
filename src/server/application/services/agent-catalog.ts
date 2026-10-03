@@ -16,8 +16,8 @@ export function validateCardUrl(cardUrl: string): string {
   if (!["http:", "https:"].includes(url.protocol)) {
     throw new Error("Agent Card URL must be http(s).");
   }
-  if (url.username || url.password) {
-    throw new Error("Agent Card URL must not contain credentials.");
+  if (url.username || url.password || url.search || url.hash) {
+    throw new Error("Agent Card URL must not contain credentials, query strings or fragments.");
   }
   if (trimmed.length > 1024) throw new Error("Agent Card URL exceeds 1024 characters.");
   return trimmed;
@@ -115,8 +115,7 @@ export class AgentCatalogService {
       resolvedCardUrl: snapshot.resolvedCardUrl,
       rawCardJson: snapshot.rawCardJson, normalizedCardJson: snapshot.normalizedCardJson,
       complianceJson: snapshot.complianceJson, digest: snapshot.digest,
-      // Signature verification is Phase 3 work; advertised signatures are not proof.
-      signatureStatus: "unverified",
+      signatureStatus: snapshot.signatureStatus ?? "unverified",
     });
     await this.agents.updateDiscovery(this.organizationId, agent.id, {
       displayName: snapshot.displayName, description: snapshot.description,

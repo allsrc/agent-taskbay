@@ -1,3 +1,4 @@
+import { requestAccessPolicy } from "../adapters/db/security-repository";
 import type { MikroORM } from "@mikro-orm/core";
 import type { ArtifactStore } from "../application/ports/artifact-store";
 import type { A2ASubscriptionGateway, SubscriptionUnitOfWork } from "../application/ports/subscriptions";
@@ -10,6 +11,8 @@ import { bootstrapDefaultLocalOrganization } from "../application/services/boots
 import { createTaskObserver } from "./task-persistence";
 import { CommandError } from "../application/services/task-command";
 import { TaskQueryService } from "../application/services/task-query";
+import { currentPrincipal } from "../adapters/auth/principal-context";
+import { authorize } from "../application/services/authorization";
 
 export function createSubscriptionWorker(options: { orm?: MikroORM; store?: ArtifactStore; gateway?: A2ASubscriptionGateway } = {}) {
   const work: SubscriptionUnitOfWork = { run: (callback) => withJobEntityManager((em) =>
@@ -38,11 +41,16 @@ export function createSubscriptionWorker(options: { orm?: MikroORM; store?: Arti
 /** Explicit browser reconnect only resolves a known durable, scoped task. */
 export async function ensureTaskSubscription(agentId: string, tenant: string, remoteTaskId: string) {
   return withRequestEntityManager(async (em) => {
-    const org = await bootstrapDefaultLocalOrganization(createPersistenceRepositories(em).organizations);
+    const principal = currentPrincipal();
+    if (principal) authorize(principal, "operate");
+    const organizations = createPersistenceRepositories(em).organizations;
+    const org = principal ? await organizations.findById(principal.organizationId) : await bootstrapDefaultLocalOrganization(organizations);
+    if (!org) throw new CommandError("Unknown organization.", 404);
     return em.transactional(async (transaction) => {
       const ports = createPersistenceRepositories(transaction);
       const task = await ports.tasks.findByRemoteIdentity({ organizationId: org.id, agentId, tenant, remoteTaskId });
       if (!task) throw new CommandError("No observed task in this agent and tenant scope.", 404);
+      (await requestAccessPolicy(transaction))?.require(task.agentId, "operate", task.skillId ?? null);
       // Use the same task -> subscription lock order as ingestion.
       const locked = await ports.tasks.getOrCreate(task);
       await ports.subscriptions.sync(locked, new Date());
@@ -54,7 +62,9 @@ export async function ensureTaskSubscription(agentId: string, tenant: string, re
 export async function readTaskFeed(localId: string, after: number) {
   return withRequestEntityManager(async (em) => {
     const ports = createPersistenceRepositories(em);
-    const org = await bootstrapDefaultLocalOrganization(ports.organizations);
+    const principal = currentPrincipal();
+    const org = principal ? await ports.organizations.findById(principal.organizationId) : await bootstrapDefaultLocalOrganization(ports.organizations);
+    if (!org) throw new CommandError("Unknown organization.", 404);
     const task = await ports.tasks.findById(org.id, localId);
     if (!task) throw new CommandError("Task not found.", 404);
     return { task, events: await ports.taskEvents.readFeed(org.id, localId, after, 100),

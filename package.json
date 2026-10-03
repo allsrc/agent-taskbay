@@ -31,8 +31,8 @@
     "start": "next start -p 3002",
     "lint": "eslint",
     "test": "vitest run --exclude 'src/server/adapters/db/**/*.db.test.ts'",
-    "test:db": "vitest run src/server/adapters/db/database.db.test.ts src/server/adapters/db/repositories.db.test.ts src/server/adapters/db/agent-registry.db.test.ts src/server/adapters/db/task-observation.db.test.ts src/server/adapters/db/commands.db.test.ts src/server/adapters/db/subscriptions.db.test.ts src/server/adapters/db/push.db.test.ts src/server/adapters/db/reconciliation.db.test.ts src/server/adapters/db/projection-rebuild.db.test.ts --maxWorkers=1",
-    "test:http": "node scripts/verify-task-http.mjs",
+    "test:db": "vitest run src/server/adapters/db/database.db.test.ts src/server/adapters/db/repositories.db.test.ts src/server/adapters/db/agent-registry.db.test.ts src/server/adapters/db/task-observation.db.test.ts src/server/adapters/db/commands.db.test.ts src/server/adapters/db/subscriptions.db.test.ts src/server/adapters/db/push.db.test.ts src/server/adapters/db/reconciliation.db.test.ts src/server/adapters/db/projection-rebuild.db.test.ts src/server/adapters/db/freshness.db.test.ts src/server/adapters/db/identity.db.test.ts src/server/adapters/db/scoped-security.db.test.ts --maxWorkers=1 --testTimeout=30000",
+    "test:http": "node scripts/verify-service-security.mjs && node scripts/verify-task-http.mjs && node --import tsx scripts/verify-identity-http.mjs",
     "test:coverage": "vitest run --coverage --exclude 'src/server/adapters/db/**/*.db.test.ts'",
     "db:migrate": "mikro-orm migration:up",
     "db:migrate:down": "mikro-orm migration:down",
@@ -43,7 +43,9 @@
     "check": "npm run lint && npm run test && npm run test:db && npm run db:schema:check && npm run build && npm run test:http",
     "db:projections:rebuild": "tsx scripts/rebuild-projections.ts",
     "worker:commands": "tsx scripts/command-worker.ts",
-    "worker:tasks": "tsx scripts/command-worker.ts"
+    "worker:tasks": "tsx scripts/command-worker.ts",
+    "auth:provision": "tsx scripts/provision-identity.ts",
+    "security:credentials": "tsx scripts/manage-credentials.ts"
   },
   "dependencies": {
     "@a2a-js/sdk": "^1.0.1",
@@ -65,10 +67,13 @@
     "@radix-ui/react-tooltip": "^1.1.8",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "ipaddr.js": "2.5.0",
+    "jose": "6.2.12",
     "lucide-react": "^1.27.0",
     "motion": "^13.4.6",
     "next": "16.3.6",
     "next-themes": "^0.4.4",
+    "openid-client": "6.8.8",
     "postcss": "^8.5.24",
     "react": "19.2.4",
     "react-dom": "19.2.4",
@@ -76,6 +81,7 @@
     "remark-gfm": "^4.0.1",
     "sonner": "^1.7.4",
     "tailwind-merge": "^3.0.2",
+    "undici": "7.30.0",
     "zod": "^4.4.3",
     "zustand": "^5.0.2"
   },

@@ -1,80 +1,52 @@
 import { isIP } from "node:net";
 import { lookup } from "node:dns/promises";
-
-const PRIVATE_V4 = [
-  /^0\./,
-  /^10\./,
-  /^100\.(?:6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./,
-  /^127\./,
-  /^169\.254\./,
-  /^172\.(1[6-9]|2\d|3[01])\./,
-  /^192\.0\.0\./,
-  /^192\.0\.2\./,
-  /^192\.168\./,
-  /^198\.18\./,
-  /^198\.19\./,
-  /^198\.51\.100\./,
-  /^203\.0\.113\./,
-  /^224\./,
-  /^2(?:[3-4]\d|5[0-5])\./,
-];
-
-function isPrivateAddress(address: string): boolean {
-  if (isIP(address) === 4) return PRIVATE_V4.some((pattern) => pattern.test(address));
-  const value = address.toLowerCase().split("%")[0];
-  const mappedV4 = value.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/)?.[1];
-  if (mappedV4) return isPrivateAddress(mappedV4);
-  if (value.startsWith("::ffff:")) return true;
-  return value === "::" || value === "::1" || value.startsWith("fc") || value.startsWith("fd") ||
-    /^fe[89ab]/.test(value) || value.startsWith("ff");
-}
+import ipaddr from "ipaddr.js";
 
 export function privateNetworksAllowed(): boolean {
-  return process.env.A2A_ALLOW_PRIVATE_NETWORKS !== "false";
+  return process.env.A2A_ALLOW_PRIVATE_NETWORKS === "true" ||
+    (process.env.NODE_ENV !== "production" && process.env.A2A_ALLOW_PRIVATE_NETWORKS !== "false");
 }
-
-export async function assertSafeUrl(input: string): Promise<URL> {
-  let url: URL;
+export function addressAllowed(address: string, allowPrivate = privateNetworksAllowed()): boolean {
   try {
-    url = new URL(input);
-  } catch {
-    throw new Error("Enter a valid absolute agent URL.");
-  }
-  if (!["http:", "https:"].includes(url.protocol)) throw new Error("Only HTTP and HTTPS agent URLs are supported.");
-  if (url.username || url.password) throw new Error("Credentials in URLs are not allowed. Use the authentication controls.");
-  if (url.port && Number(url.port) > 65535) throw new Error("The URL contains an invalid port.");
-
-  const hostname = url.hostname.replace(/^\[|\]$/g, "").replace(/\.$/, "").toLowerCase();
-  const isLocalName = hostname === "localhost" || hostname === "localhost.localdomain" || hostname.endsWith(".localhost") || hostname.endsWith(".local");
-  const addresses = isIP(hostname)
-    ? [{ address: hostname }]
-    : await lookup(hostname, { all: true }).catch(() => { throw new Error(`Could not resolve ${hostname}.`); });
-  if (!privateNetworksAllowed() && (isLocalName || addresses.some(({ address }) => isPrivateAddress(address)))) {
-    throw new Error("Private, loopback, link-local, and metadata network targets are blocked. Set A2A_ALLOW_PRIVATE_NETWORKS=true to reach agents on this deployment's internal network.");
-  }
+    const parsed = ipaddr.process(address);
+    const range = parsed.range();
+    return range === "unicast" || (allowPrivate && ["private", "uniqueLocal", "loopback"].includes(range));
+  } catch { return false; }
+}
+export function validateTargetUrl(input: string): URL {
+  let url: URL;
+  try { url = new URL(input); } catch { throw new Error("Enter a valid absolute agent URL."); }
+  if (!["http:", "https:"].includes(url.protocol) || url.username || url.password || url.search || url.hash)
+    throw new Error("Agent URLs must use HTTP(S) without credentials, query strings or fragments.");
+  const production = process.env.NODE_ENV === "production";
+  const demo = process.env.A2A_AUTH_MODE === "development" && process.env.A2A_ALLOW_DEVELOPMENT_AUTH === "true";
+  const origins = (process.env.A2A_ALLOWED_AGENT_ORIGINS ?? "").split(",").filter(Boolean).map((value) => {
+    const configured = new URL(value.trim());
+    if (configured.href !== `${configured.origin}/`) throw new Error("Agent allowlist entries must be exact origins.");
+    return configured.origin;
+  });
+  if ((origins.length || production) && !origins.includes(url.origin)) throw new Error("Agent target is not in the configured origin allowlist.");
+  if (production && !demo && url.protocol !== "https:") throw new Error("Production agent targets require HTTPS.");
   return url;
 }
-
+export async function resolveTarget(input: string, resolver = lookup) {
+  const url = validateTargetUrl(input);
+  const hostname = url.hostname.replace(/^\[|\]$/g, "");
+  const addresses = isIP(hostname) ? [{ address: hostname, family: isIP(hostname) }] : await resolver(hostname, { all: true, verbatim: true });
+  if (!addresses.length || addresses.some(({address}) => !addressAllowed(address))) throw new Error("Agent network address is blocked.");
+  return { url, addresses };
+}
+export async function assertSafeUrl(input: string): Promise<URL> { return (await resolveTarget(input)).url; }
 export async function assertSafeInterfaceUrl(input: string, protocolBinding?: string): Promise<void> {
-  if (protocolBinding?.toUpperCase() === "GRPC" && !/^https?:\/\//i.test(input)) {
-    const authority = input.replace(/^grpc:\/\//i, "");
-    if (!/^[\[\]a-zA-Z0-9._:-]+$/.test(authority)) throw new Error("The gRPC interface contains an invalid authority.");
-    await assertSafeUrl(`http://${authority}`);
-    return;
-  }
+  // The SDK gRPC factory does not expose a connection-bound resolver. Do not let it bypass this policy.
+  if (protocolBinding?.toUpperCase() === "GRPC") throw new Error("gRPC transport is unavailable under the hardened network policy; advertise an HTTP binding.");
   await assertSafeUrl(input);
 }
-
 export async function assertSafeAgentCard(card: Record<string, unknown>): Promise<void> {
-  const candidates: Array<{ url: string; binding?: string }> = [];
-  if (typeof card.url === "string") candidates.push({ url: card.url, binding: typeof card.preferredTransport === "string" ? card.preferredTransport : undefined });
-  if (Array.isArray(card.supportedInterfaces)) {
-    for (const item of card.supportedInterfaces) {
-      if (item && typeof item === "object" && typeof (item as { url?: unknown }).url === "string") {
-        const entry = item as { url: string; protocolBinding?: unknown };
-        candidates.push({ url: entry.url, binding: typeof entry.protocolBinding === "string" ? entry.protocolBinding : undefined });
-      }
-    }
+  const urls: string[] = [];
+  if (typeof card.url === "string") urls.push(card.url);
+  if (Array.isArray(card.supportedInterfaces)) for (const entry of card.supportedInterfaces) {
+    if (entry && typeof entry === "object" && typeof entry.url === "string" && entry.protocolBinding?.toUpperCase() !== "GRPC") urls.push(entry.url);
   }
-  await Promise.all(candidates.map(({ url, binding }) => assertSafeInterfaceUrl(url, binding)));
+  await Promise.all(urls.map(assertSafeUrl));
 }

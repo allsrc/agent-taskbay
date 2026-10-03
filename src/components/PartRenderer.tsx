@@ -175,7 +175,7 @@ export function PartRenderer({ part, allowRaw = false, richJson = false }: { par
           <CsvTable text={part.value} />
         ) : mime.includes("markdown") || (part.kind === "text" && /^\s*(#|[-*] |```|\|.+\|)/m.test(text)) ? (
           <div className="markdown-content">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={{img: ({alt}) => <span>{alt ? `Image: ${alt}` : "Remote image omitted"}</span>}}>{text}</ReactMarkdown>
           </div>
         ) : part.kind === "text" ? (
           <div className="text-sm leading-relaxed whitespace-pre-wrap">{text}</div>

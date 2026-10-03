@@ -198,6 +198,33 @@ domain operations and query shapes that preserve tenancy and invariants.
 
 ## Security boundaries
 
+Phase 3 Slice 3.1 implements Plane A with `openid-client` and `jose`, exact
+issuer/subject identities, operator-provisioned memberships and persisted,
+revocable opaque-cookie sessions. A request-scoped principal selects the
+organization in every application API/runtime path, including compatibility
+streams, SSE and artifact downloads. Administrator/operator/viewer roles form
+the initial organization policy; agent registration/preview/removal require
+an administrator. Canonical-origin mutation checks protect cookie sessions.
+Provider roles and organization claims never grant access. Webhooks retain
+their independent registration credentials; workers continue accepted system
+work after logout. Safe command/catalog audit facts commit with intent.
+See ADR 0013 and `docs/security/THREAT_MODEL.md`. Slice 3.2 adds explicit organization,
+membership and team grants behind AccessPolicyRepository, typed immutable task/command
+skill scope and grant filters before pagination. CredentialVault stores authenticated
+JWE scoped to organization/agent and resolves service credentials only on the server.
+Use openid-client for client credentials, jose for vault/signatures, SDK canonicalization,
+Undici for socket-bound DNS/TLS and ipaddr.js for IP policy. Skills require the explicit
+bounded-routing extension; unbounded sends require whole-agent operate access.
+
+Server-authored artifact references come only from archived bytes, not remote URLs.
+Rebuild verifies original archives outside transactions and activates references with
+projections. Durable request budgets complement existing webhook registration checks.
+Signed cards use origin-pinned asymmetric keys; advertised key URLs are never fetched.
+Production targets need exact origins and HTTPS. gRPC is unavailable until the SDK
+adapter supports a connection-bound resolver. User-delegated OAuth remains the
+conditional follow-up after the verified service baseline. See ADR 0014 and the
+service identity runbook for deployment and rotation.
+
 - Agent registration and credential changes are administrative operations.
 - Outbound targets use explicit policy/allowlists. DNS resolution and the
   actual connection target must not diverge.
@@ -220,6 +247,29 @@ the database; SSE is only a freshness signal.
   introduced without changing application services.
 
 Missing a live signal is harmless because clients re-query durable state.
+
+Slice 2.6 enqueues `task.freshness` outbox intent with each accepted projection
+write and rebuild activation. Leased workers publish through RealtimePublisher
+before acknowledging delivery. PGlite shares a process-global organization
+token; PostgreSQL workers update an indexed organization token polled by web
+replicas. GET `/api/tasks/events` emits content-free ready/freshness/resync
+signals with bounded connections. Browser Tasks and known durable Chat tasks
+re-query after signals, reconnect and focus, with five-second fallback reads.
+No live replay cursor or task payload is exposed. Duplicate publication is safe
+and expired delivery leases retry; remote observation stays worker-owned.
+See ADR 0012.
+
+Slice 2.7 removes browser persistence for task content and notification read
+marks. A single tab cache loads paginated, organization-scoped content views
+(including direct Messages) on mount and after freshness/focus/fallback signals.
+Chat, flows and current alerts derive from those views; a successful complete
+refresh replaces the cache. A failed page preserves the previous cache and
+reports retry state. Revision fencing prevents a concurrent command snapshot
+from being erased by an in-flight refresh. Database versions reject delayed
+snapshots. Pending user turns remain in composer state and raw wire events
+cannot produce task content. Legacy content caches are retired without import;
+settings/theme storage remains. Session read marks are only presentation state;
+durable recipient/read records and channels remain Phase 4 work.
 
 ## Deployment profiles
 
@@ -262,6 +312,11 @@ the captured task version still matches. Content reads join the active pointer
 and normalized rows in one database snapshot; inbox reads retain typed indexes.
 The operator CLI is online for PostgreSQL and offline for the PGlite profile;
 the running PGlite owner can call the runtime rebuild service. See ADR 0011.
+
+Slice 2.6 runs freshness dispatch in the same worker profiles. The local bus is
+shared by embedded workers/routes; the PostgreSQL polling bus crosses independent
+worker/web processes. SSE disconnects do not affect remote observation or command
+dispatch. Every reconnect prompts a durable re-query, including after restart.
 
 ### Docker/demo
 

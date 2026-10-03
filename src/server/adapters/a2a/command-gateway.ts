@@ -1,3 +1,4 @@
+import { agentConnection } from "./agent-connection";
 import { executeOperation } from "../../../lib/gateway";
 import type { A2ACommandGateway } from "../../application/ports/command-dispatch";
 import { SafeDispatchRetry } from "../../application/ports/command-dispatch";
@@ -7,7 +8,7 @@ export class SdkCommandGateway implements A2ACommandGateway {
   async dispatch(agent: AgentRecord, command: TaskCommandRecord, params: Record<string, JsonValue>): Promise<JsonValue> {
     let dispatched = false;
     try {
-      const response = await executeOperation({ connection: { cardUrl: agent.cardUrl, auth: { type: "none" }, headers: {} },
+      const response = await executeOperation({ connection: await agentConnection(agent),
         action: command.action, params, sessionId: command.id, requestId: command.id,
         onDispatch: () => { dispatched = true; } });
       const raw = response.result as Record<string, unknown>;

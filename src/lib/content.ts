@@ -225,12 +225,8 @@ export function assembleTasks(events: unknown[]): JsonObject[] {
 }
 
 export function safeContentUrl(part: NormalizedPart): string | undefined {
-  if (part.kind === "raw" && typeof part.value === "string") return `data:${part.mediaType};base64,${part.value}`;
-  if (part.kind !== "url" || typeof part.value !== "string") return undefined;
-  try {
-    const url = new URL(part.value, window.location.origin);
-    if (["http:", "https:", "data:", "blob:"].includes(url.protocol)) return url.toString();
-  } catch { return undefined; }
+  // Remote agent URLs and active data/SVG/HTML media never become automatic browser requests.
+  if (part.kind === "url" && typeof part.value === "string" && /^\/api\/artifacts\/[0-9a-f]{64}$/.test(part.value)) return part.value;
   return undefined;
 }
 

@@ -1,3 +1,4 @@
+import { taskAccessFilter } from "./security-repository";
 import { replaceContentProjection, readContentProjection } from "./content-projections";
 import { MikroOrmSyncCursorRepository } from "./sync-repository";
 import { MikroOrmPushRepository } from "./push-repository";
@@ -81,6 +82,7 @@ function agentCardSnapshotRecord(
 
 function taskRecord(entity: TaskEntity): TaskRecord {
   return {
+    skillId: entity.skillId ?? null,
     projectionVersion: entity.projectionVersion,
     contentJson: entity.contentJson,
     id: entity.id,
@@ -258,6 +260,15 @@ export class MikroOrmAgentRepository implements AgentRepository {
 export class MikroOrmTaskRepository implements TaskRepository {
   constructor(private readonly entityManager: EntityManager) {}
 
+  async listContentPage(organizationId: string, limit: number, after?: string) {
+    const entities = await this.entityManager.find(TaskEntity, {
+      organizationId, $and: [await taskAccessFilter(this.entityManager)], ...(after ? { id: { $gt: after } } : {}),
+    }, { orderBy: { id: "asc" }, limit });
+    const records: TaskRecord[] = [];
+    for (const entity of entities) records.push(await this.withContent(entity));
+    return records;
+  }
+
   private async withContent(entity: TaskEntity): Promise<TaskRecord> {
     const record = taskRecord(entity);
     if (entity.projectionVersion >= 2) {
@@ -296,14 +307,14 @@ export class MikroOrmTaskRepository implements TaskRepository {
   async listByOrganization(organizationId: string, limit: number, offset: number, filter = "all") {
     const terminal = ["TASK_STATE_COMPLETED", "TASK_STATE_FAILED", "TASK_STATE_CANCELED", "TASK_STATE_REJECTED"];
     const state = filter === "active" ? { $nin: terminal } : filter === "needs-input" ? { $in: ["TASK_STATE_INPUT_REQUIRED", "TASK_STATE_AUTH_REQUIRED"] } : filter === "done" ? { $in: terminal } : undefined;
-    const entities = await this.entityManager.find(TaskEntity, { organizationId, kind: "task", ...(state ? { state } : {}) }, {
+    const entities = await this.entityManager.find(TaskEntity, { organizationId, $and: [await taskAccessFilter(this.entityManager)], kind: "task", ...(state ? { state } : {}) }, {
       orderBy: { updatedAt: "desc", id: "asc" }, limit, offset,
-      fields: ["id", "organizationId", "agentId", "tenant", "remoteTaskId", "remoteContextId", "kind", "state", "title", "createdAt", "updatedAt", "version"],
+      fields: ["id", "organizationId", "agentId", "tenant", "remoteTaskId", "remoteContextId", "kind", "skillId", "state", "title", "createdAt", "updatedAt", "version"],
     });
     return entities.map((entity) => ({
       id: entity.id, organizationId: entity.organizationId, agentId: entity.agentId,
       tenant: entity.tenant, remoteTaskId: entity.remoteTaskId ?? null, remoteContextId: entity.remoteContextId ?? null,
-      kind: entity.kind, state: entity.state, title: entity.title ?? null,
+      kind: entity.kind, skillId: entity.skillId ?? null, state: entity.state, title: entity.title ?? null,
       createdAt: entity.createdAt, updatedAt: entity.updatedAt, version: entity.version,
     }));
   }
@@ -312,7 +323,7 @@ export class MikroOrmTaskRepository implements TaskRepository {
   async findById(organizationId: string, id: string, includeContent = true) {
     const entity = await this.entityManager.findOne(TaskEntity, {
       id,
-      organizationId,
+      organizationId, $and: [await taskAccessFilter(this.entityManager)],
     });
     return entity ? includeContent ? this.withContent(entity) : taskRecord(entity) : undefined;
   }
@@ -323,7 +334,7 @@ export class MikroOrmTaskRepository implements TaskRepository {
     tenant: string;
     remoteTaskId: string;
   }) {
-    const entity = await this.entityManager.findOne(TaskEntity, identity);
+    const entity = await this.entityManager.findOne(TaskEntity, { ...identity, $and: [await taskAccessFilter(this.entityManager)] });
     return entity ? this.withContent(entity) : undefined;
   }
 
@@ -424,7 +435,7 @@ export class MikroOrmTaskCommandRepository implements TaskCommandRepository {
     await this.entityManager.nativeUpdate(TaskCommandEntity, { organizationId, id }, changes);
   }
   private record(entity: TaskCommandEntity): TaskCommandRecord {
-    return { id: entity.id, organizationId: entity.organizationId, agentId: entity.agentId, tenant: entity.tenant,
+    return { skillId: entity.skillId ?? null, id: entity.id, organizationId: entity.organizationId, agentId: entity.agentId, tenant: entity.tenant,
       action: entity.action, idempotencyKey: entity.idempotencyKey, messageId: entity.messageId,
       payloadDigest: entity.payloadDigest, payloadObjectKey: entity.payloadObjectKey, status: entity.status,
       resultJson: entity.resultJson ?? null, lastError: entity.lastError ?? null, createdAt: entity.createdAt, updatedAt: entity.updatedAt };

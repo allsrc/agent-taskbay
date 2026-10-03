@@ -40,6 +40,7 @@ export interface AgentCardSnapshotRecord {
 }
 
 export interface TaskRecord {
+  skillId?: string | null;
   /** Active content projector; absent on legacy callers means version 1. */
   projectionVersion?: number;
   contentJson?: JsonValue;
@@ -62,7 +63,7 @@ export interface TaskRecord {
   version: number;
 }
 
-export type TaskSummaryRecord = Pick<TaskRecord, "id" | "organizationId" | "agentId" | "tenant" | "remoteTaskId" | "remoteContextId" | "kind" | "state" | "title" | "createdAt" | "updatedAt" | "version">;
+export type TaskSummaryRecord = Pick<TaskRecord, "id" | "organizationId" | "agentId" | "tenant" | "remoteTaskId" | "remoteContextId" | "kind" | "skillId" | "state" | "title" | "createdAt" | "updatedAt" | "version">;
 
 export type TaskEventSource =
   | "stream"
@@ -110,6 +111,7 @@ export type OutboxStatus = "pending" | "processing" | "processed" | "failed";
 
 export type CommandStatus = "pending" | "dispatching" | "succeeded" | "failed" | "uncertain";
 export interface TaskCommandRecord {
+  skillId?: string | null;
   id: string;
   organizationId: string;
   agentId: string;

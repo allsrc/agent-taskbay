@@ -77,7 +77,7 @@ Requirements: `AGT-001..003`, `TSK-002`, `REL-001`, `PERF-001`, `OPS-001`,
 
 ## Phase 2 — durable task runtime
 
-**Status:** In progress; Slices 2.1–2.5 verified with Phase 1 prerequisites complete.
+**Status:** Complete; Slices 2.1–2.7 and all exit criteria verified on 2026-10-03 in `STATUS.md`.
 
 ### Slice 2.1: durable command dispatch
 
@@ -136,7 +136,7 @@ this slice.
 
 ### Slice 2.6: application SSE freshness signals
 
-- [ ] Publish application SSE as a freshness signal over durable state.
+- [x] Publish application SSE as a freshness signal over durable state.
 
 Publish committed projection changes through durable retryable outbox intent
 and a replaceable freshness adapter. Browser consumers re-query organization-
@@ -145,17 +145,26 @@ signals, duplicate signal delivery and embedded/external worker profiles. Keep
 remote observation owned by workers. Do not remove remaining browser persistence
 in this slice.
 
-### Remaining deliverables
+### Slice 2.7: browser persistence authority removal
 
-- [ ] Remove task content and notification authority from browser persistence.
+- [x] Remove task content and notification authority from browser persistence.
+
+Chat, flows and current alerts load organization-scoped server projections,
+including direct Messages, into a disposable tab cache. Retire legacy task/read
+storage without importing it. Pending user turns remain composer-only and
+protocol wire events never become visible task content. Verify clean-session
+and reload recovery, pagination, failed/racing reads, live updates, both database
+contracts and the complete Phase 2 exit criteria. Notification read marks are
+session presentation state; durable per-user notifications/read state and
+channels remain Phase 4 deliverables.
 
 ### Exit criteria
 
-- A task started in one browser continues after every browser closes.
-- Restarting web and worker processes converges to the remote task state.
-- Duplicate and out-of-order test deliveries do not duplicate visible content.
-- A missed SSE/live signal is recovered by re-querying durable state.
-- Streaming/reconnect, input-required, cancellation, and artifact assembly pass
+- [x] A task started in one browser continues after every browser closes.
+- [x] Restarting web and worker processes converges to the remote task state.
+- [x] Duplicate and out-of-order test deliveries do not duplicate visible content.
+- [x] A missed SSE/live signal is recovered by re-querying durable state.
+- [x] Streaming/reconnect, input-required, cancellation, and artifact assembly pass
   end-to-end against reference agents.
 
 Requirements: `TSK-001..007`, `HITL-001..002`, `REL-001..003`, `SCL-001`,
@@ -163,23 +172,58 @@ Requirements: `TSK-001..007`, `HITL-001..002`, `REL-001..003`, `SCL-001`,
 
 ## Phase 3 — identity and security
 
-**Status:** Planned; depends on durable organization/task storage.
+**Status:** Complete; combined Slices 3.1 and 3.2 and all exit criteria verified
+on 2026-10-03 in `STATUS.md`.
+
+### Combined Slice 3.1: Plane A identity and organization access
+
+Related work is implemented together per the user's execution preference:
+library-backed development/OIDC adapters, persistent users/external identities/
+memberships/sessions, organization role checks on all application routes,
+administrative agent registration, transactional safe security audit and threat
+model/regression coverage. Verify both database profiles, signed-token failures,
+real production HTTP login/replay/logout, organization isolation and the full
+existing runtime gate. This combines related deliverables without claiming
+the scoped-grant or Plane B security exit criteria.
+
+### Combined Slice 3.2: Plane B credentials and scoped security
+
+The encrypted vault/service credential path is implemented together with
+team/agent/skill policy, network/artifact/trust controls and protected-agent/
+secret-disclosure regressions. Trusted protocol/cryptography libraries stay
+behind application ports.
 
 ### Deliverables
 
-- [ ] Add development identity and production OIDC session adapters.
-- [ ] Add encrypted `CredentialVault` and agent credential bindings.
-- [ ] Implement API key, bearer, OAuth client credentials, and mTLS service
-  identity; add user-delegated OAuth only after the service path is proven.
-- [ ] Add organization, user, team, membership, role, and scoped grants.
-- [ ] Enforce policies on every read, command, and administration route.
-- [ ] Make agent registration administrative.
-- [ ] Add target allowlists, connection-bound DNS policy, webhook validation,
+- [x] Add development identity and production OIDC session adapters.
+- [x] Add encrypted `CredentialVault` and agent credential bindings.
+- [x] Implement API key, bearer, OAuth client credentials, and mTLS service
+  identity. The service baseline is proven; user-delegated OAuth consent/refresh
+  remains the explicitly conditional follow-up described in ADR 0014, not an
+  implemented profile. Plane A tokens are never reused for Plane B.
+- [x] Add organization, user, team, membership, role, and scoped grants.
+- [x] Enforce policies on every read, command, and administration route.
+  Slices 3.1/3.2 verify authentication, organization scope, baseline roles and
+  agent/skill grant policy, including direct/compatibility routes and artifacts.
+- [x] Make agent registration administrative.
+- [x] Add target allowlists, connection-bound DNS policy, webhook validation,
   rate limiting, and safe artifact delivery.
-- [ ] Verify and display Agent Card signatures/trust when advertised.
-- [ ] Maintain a repository threat model and security regression tests.
+- [x] Verify and display Agent Card signatures/trust when advertised.
+- [x] Maintain a repository threat model and security regression tests.
 
-### Exit criteria
+All four service profiles use real TLS fixtures. The secure HTTP gateway deliberately
+rejects gRPC until its adapter can bind DNS validation to the socket. Pre-upgrade
+artifacts need archive-backed projection rebuilding for trusted references. These
+limits and the delegated-authentication follow-up are explicit in ADR 0014.
+
+### Pending conditional follow-up
+
+- [ ] Review and implement user-delegated OAuth consent, refresh/revocation and
+  membership-bound worker credentials. Deferred by agreement on 2026-10-03 and
+  tracked in [GitHub issue #1](https://github.com/shashikanth-gs/a2a-ops/issues/1).
+  This extension is separate from the completed service identity exit criteria.
+
+### Exit criteria (verified 2026-10-03)
 
 - A protected reference agent works without credentials reaching the browser.
 - A user lacking an agent/skill grant cannot discover or invoke it, including

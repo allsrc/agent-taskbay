@@ -1,3 +1,4 @@
+import { authenticatedRoute } from "@/server/runtime/identity";
 import { agentRegistry } from "@/lib/agent-registry";
 import { readJsonRequest } from "@/lib/request-guard";
 import { acceptCommand, waitForCommand, compatibilityCommandKey } from "@/server/runtime/commands";
@@ -36,7 +37,7 @@ const encoder = new TextEncoder();
 const frame = (event: string, data: unknown) => encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
 
 /** Compatibility event view over committed state; workers own all remote streams. */
-export async function POST(request: Request, context: { params: Promise<{ agentId: string }> }) {
+async function handlePOST(request: Request, context: { params: Promise<{ agentId: string }> }) {
   const { agentId } = await context.params;
   const agent = await agentRegistry().get(agentId);
   if (!agent) return Response.json({ error: { message: "Unknown agent." } }, { status: 404 });
@@ -121,3 +122,5 @@ export async function POST(request: Request, context: { params: Promise<{ agentI
     },
   });
 }
+
+export const POST = authenticatedRoute("operate", handlePOST);

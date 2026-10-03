@@ -5,9 +5,11 @@ import type { JsonValue } from "../domain/persistence-model";
 import { RebuildTaskProjectionService } from "../application/services/rebuild-task-projection";
 import { TASK_PROJECTOR_VERSION } from "../application/services/versioned-task-projection";
 import { createPersistenceRepositories } from "../adapters/db/repositories";
-import { TaskEntity } from "../adapters/db/entities";
+import { randomUUID } from "node:crypto";
+import { ArtifactAccessEntity, TaskEntity } from "../adapters/db/entities";
 import { withJobEntityManager } from "../adapters/db/orm";
 import { artifactStore } from "./task-persistence";
+import { enqueueTaskFreshness } from "../application/services/task-freshness";
 
 export function createProjectionRebuilder(options: { orm?: MikroORM; store?: ArtifactStore } = {}) {
   const repository: ProjectionRebuildRepository = {
@@ -18,19 +20,23 @@ export function createProjectionRebuilder(options: { orm?: MikroORM; store?: Art
       const agent = await ports.agents.findById(organizationId, task.agentId);
       return { task, agentName: agent?.displayName ?? "Agent", events: await ports.taskEvents.findByTaskId(organizationId, taskId) };
     }, { isolationLevel: IsolationLevel.REPEATABLE_READ }), options.orm),
-    activate: (snapshot, view) => withJobEntityManager((em) => em.transactional(async (tx) => {
+    activate: (snapshot, view, binaryDigests = []) => withJobEntityManager((em) => em.transactional(async (tx) => {
       // Lock without attempting to repair or insert an unknown identity.
       const current = await tx.findOne(TaskEntity, { id: snapshot.task.id, organizationId: snapshot.task.organizationId },
         { lockMode: LockMode.PESSIMISTIC_WRITE, refresh: true });
       if (!current || current.version !== snapshot.task.version) return false;
       const remoteUpdatedAt = snapshot.events.reduce<Date | null>((latest, row) => row.remoteTimestamp && (!latest || row.remoteTimestamp > latest) ? row.remoteTimestamp : latest, null);
       const terminal = ["COMPLETED", "FAILED", "CANCELED", "REJECTED"].includes(view.state.replace("TASK_STATE_", ""));
-      await createPersistenceRepositories(tx).tasks.saveProjection({ ...snapshot.task,
+      const ports = createPersistenceRepositories(tx);
+      await ports.tasks.saveProjection({ ...snapshot.task,
         projectionVersion: TASK_PROJECTOR_VERSION, contentJson: view as unknown as JsonValue,
         state: view.state, title: view.title ?? null, remoteContextId: view.contextId ?? null,
         updatedAt: new Date(view.updatedAt), remoteUpdatedAt,
         terminalAt: terminal ? snapshot.task.terminalAt ?? new Date(view.updatedAt) : null,
       });
+      for (const digest of binaryDigests) await tx.upsert(ArtifactAccessEntity, {id: randomUUID(), organizationId: snapshot.task.organizationId, taskId: snapshot.task.id, digest},
+        {onConflictFields: ["taskId", "digest"], onConflictAction: "ignore"});
+      await enqueueTaskFreshness(ports.outbox, snapshot.task.organizationId, snapshot.task.id, new Date());
       return true;
     }), options.orm),
   };

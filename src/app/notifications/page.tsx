@@ -7,11 +7,13 @@ import { EmptyState, StateChip } from "@/components/a2a/primitives";
 import { Button } from "@/components/ui/button";
 import { relativeTime } from "@/lib/task-view";
 import { useNotifications, useReadStore } from "@/store/notification-store";
+import { useTaskStore } from "@/store/task-store";
 import { cn } from "@/lib/utils";
 
 export default function NotificationsPage() {
   const router = useRouter();
   const { items, unread } = useNotifications();
+  const loaded = useTaskStore((state) => state.loaded);
   const markRead = useReadStore((state) => state.markRead);
 
   return (
@@ -26,12 +28,12 @@ export default function NotificationsPage() {
       <div className="bg-card border-border my-3.5 flex flex-wrap items-center gap-2.5 rounded-xl border p-3.5">
         <span className="bg-muted-foreground size-2 rounded-full" />
         <span className="text-muted-foreground min-w-40 flex-1 font-mono text-xs">
-          Push is not configured: updates are read from task streams while this app is open. Webhook delivery needs the Phase 1 receiver.
+          Alerts reflect current server task state, including updates received while this app was closed. Read marks apply to this session.
         </span>
-        <span className="bg-secondary border-border rounded-md border px-2 py-0.5 font-mono text-[11px] font-medium">taskPushNotificationConfig</span>
+        <span className="bg-secondary border-border rounded-md border px-2 py-0.5 font-mono text-[11px] font-medium">Server task projections</span>
       </div>
 
-      {items.length === 0 ? (
+      {!loaded ? <p role="status" className="text-muted-foreground">Loading alerts…</p> : items.length === 0 ? (
         <EmptyState icon={<Bell className="size-7" />} title="All quiet">
           Input requests, finished tasks and ready artifacts show up here.
         </EmptyState>

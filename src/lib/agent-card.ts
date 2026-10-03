@@ -10,6 +10,7 @@ export interface AgentSkill {
 }
 
 export interface AgentView {
+  requiresSkill?: boolean;
   name: string;
   description: string;
   version: string;
@@ -63,6 +64,7 @@ export function viewAgentCard(card: unknown): AgentView {
     .map((item) => String(item.uri ?? ""))
     .filter(Boolean);
   return {
+    requiresSkill: isObj(c.access) && c.access.requiresSkill === true,
     name: String(c.name ?? "Unnamed agent"),
     description: String(c.description ?? ""),
     version: String(c.version ?? "—"),

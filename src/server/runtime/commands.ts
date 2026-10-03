@@ -1,3 +1,5 @@
+import { requestAccessPolicy } from "../adapters/db/security-repository";
+import { SKILL_ROUTING_EXTENSION } from "../application/services/access-policy";
 import { randomUUID } from "node:crypto";
 import type { MikroORM } from "@mikro-orm/core";
 import { z } from "zod";
@@ -12,6 +14,9 @@ import type { ArtifactStore } from "../application/ports/artifact-store";
 import { SdkCommandGateway } from "../adapters/a2a/command-gateway";
 import { artifactStore, createTaskObserver } from "./task-persistence";
 import { eventDigest } from "../application/services/observe-task";
+import { currentPrincipal } from "../adapters/auth/principal-context";
+import { authorize } from "../application/services/authorization";
+import { DatabaseIdentityRepository } from "../adapters/db/identity-repository";
 
 export function compatibilityCommandKey(agentId: string, tenant = "", messageId?: string) {
   return messageId ? `message:${eventDigest({ agentId, tenant, messageId })}` : randomUUID();
@@ -21,6 +26,7 @@ const config = z.object({ returnImmediately: z.boolean().optional(), historyLeng
   acceptedOutputModes: z.array(z.string()).optional(), referenceTaskIds: z.array(z.string()).optional(), extensions: z.array(z.string()).optional(),
   metadata: z.record(z.string(), z.unknown()).optional(), requestMetadata: z.record(z.string(), z.unknown()).optional() }).strict();
 export const commandInputSchema = z.object({ action: z.enum(["send", "cancelTask"]).default("send"),
+  skillId: z.string().min(1).max(255).optional(),
   tenant: z.string().max(255).default(""), messageId: z.string().min(1).max(255).optional(),
   text: z.string().optional(), parts: z.array(z.record(z.string(), z.unknown())).optional(),
   taskId: z.string().min(1).optional(), contextId: z.string().optional(), config: config.optional(),
@@ -38,16 +44,55 @@ export function commandView(command: TaskCommandRecord) {
 export async function acceptCommand(agentId: string, body: unknown, idempotencyKey: string, options: { orm?: MikroORM; store?: ArtifactStore } = {}) {
   const parsed = commandInputSchema.safeParse(body);
   if (!parsed.success) throw new CommandError(parsed.error.issues.map((issue) => issue.message).join("; "), 400);
-  const { action, tenant, config, ...input } = parsed.data;
+  const { action, tenant, skillId: requestedSkillId, config, ...input } = parsed.data;
   // Initial sends return a snapshot; the worker observes open tasks independently.
   const params = JSON.parse(JSON.stringify({ ...input, returnImmediately: true, ...config })) as Record<string, JsonValue>;
   return withRequestEntityManager(async (em) => {
-    const organization = await bootstrapDefaultLocalOrganization(createPersistenceRepositories(em).organizations);
+    const principal = currentPrincipal();
+    if (principal) authorize(principal, "operate");
+    const organizations = createPersistenceRepositories(em).organizations;
+    const organization = principal ? await organizations.findById(principal.organizationId) : await bootstrapDefaultLocalOrganization(organizations);
+    if (!organization) throw new CommandError("Unknown organization.", 404);
     return em.transactional(async (transaction) => {
       const ports = createPersistenceRepositories(transaction);
-      return new TaskCommandService(ports.agents, ports.commands, ports.outbox, options.store ?? artifactStore).accept({
-        organizationId: organization.id, agentId, tenant, action, idempotencyKey, params,
+      if (!(await ports.agents.findById(organization.id, agentId))?.enabled) throw new CommandError("Unknown agent.", 404);
+      let skillId = requestedSkillId ?? null;
+      const policy = await requestAccessPolicy(transaction);
+      const task = input.taskId ? await ports.tasks.findByRemoteIdentity({organizationId: organization.id, agentId, tenant, remoteTaskId: input.taskId}) : undefined;
+      if (input.taskId && !task) throw new CommandError("Task not found.", 404);
+      if (task) {
+        if (requestedSkillId && requestedSkillId !== task.skillId) throw new CommandError("Task skill cannot be changed.", 403);
+        skillId = task.skillId ?? null;
+        if (input.contextId && input.contextId !== task.remoteContextId) throw new CommandError("Task context mismatch.", 403);
+      }
+      policy?.require(agentId, "operate", skillId);
+      for (const remoteTaskId of config?.referenceTaskIds ?? []) {
+        if (!await ports.tasks.findByRemoteIdentity({ organizationId: organization.id, agentId, tenant, remoteTaskId }))
+          throw new CommandError("Referenced task not found.", 404);
+      }
+      if (params.metadata && typeof params.metadata === "object" && !Array.isArray(params.metadata))
+        delete params.metadata[SKILL_ROUTING_EXTENSION];
+
+      if (policy && !policy.allows(agentId, "operate") && !task && input.contextId) throw new CommandError("A skill-scoped send must start a new context.", 403);
+      if (skillId !== null) {
+        const snapshot = await ports.agents.findLatestCardSnapshot(agentId);
+        const card = snapshot?.normalizedCardJson as {skills?: Array<{id?: string}>; capabilities?: {extensions?: Array<{uri?: string}>}} | undefined;
+        if (!card?.skills?.some((skill) => skill.id === skillId) ||
+          !card.capabilities?.extensions?.some((extension) => extension.uri === SKILL_ROUTING_EXTENSION))
+          throw new CommandError("This agent does not support bounded skill routing.", 403);
+        params.skillId = skillId;
+        params.extensions = [...new Set([...(Array.isArray(params.extensions) ? params.extensions : []), SKILL_ROUTING_EXTENSION])];
+        params.requestMetadata = { ...(params.requestMetadata as Record<string, JsonValue> ?? {}), [SKILL_ROUTING_EXTENSION]: {skillId} };
+      }
+      // Scope-bearing routing metadata is constructed by the server, never accepted independently from callers.
+      if (skillId === null && params.requestMetadata && typeof params.requestMetadata === "object" && !Array.isArray(params.requestMetadata))
+        delete params.requestMetadata[SKILL_ROUTING_EXTENSION];
+      const command = await new TaskCommandService(ports.agents, ports.commands, ports.outbox, options.store ?? artifactStore).accept({
+        organizationId: organization.id, agentId, tenant, skillId, action, idempotencyKey, params,
       });
+      if (principal) await new DatabaseIdentityRepository(transaction).appendAudit(principal,
+        action === "send" ? "task.send.accepted" : "task.cancel.accepted", command.id, `command:${command.id}`);
+      return command;
     });
   }, options.orm);
 }
@@ -56,8 +101,12 @@ export async function readCommand(id: string, orm?: MikroORM) {
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) return undefined;
   return withRequestEntityManager(async (em) => {
     const ports = createPersistenceRepositories(em);
-    const org = await bootstrapDefaultLocalOrganization(ports.organizations);
-    return ports.commands.findById(org.id, id);
+    const principal = currentPrincipal();
+    const org = principal ? await ports.organizations.findById(principal.organizationId) : await bootstrapDefaultLocalOrganization(ports.organizations);
+    if (!org) return;
+    const command = await ports.commands.findById(org.id, id);
+    const policy = await requestAccessPolicy(em);
+    return command && (!policy || policy.allows(command.agentId, "read", command.skillId ?? null)) ? command : undefined;
   }, orm);
 }
 
@@ -68,7 +117,7 @@ export function createCommandDispatcher(options: { orm?: MikroORM; store?: Artif
   return new CommandDispatcher(work, options.gateway ?? new SdkCommandGateway(), options.store ?? artifactStore, {
     commit: async (message, command, event, userMessage) => {
       await createTaskObserver({ organizationId: command.organizationId, agentId: command.agentId, tenant: command.tenant, sessionId: command.id,
-        requestId: command.id, source: "command_response", userMessage }, { orm: options.orm, store: options.store,
+        requestId: command.id, source: "command_response", userMessage, skillId: command.skillId }, { orm: options.orm, store: options.store,
         onObserved: async (view, safeEvent, transaction) => {
           const ports = createPersistenceRepositories(transaction);
           const now = new Date();

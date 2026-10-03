@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 
 const STEPS = 3;
 
-/** The prototype's three-step "Connect agent" flow: Agent Card URL → security scheme → connect. */
+/** Administrative registration with optional card preview and separate server credential setup. */
 export function ConnectAgentDialog({
   open,
   onOpenChange,
@@ -37,7 +37,6 @@ function ConnectFlow({ initialUrl, onDone }: { initialUrl: string; onDone: () =>
   const [step, setStep] = useState(0);
   const [url, setUrl] = useState(initialUrl);
   const [view, setView] = useState<AgentView | null>(null);
-  const [scheme, setScheme] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -109,6 +108,8 @@ function ConnectFlow({ initialUrl, onDone }: { initialUrl: string; onDone: () =>
               <Button variant="brand" size="lg" disabled={busy || !url.trim()} onClick={fetchCard}>
                 {busy && <Loader2 className="animate-spin" />} Fetch Agent Card
               </Button>
+              <Button variant="outline" disabled={busy || !url.trim()} onClick={connect}>Register URL</Button>
+              <p className="text-muted-foreground text-xs">For a protected card, register its URL first, then configure credentials on the server.</p>
             </>
           )}
 
@@ -121,18 +122,8 @@ function ConnectFlow({ initialUrl, onDone }: { initialUrl: string; onDone: () =>
                   {view.pushNotifications ? " · push notifications" : ""}
                 </div>
               </div>
-              <span className="label-mono">Security scheme</span>
-              {schemes.map((label, index) => (
-                <button
-                  key={label}
-                  type="button"
-                  onClick={() => setScheme(index)}
-                  className={cn("flex items-center gap-2.5 rounded-[10px] border px-3 py-2.5 text-left", scheme === index ? "border-primary" : "border-border")}
-                >
-                  <span className={cn("size-3 rounded-full border-2", scheme === index ? "border-primary bg-primary" : "border-muted-foreground")} />
-                  {label}
-                </button>
-              ))}
+              <span className="label-mono">Advertised security</span>
+              {schemes.map((label) => <div key={label} className="border-border rounded-[10px] border px-3 py-2.5">{label}</div>)}
               <Button variant="brand" size="lg" onClick={() => setStep(2)}>
                 Continue
               </Button>
@@ -144,8 +135,7 @@ function ConnectFlow({ initialUrl, onDone }: { initialUrl: string; onDone: () =>
               <div className="bg-card border-border flex flex-col gap-1.5 rounded-xl border p-3.5">
                 <div className="font-semibold">Connect {view.name}</div>
                 <p className="text-muted-foreground text-[13px]">
-                  This client will send messages, read tasks and cancel them. Credential exchange for {schemes[scheme]} is not built yet, so requests go out
-                  unauthenticated for now (see ROADMAP Phase 2).
+                  Register this agent, configure its service credentials on the server, then grant users access in Settings.
                 </p>
               </div>
               <Button variant="brand" size="lg" disabled={busy} onClick={connect}>

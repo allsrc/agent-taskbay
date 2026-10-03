@@ -2,28 +2,20 @@
 
 import { useMemo } from "react";
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
 import { useShallow } from "zustand/react/shallow";
-import { deriveNotifications, type AppNotification } from "@/lib/notifications";
-import { migrateBrowserStorageKey } from "./storage-key";
-import { useTaskStore } from "@/store/task-store";
-
-migrateBrowserStorageKey("a2a-agent-workflow-ui.notifications", "a2a-ops.notifications");
+import { deriveNotifications, type AppNotification } from "../lib/notifications";
+import { useTaskStore } from "./task-store";
 
 interface ReadState {
   read: Record<string, true>;
   markRead: (ids: string[]) => void;
 }
 
-export const useReadStore = create<ReadState>()(
-  persist(
-    (set) => ({
-      read: {},
-      markRead: (ids) => set((state) => ({ read: { ...state.read, ...Object.fromEntries(ids.map((id) => [id, true as const])) } })),
-    }),
-    { name: "a2a-ops.notifications" },
-  ),
-);
+/** Session-only presentation state; durable per-user read state belongs to Phase 4. */
+export const useReadStore = create<ReadState>()((set) => ({
+  read: {},
+  markRead: (ids) => set((state) => ({ read: { ...state.read, ...Object.fromEntries(ids.map((id) => [id, true as const])) } })),
+}));
 
 export function useNotifications(): { items: Array<AppNotification & { unread: boolean }>; unread: number } {
   const tasks = useTaskStore(useShallow((state) => Object.values(state.tasks)));

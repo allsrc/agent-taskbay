@@ -1,3 +1,4 @@
+import { ArtifactAccessEntity } from "../adapters/db/entities";
 import { externalizeBinary } from "../application/services/protocol-archive";
 import { loadPushCredentials } from "./push-config";
 import { randomUUID } from "node:crypto";
@@ -13,18 +14,23 @@ import { createPersistenceRepositories } from "../adapters/db/repositories";
 import { withRequestEntityManager } from "../adapters/db/orm";
 import type { JsonValue, TaskEventSource } from "../domain/persistence-model";
 import type { StreamMetadata } from "../application/ports/subscriptions";
+import { currentPrincipal } from "../adapters/auth/principal-context";
 
 export const artifactStore = new FilesystemArtifactStore();
 
 export async function withTaskQueries<T>(work: (queries: TaskQueryService, organizationId: string) => Promise<T>, orm?: MikroORM) {
   return withRequestEntityManager(async (em) => {
     const repositories = createPersistenceRepositories(em);
-    const organization = await bootstrapDefaultLocalOrganization(repositories.organizations);
+    const principal = currentPrincipal();
+    const organization = principal ? await repositories.organizations.findById(principal.organizationId) :
+      await bootstrapDefaultLocalOrganization(repositories.organizations);
+    if (!organization) throw new Error("Unknown query organization.");
     return work(new TaskQueryService(repositories.tasks, repositories.agents), organization.id);
   }, orm);
 }
 
 export interface ObservationSession {
+  skillId?: string | null;
   organizationId?: string;
   agentId: string;
   tenant?: string;
@@ -61,7 +67,7 @@ export function createTaskObserver(session: ObservationSession, options: {
     return em.transactional(async (transaction) => {
       await options.beforeObserve?.(transaction);
       const ports = createPersistenceRepositories(transaction);
-      const service = new ObserveTaskService(ports.agents, ports.tasks, ports.taskEvents);
+      const service = new ObserveTaskService(ports.agents, ports.tasks, ports.taskEvents, ports.outbox);
       const view = await service.observe({
         ...session, organizationId: organization.id, tenant: session.tenant ?? "",
         event: archived.event, originalEventObjectKey: archived.originalEventObjectKey,
@@ -73,6 +79,10 @@ export function createTaskObserver(session: ObservationSession, options: {
         userMessagePayloadDigest: session.userMessage ? eventDigest(session.userMessage) : undefined,
         userMessageOriginalObjectKey: user?.originalEventObjectKey,
       });
+      for (const digest of new Set([...archived.binaryDigests, ...(user?.binaryDigests ?? [])])) {
+        await transaction.upsert(ArtifactAccessEntity, {id: randomUUID(), organizationId: organization.id, taskId: view.localId, digest},
+          {onConflictFields: ["taskId", "digest"], onConflictAction: "ignore"});
+      }
       await options.onObserved?.(view, archived.event, transaction);
       if (options.manageSubscription !== false) {
         const task = await ports.tasks.findById(organization.id, view.localId);

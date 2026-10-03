@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { conversationKey, findConversation, groupConversations, isOpenTask } from "@/lib/conversations";
 import type { OutgoingPart } from "@/lib/message-parts";
 import type { WireEntry } from "@/lib/wire-sequence";
-import { runResubscribe, runSend, userThreadMessage } from "@/lib/run-message";
+import { runSend, userThreadMessage } from "@/lib/run-message";
 import { stateName } from "@/lib/task-view";
 import { useAgentStore } from "@/store/agent-store";
 import { useSettingsStore } from "@/store/settings-store";
@@ -24,6 +24,7 @@ const NEW_TASK = "new";
 
 export function ChatView({ conversationKey: initialKey, agentId: initialAgentId }: { conversationKey?: string; agentId?: string }) {
   const router = useRouter();
+  const [selectedSkill, setSelectedSkill] = useState("");
   const [key, setKey] = useState(initialKey);
   const allTasks = useTaskStore(useShallow((state) => Object.values(state.tasks)));
   const upsertTask = useTaskStore((state) => state.upsertTask);
@@ -51,7 +52,6 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
   const [seed, setSeed] = useState<{ id: number; text: string } | undefined>();
   const wireId = useRef(0);
   const bottom = useRef<HTMLDivElement>(null);
-  const resubscribed = useRef(new Set<string>());
 
   const outputModes = outOverride ?? (view?.outputModes.length ? view.outputModes : settings.acceptedOutputModes);
   const openTasks = tasks.filter(isOpenTask);
@@ -65,17 +65,6 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
 
   const liveTask = [...tasks].reverse().find((task) => task.kind !== "message");
   const stateLabel = liveTask ? stateName(liveTask.state) : tasks.length ? "MESSAGE" : "idle";
-
-  // Reconnect running tasks' streams on open (A2A `SubscribeToTask`), best-effort.
-  const openIds = openTasks.map((task) => task.taskId).join(",");
-  useEffect(() => {
-    for (const task of openTasks) {
-      if (resubscribed.current.has(task.taskId)) continue;
-      resubscribed.current.add(task.taskId);
-      runResubscribe(task, { onUpdate: upsertTask }).catch(() => undefined);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openIds]);
 
   const activity = tasks.reduce((sum, task) => sum + task.messages.length + task.artifacts.length + (task.transitions?.length ?? 0), 0);
   useEffect(() => {
@@ -104,11 +93,12 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
       const response = await fetch(`/api/agents/${task.agentId}/tasks/${encodeURIComponent(task.taskId)}/cancel?tenant=${encodeURIComponent(task.tenant ?? "")}`, { method: "POST" });
       const body = await response.json();
       if (!response.ok) throw new Error(body?.error?.message ?? "Failed to cancel the task.");
-      const state = (body?.result as { status?: { state?: string } } | undefined)?.status?.state ?? "TASK_STATE_CANCELED";
-      const timestamp = new Date().toISOString();
-      upsertTask({ ...task, state, updatedAt: timestamp, transitions: [...(task.transitions ?? []), { state, timestamp }] });
+      const responseTask = await fetch(`/api/tasks/${task.localId}`, { cache: "no-store" });
+      const committed = await responseTask.json();
+      if (!responseTask.ok) throw new Error(committed.error?.message ?? "Could not refresh canceled task.");
+      upsertTask(committed.task);
       pushWire("out", "CancelTask", { method: "CancelTask", params: { id: task.taskId } });
-      pushWire("in", "task", { task: { id: task.taskId, status: { state } } });
+      pushWire("in", "task", body.result);
       toast.success("Task canceled");
     } catch (cause) {
       toast.error(cause instanceof Error ? cause.message : "Failed to cancel the task.");
@@ -124,7 +114,8 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
    */
   async function send(parts: OutgoingPart[]) {
     if (sending || !agentId) return;
-    const contextId = tasks.find((task) => task.contextId)?.contextId;
+    const skillId = targetTask?.skillId ?? (view?.requiresSkill ? selectedSkill || view.skills[0]?.id : undefined);
+    const contextId = view?.requiresSkill ? targetTask?.contextId : tasks.find((task) => task.contextId)?.contextId;
     const config: SendConfig = {
       returnImmediately,
       acceptedOutputModes: outputModes,
@@ -136,9 +127,8 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
     setSending(true);
     setError(null);
     const userMessage = userThreadMessage(parts, { contextId, taskId: targetTask?.taskId }, config);
-    const base = targetTask ? { ...targetTask, messages: [...targetTask.messages, userMessage], updatedAt: userMessage.timestamp } : undefined;
-    if (base) upsertTask(base);
-    else setPending(userMessage);
+    const base = targetTask;
+    setPending(userMessage);
     pushWire("out", "SendMessage", {
       jsonrpc: "2.0",
       method: "SendMessage",
@@ -151,11 +141,11 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
     let landed: string | undefined;
     try {
       await runSend(
-        { agentId, agentName: view?.name ?? agent?.id ?? "Agent", parts, taskId: targetTask?.taskId, contextId, config, userMessage, base },
+        { skillId, agentId, agentName: view?.name ?? conversation?.agentName ?? "Agent", parts, taskId: targetTask?.taskId, contextId, tenant: tasks[0]?.tenant, config, userMessage, base },
         {
           onUpdate: (next) => {
             landed = conversationKey(next);
-            setPending(null);
+            if (next.messages.some((message) => message.id === userMessage.id)) setPending(null);
             upsertTask(next);
           },
           onError: setError,
@@ -181,7 +171,7 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
   }
 
   if (!agentId) return null;
-  const name = view?.name ?? (agent ? "Unreachable agent" : "Agent");
+  const name = view?.name ?? conversation?.agentName ?? (agent ? "Unreachable agent" : "Agent");
   const suggestion = view?.skills.find((skill) => skill.examples.length)?.examples[0] ?? view?.skills[0]?.description;
   const empty = tasks.length === 0 && !pending;
 
@@ -262,7 +252,7 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
                 </div>
               );
             })}
-            {pending && <UserBubble message={pending} />}
+            {pending && !tasks.some((task) => task.messages.some((message) => message.id === pending.id)) && <UserBubble message={pending} />}
             {error && <p className="border-brand/40 bg-brand/10 text-brand rounded-lg border px-3.5 py-2.5 font-mono text-xs">{error}</p>}
             <div ref={bottom} />
           </div>
@@ -305,7 +295,12 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
                 </button>
               </div>
             )}
-            <Composer
+            {view?.requiresSkill && !targetTask && <label className="mb-2 block text-sm">Skill
+          <select aria-label="Selected skill" value={selectedSkill || view.skills[0]?.id || ""} onChange={(event) => setSelectedSkill(event.target.value)} className="border-border bg-background ml-2 rounded-md border px-2 py-1">
+            {view.skills.map((skill) => <option key={skill.id} value={skill.id}>{skill.name}</option>)}
+          </select>
+        </label>}
+        <Composer
               inputModes={view?.inputModes ?? []}
               sending={sending}
               seed={seed}

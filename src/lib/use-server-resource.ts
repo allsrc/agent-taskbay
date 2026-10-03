@@ -1,18 +1,18 @@
 "use client";
 
 import { useEffect, useReducer, useState } from "react";
+import { subscribeTaskFreshness } from "./task-freshness";
+import { queuedRead } from "./queued-read";
 
-/** Poll committed state; a missed browser stream is recovered by the next read. */
-export function useServerResource<T>(url: string) {
-  const [state, setState] = useState<{ url: string; data?: T; error?: string; loading: boolean }>({ url, loading: true });
+/** Read after live invalidations, with focus and periodic recovery for missed signals. */
+export function useServerResource<T>(url: string | null) {
+  const [state, setState] = useState<{ url: string | null; data?: T; error?: string; loading: boolean }>({ url, loading: true });
   const [revision, refresh] = useReducer((value: number) => value + 1, 0);
   useEffect(() => {
+    if (!url) return;
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout>;
-    let inFlight = false;
-    const load = async () => {
-      if (inFlight || controller.signal.aborted) return;
-      inFlight = true;
+    const load = queuedRead(async () => {
       try {
         const response = await fetch(url, { cache: "no-store", signal: controller.signal });
         const body = await response.json();
@@ -23,16 +23,17 @@ export function useServerResource<T>(url: string) {
           url, data: previous.url === url ? previous.data : undefined,
           error: error instanceof Error ? error.message : "Could not load server state.", loading: false,
         }));
-      } finally { inFlight = false; }
-    };
+      }
+    }, controller.signal);
     const poll = async () => {
       await load();
       if (!controller.signal.aborted) timer = setTimeout(poll, 5000);
     };
     void poll();
     const onFocus = () => { void load(); };
+    const unsubscribe = subscribeTaskFreshness(onFocus);
     window.addEventListener("focus", onFocus);
-    return () => { controller.abort(); clearTimeout(timer); window.removeEventListener("focus", onFocus); };
+    return () => { controller.abort(); clearTimeout(timer); unsubscribe(); window.removeEventListener("focus", onFocus); };
   }, [url, revision]);
   return {
     data: state.url === url ? state.data : undefined,

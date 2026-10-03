@@ -7,9 +7,12 @@ import { Bell, LayoutGrid, ListChecks, MessageSquare, SlidersHorizontal, Workflo
 import { motion } from "motion/react";
 import { LogoMark, Wordmark } from "@/components/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { DurableTaskSync } from "@/components/chat/durable-task-sync";
+import { useTaskStore } from "@/store/task-store";
 import { useNotifications } from "@/store/notification-store";
 import { useAgentStore } from "@/store/agent-store";
 import { cn } from "@/lib/utils";
+import { IdentityMenu } from "./identity-menu";
 
 interface NavItem {
   href: string;
@@ -32,9 +35,11 @@ function useActive() {
   return NAV.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`));
 }
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({ children, identity }: { children: React.ReactNode;
+  identity: { displayName: string; role: string; development: boolean } }) {
   const active = useActive();
   const { unread } = useNotifications();
+  const taskError = useTaskStore((state) => state.error);
   const agents = useAgentStore((state) => state.agents);
   const refreshAgents = useAgentStore((state) => state.refresh);
   useEffect(() => {
@@ -44,6 +49,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="bg-background text-foreground flex h-dvh overflow-hidden">
+      <DurableTaskSync />
       <aside className="bg-sidebar border-border hidden w-[212px] shrink-0 flex-col gap-1 border-r px-3 py-4 md:flex">
         <Link href="/chat" className="flex items-center gap-2.5 px-2 pb-5">
           <LogoMark size={30} />
@@ -79,6 +85,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           })}
         </nav>
         <div className="flex-1" />
+        <IdentityMenu identity={identity} />
         <ThemeToggle className="mb-2" />
         <div className="border-border flex flex-col gap-0.5 rounded-xl border px-3 py-2.5">
           <span className="label-mono">Tenant</span>
@@ -93,8 +100,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <span className="flex-1 font-mono text-[15px] font-bold">{active?.label ?? "A2A Ops"}</span>
           <ThemeToggle className="w-24" />
         </header>
+        <div className="px-4 pt-2 md:hidden"><IdentityMenu identity={identity} /></div>
 
-        <main className="flex min-h-0 min-w-0 flex-1 flex-col">{children}</main>
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col">
+          {taskError && <p role="alert" className="text-destructive border-b p-3 text-sm">{taskError} Retrying server sync…</p>}
+          {children}
+        </main>
 
         <nav className="bg-sidebar border-border flex shrink-0 border-t px-1 pt-1.5 pb-3.5 md:hidden" aria-label="Primary">
           {NAV.map((item) => {

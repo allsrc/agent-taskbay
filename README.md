@@ -18,10 +18,16 @@ when an agent needs a decision, and see it through to done.
 ## Status
 
 Phase 1 is complete: the agent registry and observed task history persist in
-PGlite or PostgreSQL, and Tasks views read shared server state. Slices 2.1–2.3
-add durable command dispatch, worker-owned task subscriptions, and opt-in
-authenticated task push. Tracking continues after browsers close and reconnects
-after worker restart. Reconciliation, authentication, RBAC and an approval audit trail remain planned. See **What's not built yet** below.
+PGlite or PostgreSQL, and Tasks views read shared server state. Phase 2 is also
+complete, with
+durable commands, worker subscriptions, authenticated push, reconciliation,
+rebuildable projections and application freshness SSE. Tracking continues after
+browsers close and reconnects after worker restart. Chat, orchestration and alerts
+reload durable server projections in a fresh browser. Phase 3 now adds
+library-backed OIDC/development identity, membership-bound sessions, organization
+roles and administrative catalog controls. Scoped grants, service credentials
+and approval-grade workflow audit remain planned. See
+**What's not built yet** below.
 
 ## Project specification
 
@@ -59,12 +65,12 @@ canonical schema or migration target.
 │  ├─ Gateway (src/lib/gateway.ts → @a2a-js/sdk)                │
 │  ├─ Task query/observation services (durable, queryable)     │
 │  ├─ Webhook receiver           (authenticated task push)      │
-│  ├─ Live fan-out (SSE/WS)      (webhook → clients)   [TODO]   │
+│  ├─ Freshness SSE             (outbox → projection reads)    │
 │  └─ Agent registry service     (catalog, pluggable)           │
 ├─────────────────────────────────────────────────────────────┤
 │  Data layer                                                    │
 │  ├─ Observed tasks/events (organization-scoped)             │
-│  ├─ Org / users / roles (RBAC)                       [TODO]   │
+│  ├─ Org / users / sessions / baseline roles                  │
 │  ├─ Per-agent auth tokens (server-side, encrypted)   [TODO]   │
 │  └─ Workflow audit log                               [TODO]   │
 └─────────────────────────────────────────────────────────────┘
@@ -83,7 +89,7 @@ discovery, streaming, content-type rendering, and sideband decoding.
 - **Agents** (`/agents`) — searchable list of registered agents with live
   Agent Card discovery; the detail pane shows capabilities, interfaces
   (bindings + tenant), skills, security schemes and input/output modes. A
-  three-step **Connect agent** flow (Agent Card URL → security scheme →
+  three-step **Connect agent** flow (Agent Card URL → advertised security →
   connect) registers new ones. Backed by `src/lib/agent-registry.ts`
   (PGlite/PostgreSQL, behind an `AgentRegistry` interface). Registered-agent
   catalog and detail discovery persist raw/normalized cards and compliance
@@ -102,7 +108,7 @@ discovery, streaming, content-type rendering, and sideband decoding.
 - **Tasks** (`/tasks`, `/tasks/[taskId]`) — filterable list (All / Active /
   Needs you / Done) and a detail view: status timeline, history, artifacts,
   identifiers, `SubscribeToTask`, `CancelTask`, open in chat. List and detail
-  read the database, refresh every five seconds and on focus, and use local
+  read the database, re-query on freshness signals, reconnect, every five seconds and on focus, and use local
   UUID URLs. Observed streams, blocking replies, and cancellation responses
   atomically persist events and task projections. Remote IDs are scoped by
   agent and tenant. Binary output is stored outside the database and offered
@@ -129,14 +135,14 @@ discovery, streaming, content-type rendering, and sideband decoding.
 
 ## What's not built yet
 
-Versioned projection rebuild and application SSE freshness signals remain
-subsequent Phase 2 work. Worker streaming requires advertised support;
-GetTask polling recovers known work when streaming or push is unavailable.
-Chat, orchestration, and notifications still use browser caches, including
-notification read state. Existing browser history is not automatically imported
-into the database; new observations become durable. Outbound requests connect to
-agents as `{ type: "none" }`; user/agent authentication, RBAC, credential storage, typed
-approvals, structured start forms, and an audit trail remain planned.
+Worker streaming requires advertised support; GetTask polling recovers known
+work when streaming or push is unavailable. Chat, orchestration and current
+alerts load server projections, including direct Message replies, without
+browser history. Notification read marks are session-only; durable per-user
+notifications/read state and external channels remain Phase 4 work. Encrypted Plane B service credentials and team/agent/skill grants are implemented.
+Typed approvals, structured start forms and a workflow audit trail remain planned.
+User-delegated OAuth consent/refresh is a conditional follow-up to the service baseline. Plane A login, membership-bound sessions, baseline
+organization roles and safe security audit facts are implemented.
 [`docs/spec/STATUS.md`](./docs/spec/STATUS.md) identifies the next executable
 slice, with phase deliverables in [`ROADMAP.md`](./ROADMAP.md).
 
@@ -156,7 +162,8 @@ directory. Database credentials are server-only configuration.
 Binary output and original events containing inline bytes are archived under
 `.data/artifacts` (override with `A2A_ARTIFACT_DATA_DIR`). Back up this directory
 alongside the database. The initial adapter limits each object to 16 MiB and
-serves downloads as attachments; richer content policies remain Phase 3 work.
+serves downloads as attachments subject to current task grants. Remote artifact
+media is not automatically loaded.
 
 Initial sends and cancellations persist command intent before dispatch. The
 local default starts embedded command, subscription, push and reconciliation workers in the Next.js
@@ -240,13 +247,72 @@ peer. Peers without push support stop with a safe operational error; streaming
 continues independently where supported. For append chunks, an optional stable
 `X-A2A-Delivery-ID` distinguishes identical bytes while preserving retry
 idempotency. Without it, identical webhook chunks within a turn collapse; prefer
-complete artifact snapshots. Cross-source replay/rebuild remains later Phase 2 work.
+complete artifact snapshots. Versioned projection rebuild and reconciliation
+provide cross-source convergence within the documented identity limits.
 
 Keep the signing key with server secrets and backups. Changing it invalidates
 old callback credentials. Before rotation or disabling push, stop workers and
 remove old remote configs and their local registrations, then configure all
-processes consistently and resume. Managed vault/rotation controls are Phase 3
-work. This slice introduces no user-facing config or credential API.
+processes consistently and resume. Managed vault/rotation controls are described in the service identity runbook.
+Webhook credential rotation remains a separate lifecycle from agent vault bindings.
+
+## User identity and sign-in
+
+`npm run dev` defaults to a clearly labeled local development administrator.
+Apply migrations with the PGlite web process stopped. A production-built trusted
+local demo also requires `A2A_AUTH_MODE=development` and
+`A2A_ALLOW_DEVELOPMENT_AUTH=true`. Production otherwise requires complete OIDC
+configuration and fails closed. See `.env.example` for the server-only variables.
+
+Configure an HTTPS OIDC issuer, client ID/secret, canonical external HTTPS origin,
+organization slug and a separate 32-byte flow key (64 hex characters). Register
+`https://YOUR_ORIGIN/api/auth/callback` at the provider. The initial profile uses
+authorization code, S256 PKCE and RS256/JWKS validation through `openid-client`;
+`jose` encrypts temporary server flow state. Cookies are Secure, HttpOnly,
+host-only and SameSite=Lax. Terminate public HTTPS at a trusted proxy. Provider
+tokens are discarded after validation; no Plane B credential is established by
+signing in.
+
+Provision the exact provider subject server-side before login:
+
+```sh
+npm run auth:provision -- --issuer https://YOUR_ISSUER --subject EXACT_SUBJECT \
+  --organization YOUR_ORG_SLUG --name "Operator name" --role admin
+```
+
+For PGlite, stop web first and add `--offline-pglite`. PostgreSQL provisioning can
+run online. Re-provisioning a membership updates its role/enabled state; it does
+not re-enable a disabled global user. Membership and user `enabled` fields can
+be managed by a trusted database operator pending scoped administrative APIs.
+The only roles currently supported are `admin`, `operator`, and `viewer`.
+Provider email, role and organization claims do not grant access. The configured
+organization slug chooses the membership at login; browser selectors are ignored.
+
+Admins manage the agent catalog, operators submit work, and viewers read their
+explicitly granted organization data. Members require an agent/skill grant;
+admins configure teams and grants in Settings. Service credentials are provisioned
+through a server-only CLI and never returned to the browser. Authentication covers every application API, including
+compatibility routes, command status, task content, SSE and binary downloads.
+Webhooks use their independent registration authentication. Mutations require
+an exact Origin matching `A2A_AUTH_ORIGIN` in OIDC mode. Sign out revokes the
+session and reloads the page to discard the tab cache. Already admitted bounded
+requests may finish; subsequent requests/reconnects recheck membership. Accepted
+worker commands continue after logout.
+
+`npm run check` includes signed-token regressions, shared PGlite/PostgreSQL session
+contracts and production HTTP using a temporary TLS OIDC issuer (requires
+`openssl`). See [ADR 0013](./docs/adr/0013-plane-a-sessions-and-membership.md) and
+the [threat model](./docs/security/THREAT_MODEL.md).
+
+## Agent credentials and network policy
+
+The [service identity runbook](./docs/security/SERVICE_IDENTITY.md) covers encrypted
+API key/bearer/OAuth client/mTLS bindings, rotation/revocation, team/skill grants,
+production origin allowlists and Agent Card trust pins. The gateway validates actual
+socket DNS answers, rejects redirects and limits response bytes. Secure HTTP bindings
+are supported; gRPC is disabled until a connection-bound resolver adapter exists.
+Before upgrading existing binary tasks, preserve their archives and rebuild projections
+to establish trusted artifact permissions. See [ADR 0014](./docs/adr/0014-service-credentials-and-scoped-security.md).
 
 ## Design background
 
@@ -304,3 +370,44 @@ reduces overlapping append occurrences across sources; identical chunks without
 shared delivery/order identities remain ambiguous and complete snapshots provide
 correction. Current ingestion reduces the full per-task ledger; checkpoint and
 retention optimizations remain later scaling work.
+
+### Application freshness SSE
+
+`GET /api/tasks/events` signals that durable projections should be read again.
+It sends `ready` on connect, `freshness` on committed publication and `resync`
+every fifteen seconds. Connections close after 55 seconds and EventSource
+reconnects automatically. Frames contain no task content; Last-Event-ID is not
+a replay cursor. Tasks list/detail and the shared Chat/flow/alert cache share one
+EventSource per tab, re-query after signals/reconnect/focus and retain a
+five-second polling fallback. Missing or repeated signals cannot duplicate
+messages, artifacts or remote commands.
+
+Projection updates and rebuilds commit retryable outbox intent. The embedded
+PGlite worker publishes through a shared in-process bus; PostgreSQL workers
+publish a durable organization token that web replicas poll. Both profiles use
+the existing task-worker configuration without additional services. Apply
+`npm run db:migrate` before starting the updated web/workers. Browser task content and notification read marks are no longer persisted.
+
+### Browser projection cache
+
+`GET /api/task-views` reads organization-scoped content projections for real
+Tasks and direct Messages. It returns up to 100 views with a local UUID `after`
+cursor; task-only inbox queries remain unchanged. The browser completes all
+pages before replacing its in-memory cache. Failed reads preserve the previous
+view with a visible retry warning. A send racing that read forces another read;
+snapshot revisions reject delayed command-stream content. Reconnect, focus and
+five-second fallback reads recover missed signals and discover tasks started
+in other sessions. Pagination is eventually consistent across concurrent writes;
+the next complete refresh converges.
+
+Old `a2a-agent-workflow-ui` and `a2a-ops` task/notification storage keys are
+retired when the app opens. They are never hydrated or imported into the server.
+Browser-only historical content without a server record is unavailable. Settings
+and theme preferences retain their storage. Pending user turns remain in the
+composer until the server reflects them; raw wire events do not create visible
+task content. Current alerts derive from server projections even after all
+browsers close. Read marks reset when a new browser session starts.
+
+The initial cache refresh reads all pages for the current organization. Larger
+workloads will need scoped conversation/inbox queries and selective content
+loading behind the same repository boundary; no raw event scan is used here.

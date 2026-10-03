@@ -13,4 +13,6 @@ export async function register() {
   startEmbeddedPushLoop();
   const { startEmbeddedReconciliationLoop } = await import("./server/workers/reconciliation-loop");
   startEmbeddedReconciliationLoop();
+  const { startEmbeddedFreshnessLoop } = await import("./server/workers/freshness-loop");
+  startEmbeddedFreshnessLoop();
 }

@@ -109,6 +109,7 @@ const TaskSchema = defineEntity({
     title: p.string().length(500).nullable(),
     projectionVersion: p.integer().default(1),
     contentJson: p.json<JsonValue>().defaultRaw("'{}'::jsonb"),
+    skillId: p.string().length(255).nullable(),
     ownerUserId: p.uuid().nullable(),
     ownerTeamId: p.uuid().nullable(),
     createdAt: p.datetime(),
@@ -239,6 +240,7 @@ const TaskCommandSchema = defineEntity({
     id: p.uuid().primary(),
     organizationId: () => p.manyToOne(OrganizationEntity).mapToPk().joinColumn("organization_id"),
     agentId: () => p.manyToOne(AgentEntity).mapToPk().joinColumn("agent_id"),
+    skillId: p.string().length(255).nullable(),
     tenant: p.string().length(255), action: p.string().length(32).$type<"send" | "cancelTask">(),
     idempotencyKey: p.string().length(255), messageId: p.string().length(255),
     payloadDigest: p.string().length(64), payloadObjectKey: p.text(),
@@ -354,7 +356,133 @@ export class ArtifactProjectionEntity extends ArtifactProjectionSchema.class {}
 Object.defineProperty(ArtifactProjectionEntity, "name", { value: "ArtifactProjectionEntity" });
 ArtifactProjectionSchema.setClass(ArtifactProjectionEntity);
 
+const OrganizationFreshnessSchema = defineEntity({
+  name: "OrganizationFreshnessEntity", tableName: "organization_freshness",
+  properties: {
+    organizationId: () => p.manyToOne(OrganizationEntity).mapToPk().joinColumn("organization_id").primary(),
+    token: p.uuid(),
+  },
+});
+export class OrganizationFreshnessEntity extends OrganizationFreshnessSchema.class {}
+Object.defineProperty(OrganizationFreshnessEntity, "name", { value: "OrganizationFreshnessEntity" });
+OrganizationFreshnessSchema.setClass(OrganizationFreshnessEntity);
+
+const UserSchema = defineEntity({
+  name: "UserEntity", tableName: "users",
+  properties: { id: p.uuid().primary(), displayName: p.string().length(200), enabled: p.boolean(), createdAt: p.datetime() },
+});
+export class UserEntity extends UserSchema.class {}
+Object.defineProperty(UserEntity, "name", { value: "UserEntity" });
+UserSchema.setClass(UserEntity);
+
+const ExternalIdentitySchema = defineEntity({
+  name: "ExternalIdentityEntity", tableName: "external_identities",
+  properties: { id: p.uuid().primary(), userId: () => p.manyToOne(UserEntity).mapToPk().joinColumn("user_id"),
+    issuer: p.string().length(1024), subject: p.string().length(255) },
+  uniques: [{ name: "uq_external_identity_issuer_subject", properties: ["issuer", "subject"] }],
+});
+export class ExternalIdentityEntity extends ExternalIdentitySchema.class {}
+Object.defineProperty(ExternalIdentityEntity, "name", { value: "ExternalIdentityEntity" });
+ExternalIdentitySchema.setClass(ExternalIdentityEntity);
+
+const MembershipSchema = defineEntity({
+  name: "MembershipEntity", tableName: "memberships",
+  properties: { id: p.uuid().primary(), organizationId: () => p.manyToOne(OrganizationEntity).mapToPk().joinColumn("organization_id"),
+    userId: () => p.manyToOne(UserEntity).mapToPk().joinColumn("user_id"), role: p.string().length(32), enabled: p.boolean() },
+  uniques: [{ name: "uq_membership_org_user", properties: ["organizationId", "userId"] }],
+});
+export class MembershipEntity extends MembershipSchema.class {}
+Object.defineProperty(MembershipEntity, "name", { value: "MembershipEntity" });
+MembershipSchema.setClass(MembershipEntity);
+
+const UserSessionSchema = defineEntity({
+  name: "UserSessionEntity", tableName: "user_sessions",
+  properties: { tokenHash: p.string().length(64).primary(),
+    membershipId: () => p.manyToOne(MembershipEntity).mapToPk().joinColumn("membership_id"),
+    expiresAt: p.datetime(), createdAt: p.datetime() },
+  indexes: [{ name: "idx_user_sessions_expiry", properties: ["expiresAt"] }],
+});
+export class UserSessionEntity extends UserSessionSchema.class {}
+Object.defineProperty(UserSessionEntity, "name", { value: "UserSessionEntity" });
+UserSessionSchema.setClass(UserSessionEntity);
+
+const LoginAttemptSchema = defineEntity({
+  name: "LoginAttemptEntity", tableName: "login_attempts",
+  properties: { tokenHash: p.string().length(64).primary(), encryptedFlow: p.text(), expiresAt: p.datetime() },
+  indexes: [{ name: "idx_login_attempts_expiry", properties: ["expiresAt"] }],
+});
+export class LoginAttemptEntity extends LoginAttemptSchema.class {}
+Object.defineProperty(LoginAttemptEntity, "name", { value: "LoginAttemptEntity" });
+LoginAttemptSchema.setClass(LoginAttemptEntity);
+
+const SecurityAuditSchema = defineEntity({
+  name: "SecurityAuditEntity", tableName: "security_audit_events",
+  properties: { id: p.uuid().primary(), organizationId: () => p.manyToOne(OrganizationEntity).mapToPk().joinColumn("organization_id"),
+    actorUserId: () => p.manyToOne(UserEntity).mapToPk().joinColumn("actor_user_id").nullable().deleteRule("no action"),
+    actorType: p.string().length(32),
+    action: p.string().length(100), targetId: p.text(), eventKey: p.text().unique("uq_security_audit_event_key"), createdAt: p.datetime() },
+  indexes: [{ name: "idx_security_audit_org_time", properties: ["organizationId", "createdAt"] }],
+});
+export class SecurityAuditEntity extends SecurityAuditSchema.class {}
+Object.defineProperty(SecurityAuditEntity, "name", { value: "SecurityAuditEntity" });
+SecurityAuditSchema.setClass(SecurityAuditEntity);
+
+const TeamSchema = defineEntity({
+  name: "TeamEntity", tableName: "teams",
+  properties: { id: p.uuid().primary(), organizationId: () => p.manyToOne(OrganizationEntity).mapToPk().joinColumn("organization_id"), name: p.string().length(200), enabled: p.boolean() },
+});
+export class TeamEntity extends TeamSchema.class {}
+Object.defineProperty(TeamEntity, "name", { value: "TeamEntity" });
+TeamSchema.setClass(TeamEntity);
+
+const TeamMembershipSchema = defineEntity({
+  name: "TeamMembershipEntity", tableName: "team_memberships",
+  properties: { id: p.uuid().primary(), teamId: () => p.manyToOne(TeamEntity).mapToPk().joinColumn("team_id"), membershipId: () => p.manyToOne(MembershipEntity).mapToPk().joinColumn("membership_id") }, uniques: [{ name: "uq_team_membership", properties: ["teamId", "membershipId"] }],
+});
+export class TeamMembershipEntity extends TeamMembershipSchema.class {}
+Object.defineProperty(TeamMembershipEntity, "name", { value: "TeamMembershipEntity" });
+TeamMembershipSchema.setClass(TeamMembershipEntity);
+
+const AccessGrantSchema = defineEntity({
+  name: "AccessGrantEntity", tableName: "access_grants",
+  properties: { id: p.uuid().primary(), organizationId: () => p.manyToOne(OrganizationEntity).mapToPk().joinColumn("organization_id"), subjectType: p.string().length(32), subjectId: p.uuid(), agentId: () => p.manyToOne(AgentEntity).mapToPk().joinColumn("agent_id"), skillId: p.string().length(255).nullable(), permission: p.string().length(32), enabled: p.boolean() }, indexes: [{name: "idx_access_grant_subject", properties: ["organizationId", "subjectType", "subjectId"]}],
+});
+export class AccessGrantEntity extends AccessGrantSchema.class {}
+Object.defineProperty(AccessGrantEntity, "name", { value: "AccessGrantEntity" });
+AccessGrantSchema.setClass(AccessGrantEntity);
+
+const AgentCredentialSchema = defineEntity({
+  name: "AgentCredentialEntity", tableName: "agent_credentials",
+  properties: { id: p.uuid().primary(), organizationId: () => p.manyToOne(OrganizationEntity).mapToPk().joinColumn("organization_id"), agentId: () => p.manyToOne(AgentEntity).mapToPk().joinColumn("agent_id"), kind: p.string().length(32), ciphertext: p.text(), keyId: p.string().length(64), enabled: p.boolean(), revision: p.integer().default(1).version(), updatedAt: p.datetime() }, uniques: [{ name: "uq_agent_credential_binding", properties: ["organizationId", "agentId"] }],
+});
+export class AgentCredentialEntity extends AgentCredentialSchema.class {}
+Object.defineProperty(AgentCredentialEntity, "name", { value: "AgentCredentialEntity" });
+AgentCredentialSchema.setClass(AgentCredentialEntity);
+
+const RateBucketSchema = defineEntity({
+  name: "RateBucketEntity", tableName: "security_rate_buckets",
+  properties: { id: p.string().length(150).primary(), count: p.integer(), expiresAt: p.datetime() }, indexes: [{name: "idx_security_rate_expiry", properties: ["expiresAt"]}],
+});
+export class RateBucketEntity extends RateBucketSchema.class {}
+Object.defineProperty(RateBucketEntity, "name", { value: "RateBucketEntity" });
+RateBucketSchema.setClass(RateBucketEntity);
+
+const ArtifactAccessSchema = defineEntity({
+  name: "ArtifactAccessEntity", tableName: "artifact_access",
+  properties: { id: p.uuid().primary(), organizationId: () => p.manyToOne(OrganizationEntity).mapToPk().joinColumn("organization_id"),
+    taskId: () => p.manyToOne(TaskEntity).mapToPk().joinColumn("task_id"), digest: p.string().length(64) },
+  uniques: [{name: "uq_artifact_access_task_digest", properties: ["taskId", "digest"]}],
+  indexes: [{name: "idx_artifact_access_org_digest", properties: ["organizationId", "digest"]}],
+});
+export class ArtifactAccessEntity extends ArtifactAccessSchema.class {}
+Object.defineProperty(ArtifactAccessEntity, "name", {value: "ArtifactAccessEntity"});
+ArtifactAccessSchema.setClass(ArtifactAccessEntity);
+
 export const persistenceEntities = [
+  ArtifactAccessEntity,
+  TeamEntity, TeamMembershipEntity, AccessGrantEntity, AgentCredentialEntity, RateBucketEntity,
+  UserEntity, ExternalIdentityEntity, MembershipEntity, UserSessionEntity, LoginAttemptEntity, SecurityAuditEntity,
+  OrganizationFreshnessEntity,
   OrganizationEntity,
   AgentEntity,
   AgentCardSnapshotEntity,

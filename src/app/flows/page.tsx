@@ -49,8 +49,11 @@ export default function FlowsPage() {
     () => groupConversations(tasks).filter((conversation) => conversation.tasks.some((task) => task.kind !== "message")),
     [tasks],
   );
+  const loaded = useTaskStore((state) => state.loaded);
   const [picked, setPicked] = useState<string | null>(null);
   const conversation = conversations.find((item) => item.key === picked) ?? [...conversations].sort((a, b) => b.tasks.length - a.tasks.length)[0];
+
+  if (!loaded) return <p role="status" className="text-muted-foreground p-6">Loading orchestration…</p>;
 
   if (!conversation) {
     return (

@@ -12,10 +12,11 @@ export class RebuildTaskProjectionService {
       if (!snapshot) throw new Error("Unknown task in organization.");
       if (!snapshot.events.length) throw new Error("Cannot rebuild a task without retained protocol events.");
       const restored = [];
+      const binaryDigests = new Set<string>();
       // Bound object-store IO and memory; fail before touching the active generation.
-      for (const row of snapshot.events) restored.push(await restoreArchivedEvent(row, this.store));
+      for (const row of snapshot.events) restored.push(await restoreArchivedEvent(row, this.store, async (digests) => {for (const digest of digests) binaryDigests.add(digest);}));
       const view = reduceTaskLedger(snapshot.task, snapshot.agentName, restored);
-      if (await this.repository.activate(snapshot, view)) return view;
+      if (await this.repository.activate(snapshot, view, [...binaryDigests])) return view;
     }
     throw new Error("Task changed during rebuild; retry later.");
   }

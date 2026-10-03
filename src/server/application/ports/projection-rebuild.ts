@@ -9,5 +9,5 @@ export interface ProjectionRebuildSnapshot {
 export interface ProjectionRebuildRepository {
   capture(organizationId: string, taskId: string): Promise<ProjectionRebuildSnapshot | undefined>;
   /** Compare task version under its lock; stale builds never activate. */
-  activate(snapshot: ProjectionRebuildSnapshot, view: DurableTaskView): Promise<boolean>;
+  activate(snapshot: ProjectionRebuildSnapshot, view: DurableTaskView, binaryDigests?: string[]): Promise<boolean>;
 }

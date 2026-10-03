@@ -21,7 +21,7 @@ const STATUS_TITLES: Record<string, string> = {
   CANCELED: "Task canceled",
 };
 
-/** Derives notification-worthy events from tracked tasks; no server push is involved yet. */
+/** Derives current alerts from committed task projections; read marks are presentation state. */
 export function deriveNotifications(tasks: TrackedTask[]): AppNotification[] {
   const items: AppNotification[] = [];
   for (const task of tasks) {
@@ -47,7 +47,7 @@ export function deriveNotifications(tasks: TrackedTask[]): AppNotification[] {
         items.push({
           id: `${task.localId ?? JSON.stringify([task.agentId, task.tenant ?? "", task.taskId])}:artifact:${artifact.artifactId}`,
           taskId: task.taskId,
-        localId: task.localId,
+          localId: task.localId,
           title: "Artifact ready",
           body: `${artifact.name ?? artifact.artifactId} is available from ${task.agentName}.`,
           kind: "artifactUpdate",

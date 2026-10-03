@@ -25,9 +25,9 @@ import {
   type Client,
   type RequestOptions,
 } from "@a2a-js/sdk/client";
-import { GrpcTransportFactory } from "@a2a-js/sdk/client/grpc";
+import { verifyCardTrust } from "../server/adapters/auth/card-trust";
 import { validateAgentCard } from "./compliance";
-import { createSafeFetch, authHeaders } from "./safe-fetch";
+import { createSafeFetch, redactSecrets } from "./safe-fetch";
 import { assertSafeAgentCard, assertSafeInterfaceUrl, assertSafeUrl } from "./url-safety";
 import type { ConnectionConfig, DiscoverResponse, OperationAction, OperationResponse, WireEvent } from "./types";
 import { advertisedExtensionUris, negotiateSidebandExtensions } from "../server/sideband/extension";
@@ -98,7 +98,7 @@ export function dedupeSupportedInterfaces(interfaces: AgentCard["supportedInterf
 }
 
 function requestOptions(config: ConnectionConfig, extensions: string[] = [], traceparent?: string): RequestOptions {
-  const parameters = { ...config.headers, ...authHeaders(config.auth), ...(traceparent ? { traceparent } : {}) };
+  const parameters = { ...config.headers, ...(traceparent ? { traceparent } : {}) };
   return {
     signal: AbortSignal.timeout(timeout(config)),
     serviceParameters: extensions.length
@@ -122,7 +122,7 @@ export async function discoverAgent(config: ConnectionConfig): Promise<DiscoverR
   await assertSafeUrl(config.cardUrl);
   const telemetry: WireEvent[] = [];
   const started = performance.now();
-  const fetchImpl = createSafeFetch({ auth: config.auth, headers: config.headers, telemetry, timeoutMs: timeout(config) });
+  const fetchImpl = createSafeFetch({ ...config, telemetry, timeoutMs: timeout(config) });
   const attempts: string[] = [];
   let rawCard: Record<string, unknown> | undefined;
   let resolvedCardUrl = config.cardUrl;
@@ -152,18 +152,21 @@ export async function discoverAgent(config: ConnectionConfig): Promise<DiscoverR
   if (!rawCard) {
     throw new Error(`Agent Card discovery failed. Tried: ${attempts.join("; ")}.`);
   }
+  rawCard = redactSecrets(rawCard, config.secretValues);
   const report = validateAgentCard(rawCard);
   const resolver = new DefaultAgentCardResolver({ fetchImpl, legacyCompat: { enabled: true } });
   let normalizedCard: AgentCard;
   try {
-    normalizedCard = resolver.normalizeAgentCard(rawCard);
+    normalizedCard = AgentCard.fromJSON(AgentCard.toJSON(resolver.normalizeAgentCard(rawCard)));
   } catch (error) {
     const message = error instanceof Error ? error.message : "Card normalization failed";
     throw new Error(`The card could not be normalized by the official A2A SDK: ${message}`);
   }
   await assertSafeAgentCard(AgentCard.toJSON(normalizedCard) as Record<string, unknown>);
+  const trust = await verifyCardTrust(normalizedCard, new URL(config.cardUrl).origin);
   normalizedCard = { ...normalizedCard, supportedInterfaces: dedupeSupportedInterfaces(normalizedCard.supportedInterfaces) };
   return {
+    trust,
     resolvedCardUrl,
     card: AgentCard.toJSON(normalizedCard) as Record<string, unknown>,
     rawCard,
@@ -180,13 +183,16 @@ export async function discoverAgent(config: ConnectionConfig): Promise<DiscoverR
 
 async function createClient(config: ConnectionConfig): Promise<{ client: Client; telemetry: WireEvent[]; negotiatedExtensions: string[] }> {
   const discovery = await discoverAgent(config);
-  const fetchImpl = createSafeFetch({ auth: config.auth, headers: config.headers, telemetry: discovery.telemetry, timeoutMs: timeout(config) });
+  if (discovery.trust !== "verified" && (discovery.trust !== "unsigned" || process.env.A2A_REQUIRE_SIGNED_CARDS === "true"))
+    throw new Error("Agent Card trust policy rejected this connection.");
+  if (config.auth.type === "none" && !config.tls && discovery.normalizedCard.securityRequirements?.length)
+    throw new Error("Agent credentials are required.");
+  const fetchImpl = createSafeFetch({ ...config, telemetry: discovery.telemetry, timeoutMs: timeout(config) });
   const transports = [
     new JsonRpcTransportFactory({ fetchImpl, legacyCompat: { enabled: true } }),
     new RestTransportFactory({ fetchImpl, legacyCompat: { enabled: true } }),
-    new GrpcTransportFactory({ legacyCompat: { enabled: true } }),
   ];
-  let card = discovery.normalizedCard;
+  let card = { ...discovery.normalizedCard, supportedInterfaces: discovery.normalizedCard.supportedInterfaces.filter((item) => item.protocolBinding.toUpperCase() !== "GRPC") };
   if (config.interfaceUrl || config.protocolBinding || config.protocolVersion) {
     const selected = selectAdvertisedInterface(card.supportedInterfaces, config);
     if (!selected) throw new Error("The selected interface is no longer advertised by the Agent Card.");
@@ -287,7 +293,7 @@ export function recoverMalformedLegacyResult(telemetry: WireEvent[]): unknown | 
   };
 }
 
-export async function executeOperation(input: OperationInput): Promise<OperationResponse> {
+async function executeOperationInternal(input: OperationInput): Promise<OperationResponse> {
   const started = performance.now();
   const { client, telemetry, negotiatedExtensions } = await createClient(input.connection);
   const params = input.params ?? {};
@@ -302,7 +308,7 @@ export async function executeOperation(input: OperationInput): Promise<Operation
       catch (error) {
         const recovered = input.connection.diagnosticMode ? recoverMalformedLegacyResult(telemetry) : undefined;
         if (recovered === undefined) throw error;
-        result = recovered;
+        result = redactSecrets(recovered, input.connection.secretValues);
         const sessionId = input.sessionId ?? crypto.randomUUID();
         const requestId = input.requestId ?? crypto.randomUUID();
         return {
@@ -334,6 +340,7 @@ export async function executeOperation(input: OperationInput): Promise<Operation
     case "deletePushConfig": await client.deleteTaskPushNotificationConfig(DeleteTaskPushNotificationConfigRequest.fromJSON({ tenant: params.tenant ?? "", taskId: params.taskId, id: params.configId }), options); result = { deleted: true }; break;
     default: throw new Error(`Unsupported operation: ${input.action satisfies never}`);
   }
+  result = redactSecrets(result, input.connection.secretValues);
   const sessionId = input.sessionId ?? crypto.randomUUID();
   const requestId = input.requestId ?? crypto.randomUUID();
   return {
@@ -369,4 +376,16 @@ export async function streamOperation(input: OperationInput): Promise<{
 
 export function serializeStreamEvent(event: StreamResponse): unknown {
   return StreamResponse.toJSON(event);
+}
+
+export async function executeOperation(input: OperationInput): Promise<OperationResponse> {
+  try { return await executeOperationInternal(input); }
+  catch (error) {
+    if (!input.connection.secretValues?.length) throw error;
+    const safe = new Error("Protected agent operation failed.");
+    if (error instanceof Error) safe.name = error.name;
+    if (error && typeof error === "object" && "envelopeCode" in error && typeof error.envelopeCode === "number")
+      Object.assign(safe, {envelopeCode: error.envelopeCode});
+    throw safe;
+  }
 }

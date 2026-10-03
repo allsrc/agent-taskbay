@@ -1,3 +1,4 @@
+import { authenticatedRoute } from "@/server/runtime/identity";
 import { agentRegistry } from "@/lib/agent-registry";
 import { apiError } from "@/lib/api-response";
 import { readJsonRequest } from "@/lib/request-guard";
@@ -6,7 +7,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 /** Compatibility blocking response over durable command dispatch. */
-export async function POST(request: Request, context: { params: Promise<{ agentId: string }> }) {
+async function handlePOST(request: Request, context: { params: Promise<{ agentId: string }> }) {
   try {
     const agent = await agentRegistry().get((await context.params).agentId);
     if (!agent) return Response.json({ error: { message: "Unknown agent." } }, { status: 404 });
@@ -15,3 +16,5 @@ export async function POST(request: Request, context: { params: Promise<{ agentI
     return Response.json(legacyCommandResponse(await waitForCommand(command.id, request.signal)), { headers: { "Cache-Control": "no-store" } });
   } catch (error) { return apiError(error); }
 }
+
+export const POST = authenticatedRoute("operate", handlePOST);

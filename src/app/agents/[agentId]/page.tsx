@@ -71,7 +71,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ agentId:
           </Button>
         )}
         <Button variant="outline" size="lg" onClick={() => setConnectOpen(true)}>
-          Re-authenticate
+          Connection setup
         </Button>
         {view && (
           <span className="border-border text-muted-foreground flex items-center rounded-lg border px-4 font-mono text-xs">Agent Card v{view.version}</span>
@@ -131,6 +131,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ agentId:
           </InfoCard>
 
           <InfoCard label="Security">
+            <p className="mb-2 text-sm">Card signature: {agent.trust ?? "unknown"}</p>
             <div className="py-1.5">{view.security.length ? view.security.join(", ") : "None advertised"}</div>
             <h4 className="label-mono mt-2.5 mb-1.5">Default input modes</h4>
             <div className="flex flex-wrap gap-1.5">{view.inputModes.map((mode) => <Chip key={mode}>{mode}</Chip>)}</div>

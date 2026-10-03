@@ -1,12 +1,13 @@
 "use client";
 
+import { SecuritySettings } from "@/components/security-settings";
+
 import { useState } from "react";
 import { Trash2 } from "lucide-react";
 import { InfoCard } from "@/components/a2a/primitives";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { useAgentStore } from "@/store/agent-store";
 import { OUTPUT_MODE_OPTIONS, useSettingsStore } from "@/store/settings-store";
 
 function ToggleRow({ title, desc, checked, onChange, disabled }: { title: string; desc: string; checked: boolean; onChange: (value: boolean) => void; disabled?: boolean }) {
@@ -23,7 +24,6 @@ function ToggleRow({ title, desc, checked, onChange, disabled }: { title: string
 
 export default function SettingsPage() {
   const settings = useSettingsStore();
-  const agents = useAgentStore((state) => state.agents);
   const [extension, setExtension] = useState("");
 
   return (
@@ -69,19 +69,7 @@ export default function SettingsPage() {
           </form>
         </InfoCard>
 
-        <InfoCard label="Credentials">
-          <p className="text-muted-foreground mb-1 text-xs">No credentials are stored yet. Requests go out unauthenticated until ROADMAP Phase 2.</p>
-          {agents.map((agent) => (
-            <div key={agent.id} className="border-border flex items-center gap-2.5 border-t py-2">
-              <span className="min-w-0 flex-1">
-                <span className="block truncate">{agent.view?.name ?? agent.cardUrl}</span>
-                <span className="text-muted-foreground block font-mono text-[11px]">{agent.view?.security.join(", ") || "no scheme advertised"}</span>
-              </span>
-              <span className="text-muted-foreground font-mono text-xs">none stored</span>
-            </div>
-          ))}
-          {agents.length === 0 && <p className="text-muted-foreground text-sm">No agents connected.</p>}
-        </InfoCard>
+        <SecuritySettings />
       </div>
     </div>
   );

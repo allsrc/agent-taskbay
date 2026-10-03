@@ -4,11 +4,19 @@ Last updated: 2026-10-03
 
 ## Active position
 
-- Last completed phase: **Phase 1 — persistence foundation**
-- Active phase: **Phase 2 — durable task runtime**
-- Last completed slice: **2.5 — versioned projections and rebuild**
-- Next executable slice: **2.6 — application SSE freshness signals**
+- Last completed phase: **Phase 3 — identity and security**
+- Active phase: **Phase 4 — approval-grade human intervention**
+- Last completed slice: **3.2 — Plane B credentials and scoped security**
+- Next executable slice: **4.1 — typed decision requests and revisions**
 - Blocking decisions: none
+
+## Pending follow-ups
+
+- **User-delegated OAuth — pending:** consent, membership-bound encrypted tokens,
+  refresh/revocation and durable worker subject selection are tracked in
+  [GitHub issue #1](https://github.com/shashikanth-gs/a2a-ops/issues/1).
+  Deferred by agreement on 2026-10-03 for later review. This is separate from the
+  verified Phase 3 service identity baseline and does not block Slice 4.1.
 
 ## Accepted implementation choices
 
@@ -806,6 +814,405 @@ committed durable-state changes through a retryable outbox/freshness adapter and
 make browser consumers re-query scoped projections. Verify disconnect, missed
 signal recovery and both deployment profiles. Do not remove remaining browser
 persistence authority in this slice.
+
+## Phase 2 Slice 2.6 verified evidence
+
+Date: 2026-10-03
+
+Slice: **2.6 — application SSE freshness signals**
+
+Changes:
+
+- Added framework-independent freshness ports, transactional `task.freshness`
+  outbox intent, dispatcher and worker loop. Accepted observations and rebuild
+  activation commit empty-payload intent with projections. Duplicate ingestion
+  creates no additional intent. Direct Message projections also publish.
+- Added fifteen-second delivery leases, owner fencing and safe retry state with
+  bounded backoff. A publication whose acknowledgement was lost may repeat;
+  expiry permits retry without dispatching remote work or changing task content.
+- Added a process-global organization-token adapter for embedded PGlite and an
+  indexed persistent organization-token adapter for PostgreSQL workers/web
+  replicas. Tokens are opaque equality markers; there is no replay cursor or
+  global protocol-event sequence assumption. Added migration and ADR 0012.
+- Added GET /api/tasks/events with server-resolved organization scope,
+  content-free ready/freshness/resync frames, backpressure, abort cleanup and
+  bounded reconnecting connections. Web routes poll only the freshness adapter;
+  remote observation remains worker-owned.
+- Tasks list/detail and known durable Chat tasks share one EventSource per tab
+  and re-query scoped projections after signals/reconnect, on focus and through
+  five-second fallback reads. Bursts coalesce; invalidations during a request
+  preserve a follow-up read. Existing browser persistence remains for the next
+  slice, including pending user turns and notification read state.
+
+Verification commands and results:
+
+- Before implementation, the complete Slice 2.5 quality gate passed: lint,
+  52 unit tests, 22 database tests on PGlite/PostgreSQL 18, schema check, build
+  and both production HTTP worker profiles.
+- `A2A_TEST_POSTGRES_URL=postgresql://postgres:postgres@127.0.0.1:55432/a2a_ops_test npm run check`:
+  passed lint; 22 unit files/58 tests; 10 database files/24 tests on both
+  databases; schema drift check; production build; production HTTP with
+  embedded PGlite and external PostgreSQL workers.
+- Shared freshness contracts verify atomic intent/rollback, duplicate ingestion,
+  direct Messages, rebuild invalidation, two-worker claiming, publication failure,
+  safe retries, lost acknowledgement/duplicate publication, expired ownership,
+  late acknowledgement fencing, database-owner restart and organization isolation.
+- Unit tests verify initial/reconnected ready, missed-signal resync, duplicate
+  bursts, independent organization tokens, bounded lifetime, abort cleanup,
+  backpressure, safe stream failures, one EventSource per tab and follow-up reads
+  after invalidations during an in-flight request.
+- Production HTTP verifies two independent SSE readers followed by durable
+  re-queries, content-free frames, cache headers, ignored client scope/cursor
+  selectors, observation with zero live browsers, missed-signal recovery and
+  fresh reads after process restart in both worker profiles. Existing streaming,
+  prompts, cancellation, push, reconciliation and binary rebuild scenarios pass.
+- The first expanded gate exposed an older rollback test that assumed the newest
+  migration was the projection migration. It now explicitly targets the previous
+  reconciliation schema; the complete gate then passed.
+- Browser verification rendered the durable task history, input-required prompt
+  and binary artifact in Task detail and Chat without console errors. A fixture
+  cancellation committed through the API changed the already-open Chat to
+  CANCELED without navigation or manual refresh, again without console errors.
+- `npm run db:migrate` applied the local migration. `npx tsc --noEmit` and
+  `git diff --check` passed. `npm audit --omit=dev`: zero vulnerabilities.
+
+Migration tested from:
+
+- Clean PGlite and PostgreSQL 18 through all nine migrations, with rollback,
+  reapplication and schema drift checks.
+- Immediately previous versioned-projection schema on both databases with a
+  retained task. Upgrade preserves content/identity. Freshness rollback removes
+  only adapter tokens and freshness outbox rows; task/event projections remain.
+- Prior projection rollback still exports normalized content correctly, with
+  freshness migration removed first. Restart retains pending delivery intent and
+  shared PostgreSQL tokens; local bus restart recovers through ready/re-query.
+
+Remaining risks:
+
+- Phase 2 remains active: task-content/notification browser persistence authority
+  removal and final phase exit verification are pending. Chat freshness currently
+  refreshes known durable local IDs; it does not import old browser-only history.
+- The polling adapter currently reads one indexed token per SSE connection;
+  larger deployments may share organization polling/fan-out behind the same port.
+  Tokens intentionally coalesce changes and provide no event replay guarantee.
+- Local PGlite still requires its single long-running owner. PostgreSQL workers
+  require shared artifacts and database configuration. Existing projection
+  ordering/retention limits, potential orphaned files, development tooling audit
+  advisories and Phase 3 authentication/authorization scope remain unchanged.
+
+**Slice 2.6 acceptance criteria are verified. Phase 2 remains active.**
+
+Next executable slice: **remaining Phase 2 browser persistence authority
+removal**. Resolve the next unchecked deliverable in PHASES.md, remove task
+content and notification authority from browser persistence, and verify the
+Phase 2 exit criteria before advancing to Phase 3.
+
+## Phase 2 Slice 2.7 and phase exit verified evidence
+
+Date: 2026-10-03
+
+Slice: **2.7 — browser persistence authority removal**
+
+Changes:
+
+- Replaced Zustand task/read persistence with a disposable in-memory projection
+  cache and session-only read presentation state. Retire task/notification keys
+  in both browser namespaces on mount; do not hydrate or import browser-only
+  history. Settings/theme preferences retain their storage.
+- Added a narrow content-pagination repository/query port and GET
+  `/api/task-views`, scoped by the existing server-resolved local organization.
+  Local UUID cursors include direct Messages as well as real Tasks. Queries read
+  active content projections, not protocol events; the task-only inbox is unchanged.
+- A single tab cache completes every page before activation and replaces its
+  prior content. Chat, flows and current alerts load without a previously visited
+  task or browser cache. Freshness/reconnect/focus and five-second fallback
+  reads discover new tasks and recover missed signals. Partial failures retain
+  the previous view with a visible retry warning; initial failures do not claim
+  a missing conversation.
+- A send racing a paginated read fences cache replacement and schedules another
+  read. Database snapshot versions reject delayed older command-stream views.
+  Pending user turns live only in the composer; raw diagnostic events never
+  create task content or permanent phantom messages. Cancellation re-queries the
+  committed view instead of manufacturing local transitions. New tasks within
+  an existing conversation preserve its tenant.
+- Alerts derive from durable task projections; notification read marks are
+  session-only presentation state. Durable recipient/read records, historical
+  notification delivery and external channels remain Phase 4 work. Existing
+  architectural decisions are preserved; no new ADR or migration is needed.
+
+Verification commands and results:
+
+- Before implementation, the complete Slice 2.6 `npm run check` gate passed:
+  lint, 58 unit tests, 24 database tests on PGlite/PostgreSQL 18, schema check,
+  production build and both production HTTP worker profiles. The first attempt
+  found the prior PostgreSQL test endpoint unavailable; a disposable PostgreSQL
+  18 instance restored the full prerequisite verification.
+- The expanded `npm run check` passed lint, 24 unit files/66 tests, 10 database
+  files/24 tests on both databases, schema drift check and production build.
+  HTTP then exposed a test assumption that every no-op rebuild advances the
+  ORM version. The assertion now verifies a non-regressing version and identical
+  deterministic content; rebuild content tests exclude operational revision.
+- `A2A_TEST_POSTGRES_URL=postgresql://postgres:postgres@127.0.0.1:55432/a2a_ops_test A2A_HTTP_TEST_KEEP_SERVER=true npm run test:http`:
+  passed embedded PGlite production HTTP and remained available for browser QA;
+  graceful SIGINT completed fixture cleanup with exit code zero.
+- `A2A_TEST_POSTGRES_URL=postgresql://postgres:postgres@127.0.0.1:55432/a2a_ops_test A2A_HTTP_TEST_PROFILE=postgresql npm run test:http`:
+  passed external PostgreSQL production HTTP and cleaned up its temporary database.
+- Shared database contracts verify complete content pagination, direct Messages,
+  scoped remote-ID/context collisions, foreign-organization exclusion, derived
+  alerts, binary references and reconstruction after database-owner restart.
+- Unit tests verify all-page reads, failed partial reads, cursor-loop rejection,
+  selective legacy-key retirement, disabled storage, absence of persistence
+  writes, removal of phantom messages/deleted cache entries, concurrent-send
+  fencing, failure/recovery state and delayed snapshot rejection. Raw protocol
+  events before the first snapshot cannot become authoritative UI content.
+- Production HTTP verifies two independent clean-session content reads after
+  restart, two-item pagination, direct replies outside the task-only inbox,
+  ignored client organization/tenant selectors, invalid pagination rejection,
+  no-store headers and committed cancellation in content pages. Existing
+  streaming/reconnect, prompts, push, reconciliation and rebuild scenarios pass.
+- Browser QA verified Chat landing, direct conversation reload, prompts/binary
+  artifacts, current alerts and orchestration reload without stored history.
+  An independent fixture session committed cancellation; already-open Chat
+  changed to CANCELED without navigation/refresh. A composer send produced a
+  direct Message and its user/agent content survived a full reload. No browser
+  console warnings/errors appeared in these checks.
+- `npm run lint`, `npx tsc --noEmit` and `git diff --check`: passed.
+  `npm audit --omit=dev`: zero vulnerabilities.
+
+Migration tested from:
+
+- No Slice 2.7 schema change. The full shared migration suite still verifies
+  clean databases, previous-schema upgrades, rollback/reapplication and schema
+  drift on PGlite and PostgreSQL 18. Prior Slice 2.6 changes remain preserved.
+
+Phase 2 exit criteria verified:
+
+- Commands and observation continue after every browser disconnects, including
+  the accepted-command/disconnected-stream production scenarios.
+- Web/worker crashes recover subscriptions, push lifecycle and reconciliation;
+  task content remains queryable after process restart in both profiles.
+- Duplicate and out-of-order stream/push/reconciliation events and repeated
+  rebuilds preserve visible messages, prompts and assembled artifacts.
+- Missed live signals recover through ready/re-query/fallback; clean browsers
+  reconstruct Chat, flow and alert content from server projections.
+- Streaming/reconnect, input/auth-required, cancellation and binary artifact
+  assembly pass through the actual production web server and SDK fixture agents.
+
+Remaining risks:
+
+- The initial tab cache reads all organization content pages on refresh. Larger
+  workloads need scoped conversation/inbox queries and selective content loading
+  behind the same repository boundary. Pagination is eventually consistent during
+  concurrent writes; subsequent complete refreshes converge.
+- Browser-only history without a server record is unavailable and is not imported.
+  Session read marks reset on full reload; durable per-user read/notification
+  features remain explicitly scheduled for Phase 4.
+- Phase 3 authentication, credential vault, grants and network hardening remain
+  unimplemented. The current organization boundary is the development organization.
+  Existing ambiguous append ordering, retained-ledger/archive requirements,
+  orphaned file lifecycle and PGlite single-owner limitations remain.
+
+**Slice 2.7 and all Phase 2 exit criteria are verified. Phase 2 is complete.**
+
+Next executable slice: **Phase 3 identity/session adapters**. Resolve the first
+unchecked Phase 3 deliverable in PHASES.md and follow ADR 0005/SEC-001 for local
+development identity and production OIDC sessions before moving to credential
+vault and scoped authorization work. Phase 3 is active but remains Planned until
+implementation begins.
+
+## Phase 3 combined Slice 3.1 verified evidence
+
+Date: 2026-10-03
+
+Slice: **3.1 — Plane A identity and organization access**
+
+Changes:
+
+- Combined related identity/session, persistent membership, organization-role,
+  route authorization, administrative catalog and transactional audit work.
+- Added pinned `openid-client` 6.8.8 for OIDC discovery, PKCE, state, nonce,
+  issuer/audience/expiry and ID-token signature validation, and `jose` 6.2.12
+  for authenticated encryption of short-lived server-side login attempts.
+- Added users, exact issuer/subject external identities, organization memberships,
+  hashed opaque sessions, one-use encrypted login attempts and safe audit facts.
+  Memberships are operator-provisioned; provider role/organization claims never
+  grant access. No provider tokens reach the browser or persist in these tables.
+- Added fail-closed production configuration, explicit development identity,
+  secure host cookies, login/session/logout routes and a safe identity menu.
+- All application read/mutation routes authenticate before data access. Scoped
+  repositories use the admitted organization; viewer/operator/admin permissions
+  protect commands and administration. Existing webhooks retain their separate
+  authenticated push boundary. OIDC mutations require the canonical Origin.
+- Added operator provisioning CLI, accepted ADR 0013 and repository threat model.
+  Session creation, revocation, catalog mutations and accepted-command audits
+  commit transactionally with the associated operation.
+
+Verification commands and results:
+
+- Verified Phase 2 prerequisites with the existing full quality gate before
+  implementation. Existing uncommitted Phase 2 work remains preserved.
+- `A2A_DATABASE_PROFILE=postgresql A2A_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:55432/a2a_ops_test A2A_TEST_POSTGRES_URL=postgresql://postgres:postgres@127.0.0.1:55432/a2a_ops_test npm run check`:
+  passed lint, 26 unit files/73 tests, 11 database files/26 tests across PGlite
+  and PostgreSQL 18, schema drift check, production build and both existing
+  task-runtime and new identity HTTP suites on both profiles.
+- Signed-token tests cover incorrect issuer, audience, nonce, state, expiry and
+  signature. JWE tampering/wrong-key, current membership/user/role validation,
+  expiry/revoke, replay and concurrent one-use login behavior fail closed.
+- Actual production HTTP OIDC fixture verifies secure cookie flags, login replay,
+  unprovisioned users, canonical origins, anonymous route rejection, viewer and
+  operator restrictions, administrative registration, cross-organization task,
+  command and artifact access, accepted-command audits, restart, logout and
+  revoked memberships. Secrets are absent from inspected responses/logs and
+  session/login/audit storage. Provider role claims do not override local roles.
+- Browser QA verified the development identity/role label and loaded Tasks
+  presentation, with no console warnings/errors. Its temporary tab was closed
+  before runtime restart verification completed.
+- `git diff --check`: passed. `npm audit --omit=dev`: zero vulnerabilities.
+- Fixed audit FK schema drift by explicitly preserving actor references with
+  `ON DELETE NO ACTION`; final adapter, schema and full runtime checks pass.
+
+Migration tested from:
+
+- Clean file-backed PGlite and PostgreSQL 18 through all ten migrations.
+- Previous Phase 2 schema containing agent/task data, upgraded while preserving
+  existing records; rollback/reapplication and close/reopen contracts pass.
+- The actual existing `.data/pglite` could not open: PostgreSQL reported an
+  invalid checkpoint record and could not locate a valid WAL checkpoint.
+  The same directory had failed ORM migration generation before implementation.
+  No reset/replacement was performed. An offline filesystem copy is preserved
+  at `.data/backups/pglite-before-phase3-migration-20261003` (also initially
+  copied to `/tmp/a2a-pglite-preserved-20261003-143621`). The local development
+  listener was restarted on port 3002, but returns identity-service 503 until
+  that existing database is safely recovered or explicitly replaced. Local
+  migration is not claimed as successful; isolated adapter/runtime tests pass.
+
+Remaining risks:
+
+- Organization roles are the baseline; teams and agent/skill grants, the
+  credential vault/service identity, connection-bound network policy, rate
+  limits and Agent Card signature verification remain unchecked Phase 3 work.
+- Already-admitted requests/accepted durable commands may finish after session
+  revocation. New requests revalidate membership/user/session state.
+- The existing local database recovery issue requires a separate safe recovery
+  decision; resetting WAL or discarding stored tasks is not automatic.
+
+**Combined Slice 3.1 is verified. Phase 3 remains In progress.**
+
+Next executable slice: **3.2 — Plane B credentials and scoped security**.
+Implement trusted-library-backed encrypted service credentials and scoped grants
+behind application ports, then verify protected-agent and secret-disclosure gates
+alongside the remaining network/artifact/trust controls.
+
+## Phase 3 combined Slice 3.2 verified evidence
+
+Date: 2026-10-03
+
+Slice: **3.2 — Plane B credentials and scoped security**
+
+Changes:
+
+- Combined encrypted CredentialVault/service connections, team/member/organization
+  agent/skill grants, admin settings, network policy, artifact authorization,
+  durable rate budgets and signed-card trust behind application ports.
+- Reused jose JWE/JWS and SDK card canonicalization, openid-client client credentials,
+  and pinned Undici 7.30.0/ipaddr.js 2.5.0. No custom cryptographic/signature protocol.
+- Credential CLI uses bounded stdin, server environment keys, old-key decrypt/active-key
+  re-encryption, credential replacement and fail-closed revocation. Browser APIs expose
+  status only. API key, bearer, OAuth client and mTLS have real TLS fixture proof.
+- Members need explicit agent or skill access. SQL filters apply before pagination;
+  direct task/command/artifact and compatibility routes recheck policy. Skill-only sends
+  need the explicit reviewed routing extension, immutable typed task/command identity,
+  server metadata and scoped context/reference checks. Admins retain full org access.
+- Exact production HTTPS origins, independently bound credential origins, actual socket
+  DNS validation, mapped-IP/metadata rejection, redirect denial and bounded streaming
+  responses protect all HTTP agent paths. Wire facts exclude headers/bodies; credential
+  echoes, including binary parts and sidebands, are redacted before persistence. Protected
+  operation/stream failures use safe messages. SDK verification logging is avoided by
+  using its canonicalization with jose verification.
+- Artifact downloads require server-authored digest references and a currently visible
+  task, with attachment/nosniff/no-store/sandbox. Remote media is not automatically loaded.
+  Projection rebuild verifies original archives outside transactions and atomically
+  restores trusted references with activation. Forged URLs/metadata cannot grant access.
+- Admin Settings creates teams, manages membership and grants/revocation, and displays
+  credential status. Protected cards can be registered by URL before server credential
+  provisioning; the dialog no longer implies that a scheme choice configures authentication.
+- Accepted ADR 0014 and updated architecture, model, threat model, environment example
+  and the service identity/rotation/migration runbook.
+
+Verification commands and results:
+
+- Reverified all Phase 2/3.1 prerequisites before implementation using the full quality
+  gate on a disposable PostgreSQL 18 server. Preserved existing uncommitted changes.
+- `A2A_DATABASE_PROFILE=postgresql A2A_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:55432/a2a_ops_test A2A_TEST_POSTGRES_URL=postgresql://postgres:postgres@127.0.0.1:55432/a2a_ops_test npm run check`:
+  passed lint, 28 unit files/81 tests, 12 database files/28 tests across PGlite and
+  PostgreSQL, no schema drift, production build, TLS service agent fixtures and both
+  task-runtime and OIDC/protected-agent HTTP suites on both database profiles.
+- Real TLS SDK fixtures prove API key, bearer, OAuth client and mTLS, valid/tampered
+  signed cards, origin binding, no redirect forwarding, oversized responses and
+  credential echoes. Added protected failure-response checks also pass.
+- Unit regressions prove actual socket DNS rebinding rejection after a public preflight,
+  mixed DNS answers, mapped metadata IPs, chunked response limits, scoped card filtering,
+  viewer ceilings, known-secret binary/key redaction and expired/foreign card key pins.
+- Shared database contracts prove no-grant discovery/invocation denial, team revocation,
+  skill/generic/context/reference denial, server routing override, filtered pagination,
+  hidden artifacts and forged references; vault tamper/wrong-key/cross-agent substitution,
+  encryption rotation/revocation/restart, audit secrecy and rate-window reset.
+- Production HTTP combines actual OIDC with an encrypted protected bearer agent. A same-org
+  ungranted user cannot use catalog/detail/task/artifact or command/message/stream URLs.
+  Cross-org denial, viewer/operator ceilings, origin, login replay, restart/logout,
+  accepted command audit and browser response/log/session/audit disclosure checks pass.
+- Fixed optional SDK arrays and normalized cards before execution. Browser QA also
+  caught and fixed Next localhost/127.0.0.1 development mutation origins; same-port
+  loopback aliases are admitted only in development, and OIDC remains exact-origin.
+  The task HTTP gate now supplies browser Origin headers. Fixed a real PGlite
+  concurrency regression by moving archive reads outside capture transactions; existing
+  slow-archive concurrent read/ingestion and rebuild contracts pass.
+- Browser QA on a separate disposable PGlite fixture verifies team creation/member
+  assignment, a skill grant surviving reload, grant revocation/member removal,
+  protected-card URL registration controls and unsigned trust presentation. No
+  browser console warnings/errors appeared; the temporary tab/process were closed.
+- After the final registration UI and CLI environment-loading refinements, lint and
+  production build pass again; `npx tsc --noEmit` passes. Production-only `npm audit`
+  reports zero vulnerabilities. `git diff --check` passes.
+
+Migration tested from:
+
+- Clean file-backed PGlite and PostgreSQL 18 through all eleven migrations, including
+  close/reopen persistence, schema drift checks, rollback and reapplication.
+- The previous identity schema, plus retained Phase 2 tasks/archives upgraded and rebuilt
+  with trusted artifact references; rollback retains the previous task data.
+- No migration/reset was attempted on the existing corrupt local `.data/pglite`.
+  Its offline backups listed under Slice 3.1 remain preserved. The existing development
+  listener can still return 503 because of its pre-existing invalid WAL checkpoint.
+
+Phase 3 exit criteria verified:
+
+- Protected agents operate with all four service profiles; browser/log/audit disclosure
+  checks pass and no credential plaintext is returned by administrative APIs.
+- Missing grants deny discovery and invocation, including direct/compatibility URLs.
+  Skill grants cannot authorize generic sends or cross-skill/context/reference work.
+- Cross-organization and scoped task/artifact access fail closed on both profiles.
+- Wire views use fixed facts, protected errors are safe, and known credential echoes
+  are removed before visible protocol content and archives are persisted.
+
+Remaining limits:
+
+- User-delegated OAuth consent/refresh is the explicitly conditional follow-up after
+  the verified service baseline; it is not implemented or claimed. ADR 0014 records
+  required membership-bound credentials/worker subject selection before that extension.
+- gRPC is unavailable until its SDK adapter supports connection-bound DNS validation.
+  Unsigned administrative registrations are allowed unless signed cards are required.
+- Skill routing requires reviewed agent enforcement. Accepted work and admitted connections
+  can finish after grant/session/credential revocation; subsequent requests/connections
+  recheck. Host key protection and trusted allowed agent infrastructure remain operational.
+- Existing binary archives need projection rebuild for permission backfill. Missing/corrupt
+  originals fail closed. The old local WAL recovery issue remains a separate safe decision.
+
+**Combined Slices 3.1/3.2 and every Phase 3 exit criterion are verified. Phase 3 is complete.**
+
+Next executable slice: **4.1 — typed decision requests and revisions**. Resolve typed,
+scoped, expiring decision aggregates under ADR 0005 and correlate exact approved revisions
+with dispatch/observed outcomes. Do not begin Phase 4 without a continuation request.
 
 ## Known repository-state issue
 

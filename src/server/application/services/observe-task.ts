@@ -1,7 +1,8 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { DurableTaskView } from "../../../shared/task-types";
 import type { JsonValue, TaskRecord, TaskEventSource } from "../../domain/persistence-model";
-import type { AgentRepository, TaskRepository, TaskEventRepository } from "../ports/persistence";
+import type { AgentRepository, TaskRepository, TaskEventRepository, OutboxRepository } from "../ports/persistence";
+import { enqueueTaskFreshness } from "./task-freshness";
 import type { Clock } from "../ports/clock";
 import type { StreamMetadata } from "../ports/subscriptions";
 import { eventSubject, object } from "./task-projection";
@@ -11,6 +12,7 @@ export { canonicalJson, eventDigest } from "./event-identity";
 import { reduceTaskLedger, TASK_PROJECTOR_VERSION } from "./versioned-task-projection";
 
 export interface TaskObservation {
+  skillId?: string | null;
   organizationId: string;
   agentId: string;
   tenant: string;
@@ -34,6 +36,7 @@ export class ObserveTaskService {
     private readonly agents: AgentRepository,
     private readonly tasks: TaskRepository,
     private readonly events: TaskEventRepository,
+    private readonly outbox: OutboxRepository,
     private readonly clock: Clock = { now: () => new Date() },
   ) {}
 
@@ -53,9 +56,11 @@ export class ObserveTaskService {
       organizationId: input.organizationId, agentId: input.agentId, tenant: input.tenant,
       remoteTaskId: remoteTaskId || null, remoteContextId: typeof subject.contextId === "string" ? subject.contextId : null,
       kind: remoteTaskId ? "task" : "message", state: remoteTaskId ? "TASK_STATE_UNSPECIFIED" : "MESSAGE_ONLY",
-      title: null, ownerUserId: null, ownerTeamId: null, createdAt: now, remoteCreatedAt: null,
+      title: null, skillId: input.skillId ?? null, ownerUserId: null, ownerTeamId: null, createdAt: now, remoteCreatedAt: null,
       updatedAt: now, remoteUpdatedAt: null, terminalAt: null, version: 1, contentJson: {},
     });
+    if (input.source === "command_response" && (input.skillId ?? null) !== (task.skillId ?? null))
+      throw new Error("Agent response crossed a task skill boundary.");
     let view: DurableTaskView = {
       taskId: task.remoteTaskId ?? task.id, agentId: agent.id, agentName: agent.displayName ?? "Agent",
       kind: task.kind === "message" ? "message" : "task", state: task.state,
@@ -110,6 +115,7 @@ export class ObserveTaskService {
         contentJson: JSON.parse(JSON.stringify(view)) as JsonValue,
       };
       await this.tasks.saveProjection(projection);
+      await enqueueTaskFreshness(this.outbox, input.organizationId, task.id, now);
     }
     return view;
   }

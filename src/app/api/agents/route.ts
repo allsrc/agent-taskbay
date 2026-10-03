@@ -1,3 +1,4 @@
+import { authenticatedRoute } from "@/server/runtime/identity";
 import { NextResponse } from "next/server";
 import { discoverRegisteredAgent } from "@/server/runtime/agent-discovery";
 import { agentRegistry } from "@/lib/agent-registry";
@@ -16,6 +17,7 @@ export interface CatalogEntry {
   skills?: Array<{ id: string; name: string; description: string; tags: string[] }>;
   card?: unknown;
   error?: string;
+  trust?: string;
 }
 
 /**
@@ -24,13 +26,13 @@ export interface CatalogEntry {
  * fails discovery still appears, with `error` set, rather than disappearing
  * from the catalog silently.
  */
-export async function GET() {
+async function handleGET() {
   const agents = await agentRegistry().list();
   const entries: CatalogEntry[] = await Promise.all(agents.map(async (agent) => {
     try {
       const discovery = await discoverRegisteredAgent(agent);
       const card = discovery.card as { name?: string; description?: string; skills?: CatalogEntry["skills"] };
-      return { id: agent.id, cardUrl: agent.cardUrl, source: agent.source, name: card.name, description: card.description, skills: card.skills, card: discovery.card };
+      return { id: agent.id, cardUrl: agent.cardUrl, source: agent.source, name: card.name, description: card.description, skills: card.skills, card: discovery.card, trust: discovery.trust };
     } catch (error) {
       return { id: agent.id, cardUrl: agent.cardUrl, source: agent.source, error: error instanceof Error ? error.message : "Agent discovery failed." };
     }
@@ -39,7 +41,7 @@ export async function GET() {
 }
 
 /** Catalog management (design doc's "next features"): register a new agent by its Agent Card URL. */
-export async function POST(request: Request) {
+async function handlePOST(request: Request) {
   try {
     const body = await readJsonRequest<{ cardUrl?: string }>(request);
     if (!body.cardUrl?.trim()) throw new Error("cardUrl is required.");
@@ -49,3 +51,6 @@ export async function POST(request: Request) {
     return apiError(error, 400);
   }
 }
+
+export const GET = authenticatedRoute("read", handleGET);
+export const POST = authenticatedRoute("administer", handlePOST);

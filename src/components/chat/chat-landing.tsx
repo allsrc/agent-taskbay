@@ -15,7 +15,7 @@ import { useTaskStore } from "@/store/task-store";
 export function ChatMissing() {
   return (
     <EmptyState icon={<MessageSquare className="size-7" />} title="Conversation not found">
-      It isn&apos;t in this browser&apos;s local state.{" "}
+      This conversation is unavailable in the current organization.{" "}
       <Link href="/chat" className="text-primary hover:underline">
         Back to chat
       </Link>
@@ -27,6 +27,7 @@ export function ChatMissing() {
 export function ChatLanding({ agentId }: { agentId?: string }) {
   const tasks = useTaskStore(useShallow((state) => Object.values(state.tasks)));
   const conversations = useMemo(() => groupConversations(tasks), [tasks]);
+  const loaded = useTaskStore((state) => state.loaded);
   const agents = useAgentStore((state) => state.agents);
 
   if (agentId) return <ChatView key={agentId} agentId={agentId} />;
@@ -52,7 +53,7 @@ export function ChatLanding({ agentId }: { agentId?: string }) {
       </div>
 
       <h2 className="label-mono mb-2">Recent conversations</h2>
-      {conversations.length === 0 ? (
+      {!loaded ? <p role="status" className="text-muted-foreground text-sm">Loading conversations…</p> : conversations.length === 0 ? (
         <p className="text-muted-foreground text-sm">Nothing yet.</p>
       ) : (
         <div className="flex max-w-2xl flex-col gap-1.5">

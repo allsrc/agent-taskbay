@@ -25,3 +25,7 @@ accepted ADR. Small implementation details do not require an ADR.
 - [0010 — Scoped task reconciliation with durable read cursors](./0010-task-reconciliation.md)
 
 - [0011 — Versioned task content projections and atomic rebuild](./0011-versioned-task-projections.md)
+- [0012 — Application SSE over committed projections](./0012-application-freshness-signals.md)
+- [0013 — Plane A library adapters and membership-bound sessions](./0013-plane-a-sessions-and-membership.md)
+
+- [ADR 0014: Service credentials and scoped security](0014-service-credentials-and-scoped-security.md)

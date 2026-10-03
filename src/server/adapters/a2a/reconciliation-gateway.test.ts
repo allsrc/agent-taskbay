@@ -4,6 +4,7 @@ import { ListTasksUnsupported } from "../../application/ports/reconciliation";
 import type { AgentRecord, SyncCursorRecord, TaskRecord } from "../../domain/persistence-model";
 const execute = vi.hoisted(() => vi.fn());
 vi.mock("../../../lib/gateway", () => ({ executeOperation: execute }));
+vi.mock("./agent-connection", () => ({ agentConnection: vi.fn(async (agent: AgentRecord) => ({ cardUrl: agent.cardUrl, auth: { type: "none" }, headers: {} })) }));
 const agent = { cardUrl: "https://example.test/card" } as AgentRecord;
 const cursor = { tenant: "tenant-a", pageToken: "page-2" } as SyncCursorRecord;
 const task = { tenant: "tenant-a", remoteTaskId: "remote" } as TaskRecord;

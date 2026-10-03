@@ -24,3 +24,13 @@ it("TSK-002 uses committed snapshots without replaying old transitions into the 
   await runResubscribe(view, { onUpdate });
   expect(onUpdate).toHaveBeenCalledExactlyOnceWith(view);
 });
+
+it("TSK-002 never makes raw diagnostic events authoritative, even before the first snapshot", async () => {
+  vi.mocked(sendAndStream).mockImplementation(async (_agent, _body, callbacks) => {
+    callbacks.onEvent?.({ task: { id: "uncommitted", status: { state: "TASK_STATE_COMPLETED" } } });
+  });
+  const onUpdate = vi.fn();
+  expect(await runSend({ agentId: "agent", agentName: "Agent", parts: [{ text: "Send", mediaType: "text/plain" }],
+    userMessage: { id: "pending", role: "user", parts: [], timestamp: "2026-10-03T00:00:00Z" } }, { onUpdate })).toBeUndefined();
+  expect(onUpdate).not.toHaveBeenCalled();
+});

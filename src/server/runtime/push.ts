@@ -11,6 +11,8 @@ import { createPersistenceRepositories } from "../adapters/db/repositories";
 import { withJobEntityManager } from "../adapters/db/orm";
 import { createTaskObserver } from "./task-persistence";
 import { loadPushCredentials } from "./push-config";
+import { redactSecrets } from "../../lib/safe-fetch";
+import { EncryptedDatabaseCredentialVault } from "../adapters/db/credential-vault";
 import { readJsonRequest } from "../../lib/request-guard";
 
 interface PushOptions { orm?: MikroORM; store?: ArtifactStore; credentials?: PushCredentials }
@@ -33,7 +35,10 @@ export async function receivePush(id: string, request: Request, options: PushOpt
   const { registration, task } = await new PushReceiptService(pushWork(options.orm), credentials).authorize(id, authorization);
   const type = request.headers.get("content-type")?.split(";")[0].trim().toLowerCase();
   if (!["application/json", "application/a2a+json"].includes(type ?? "")) throw new PushReceiptError("Push requires a JSON content type.", 415);
-  const event = validatePushEvent(await readJsonRequest(request), task);
+  const binding = await withJobEntityManager((em) => new EncryptedDatabaseCredentialVault(em).resolve(task.organizationId, task.agentId), options.orm);
+  const serviceSecrets = binding ? Object.entries(binding.credential).filter(([key]) => ["token", "value", "clientSecret", "key", "cert"].includes(key)).map(([, value]) => value as string) : [];
+  const event = validatePushEvent(redactSecrets(await readJsonRequest(request),
+    [...serviceSecrets, ...(authorization ? [authorization, authorization.replace(/^Bearer /i, "")] : [])]), task);
   const deliveryId = request.headers.get("x-a2a-delivery-id");
   if (deliveryId && (deliveryId.length > 255 || !/^[\x21-\x7e]+$/.test(deliveryId))) throw new PushReceiptError("Invalid push delivery ID.", 400);
   const sourceKey = `push:${registration.id}:${deliveryId ? createHash("sha256").update(deliveryId).digest("hex") : eventDigest(event)}`;

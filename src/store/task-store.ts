@@ -1,47 +1,38 @@
 "use client";
 
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
-import { migrateBrowserStorageKey } from "./storage-key";
-
-migrateBrowserStorageKey("a2a-agent-workflow-ui.tasks", "a2a-ops.tasks");
-
-import { taskStorageKey, MESSAGE_ONLY_STATE } from "../shared/task-types";
-import type { TrackedTask, TaskBucket } from "../shared/task-types";
+import { MESSAGE_ONLY_STATE } from "../shared/task-types";
+import type { DurableTaskView, TaskBucket } from "../shared/task-types";
 export type { ThreadMessage, StatusTransition, SendConfig, TrackedKind, TaskBucket, TrackedTask } from "../shared/task-types";
 export { MESSAGE_ONLY_STATE } from "../shared/task-types";
 
 interface TaskStoreState {
-  tasks: Record<string, TrackedTask>;
-  upsertTask: (task: TrackedTask) => void;
-  patchTask: (taskId: string, patch: Partial<Omit<TrackedTask, "taskId">>) => void;
+  tasks: Record<string, DurableTaskView>;
+  loaded: boolean;
+  error?: string;
+  revision: number;
+  upsertTask: (task: DurableTaskView) => void;
+  replaceTasks: (tasks: DurableTaskView[], expectedRevision: number) => boolean;
+  fail: (message: string) => void;
 }
 
-/**
- * Client-local, resume-on-refresh task state (design doc §4.4's original
- * framing). This is explicitly a placeholder for the durable, org/role-scoped
- * server-side task store required by §7.2.4/§7.1 once tasks are shared or
- * routed between people -- see README "What's not built yet".
- */
-export const useTaskStore = create<TaskStoreState>()(
-  persist(
-    (set) => ({
-      tasks: {},
-      upsertTask: (task) => set((store) => {
-        const key = taskStorageKey(task);
-        const tasks = Object.fromEntries(Object.entries(store.tasks).filter(([existingKey, existing]) =>
-          existingKey === key || existing.agentId !== task.agentId || (existing.tenant ?? "") !== (task.tenant ?? "") || existing.taskId !== task.taskId));
-        return { tasks: { ...tasks, [key]: task } };
-      }),
-      patchTask: (taskId, patch) => set((store) => {
-        const existing = store.tasks[taskId];
-        if (!existing) return store;
-        return { tasks: { ...store.tasks, [taskId]: { ...existing, ...patch } } };
-      }),
-    }),
-    { name: "a2a-ops.tasks" },
-  ),
-);
+/** Disposable server projection cache. Pending user turns live only in the composer. */
+export const useTaskStore = create<TaskStoreState>()((set, get) => ({
+  tasks: {}, loaded: false, revision: 0,
+  upsertTask: (task) => set((state) => {
+    const current = state.tasks[task.localId];
+    if (current?.version !== undefined && (task.version === undefined || task.version < current.version)) return state;
+    return { tasks: { ...state.tasks, [task.localId]: task }, revision: state.revision + 1 };
+  }),
+  replaceTasks: (tasks, expectedRevision) => {
+    // A send can commit while a paginated read is in flight. Read again before
+    // replacing, so an earlier page cannot erase the new committed snapshot.
+    if (get().revision !== expectedRevision) return false;
+    set({ tasks: Object.fromEntries(tasks.map((task) => [task.localId, task])), loaded: true, error: undefined });
+    return true;
+  },
+  fail: (error) => set({ error }),
+}));
 
 export function taskBucket(state: string): TaskBucket {
   if (state === MESSAGE_ONLY_STATE) return "replies";

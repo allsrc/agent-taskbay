@@ -12,6 +12,8 @@ import { FilesystemArtifactStore } from "../blob/filesystem-artifact-store";
 import { TaskEntity, TaskEventEntity } from "./entities";
 import { TaskQueryService } from "../../application/services/task-query";
 import { ObserveTaskService, eventDigest } from "../../application/services/observe-task";
+import { deriveNotifications } from "../../../lib/notifications";
+import { groupConversations } from "../../../lib/conversations";
 
 const date = "2026-10-03T00:00:00Z";
 const started = { task: { id: "same-remote-id", contextId: "same-context", status: { state: "TASK_STATE_WORKING", timestamp: date } } };
@@ -67,6 +69,7 @@ async function contract(config: DatabaseConfig, directory: string) {
     const otherOrg = await repositories.organizations.getOrCreate({ id: randomUUID(), slug: "other", name: "Other", createdAt: new Date(), updatedAt: new Date() });
     const otherQuery = new TaskQueryService(repositories.tasks, repositories.agents);
     expect(await otherQuery.list(otherOrg.id)).toEqual([]);
+    expect(await otherQuery.contentPage(otherOrg.id)).toEqual({ tasks: [], next: null });
     expect(await otherQuery.detail(otherOrg.id, first.localId)).toBeUndefined();
     expect(await otherQuery.detail(org.id, "same-remote-id")).toBeUndefined();
     expect(await store.get(otherOrg.id, digest)).toBeUndefined();
@@ -86,11 +89,26 @@ async function contract(config: DatabaseConfig, directory: string) {
     expect((await repositories.tasks.findById(org.id, directView.localId))!.remoteTaskId).toBeNull();
     expect(await withTaskQueries((query, organizationId) => query.list(organizationId), orm)).toHaveLength(4);
     // Fail after ledger insertion: transaction rollback preserves both projection and ledger.
+    // TSK-002/005: clean-browser content pagination includes direct replies and
+    // preserves remote-ID collisions; the old task-only inbox stays unchanged.
+    const browserTasks = [];
+    let after: string | null = null;
+    do {
+      const page = await withTaskQueries((query, organizationId) => query.contentPage(organizationId, 2, after ?? undefined), orm);
+      expect(page.tasks.length).toBeLessThanOrEqual(2);
+      browserTasks.push(...page.tasks);
+      after = page.next;
+    } while (after);
+    expect(browserTasks).toHaveLength(5);
+    expect(new Set(browserTasks.map((task) => task.localId)).size).toBe(5);
+    expect(browserTasks.find((task) => task.localId === directView.localId)).toMatchObject({ kind: "message", messages: expect.arrayContaining([expect.objectContaining({ id: "direct" })]) });
+    expect(groupConversations(browserTasks).find((conversation) => conversation.agentId === agent.id && conversation.tasks[0].tenant === "")?.tasks).toHaveLength(2);
+    expect(deriveNotifications(browserTasks).filter((item) => item.localId === first.localId)).toHaveLength(3);
     const previousCount = await orm.em.fork().count(TaskEventEntity, { taskId: first.localId });
     await expect(orm.em.fork().transactional(async (transaction) => {
       const ports = createPersistenceRepositories(transaction);
       ports.tasks.saveProjection = async () => { throw new Error("Simulated projection failure"); };
-      return new ObserveTaskService(ports.agents, ports.tasks, ports.taskEvents).observe({
+      return new ObserveTaskService(ports.agents, ports.tasks, ports.taskEvents, ports.outbox).observe({
         organizationId: org.id, agentId: agent.id, tenant: "", event: { statusUpdate: { taskId: "same-remote-id", status: { state: "TASK_STATE_FAILED" } } },
         source: "stream", sourceKey: "rollback", sessionId: "session", requestId: "request", directThreadId: randomUUID(),
       });
@@ -100,6 +118,8 @@ async function contract(config: DatabaseConfig, directory: string) {
     orm = await createDatabaseOrm(config);
     const recovered = await withTaskQueries((query, organizationId) => query.detail(organizationId, first.localId), orm);
     expect(recovered).toEqual(completed);
+    const recoveredPage = await withTaskQueries((query, organizationId) => query.contentPage(organizationId), orm);
+    expect(recoveredPage.tasks).toEqual(browserTasks);
     expect(await orm.em.fork().count(TaskEntity, { agentId: agent.id })).toBe(4);
     // Repeated bytes in a genuinely new user turn are not mistaken for replay.
     const continuationEvent = { artifactUpdate: { taskId: "continuation", artifact: { artifactId: "tokens", parts: [{ text: "ha" }] }, append: true, lastChunk: false } };

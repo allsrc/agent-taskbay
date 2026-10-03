@@ -138,8 +138,8 @@ const fixture = createServer(async (request, response) => {
 });
 await new Promise((resolve) => fixture.listen(0, "127.0.0.1", resolve));
 fixturePort = fixture.address().port;
-const env = { ...process.env, A2A_COMMAND_WORKER_MODE: "embedded", A2A_DATABASE_PROFILE: "pglite", A2A_PGLITE_DATA_DIR: join(directory, "db"),
-  A2A_ARTIFACT_DATA_DIR: join(directory, "artifacts"), A2A_DATA_DIR: directory, A2A_REGISTERED_AGENTS: "", A2A_ALLOW_PRIVATE_NETWORKS: "true" };
+const env = { ...process.env, A2A_AUTH_MODE: "development", A2A_ALLOW_DEVELOPMENT_AUTH: "true", A2A_COMMAND_WORKER_MODE: "embedded", A2A_DATABASE_PROFILE: "pglite", A2A_PGLITE_DATA_DIR: join(directory, "db"),
+  A2A_ARTIFACT_DATA_DIR: join(directory, "artifacts"), A2A_DATA_DIR: directory, A2A_REGISTERED_AGENTS: "", A2A_ALLOW_PRIVATE_NETWORKS: "true", A2A_ALLOWED_AGENT_ORIGINS: `http://127.0.0.1:${fixturePort}` };
 let admin;
 let testDatabase;
 if (process.env.A2A_HTTP_TEST_PROFILE === "postgresql") {
@@ -202,23 +202,58 @@ async function stop() {
   }
 }
 async function json(path, options = {}) {
-  const response = await fetch(`${base}${path}`, { headers: { "Content-Type": "application/json", ...(options.headers ?? {}) }, ...options });
+  const response = await fetch(`${base}${path}`, { ...options, headers: { "Content-Type": "application/json", Origin: base, ...(options.headers ?? {}) } });
   const body = await response.json();
   assert.ok(response.ok, JSON.stringify(body));
   return body;
 }
 async function stream(agentId, tenant = "", resubscribe = false) {
-  const response = await fetch(`${base}/api/agents/${agentId}/stream`, { method: "POST", headers: { "Content-Type": "application/json" },
+  const response = await fetch(`${base}/api/agents/${agentId}/stream`, { method: "POST", headers: { "Content-Type": "application/json", Origin: base },
     body: JSON.stringify(resubscribe ? { tenant, taskId: remoteId, resubscribe: true } : { text: "Shared durable task", tenant, messageId: `user-${agentId}-${tenant}` }) });
   assert.equal(response.status, 200);
   const body = await response.text();
-  assert.ok(!body.includes("event: error"), body);
+  if (body.includes("event: error")) {
+    const accepted = body.match(/event: accepted\ndata: ([^\n]+)/);
+    const outcome = accepted ? await json(`/api/commands/${JSON.parse(accepted[1]).commandId}`) : null;
+    throw new Error(`Stream failed: ${JSON.stringify(outcome)}; ${body}; server: ${log}; worker: ${workerLog}`);
+  }
   const snapshots = [...body.matchAll(/event: snapshot\ndata: ([^\n]+)/g)].map((match) => JSON.parse(match[1]));
   assert.equal(snapshots.at(-1)?.state, "TASK_STATE_INPUT_REQUIRED");
   assert.equal(snapshots.at(-1)?.artifacts.length, 1);
   const identity = body.match(/event: persisted\ndata: ([^\n]+)/);
   assert.ok(identity, body);
   return JSON.parse(identity[1]).localId;
+}
+async function freshnessConnection() {
+  const abort = new AbortController();
+  const response = await fetch(`${base}/api/tasks/events?organizationId=untrusted`, { signal: abort.signal,
+    headers: { "Last-Event-ID": "missed-signal" } });
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("content-type"), /text\/event-stream/);
+  assert.match(response.headers.get("cache-control"), /no-store/);
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffered = "";
+  return {
+    async next(expected) {
+      const timeout = setTimeout(() => abort.abort(), 10_000);
+      try {
+        while (true) {
+          const separator = buffered.indexOf("\n\n");
+          if (separator !== -1) {
+            const frame = buffered.slice(0, separator); buffered = buffered.slice(separator + 2);
+            if (!frame.includes(`event: ${expected}\n`)) continue;
+            assert.ok(frame.includes("data: {}"), "Freshness must expose no task content");
+            return;
+          }
+          const chunk = await reader.read();
+          assert.ok(!chunk.done, "Freshness stream ended before signal");
+          buffered += decoder.decode(chunk.value, { stream: true });
+        }
+      } finally { clearTimeout(timeout); }
+    },
+    async close() { abort.abort(); await reader.cancel().catch(() => undefined); },
+  };
 }
 try {
   await promisify(execFile)(process.execPath, ["node_modules/@mikro-orm/cli/cli.js", "migration:up"], { env });
@@ -229,7 +264,13 @@ try {
   const one = (await json("/api/agents", { method: "POST", body: JSON.stringify({ cardUrl: `http://127.0.0.1:${fixturePort}/one/card.json` }) })).agent;
   const two = (await json("/api/agents", { method: "POST", body: JSON.stringify({ cardUrl: `http://127.0.0.1:${fixturePort}/two/card.json` }) })).agent;
   await json("/api/agents"); // Persist the fixture names through live discovery.
+  const liveOne = await freshnessConnection(); const liveTwo = await freshnessConnection();
+  await liveOne.next("ready"); await liveTwo.next("ready");
   const ids = [await stream(one.id), await stream(two.id), await stream(one.id, "tenant-b")];
+  await liveOne.next("freshness"); await liveTwo.next("freshness");
+  // Independent readers re-query projections; signals never fold remote events.
+  assert.deepEqual((await json("/api/tasks")).tasks, (await json("/api/tasks")).tasks);
+  await liveOne.close(); await liveTwo.close();
   assert.equal(new Set(ids).size, 3);
   assert.equal(await stream(one.id, "", true), ids[0]);
   const initial = await json(`/api/tasks/${ids[0]}`);
@@ -281,6 +322,12 @@ try {
   const disconnectedTask = await waitTask(disconnectedCommand.command.result.localId, (task) => task.state === "TASK_STATE_INPUT_REQUIRED");
   assert.equal(disconnectedTask.messages.at(-1).parts[0].value, "Proceed?");
   assert.equal(disconnectedTask.artifacts.length, 1);
+  // Zero connected live browsers did not stop work. Reconnect forces a durable read,
+  // including when Last-Event-ID names a signal that was never observed.
+  const recoveredLive = await freshnessConnection();
+  await recoveredLive.next("ready");
+  assert.equal((await json(`/api/tasks/${disconnectedTask.localId}`)).task.state, "TASK_STATE_INPUT_REQUIRED");
+  await recoveredLive.close();
   assert.equal(subscriptions.get("disconnect-task"), 1, "Disconnected browser must leave exactly one worker subscription");
   // A finite lost stream reconnects and replays without a connected browser.
   const reconnect = await json(`/api/agents/${one.id}/commands`, { method: "POST", headers: { "Idempotency-Key": "reconnect" },
@@ -316,8 +363,31 @@ try {
   const cleanTwo = await json(`/api/tasks/${ids[0]}`, { headers: { Cookie: "clean-session=two" } });
   assert.deepEqual(cleanOne, initial); assert.deepEqual(cleanTwo, initial);
   assert.equal((await json("/api/tasks")).tasks.length, 7);
+  // TSK-002/005: both clean browsers rebuild Chat/flows/alerts without visiting
+  // task detail first, including direct Messages absent from the task-only inbox.
+  async function contentPages(headers) {
+    const tasks = []; let after = null;
+    do {
+      const page = await json(`/api/task-views?limit=2${after ? `&after=${after}` : ""}`, { headers });
+      assert.ok(page.tasks.length <= 2);
+      tasks.push(...page.tasks); after = page.next;
+    } while (after);
+    return tasks;
+  }
+  const browserOne = await contentPages({ Cookie: "clean-session=one" });
+  const browserTwo = await contentPages({ Cookie: "clean-session=two" });
+  assert.deepEqual(browserOne, browserTwo);
+  assert.equal(browserOne.length, 8);
+  assert.equal(new Set(browserOne.map((task) => task.localId)).size, 8);
+  assert.deepEqual(browserOne.find((task) => task.localId === initial.task.localId), initial.task);
+  assert.ok(browserOne.some((task) => task.kind === "message" && task.messages.some((message) => message.parts.some((part) => part.value === "Direct answer"))));
+  assert.deepEqual((await json("/api/task-views?organizationId=foreign&tenant=foreign")).tasks, browserOne);
+  assert.equal((await fetch(base + "/api/task-views?limit=0")).status, 400);
+  assert.equal((await fetch(base + "/api/task-views?after=" + remoteId)).status, 400);
+  assert.equal((await fetch(base + "/api/task-views")).headers.get("cache-control"), "no-store");
   await json(`/api/agents/${one.id}/tasks/${remoteId}/cancel?tenant=tenant-b`, { method: "POST" });
   assert.equal((await json(`/api/tasks/${ids[2]}`)).task.state, "TASK_STATE_CANCELED");
+  assert.equal((await json("/api/task-views")).tasks.find((task) => task.localId === ids[2]).state, "TASK_STATE_CANCELED");
   assert.equal((await json(`/api/tasks/${ids[0]}`)).task.state, "TASK_STATE_INPUT_REQUIRED");
   // TSK-003/REL-001: SDK-managed push and actual authenticated production route.
   const pushAgent = (await json("/api/agents", { method: "POST", body: JSON.stringify({ cardUrl: `http://127.0.0.1:${fixturePort}/push/card.json` }) })).agent;
@@ -382,7 +452,7 @@ try {
   readOwner.kill("SIGKILL"); await readCrashed;
   pollState = "TASK_STATE_COMPLETED";
   if (testDatabase) startWorker(); else await start();
-  const pollCompleted = await waitTask(pollCommand.result.localId, (task) => task.state === "TASK_STATE_COMPLETED");
+  let pollCompleted = await waitTask(pollCommand.result.localId, (task) => task.state === "TASK_STATE_COMPLETED");
   assert.ok(pollGets > 0, "GetTask polling did not run");
   assert.ok(pollGets > readsBeforeRestart || pollTokens.length > pagesBeforeRestart, "Reconciliation reads did not resume after worker restart");
   assert.equal(pollCompleted.messages.filter((message) => message.id === "poll-prompt").length, 1);
@@ -396,10 +466,17 @@ try {
     ["--import", "tsx", "scripts/rebuild-projections.ts", "--task", pollCommand.result.localId,
       ...(!testDatabase ? ["--offline-pglite"] : [])], { env });
   if (!testDatabase) await start();
-  assert.deepEqual((await json(`/api/tasks/${pollCommand.result.localId}`)).task, pollCompleted);
+  const rebuiltTask = (await json(`/api/tasks/${pollCommand.result.localId}`)).task;
+  assert.ok(rebuiltTask.version >= pollCompleted.version, "Rebuild must not regress the snapshot revision");
+  assert.deepEqual(rebuiltTask, { ...pollCompleted, version: rebuiltTask.version });
+  pollCompleted = rebuiltTask;
   assert.equal(await (await fetch(base + pollCompleted.artifacts[0].parts[0].value)).text(), "poll");
   assert.equal(sends, sendsBeforeRebuild, "Projection rebuild dispatched user work");
-  console.log(`Production HTTP task/command/subscription/push/reconciliation/rebuild smoke passed (${env.A2A_DATABASE_PROFILE}, ${env.A2A_COMMAND_WORKER_MODE} worker). UI: ${base}/tasks/${ids[0]}`);
+  const restartedLive = await freshnessConnection();
+  await restartedLive.next("ready");
+  assert.deepEqual((await json(`/api/tasks/${pollCompleted.localId}`)).task, pollCompleted);
+  await restartedLive.close();
+  console.log(`Production HTTP task/command/subscription/push/reconciliation/rebuild/freshness smoke passed (${env.A2A_DATABASE_PROFILE}, ${env.A2A_COMMAND_WORKER_MODE} worker). UI: ${base}/tasks/${ids[0]}`);
   if (process.env.A2A_HTTP_TEST_KEEP_SERVER === "true") {
     console.log("Keeping the fixture and production server available for UI verification; press Ctrl-C to finish.");
     await new Promise((resolve) => { process.once("SIGINT", resolve); process.once("SIGTERM", resolve); });

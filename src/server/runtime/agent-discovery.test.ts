@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("../../lib/gateway", () => ({ discoverAgent: vi.fn() }));
+vi.mock("./security", () => ({registeredAgentConnection: vi.fn(async (agent) => ({cardUrl: agent.cardUrl, auth: {type: "none"}, headers: {}})), filterAgentCard: vi.fn(async (_id, card) => card)}));
 vi.mock("../../lib/agent-registry", () => ({ agentRegistry: vi.fn() }));
 
 import { discoverAgent } from "../../lib/gateway";
@@ -24,9 +25,9 @@ describe("AGT-002/003 registered discovery persistence", () => {
       list: vi.fn(), get: vi.fn(), add: vi.fn(), remove: vi.fn(), recordDiscovery: vi.fn(),
     };
     const agent = { id: "local-id", cardUrl: "https://example.test", source: "managed" as const };
-    expect(await discoverRegisteredAgent(agent, registry)).toBe(discovery);
+    expect(await discoverRegisteredAgent(agent, registry)).toEqual({...discovery, telemetry: []});
     expect(registry.recordDiscovery).toHaveBeenCalledWith(agent.id, {
-      resolvedCardUrl: discovery.resolvedCardUrl,
+      signatureStatus: "unsigned", resolvedCardUrl: discovery.resolvedCardUrl,
       rawCardJson: discovery.rawCard, normalizedCardJson: discovery.card,
       complianceJson: discovery.report,
       digest: createHash("sha256").update(JSON.stringify(discovery.rawCard)).digest("hex"),
