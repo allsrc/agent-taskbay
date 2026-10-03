@@ -255,6 +255,14 @@ Reconciliation validates remote identity and checks the task version captured
 before the read, so concurrent updates win. It never resends uncertain commands.
 Both worker profiles share the same ports and lease protocol (ADR 0010).
 
+Slice 2.5 adds projector version 2 with task headers, message rows and artifact
+rows. Ingestion and explicit rebuild share a deterministic ledger reducer.
+Rebuild validates original archives outside the task lock and activates only if
+the captured task version still matches. Content reads join the active pointer
+and normalized rows in one database snapshot; inbox reads retain typed indexes.
+The operator CLI is online for PostgreSQL and offline for the PGlite profile;
+the running PGlite owner can call the runtime rebuild service. See ADR 0011.
+
 ### Docker/demo
 
 - web container

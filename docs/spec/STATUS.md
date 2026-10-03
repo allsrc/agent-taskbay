@@ -6,8 +6,8 @@ Last updated: 2026-10-03
 
 - Last completed phase: **Phase 1 — persistence foundation**
 - Active phase: **Phase 2 — durable task runtime**
-- Last completed slice: **2.4 — task reconciliation and sync cursors**
-- Next executable slice: **2.5 — versioned projections and rebuild**
+- Last completed slice: **2.5 — versioned projections and rebuild**
+- Next executable slice: **2.6 — application SSE freshness signals**
 - Blocking decisions: none
 
 ## Accepted implementation choices
@@ -704,6 +704,108 @@ Next executable slice: **2.5 — versioned projections and rebuild**. Implement
 versioned task/message/artifact projections and deterministic ledger/archive
 rebuild with duplicate/out-of-order/restart/scope tests behind existing ports.
 Do not begin application freshness SSE or browser-cache authority removal.
+
+## Phase 2 Slice 2.5 verified evidence
+
+Date: 2026-10-03
+
+Slice: **2.5 — versioned projections and rebuild**
+
+Changes:
+
+- Added projector version 2 and normalized task-header/message/artifact tables,
+  scoped by organization/local task/projector version with stable derived UUIDs.
+  Typed Task columns remain the indexed inbox; detail reads use a single SQL
+  snapshot of the active pointer and normalized content. Legacy tasks remain
+  readable until observation or explicit rebuild activates version 2.
+- Ingestion and rebuild share one deterministic retained-ledger reducer. It
+  ignores old projection content, derives missing message IDs from normalized
+  content/turn, merges overlapping append occurrences across sources, preserves
+  distinct same-source occurrences and rejects stale snapshots/terminal
+  regression. Full artifact snapshots correct assembled content.
+- Added narrow rebuild ports, service, runtime composition and an operator CLI.
+  Preparation uses a repeatable-read ledger capture and verifies original binary
+  archive/object digests and scope. Original bytes regenerate binary references,
+  digest/object-key/size metadata. Missing/corrupt/foreign archives and empty
+  ledgers fail before activation. Missing normalized rows are repairable.
+- Activation locks the task and checks its captured version, atomically replaces
+  content rows and switches the active pointer. Concurrent ingestion forces
+  bounded recapture/retry; interrupted activation rolls back. Reads stay available
+  during preparation. Rebuild writes no events and dispatches no commands,
+  subscriptions, push registrations or reconciliation reads.
+- Added ADR 0011, migration, rollback export, runtime/operator and data-model
+  documentation. PostgreSQL supports online rebuild; PGlite uses its existing
+  runtime owner or the offline CLI after web stops. Application freshness SSE
+  and browser-cache authority removal remain subsequent slices.
+
+Verification commands and results:
+
+- Before implementation, the complete Slice 2.4 gate passed: lint, 47 unit tests,
+  20 database tests on PGlite/PostgreSQL 18, schema check, production build and
+  both HTTP worker profiles. Existing work was committed/pushed as `bf7c806`.
+- `A2A_TEST_POSTGRES_URL=postgresql://postgres:postgres@127.0.0.1:55432/a2a_ops_test npm run check`:
+  passed lint; 19 unit files/52 tests; 9 database files/22 tests on PGlite and
+  PostgreSQL 18; schema drift check; production build; HTTP in both profiles.
+- The shared rebuild contract verifies upgrade with retained original binary
+  archives, deterministic repeated rebuild and stable message row identity,
+  corruption/missing-row repair, ledger immutability, read availability during
+  delayed archive loading, concurrent ingestion/retry, missing/corrupt archive
+  rejection, direct Message and uploaded binary reconstruction, transactional
+  activation rollback, empty-ledger rejection, agent/tenant/organization remote-ID
+  collisions, cross-source duplicate chunks, stale snapshots, authoritative
+  artifact replacement and database-owner restart.
+- Unit tests verify deterministic sequence ordering, cross-source turn/occurrence
+  deduplication, no-ID history/status convergence across dialect roles/parts,
+  prompt classification, timestamped prompts followed by untimestamped replies,
+  repeated snapshot correction, stale snapshot/terminal fences and foreign
+  ledger, remote-task, context and tenant rejection.
+- Production HTTP runs the real rebuild CLI twice against a completed binary
+  reconciliation task, while PostgreSQL web/workers remain online or after
+  releasing the PGlite owner. Task detail and downloaded bytes remain identical;
+  no sends occur. Existing browser disconnect, streaming/reconnect, prompts,
+  cancellation, push replay/lifecycle and process restart scenarios still pass.
+- After adding missing-projection repair, stable-ID and complete organization
+  collision coverage, the focused rebuild contract passed again on both
+  databases. TypeScript, lint and the production build passed again.
+- `npm run db:migrate`: applied the new local migration. `git diff --check`
+  passed. `npm audit --omit=dev`: zero vulnerabilities; existing development
+  tooling advisories remain outside this slice.
+
+Migration tested from:
+
+- Clean PGlite and PostgreSQL 18 through all eight migrations, with schema drift
+  verification and rollback/reapply.
+- Immediately previous reconciliation schema on both databases with retained
+  task identity, content, event digest and original binary archive. Upgrade
+  preserves version 1 reads; explicit rebuild activates normalized version 2.
+- Version 2 rollback exports the active header/messages/artifacts into legacy
+  content before dropping tables. Re-upgrade/rebuild preserves visible content.
+- File-backed database-owner restart and production HTTP process restarts retain
+  content and binary references.
+
+Remaining risks:
+
+- Phase 2 remains active: application freshness SSE and remaining browser
+  task-content/notification authority removal are pending.
+- Without shared source sequence/delivery identities, identical untimestamped
+  append chunks across sources are ambiguous. The conservative overlapping
+  occurrence policy can collapse distinct cross-source chunks; full snapshots
+  provide correction. It cannot infer unavailable protocol ordering.
+- Accepted observations currently reduce the full per-task ledger. Very large
+  retained histories need incremental checkpoints/retention optimizations in
+  later scaling work; indexed query reads do not scan protocol events.
+- Rebuild requires retained events and matching artifact backups. PGlite retains
+  its single-owner/long-running-server requirement, and immutable file writes
+  before failed transactions can leave orphaned objects. Production credentials,
+  authorization, retention and operational UI remain in their assigned phases.
+
+**Slice 2.5 acceptance criteria are verified. Phase 2 remains active.**
+
+Next executable slice: **2.6 — application SSE freshness signals**. Publish
+committed durable-state changes through a retryable outbox/freshness adapter and
+make browser consumers re-query scoped projections. Verify disconnect, missed
+signal recovery and both deployment profiles. Do not remove remaining browser
+persistence authority in this slice.
 
 ## Known repository-state issue
 

@@ -62,9 +62,10 @@ reconnecting subscriptions after browsers close; browser streams read committed
 events. Opt-in task push now registers durable configs, authenticates scoped
 callbacks and deletes terminal/disabled registrations across worker restarts.
 Workers also reconcile known tasks through GetTask polling and scoped ListTasks
-pagination, with durable read schedules/cursors and restart recovery. Outbound
-agent authentication is still `none`. The next slice is Phase 2.5, versioned
-projections and rebuild.
+pagination, with durable read schedules/cursors and restart recovery. Task detail now uses versioned task/message/artifact projections that can be
+rebuilt from retained events and original binary archives while reads remain
+available. Outbound agent authentication is still `none`. The next slice is
+Phase 2.6, application SSE freshness signals.
 
 ## Cross-cutting work
 

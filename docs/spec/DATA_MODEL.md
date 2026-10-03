@@ -57,7 +57,7 @@ id, organizationId, agentId, tenant,
 remoteTaskId, remoteContextId, kind, state,
 title, ownerUserId, ownerTeamId,
 createdAt, remoteCreatedAt, updatedAt, remoteUpdatedAt,
-terminalAt, version, contentJson
+terminalAt, version, projectionVersion, contentJson
 ```
 
 Unique: `(agentId, tenant, remoteTaskId)` for real Tasks. Direct Message
@@ -197,6 +197,33 @@ version under its ingestion lock, and renew the cursor lease in the same
 transaction. Older remote timestamps and concurrent updates cannot regress
 content/state. ListTasks only updates known scoped tasks. Unsupported listing
 stops that cursor but preserves GetTask fallback. See ADR 0010.
+
+### Content projections (Slice 2.5)
+
+`Task.projectionVersion` selects the active projector. Version 1 uses legacy
+`contentJson`; version 2 uses `task_projections` headers, ordered
+`message_projections` and `artifact_projections`. All rows carry organization,
+local task and projector version; UUIDs are deterministically derived from that
+scope and content identity so repeated rebuilds preserve row identity. Message
+and artifact uniqueness is `(taskId, projectionVersion, remote identity)`.
+Headers contain task detail fields and transitions. Message/artifact rows contain
+normalized parts and metadata, with binary digest, object key and size in local
+part storage metadata. No inline binary is stored in these tables.
+
+New events stamp projector version 2 and persist safe projection context (user
+turn and source identity); older immutable rows are not rewritten. The reducer
+uses ledger sequence, timestamp fences, scoped message identity and cross-source
+occurrence deduplication. Full snapshots correct artifact assembly. Complete
+original archives are validated and externalized again during rebuild; the
+normalized projection is never replay's authority.
+
+Rebuild captures a repeatable-read ledger snapshot, prepares content while the
+old generation remains readable, then locks/fences the task version and replaces
+rows/pointer atomically. A changed task forces retry; missing/corrupt/foreign
+archives or an empty ledger refuse activation. Content readers use one SQL
+snapshot for the active pointer/header/parts; list queries do not read the ledger.
+Schema rollback exports the active view into legacy JSON before dropping tables.
+See ADR 0011 for ambiguous untimestamped append policy and scaling limits.
 
 ## Later entities
 

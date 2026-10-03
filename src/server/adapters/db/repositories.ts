@@ -1,3 +1,4 @@
+import { replaceContentProjection, readContentProjection } from "./content-projections";
 import { MikroOrmSyncCursorRepository } from "./sync-repository";
 import { MikroOrmPushRepository } from "./push-repository";
 import { LockMode, type EntityManager, type QueryResult } from "@mikro-orm/core";
@@ -80,6 +81,7 @@ function agentCardSnapshotRecord(
 
 function taskRecord(entity: TaskEntity): TaskRecord {
   return {
+    projectionVersion: entity.projectionVersion,
     contentJson: entity.contentJson,
     id: entity.id,
     organizationId: entity.organizationId,
@@ -256,6 +258,15 @@ export class MikroOrmAgentRepository implements AgentRepository {
 export class MikroOrmTaskRepository implements TaskRepository {
   constructor(private readonly entityManager: EntityManager) {}
 
+  private async withContent(entity: TaskEntity): Promise<TaskRecord> {
+    const record = taskRecord(entity);
+    if (entity.projectionVersion >= 2) {
+      record.contentJson = await readContentProjection(this.entityManager, entity.organizationId, entity.id);
+      if (!record.contentJson) throw new Error("Active task content projection missing.");
+    }
+    return record;
+  }
+
   async getOrCreate(task: TaskRecord) {
     await this.entityManager.upsert(TaskEntity, task, {
       disableIdentityMap: true, onConflictAction: "ignore",
@@ -267,16 +278,19 @@ export class MikroOrmTaskRepository implements TaskRepository {
     const entity = await this.entityManager.findOneOrFail(TaskEntity, where, {
       lockMode: LockMode.PESSIMISTIC_WRITE, refresh: true,
     });
-    return taskRecord(entity);
+    return this.withContent(entity);
   }
 
   async saveProjection(task: TaskRecord) {
     const entity = await this.entityManager.findOneOrFail(TaskEntity, {
       id: task.id, organizationId: task.organizationId,
     });
-    this.entityManager.assign(entity, task);
+    if ((task.projectionVersion ?? 1) >= 2) await replaceContentProjection(this.entityManager, task);
+    // Keep the legacy projection solely for explicit schema rollback.
+    const { contentJson, ...columns } = task;
+    this.entityManager.assign(entity, (task.projectionVersion ?? 1) >= 2 ? columns : { ...columns, contentJson });
     await this.entityManager.flush();
-    return taskRecord(entity);
+    return this.withContent(entity);
   }
 
   async listByOrganization(organizationId: string, limit: number, offset: number, filter = "all") {
@@ -295,12 +309,12 @@ export class MikroOrmTaskRepository implements TaskRepository {
   }
 
 
-  async findById(organizationId: string, id: string) {
+  async findById(organizationId: string, id: string, includeContent = true) {
     const entity = await this.entityManager.findOne(TaskEntity, {
       id,
       organizationId,
     });
-    return entity ? taskRecord(entity) : undefined;
+    return entity ? includeContent ? this.withContent(entity) : taskRecord(entity) : undefined;
   }
 
   async findByRemoteIdentity(identity: {
@@ -310,14 +324,14 @@ export class MikroOrmTaskRepository implements TaskRepository {
     remoteTaskId: string;
   }) {
     const entity = await this.entityManager.findOne(TaskEntity, identity);
-    return entity ? taskRecord(entity) : undefined;
+    return entity ? this.withContent(entity) : undefined;
   }
 
   async insert(task: TaskRecord) {
     const entity = this.entityManager.create(TaskEntity, task);
     this.entityManager.persist(entity);
     await this.entityManager.flush();
-    return taskRecord(entity);
+    return this.withContent(entity);
   }
 }
 
@@ -345,7 +359,7 @@ export class MikroOrmTaskEventRepository implements TaskEventRepository {
     const entities = await this.entityManager.find(
       TaskEventEntity,
       { organizationId, taskId },
-      { orderBy: { receivedAt: "asc" } },
+      { orderBy: { sequence: "asc" } },
     );
     return entities.map(taskEventRecord);
   }

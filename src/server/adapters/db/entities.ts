@@ -107,6 +107,7 @@ const TaskSchema = defineEntity({
     kind: p.string().length(64),
     state: p.string().length(64),
     title: p.string().length(500).nullable(),
+    projectionVersion: p.integer().default(1),
     contentJson: p.json<JsonValue>().defaultRaw("'{}'::jsonb"),
     ownerUserId: p.uuid().nullable(),
     ownerTeamId: p.uuid().nullable(),
@@ -308,6 +309,51 @@ export class SyncCursorEntity extends SyncCursorSchema.class {}
 Object.defineProperty(SyncCursorEntity, "name", { value: "SyncCursorEntity" });
 SyncCursorSchema.setClass(SyncCursorEntity);
 
+const TaskProjectionSchema = defineEntity({
+  name: "TaskProjectionEntity", tableName: "task_projections",
+  properties: {
+    id: p.uuid().primary(),
+    organizationId: () => p.manyToOne(OrganizationEntity).mapToPk().joinColumn("organization_id"),
+    taskId: () => p.manyToOne(TaskEntity).mapToPk().joinColumn("task_id"),
+    projectionVersion: p.integer(),
+    headerJson: p.json<JsonValue>(),
+  },
+  uniques: [{ name: "uq_task_projections_identity", properties: ["taskId", "projectionVersion"] }],
+});
+export class TaskProjectionEntity extends TaskProjectionSchema.class {}
+Object.defineProperty(TaskProjectionEntity, "name", { value: "TaskProjectionEntity" });
+TaskProjectionSchema.setClass(TaskProjectionEntity);
+
+const MessageProjectionSchema = defineEntity({
+  name: "MessageProjectionEntity", tableName: "message_projections",
+  properties: {
+    id: p.uuid().primary(),
+    organizationId: () => p.manyToOne(OrganizationEntity).mapToPk().joinColumn("organization_id"),
+    taskId: () => p.manyToOne(TaskEntity).mapToPk().joinColumn("task_id"),
+    projectionVersion: p.integer(),
+    remoteMessageId: p.text(), position: p.integer(), contentJson: p.json<JsonValue>(),
+  },
+  uniques: [{ name: "uq_message_projections_identity", properties: ["taskId", "projectionVersion", "remoteMessageId"] }],
+});
+export class MessageProjectionEntity extends MessageProjectionSchema.class {}
+Object.defineProperty(MessageProjectionEntity, "name", { value: "MessageProjectionEntity" });
+MessageProjectionSchema.setClass(MessageProjectionEntity);
+
+const ArtifactProjectionSchema = defineEntity({
+  name: "ArtifactProjectionEntity", tableName: "artifact_projections",
+  properties: {
+    id: p.uuid().primary(),
+    organizationId: () => p.manyToOne(OrganizationEntity).mapToPk().joinColumn("organization_id"),
+    taskId: () => p.manyToOne(TaskEntity).mapToPk().joinColumn("task_id"),
+    projectionVersion: p.integer(),
+    remoteArtifactId: p.text(), position: p.integer(), contentJson: p.json<JsonValue>(),
+  },
+  uniques: [{ name: "uq_artifact_projections_identity", properties: ["taskId", "projectionVersion", "remoteArtifactId"] }],
+});
+export class ArtifactProjectionEntity extends ArtifactProjectionSchema.class {}
+Object.defineProperty(ArtifactProjectionEntity, "name", { value: "ArtifactProjectionEntity" });
+ArtifactProjectionSchema.setClass(ArtifactProjectionEntity);
+
 export const persistenceEntities = [
   OrganizationEntity,
   AgentEntity,
@@ -319,4 +365,7 @@ export const persistenceEntities = [
   SubscriptionEntity,
   PushRegistrationEntity,
   SyncCursorEntity,
+  TaskProjectionEntity,
+  MessageProjectionEntity,
+  ArtifactProjectionEntity,
 ];

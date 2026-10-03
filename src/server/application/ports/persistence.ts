@@ -54,6 +54,8 @@ export interface TaskRepository {
   findById(
     organizationId: string,
     id: string,
+    /** Rebuild reads only immutable identity/typed columns, even if content rows are damaged. */
+    includeContent?: boolean,
   ): Promise<TaskRecord | undefined>;
   findByRemoteIdentity(identity: {
     organizationId: string;

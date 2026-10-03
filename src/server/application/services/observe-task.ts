@@ -4,14 +4,11 @@ import type { JsonValue, TaskRecord, TaskEventSource } from "../../domain/persis
 import type { AgentRepository, TaskRepository, TaskEventRepository } from "../ports/persistence";
 import type { Clock } from "../ports/clock";
 import type { StreamMetadata } from "../ports/subscriptions";
-import { eventSubject, object, projectTaskEvent } from "./task-projection";
+import { eventSubject, object } from "./task-projection";
 
-export function canonicalJson(value: JsonValue): string {
-  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
-  if (value && typeof value === "object") return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(",")}}`;
-  return JSON.stringify(value);
-}
-export function eventDigest(event: JsonValue) { return createHash("sha256").update(canonicalJson(event)).digest("hex"); }
+import { eventDigest } from "./event-identity";
+export { canonicalJson, eventDigest } from "./event-identity";
+import { reduceTaskLedger, TASK_PROJECTOR_VERSION } from "./versioned-task-projection";
 
 export interface TaskObservation {
   organizationId: string;
@@ -80,16 +77,18 @@ export class ObserveTaskService {
       const inserted = await this.events.appendIfAbsent({
         id: randomUUID(), organizationId: input.organizationId, agentId: agent.id, taskId: task.id,
         source, sourceKey: deduplicationKey, eventKind: current.kind, receivedAt: now, remoteTimestamp,
-        payloadDigest: digest, payloadJson: originalEventObjectKey || input.streamMetadata ? {
+        payloadDigest: digest, payloadJson: {
           event, ...(originalEventObjectKey ? { originalEventObjectKey } : {}),
           ...(input.streamMetadata ? { streamMetadata: { ...input.streamMetadata } } : {}),
-        } : event,
-        sessionId: input.sessionId, requestId: input.requestId, traceId: null, projectionVersion: 1,
+          projectionContext: { turnId: lastUser, stableSourceIdentity: Boolean(input.stableSourceIdentity), projectorKey: sourceKey },
+        },
+        sessionId: input.sessionId, requestId: input.requestId, traceId: null, projectionVersion: TASK_PROJECTOR_VERSION,
       });
       if (!inserted) return;
-      const acceptStatus = !remoteTimestamp || !task.remoteUpdatedAt || remoteTimestamp >= task.remoteUpdatedAt;
-      view = projectTaskEvent(view, event, now.toISOString(), sourceKey, acceptStatus);
-      if (remoteTimestamp && acceptStatus) task.remoteUpdatedAt = remoteTimestamp;
+      if (current.kind === "message" && ["ROLE_USER", "user"].includes(String(current.subject.role))) {
+        const id = String(current.subject.messageId ?? sourceKey);
+        view.messages = [...view.messages.filter((message) => message.id !== id), { id, role: "user", parts: [], timestamp: now.toISOString() }];
+      }
       changed = true;
     };
     if (input.userMessage) {
@@ -100,10 +99,14 @@ export class ObserveTaskService {
     }
     await append(input.event, input.source, input.sourceKey, input.payloadDigest, input.originalEventObjectKey);
     if (changed) {
+      const ledger = await this.events.findByTaskId(input.organizationId, task.id);
+      view = reduceTaskLedger(task, agent.displayName ?? "Agent", ledger);
       const terminal = ["COMPLETED", "FAILED", "CANCELED", "REJECTED"].includes(view.state.replace("TASK_STATE_", ""));
       const projection: TaskRecord = {
         ...task, state: view.state, remoteContextId: view.contextId ?? task.remoteContextId,
         title: view.title ?? task.title, updatedAt: now, terminalAt: terminal ? task.terminalAt ?? now : null,
+        projectionVersion: TASK_PROJECTOR_VERSION,
+        remoteUpdatedAt: ledger.reduce<Date | null>((latest, row) => row.remoteTimestamp && (!latest || row.remoteTimestamp > latest) ? row.remoteTimestamp : latest, null),
         contentJson: JSON.parse(JSON.stringify(view)) as JsonValue,
       };
       await this.tasks.saveProjection(projection);

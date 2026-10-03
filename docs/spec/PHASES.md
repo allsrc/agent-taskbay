@@ -77,7 +77,7 @@ Requirements: `AGT-001..003`, `TSK-002`, `REL-001`, `PERF-001`, `OPS-001`,
 
 ## Phase 2 — durable task runtime
 
-**Status:** In progress; Slices 2.1–2.4 verified with Phase 1 prerequisites complete.
+**Status:** In progress; Slices 2.1–2.5 verified with Phase 1 prerequisites complete.
 
 ### Slice 2.1: durable command dispatch
 
@@ -123,7 +123,7 @@ in this slice.
 
 ### Slice 2.5: versioned projections and rebuild
 
-- [ ] Version and rebuild task/message/artifact projections.
+- [x] Version and rebuild task/message/artifact projections.
 
 Replace the transitional content projection with versioned task/message/artifact
 projections behind existing query and ingestion ports. Rebuild from retained
@@ -134,8 +134,19 @@ reads available during rebuild and record projection-version migration evidence.
 Do not begin application freshness SSE or browser-cache authority removal in
 this slice.
 
-### Remaining deliverables
+### Slice 2.6: application SSE freshness signals
+
 - [ ] Publish application SSE as a freshness signal over durable state.
+
+Publish committed projection changes through durable retryable outbox intent
+and a replaceable freshness adapter. Browser consumers re-query organization-
+scoped projections after signals/reconnect. Verify browser disconnect, missed
+signals, duplicate signal delivery and embedded/external worker profiles. Keep
+remote observation owned by workers. Do not remove remaining browser persistence
+in this slice.
+
+### Remaining deliverables
+
 - [ ] Remove task content and notification authority from browser persistence.
 
 ### Exit criteria

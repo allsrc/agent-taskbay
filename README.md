@@ -279,3 +279,28 @@ resolves an unknown initial send by guessing which listed task it created.
 See [ADR 0010](./docs/adr/0010-task-reconciliation.md) for scheduling and cursor
 semantics. Production authorization and a user-facing operational cursor view
 remain subsequent work.
+
+### Rebuilding task projections
+
+Projector version 2 serves task detail from normalized task/message/artifact
+rows. Existing version 1 tasks remain readable until observed or rebuilt. Apply
+`npm run db:migrate` first. Rebuild uses retained events and original binary
+archives, checks their integrity, and switches each task atomically; interrupted
+runs can be repeated. It does not send user messages or modify the event ledger.
+
+For PostgreSQL, run `npm run db:projections:rebuild` with the same database and
+artifact-store configuration as web/workers. Web reads remain available. For
+PGlite, stop the web process, then run
+`npm run db:projections:rebuild -- --offline-pglite` before restarting it. A
+running PGlite owner can instead call `createProjectionRebuilder().rebuild(...)`
+without opening another database owner. The CLI defaults to the local
+organization; `--organization UUID` and `--task UUID` restrict the scope.
+
+Missing or corrupt archives, tasks without retained events, and repeated
+concurrent changes fail without replacing the last readable projection. Keep
+database and artifact backups together. Schema rollback exports active content
+into the legacy projection before removing the versioned tables. The reducer
+reduces overlapping append occurrences across sources; identical chunks without
+shared delivery/order identities remain ambiguous and complete snapshots provide
+correction. Current ingestion reduces the full per-task ledger; checkpoint and
+retention optimizations remain later scaling work.

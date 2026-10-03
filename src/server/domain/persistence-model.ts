@@ -40,6 +40,8 @@ export interface AgentCardSnapshotRecord {
 }
 
 export interface TaskRecord {
+  /** Active content projector; absent on legacy callers means version 1. */
+  projectionVersion?: number;
   contentJson?: JsonValue;
   id: string;
   organizationId: string;

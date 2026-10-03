@@ -31,7 +31,7 @@
     "start": "next start -p 3002",
     "lint": "eslint",
     "test": "vitest run --exclude 'src/server/adapters/db/**/*.db.test.ts'",
-    "test:db": "vitest run src/server/adapters/db/database.db.test.ts src/server/adapters/db/repositories.db.test.ts src/server/adapters/db/agent-registry.db.test.ts src/server/adapters/db/task-observation.db.test.ts src/server/adapters/db/commands.db.test.ts src/server/adapters/db/subscriptions.db.test.ts src/server/adapters/db/push.db.test.ts src/server/adapters/db/reconciliation.db.test.ts --maxWorkers=1",
+    "test:db": "vitest run src/server/adapters/db/database.db.test.ts src/server/adapters/db/repositories.db.test.ts src/server/adapters/db/agent-registry.db.test.ts src/server/adapters/db/task-observation.db.test.ts src/server/adapters/db/commands.db.test.ts src/server/adapters/db/subscriptions.db.test.ts src/server/adapters/db/push.db.test.ts src/server/adapters/db/reconciliation.db.test.ts src/server/adapters/db/projection-rebuild.db.test.ts --maxWorkers=1",
     "test:http": "node scripts/verify-task-http.mjs",
     "test:coverage": "vitest run --coverage --exclude 'src/server/adapters/db/**/*.db.test.ts'",
     "db:migrate": "mikro-orm migration:up",
@@ -41,6 +41,7 @@
     "db:migration:pending": "mikro-orm migration:pending",
     "db:schema:check": "mikro-orm migration:check",
     "check": "npm run lint && npm run test && npm run test:db && npm run db:schema:check && npm run build && npm run test:http",
+    "db:projections:rebuild": "tsx scripts/rebuild-projections.ts",
     "worker:commands": "tsx scripts/command-worker.ts",
     "worker:tasks": "tsx scripts/command-worker.ts"
   },

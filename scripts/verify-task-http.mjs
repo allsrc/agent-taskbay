@@ -388,7 +388,18 @@ try {
   assert.equal(pollCompleted.messages.filter((message) => message.id === "poll-prompt").length, 1);
   assert.ok(pollTokens.includes("page-two"), "ListTasks pagination did not advance");
   assert.ok(!(await json("/api/tasks")).tasks.some((task) => task.taskId === "unrelated-poll-task"));
-  console.log(`Production HTTP task/command/subscription/push/reconciliation smoke passed (${env.A2A_DATABASE_PROFILE}, ${env.A2A_COMMAND_WORKER_MODE} worker). UI: ${base}/tasks/${ids[0]}`);
+  // REL-003: exercise the operator CLI against the same production data and
+  // original archives. PostgreSQL stays online; PGlite releases its sole owner.
+  const sendsBeforeRebuild = sends;
+  if (!testDatabase) await stop();
+  for (let pass = 0; pass < 2; pass++) await promisify(execFile)(process.execPath,
+    ["--import", "tsx", "scripts/rebuild-projections.ts", "--task", pollCommand.result.localId,
+      ...(!testDatabase ? ["--offline-pglite"] : [])], { env });
+  if (!testDatabase) await start();
+  assert.deepEqual((await json(`/api/tasks/${pollCommand.result.localId}`)).task, pollCompleted);
+  assert.equal(await (await fetch(base + pollCompleted.artifacts[0].parts[0].value)).text(), "poll");
+  assert.equal(sends, sendsBeforeRebuild, "Projection rebuild dispatched user work");
+  console.log(`Production HTTP task/command/subscription/push/reconciliation/rebuild smoke passed (${env.A2A_DATABASE_PROFILE}, ${env.A2A_COMMAND_WORKER_MODE} worker). UI: ${base}/tasks/${ids[0]}`);
   if (process.env.A2A_HTTP_TEST_KEEP_SERVER === "true") {
     console.log("Keeping the fixture and production server available for UI verification; press Ctrl-C to finish.");
     await new Promise((resolve) => { process.once("SIGINT", resolve); process.once("SIGTERM", resolve); });
