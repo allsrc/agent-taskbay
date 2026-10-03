@@ -206,6 +206,7 @@ async function createClient(config: ConnectionConfig): Promise<{ client: Client;
 }
 
 export interface OperationInput {
+  signal?: AbortSignal;
   /** Server dispatcher records whether a side effect may have reached the peer. */
   onDispatch?: () => void;
   connection: ConnectionConfig;
@@ -291,6 +292,7 @@ export async function executeOperation(input: OperationInput): Promise<Operation
   const { client, telemetry, negotiatedExtensions } = await createClient(input.connection);
   const params = input.params ?? {};
   const options = requestOptions(input.connection, negotiatedExtensions, input.traceContext?.traceparent);
+  if (input.signal) options.signal = AbortSignal.any([input.signal, options.signal!]);
   let result: unknown;
   switch (input.action) {
     case "send": {
@@ -357,6 +359,8 @@ export async function streamOperation(input: OperationInput): Promise<{
   const { client, telemetry, negotiatedExtensions } = await createClient(input.connection);
   const params = input.params ?? {};
   const options = requestOptions(input.connection, negotiatedExtensions, input.traceContext?.traceparent);
+  if (input.signal) options.signal = AbortSignal.any([input.signal, options.signal!]);
+  if (!(await client.getAgentCard()).capabilities?.streaming) throw new Error("STREAMING_UNSUPPORTED");
   const events = input.action === "send"
     ? client.sendMessageStream(buildSendRequest(withNegotiatedExtensions(params, negotiatedExtensions)), options)
     : client.resubscribeTask(SubscribeToTaskRequest.fromJSON({ tenant: params.tenant ?? "", id: params.taskId }), options);

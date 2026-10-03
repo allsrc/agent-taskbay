@@ -18,11 +18,10 @@ when an agent needs a decision, and see it through to done.
 ## Status
 
 Phase 1 is complete: the agent registry and observed task history persist in
-PGlite or PostgreSQL, and Tasks views read shared server state. Slice 2.1 adds
-durable commands and outbox dispatch; follow-up task streams still run while
-a browser request is connected. Continuous background task tracking,
-authentication, RBAC, push notifications, and an approval audit trail are
-planned in the following phases. See **What's not built yet** below.
+PGlite or PostgreSQL, and Tasks views read shared server state. Slices 2.1–2.3
+add durable command dispatch, worker-owned task subscriptions, and opt-in
+authenticated task push. Tracking continues after browsers close and reconnects
+after worker restart. Reconciliation, authentication, RBAC and an approval audit trail remain planned. See **What's not built yet** below.
 
 ## Project specification
 
@@ -59,7 +58,7 @@ canonical schema or migration target.
 │  API layer                                                    │
 │  ├─ Gateway (src/lib/gateway.ts → @a2a-js/sdk)                │
 │  ├─ Task query/observation services (durable, queryable)     │
-│  ├─ Webhook receiver           (pushNotificationConfig) [TODO]│
+│  ├─ Webhook receiver           (authenticated task push)      │
 │  ├─ Live fan-out (SSE/WS)      (webhook → clients)   [TODO]   │
 │  └─ Agent registry service     (catalog, pluggable)           │
 ├─────────────────────────────────────────────────────────────┤
@@ -130,12 +129,13 @@ discovery, streaming, content-type rendering, and sideband decoding.
 
 ## What's not built yet
 
-Long-lived subscriptions still depend on the browser's connected request;
-worker subscriptions, webhooks, and reconciliation are subsequent Phase 2 work.
+Versioned projection rebuild and application SSE freshness signals remain
+subsequent Phase 2 work. Worker streaming requires advertised support;
+GetTask polling recovers known work when streaming or push is unavailable.
 Chat, orchestration, and notifications still use browser caches, including
 notification read state. Existing browser history is not automatically imported
-into the database; new observations become durable. Every request connects to
-agents as `{ type: "none" }`; authentication, RBAC, credential storage, typed
+into the database; new observations become durable. Outbound requests connect to
+agents as `{ type: "none" }`; user/agent authentication, RBAC, credential storage, typed
 approvals, structured start forms, and an audit trail remain planned.
 [`docs/spec/STATUS.md`](./docs/spec/STATUS.md) identifies the next executable
 slice, with phase deliverables in [`ROADMAP.md`](./ROADMAP.md).
@@ -159,10 +159,11 @@ alongside the database. The initial adapter limits each object to 16 MiB and
 serves downloads as attachments; richer content policies remain Phase 3 work.
 
 Initial sends and cancellations persist command intent before dispatch. The
-local default starts an embedded dispatcher in the Next.js Node server; use a
+local default starts embedded command, subscription, push and reconciliation workers in the Next.js
+Node server; use a
 long-running server for this profile. For separate workers, configure
 PostgreSQL and `A2A_COMMAND_WORKER_MODE=external`, then run
-`npm run worker:commands` alongside the web server. Both processes need the
+`npm run worker:tasks` alongside the web server (`worker:commands` is an alias). Both processes need the
 same database, artifact directory, and server configuration. The worker
 requires dev dependencies (`tsx`) in this initial packaging.
 
@@ -178,9 +179,13 @@ never automatically resent.
 
 Compatibility send/cancel routes wait for the durable result. Initial sends
 use A2A SendMessage, defaulting to returnImmediately unless config explicitly
-sets it; the stream route then subscribes to open tasks while the browser is
-connected. These subscriptions are the next slice. Command acceptance appears
-in the wire view, and closing that view does not cancel dispatch.
+sets it. Active task responses atomically create subscription intent. Workers
+maintain up to eight concurrent streams, renew leases, reconnect with backoff,
+and ingest independently of browsers. Input/auth-required and terminal states
+stop observation; an active reply re-arms it. The browser stream reads committed
+snapshots and diagnostic events for up to 50 seconds and may reconnect only to known agent/tenant tasks.
+Closing it stops the local view while background tracking continues. After a
+crash, another worker resumes when the 15-second lease expires.
 
 Existing `.data/agents.json` entries (or `A2A_DATA_DIR/agents.json`) are
 automatically imported on first registry access after migrations. The legacy
@@ -204,9 +209,44 @@ npm run check   # full local quality gate
 `npm run check` includes the production HTTP test. Database contract tests
 always exercise PGlite; set `A2A_TEST_POSTGRES_URL` to exercise PostgreSQL too,
 as CI does. The HTTP test uses fresh PGlite and local fixture agents, verifies
-commands after browser disconnect and recovery after web restart, then also
+commands and observation after browser disconnect, duplicate artifact replay,
+input/auth-required prompts, stream reconnect and recovery after killing the
+actual database owner/worker, then also
 tests a separate PostgreSQL worker when the test URL is set. That test account
 needs permission to create/drop its temporary test database.
+
+To enable task push, configure `A2A_PUSH_CALLBACK_ORIGIN` as the console's
+externally reachable HTTPS origin and `A2A_PUSH_SIGNING_KEY` as a random 32-byte
+key encoded in 64 hexadecimal characters. Both the web and task workers need
+the same values. Push stays disabled when the origin is unset. Local loopback
+HTTP requires `A2A_PUSH_ALLOW_LOOPBACK_HTTP=true` explicitly.
+
+Workers register existing and newly ingested nonterminal tasks with peers that
+advertise push support. The callback is
+`POST /api/webhooks/a2a/<registration UUID>`, authenticated by a single-purpose
+Bearer credential generated on the server. It accepts canonical A2A 1.0
+`StreamResponse` events (`application/a2a+json` or `application/json`) and
+explicit v0.3 full Task snapshots. Every callback validates the expected task,
+tenant and context; duplicate callbacks commit once. Binary parts use the
+ArtifactStore. A durable limit allows 120 authenticated requests per registration
+per minute; excess requests return 429 with Retry-After. Invalid authentication
+returns 401 before reading the body, invalid payloads return 400, and foreign
+routing identity returns 409. Successful receipt returns 204 after commit.
+
+Push registrations survive web/worker restart, retain input/auth-required tasks,
+and are deleted on terminal state or agent disablement. Lost create responses
+recover through GetConfig using the same ID. Config IDs must be honored by the
+peer. Peers without push support stop with a safe operational error; streaming
+continues independently where supported. For append chunks, an optional stable
+`X-A2A-Delivery-ID` distinguishes identical bytes while preserving retry
+idempotency. Without it, identical webhook chunks within a turn collapse; prefer
+complete artifact snapshots. Cross-source replay/rebuild remains later Phase 2 work.
+
+Keep the signing key with server secrets and backups. Changing it invalidates
+old callback credentials. Before rotation or disabling push, stop workers and
+remove old remote configs and their local registrations, then configure all
+processes consistently and resume. Managed vault/rotation controls are Phase 3
+work. This slice introduces no user-facing config or credential API.
 
 ## Design background
 
@@ -221,3 +261,21 @@ browser-direct, the two-plane auth design, and the v1→v2 reframe from
 
 MIT (see `LICENSE`). Includes Apache-2.0 licensed code adapted from
 SpanPlane — see `NOTICE`.
+
+### Task reconciliation
+
+Task workers poll each known nonterminal task with `GetTask` every 15 seconds,
+including input/auth-required tasks. They also sweep `ListTasks` every 60 seconds
+for known organization/agent/tenant scopes, requesting history and artifacts.
+Page tokens and read schedules survive restarts; failed reads retry with bounded
+backoff. List pages update only already observed tasks. Unsupported listing
+(including v0.3 peers) leaves `GetTask` polling active. No streaming or push
+capability is required for these reads.
+
+Snapshots enter common ingestion with task/context/tenant validation and lease
+fencing. Concurrent task updates and older remote timestamps win over a delayed
+read. Terminal work stops polling. Reconciliation never resends commands or
+resolves an unknown initial send by guessing which listed task it created.
+See [ADR 0010](./docs/adr/0010-task-reconciliation.md) for scheduling and cursor
+semantics. Production authorization and a user-facing operational cursor view
+remain subsequent work.

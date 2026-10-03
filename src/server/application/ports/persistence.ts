@@ -7,6 +7,7 @@ import type {
   TaskRecord,
   TaskSummaryRecord,
   TaskCommandRecord,
+  SubscriptionRecord,
 } from "../../domain/persistence-model";
 
 export interface OrganizationRepository {
@@ -64,11 +65,21 @@ export interface TaskRepository {
 }
 
 export interface TaskEventRepository {
+  readFeed(organizationId: string, taskId: string, after: number, limit: number): Promise<TaskEventRecord[]>;
   appendIfAbsent(event: TaskEventRecord): Promise<boolean>;
   findByTaskId(
     organizationId: string,
     taskId: string,
   ): Promise<TaskEventRecord[]>;
+}
+
+export interface SubscriptionRepository {
+  /** In the ingestion transaction, create/rearm active tasks or stop paused/terminal tasks. */
+  sync(task: TaskRecord, now: Date): Promise<void>;
+  findByTaskId(organizationId: string, taskId: string): Promise<SubscriptionRecord | undefined>;
+  claim(owner: string, now: Date, until: Date): Promise<SubscriptionRecord | undefined>;
+  renew(subscription: SubscriptionRecord, now: Date, until: Date): Promise<boolean>;
+  finish(subscription: SubscriptionRecord, now: Date, changes: Pick<SubscriptionRecord, "status" | "availableAt" | "lastError">): Promise<boolean>;
 }
 
 export interface OutboxRepository {

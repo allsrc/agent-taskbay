@@ -6,7 +6,8 @@ Last updated: 2026-10-03
 
 - Last completed phase: **Phase 1 — persistence foundation**
 - Active phase: **Phase 2 — durable task runtime**
-- Next executable slice: **2.2 — worker-owned subscriptions**
+- Last completed slice: **2.4 — task reconciliation and sync cursors**
+- Next executable slice: **2.5 — versioned projections and rebuild**
 - Blocking decisions: none
 
 ## Accepted implementation choices
@@ -411,6 +412,298 @@ Next executable slice: **2.2 — worker-owned subscriptions**. Persist
 subscription intent/leases, reconnect and ingest independently of browser
 lifetimes, and verify worker restart, input-required prompts, and artifacts.
 Do not begin webhook or reconciliation implementation in the same slice.
+
+## Phase 2 Slice 2.2 verified evidence
+
+Date: 2026-10-03
+
+Slice: **2.2 — worker-owned subscriptions**
+
+Changes:
+
+- Added subscription intent, its migration and organization-scoped repository.
+  Intent commits atomically with task ingestion; migration adopts already-active
+  tasks. Direct Messages never receive subscription intent. Paused/terminal
+  tasks stop observation; a command returning active state re-arms it.
+- Added a shared application worker and SDK adapter with leased claims,
+  five-second heartbeat renewal, fifteen-second expiry, safe reconnect/backoff,
+  fenced ingestion and graceful abort/release. A stream event must match its
+  leased task before ingestion. Late events after cancellation or lease loss
+  cannot commit projections or protocol events.
+- Added a pool of eight concurrent subscriptions alongside command dispatch in
+  the embedded PGlite owner and separate PostgreSQL worker. Added the
+  `worker:tasks` command while preserving `worker:commands`. ADR 0008 records
+  runtime, replay and browser-view semantics.
+- Replaced browser-owned remote subscriptions with committed projection/event
+  reads. Browser reconnect resolves an already-observed scoped task. Added an
+  indexed event sequence cursor and persisted safe transport/extension metadata.
+  Chat uses authoritative snapshots so replayed diagnostic events do not repeat
+  old transitions/prompts in browser caches. Binary content remains externalized.
+- Scoped identical command response snapshots to command identity and
+  untimestamped lifecycle events to persisted user turns. Reconnect replay
+  within a turn deduplicates while later replies can pause on the same prompt.
+- Updated deployment, data-model, roadmap and environment documentation. Webhook,
+  reconciliation and projection rebuild implementations were not started.
+
+Verification commands and results:
+
+- Before implementation, the Slice 2.1 quality gate passed against PGlite and
+  PostgreSQL 18: 36 unit tests, 14 database tests, lint, schema, build and both
+  production HTTP profiles. A disposable PostgreSQL 18 container supplied the
+  test database and was removed after verification.
+- `A2A_TEST_POSTGRES_URL=postgresql://postgres:postgres@127.0.0.1:55432/a2a_ops_test npm run check`:
+  passed lint without warnings; 13 unit files and 39 tests; 6 database files and
+  16 tests against PGlite/PostgreSQL 18; schema check; production build; and
+  production HTTP verification using both actual worker entry points.
+- Shared subscription contract verifies atomic intent/rollback, two-worker claim
+  races, database owner restart and lease expiry, stable repeated-byte artifact
+  replay, input prompts, reply re-arming, repeated prompts in new turns,
+  cancellation fencing, foreign stream identities, tenant-scoped tasks,
+  organization-scoped event feeds, redacted errors, unsupported streaming and
+  graceful quiet-stream shutdown. Unit tests verify quiet lease renewal/loss
+  and authoritative chat snapshots without duplicated historical transitions.
+- Production HTTP tests close the browser immediately after command acceptance
+  and verify later prompts/artifacts. They reconnect a prematurely ended stream,
+  replay repeated chunks without duplication, and kill/restart the actual PGlite
+  owner or PostgreSQL worker while a quiet stream is leased. Recovery reaches
+  auth-required with one prompt and the assembled `AAB` artifact. Existing task
+  scope, cancellation, binary download and independent-reader checks also pass.
+- `npm run db:migrate`: applied the subscription migration locally.
+  `npm run db:schema:check` and `npx tsc --noEmit` passed; `git diff --check` passed.
+- `npm audit --omit=dev`: zero vulnerabilities. Full `npm audit` reports five
+  high-severity advisories in the existing development-only ESLint chain through
+  braces ([GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)).
+  The suggested force fix downgrades Next.js lint tooling; it was not applied.
+
+Migration tested from:
+
+- Clean PGlite and PostgreSQL 18 databases through all five migrations, including
+  rollback/reapply and no schema drift.
+- The immediately previous command schema on file-backed PGlite containing an
+  active task. Upgrade preserves identity/state/content and adds pending
+  observation intent automatically.
+- Full database-owner and actual production worker process restart with stored
+  task projections, artifact objects and subscription leases recovered.
+
+Remaining risks:
+
+- Phase 2 remains in progress. Webhooks, reconciliation, versioned projection
+  rebuild, application SSE freshness signals and remaining browser-cache
+  authority removal are later slices. Browser compatibility views are bounded
+  and may reconnect; server ingestion is independent of those views.
+- Streaming requires advertised support. Unsupported peers stop with a safe
+  operational error and await future reconciliation support. Arbitrary partial
+  artifact replay without source identity remains ambiguous under the existing
+  occurrence/turn fallback. Unknown command outcomes are still not resent.
+- The initial per-worker pool is eight streams; gateway timeout expiry reconnects
+  streams. Crash recovery can wait up to fifteen seconds for lease expiry.
+  Local embedded workers require a long-running Node process. External workers
+  require PostgreSQL, shared artifacts and the current tsx/dev dependencies.
+- Development local identity, production authorization, content/retention policy,
+  full workflow audit and orphaned-object cleanup remain in their assigned phases.
+  The development dependency audit finding above remains outstanding.
+
+**Slice 2.2 acceptance criteria are verified. Phase 2 remains active.**
+
+Next executable slice: **2.3 — authenticated push delivery**. Implement
+expected-task-scoped authenticated webhook receipt and durable push-config
+lifecycle, with duplicate/authentication/scope/restart tests. Do not start
+reconciliation or projection rebuild in that slice.
+
+## Phase 2 Slice 2.3 verified evidence
+
+Date: 2026-10-03
+
+Slice: **2.3 — authenticated push delivery**
+
+Changes:
+
+- Added task push registration persistence, its migration, narrow application
+  ports, SDK gateway, lifecycle worker and embedded/external runtime integration.
+  Configured workers adopt existing nonterminal tasks. New intent commits with
+  ingestion; direct Messages receive none. Input/auth-required retains push;
+  terminal tasks and disabled agents schedule deletion.
+- Added stable remote config IDs, bounded leases/renewal, fenced completion,
+  redacted retry state and restart recovery. GetConfig confirms a prior create
+  after a lost response, preventing a second registration. Concurrent terminal
+  ingestion wins over an in-flight create and preserves cleanup intent.
+- Added POST /api/webhooks/a2a/<registration UUID>. Authentication precedes body
+  parsing. Callback identity binds organization, agent, tenant, task and expected
+  context; the ingestion transaction locks and rechecks it. Canonical A2A 1.0
+  StreamResponse events and explicit v0.3 Task snapshots enter common ingestion.
+- Credentials derive from a server-only 256-bit signing key and registration
+  identity; no secret values are stored in rows, ledger events or browser state.
+  Config origin requires HTTPS with an explicit loopback development exception.
+  Added durable 120-per-minute per-registration rate windows, bounded JSON body
+  parsing and acknowledgement after commit. Terminal tasks ignore late valid
+  updates; deleted/disabled registrations reject callbacks.
+- Added replay fingerprints and optional hashed X-A2A-Delivery-ID identities for
+  repeated append bytes, externalized binary content and rollback verification.
+  Added ADR 0009 and configuration/deployment/data-model documentation.
+  Reconciliation and projection rebuild were not implemented.
+
+Verification commands and results:
+
+- Before implementation, the Slice 2.2 full quality gate passed on PGlite and
+  PostgreSQL 18: 39 unit tests, 16 database tests, lint, schema check, production
+  build and both production HTTP worker profiles. A disposable PostgreSQL 18
+  container supplied the isolated test database.
+- `A2A_TEST_POSTGRES_URL=postgresql://postgres:postgres@127.0.0.1:55432/a2a_ops_test npm run check`:
+  passed lint; 16 unit files and 44 tests; 7 database files and 18 tests on
+  PGlite/PostgreSQL 18; schema check; build; production HTTP in both profiles.
+- The shared push contract verifies atomic intent/rollback, no fake direct Task,
+  two-worker claim races, concurrent duplicate callbacks, distinct append IDs,
+  prompt/file replay, malformed/authentication/body-limit rejection,
+  organization/agent/tenant/context isolation, full callback rollback and retry,
+  durable rate limits, database-owner restart, expired leases/fenced completion,
+  prior-task adoption, agent disablement, concurrent cancellation/registration,
+  cleanup, safe retries and unsupported-peer error redaction. Unit tests verify
+  key isolation/rotation, config validation, payload routing and heartbeat loss.
+- Production HTTP uses the official SDK for config get/create/delete and the
+  actual Next webhook route. A fixture accepts a config then drops its response;
+  recovery confirms the same config rather than creating another. Authenticated
+  repeated binary/prompt callbacks produce one artifact/prompt after web and
+  worker restart. Foreign identity/authentication and malformed envelopes fail
+  closed; completion deletes the remote config and subsequent callbacks fail.
+  Browser-visible projections and process logs contain no callback credentials.
+- `npm run db:migrate`: applied the push migration to the local database.
+  `npx tsc --noEmit` and `git diff --check` passed.
+- `npm audit --omit=dev`: zero vulnerabilities. Full `npm audit` still reports
+  the same five high-severity advisories in the development-only ESLint chain
+  through braces (GHSA-vfj7-8cjw-p6xm). No forced tooling downgrade was applied.
+
+Migration tested from:
+
+- Clean PGlite and PostgreSQL 18 through all six migrations; rollback/reapply
+  and schema drift checks pass.
+- The immediately previous subscription schema on file-backed PGlite with an
+  existing task and subscription. Upgrade preserves state/content/identity;
+  push rows remain absent until explicitly configured worker adoption.
+- Complete database-owner, production web and external worker restarts with
+  stored registration identities, projections, artifacts and rate windows.
+
+Remaining risks:
+
+- Phase 2 remains active: task reconciliation, versioned projection rebuild,
+  freshness signals and remaining browser-cache authority removal are pending.
+- Config IDs must be honored by the peer. Without a stable delivery ID, identical
+  webhook append chunks within a user turn are ambiguous and collapse; complete
+  artifact snapshots are preferred. Cross-source arbitrary replay convergence
+  remains subsequent reconciliation/projection work.
+- Push requires an externally reachable configured callback origin and the same
+  signing key on web/workers. Managed CredentialVault, automatic key rotation,
+  perimeter/IP rate controls and full Plane A/B authorization remain Phase 3.
+  Operator rotation/disablement must remove old remote configs/local registrations
+  before resuming with new configuration. Agent network unavailability can delay
+  remote deletion; local callback rejection remains effective.
+- Embedded PGlite requires a long-running Node server. The filesystem store can
+  retain orphaned objects after failed transactions. Existing dev audit findings
+  remain outstanding.
+
+**Slice 2.3 acceptance criteria are verified. Phase 2 remains active.**
+
+Next executable slice: **2.4 — task reconciliation and sync cursors**. Implement
+worker-owned GetTask/ListTasks reconciliation behind gateway/repository ports,
+with durable scheduling/cursors and missed-event/restart/scope tests. Preserve
+uncertain-command safety: do not automatically resend unknown remote outcomes.
+Do not begin projection rebuild or application freshness SSE in that slice.
+
+## Phase 2 Slice 2.4 verified evidence
+
+Date: 2026-10-03
+
+Slice: **2.4 — task reconciliation and sync cursors**
+
+Changes:
+
+- Added reconciliation gateway, repository, unit-of-work and ingestion ports,
+  worker service and bounded pool in both embedded PGlite and external
+  PostgreSQL task workers. The official SDK performs GetTask/ListTasks reads.
+- Added scoped sync cursors for per-task GetTask scheduling and per-scope
+  ListTasks pagination. Intent commits with ingestion; migration adopts existing
+  nonterminal tasks. Direct Messages have no cursor. Paused input/auth-required
+  work remains polled; terminal work stops its task cursor.
+- Added fifteen-second leases/five-second heartbeats, fenced page checkpoints,
+  safe retries and restart recovery. GetTask repeats after fifteen seconds;
+  complete ListTasks sweeps after sixty seconds. Full sweeps request history and
+  artifacts, avoiding status-only watermarks that miss artifact-only changes.
+  Unsupported listing, including explicit v0.3 SDK errors, leaves GetTask active.
+- Routed snapshots through common ingestion. Task/context/optional tenant
+  identity validates before commit. A pre-read task version check under the task
+  lock makes concurrent updates win. Older timestamps cannot regress content.
+  A lost lease rolls back the observation and prevents checkpoint advancement.
+  Only known scoped tasks are updated from lists; unknown initial-send outcomes
+  stay uncertain, without resending or guessing a correlation.
+- Added ADR 0010 and architecture/data-model/runtime documentation. All event
+  sources now use common ingestion; arbitrary cross-source replay convergence
+  and versioned projection rebuild remain the next slice. No application SSE or
+  browser-cache authority removal was implemented.
+
+Verification commands and results:
+
+- Before implementation, the full Slice 2.3 gate passed: lint, 44 unit tests,
+  18 database tests on PGlite/PostgreSQL 18, schema check, production build and
+  both production HTTP worker profiles. A disposable PostgreSQL 18 container
+  supplied the isolated test database.
+- `A2A_TEST_POSTGRES_URL=postgresql://postgres:postgres@127.0.0.1:55432/a2a_ops_test npm run check`:
+  passed lint; 18 unit files/47 tests; 8 database files/20 tests on PGlite and
+  PostgreSQL 18; schema drift check; build; production HTTP in both profiles.
+- The shared reconciliation contract verifies atomic intent/rollback, direct
+  Message exclusion, missed prompts/auth states and binary content, duplicate
+  snapshot ingestion, durable page checkpoints and database-owner restart,
+  organization/agent/tenant remote-ID collisions, unknown-task exclusion,
+  invalid identity/context/tenant rejection, safe errors, unsupported listing,
+  expired ownership/reclaim, two-worker races, concurrent cancellation, lost
+  lease rollback, failed-page checkpoint safety, stale content preservation,
+  polling fallback and preservation of uncertain commands after a list read.
+- Unit tests verify scoped SDK parameters, pagination/artifact requests,
+  explicit v0.3/unsupported envelope classification, transient failures and a
+  quiet read abort on heartbeat ownership loss.
+- Production HTTP exercises a peer with no streaming/push support through the
+  actual Next command/query routes and SDK GetTask/ListTasks. It recovers a
+  missed input request and binary artifact, advances list pagination, ignores
+  unrelated listed work and converges to completed after crashing/restarting
+  the PGlite owner or PostgreSQL worker. Existing streaming/reconnect,
+  cancellation, push lifecycle/replay and browser-disconnect checks also pass.
+- After strengthening the uncertain-command test, the focused reconciliation
+  contract passed again on both databases. `npx tsc --noEmit` and
+  `git diff --check` passed. `npm run db:migrate` applied the local migration.
+- `npm audit --omit=dev`: zero vulnerabilities. Full `npm audit` reports the
+  same five high advisories in the development-only ESLint/braces chain
+  (GHSA-vfj7-8cjw-p6xm); no forced tooling downgrade was applied.
+
+Migration tested from:
+
+- Clean PGlite and PostgreSQL 18 through all seven migrations, with
+  rollback/reapply and schema drift verification.
+- Immediately previous push schema on file-backed PGlite with retained task
+  and subscription identity/state/content. Upgrade creates one task schedule
+  and one scoped list cursor, preserves the task/subscription and leaves push
+  registration absent until configured.
+- Database-owner and production worker restarts with persisted pagination,
+  pending schedules, expired read leases and artifact objects.
+
+Remaining risks:
+
+- Phase 2 remains active. Versioned projections/rebuild, cross-source replay
+  correction, application freshness SSE and remaining browser authority removal
+  are pending.
+- Full scoped sweeps trade read traffic for artifact convergence; pagination is
+  peer-owned and can expire or shift. Failed pages restart the sweep; GetTask
+  polling preserves known-task convergence. Terminal tasks are not reopened.
+- ListTasks only updates known tasks before production authorization exists.
+  A lost initial send cannot safely be associated with an arbitrary listed task;
+  explicit command recovery policies and operational UI remain later work.
+- Existing PGlite single-owner/long-running-server requirements, potential
+  orphaned immutable artifact files and development dependency audit findings
+  remain unchanged. Plane A/B credentials/policy remain Phase 3.
+
+**Slice 2.4 acceptance criteria are verified. Phase 2 remains active.**
+
+Next executable slice: **2.5 — versioned projections and rebuild**. Implement
+versioned task/message/artifact projections and deterministic ledger/archive
+rebuild with duplicate/out-of-order/restart/scope tests behind existing ports.
+Do not begin application freshness SSE or browser-cache authority removal.
 
 ## Known repository-state issue
 

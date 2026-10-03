@@ -20,3 +20,6 @@ accepted ADR. Small implementation details do not require an ADR.
 
 - [0006 — Initial task projections and binary protocol archives](./0006-initial-task-projections.md)
 - [0007 — Durable commands, uncertain outcomes, and local dispatch](./0007-command-dispatch-and-local-worker.md)
+- [0008 — Durable worker subscriptions and committed browser event views](./0008-worker-owned-subscriptions.md)
+- [0009 — Authenticated task push and durable registration lifecycle](./0009-authenticated-task-push.md)
+- [0010 — Scoped task reconciliation with durable read cursors](./0010-task-reconciliation.md)

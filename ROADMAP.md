@@ -57,9 +57,14 @@ The current application already provides:
 Observed task state and registry data now persist on the server. Tasks views
 read that durable state across browser sessions. Chat, orchestration, and
 notification caches remain in browser storage. Initial sends and cancellation
-use durable outbox dispatch; follow-up subscriptions still depend on connected
-browser requests and outbound agent authentication is `none`. The next slice
-is Phase 2.2, worker-owned subscriptions.
+use durable outbox dispatch. Workers observe active tasks through leased,
+reconnecting subscriptions after browsers close; browser streams read committed
+events. Opt-in task push now registers durable configs, authenticates scoped
+callbacks and deletes terminal/disabled registrations across worker restarts.
+Workers also reconcile known tasks through GetTask polling and scoped ListTasks
+pagination, with durable read schedules/cursors and restart recovery. Outbound
+agent authentication is still `none`. The next slice is Phase 2.5, versioned
+projections and rebuild.
 
 ## Cross-cutting work
 

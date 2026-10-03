@@ -226,16 +226,34 @@ Missing a live signal is harmless because clients re-query durable state.
 ### Local
 
 - Next.js web process
-- embedded command dispatcher sharing the PGlite owner (ADR 0007)
+- embedded command, subscription, push and reconciliation workers sharing the PGlite owner (ADRs 0007/0008)
 - file-backed PGlite
 - local artifact directory
 - development identity and locally encrypted secrets
 
-Slice 2.1 uses an embedded worker loop in the long-running Next.js Node server
-for the local PGlite profile. PostgreSQL supports a separate command worker
-with `A2A_COMMAND_WORKER_MODE=external` and `npm run worker:commands`. Both
-profiles use the same ports, lease protocol, and dispatch application service.
-Long-lived subscriptions remain browser-triggered until Slice 2.2.
+Slices 2.1/2.2 run embedded command dispatch and a subscription pool in the
+long-running Next.js Node server for the local PGlite profile. PostgreSQL
+supports a separate task worker with `A2A_COMMAND_WORKER_MODE=external` and
+`npm run worker:tasks` (`worker:commands` remains a compatibility alias). Both
+profiles share application services and lease protocols. Subscription intent
+commits with task ingestion, survives process restart, and reconnects without
+a browser. The existing browser stream reads committed events; application SSE
+freshness signals remain a subsequent slice (ADR 0008).
+
+Slice 2.3 adds opt-in push registration and cleanup in the same worker profiles.
+Intent commits with ingestion, while leased workers perform remote config
+operations. Callback credentials derive from server-only configuration and a
+registration identity; rows store no secret values. Callbacks authenticate,
+validate the expected scoped task, and commit through the shared ingestion
+transaction. Terminal and disabled registrations reject further state changes.
+See ADR 0009 and the README for operator configuration and replay limitations.
+
+Slice 2.4 adds scoped GetTask polling and ListTasks sweeps with durable pagination
+and read leases. Intent commits with ingestion; full list sweeps request artifacts
+and update known scoped tasks only. Input/auth-required work remains polled.
+Reconciliation validates remote identity and checks the task version captured
+before the read, so concurrent updates win. It never resends uncertain commands.
+Both worker profiles share the same ports and lease protocol (ADR 0010).
 
 ### Docker/demo
 

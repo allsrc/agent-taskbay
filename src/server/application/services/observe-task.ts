@@ -3,6 +3,7 @@ import type { DurableTaskView } from "../../../shared/task-types";
 import type { JsonValue, TaskRecord, TaskEventSource } from "../../domain/persistence-model";
 import type { AgentRepository, TaskRepository, TaskEventRepository } from "../ports/persistence";
 import type { Clock } from "../ports/clock";
+import type { StreamMetadata } from "../ports/subscriptions";
 import { eventSubject, object, projectTaskEvent } from "./task-projection";
 
 export function canonicalJson(value: JsonValue): string {
@@ -21,12 +22,14 @@ export interface TaskObservation {
   originalEventObjectKey?: string;
   source: TaskEventSource;
   sourceKey: string;
+  stableSourceIdentity?: boolean;
   sessionId: string;
   requestId: string;
   directThreadId: string;
   userMessage?: JsonValue;
   userMessagePayloadDigest?: string;
   userMessageOriginalObjectKey?: string;
+  streamMetadata?: StreamMetadata;
 }
 
 export class ObserveTaskService {
@@ -65,18 +68,22 @@ export class ObserveTaskService {
     let changed = false;
     const append = async (event: JsonValue, source: TaskEventSource, sourceKey: string, digest = eventDigest(event), originalEventObjectKey?: string) => {
       const current = eventSubject(event);
-      // A new user turn can legitimately append the same bytes again. Reconnect
-      // replays within that turn keep the same epoch and occurrence identity.
+      // A new user turn can repeat bytes or an untimestamped lifecycle prompt.
+      // Reconnect replays within that turn keep the same epoch and occurrence.
       const lastUser = view.messages.filter((message) => message.role === "user").at(-1)?.id ?? "no-user";
-      const deduplicationKey = current.subject.append === true
-        ? `${sourceKey}:turn:${createHash("sha256").update(lastUser).digest("hex")}`
-        : sourceKey;
       const timestamp = object(current.subject.status).timestamp;
       const remoteTimestamp = typeof timestamp === "string" && Number.isFinite(Date.parse(timestamp)) ? new Date(timestamp) : null;
+      const turnScoped = current.subject.append === true || !remoteTimestamp && ["task", "statusUpdate", "taskStatusUpdate"].includes(current.kind);
+      const deduplicationKey = turnScoped && !input.stableSourceIdentity
+        ? `${sourceKey}:turn:${createHash("sha256").update(lastUser).digest("hex")}`
+        : sourceKey;
       const inserted = await this.events.appendIfAbsent({
         id: randomUUID(), organizationId: input.organizationId, agentId: agent.id, taskId: task.id,
         source, sourceKey: deduplicationKey, eventKind: current.kind, receivedAt: now, remoteTimestamp,
-        payloadDigest: digest, payloadJson: originalEventObjectKey ? { event, originalEventObjectKey } : event,
+        payloadDigest: digest, payloadJson: originalEventObjectKey || input.streamMetadata ? {
+          event, ...(originalEventObjectKey ? { originalEventObjectKey } : {}),
+          ...(input.streamMetadata ? { streamMetadata: { ...input.streamMetadata } } : {}),
+        } : event,
         sessionId: input.sessionId, requestId: input.requestId, traceId: null, projectionVersion: 1,
       });
       if (!inserted) return;

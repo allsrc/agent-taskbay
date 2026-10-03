@@ -1,4 +1,8 @@
+import { MikroOrmSyncCursorRepository } from "./sync-repository";
+import { MikroOrmPushRepository } from "./push-repository";
 import { LockMode, type EntityManager, type QueryResult } from "@mikro-orm/core";
+import { randomUUID } from "node:crypto";
+import { observationPaused } from "../../application/services/subscription-state";
 import type { EntityManager as SqlEntityManager } from "@mikro-orm/sql";
 
 import type {
@@ -8,6 +12,7 @@ import type {
   TaskEventRepository,
   TaskRepository,
   TaskCommandRepository,
+  SubscriptionRepository,
 } from "../../application/ports/persistence";
 import type {
   AgentCardSnapshotRecord,
@@ -17,6 +22,7 @@ import type {
   TaskEventRecord,
   TaskRecord,
   TaskCommandRecord,
+  SubscriptionRecord,
 } from "../../domain/persistence-model";
 import {
   AgentCardSnapshotEntity,
@@ -26,6 +32,7 @@ import {
   TaskEntity,
   TaskEventEntity,
   TaskCommandEntity,
+  SubscriptionEntity,
 } from "./entities";
 
 function organizationRecord(entity: OrganizationEntity): OrganizationRecord {
@@ -96,6 +103,7 @@ function taskRecord(entity: TaskEntity): TaskRecord {
 
 function taskEventRecord(entity: TaskEventEntity): TaskEventRecord {
   return {
+    sequence: entity.sequence,
     id: entity.id,
     organizationId: entity.organizationId,
     agentId: entity.agentId,
@@ -316,6 +324,12 @@ export class MikroOrmTaskRepository implements TaskRepository {
 export class MikroOrmTaskEventRepository implements TaskEventRepository {
   constructor(private readonly entityManager: EntityManager) {}
 
+  async readFeed(organizationId: string, taskId: string, after: number, limit: number) {
+    const rows = await this.entityManager.find(TaskEventEntity, { organizationId, taskId, sequence: { $gt: after } },
+      { orderBy: { sequence: "asc" }, limit });
+    return rows.map(taskEventRecord);
+  }
+
   async appendIfAbsent(event: TaskEventRecord) {
     const sqlEntityManager = this.entityManager as SqlEntityManager;
     const result = await sqlEntityManager
@@ -403,6 +417,54 @@ export class MikroOrmTaskCommandRepository implements TaskCommandRepository {
   }
 }
 
+export class MikroOrmSubscriptionRepository implements SubscriptionRepository {
+  constructor(private readonly entityManager: EntityManager) {}
+  async sync(task: TaskRecord, now: Date) {
+    if (task.kind !== "task" || !task.remoteTaskId) return;
+    const paused = observationPaused(task.state);
+    await this.entityManager.upsert(SubscriptionEntity, {
+      id: randomUUID(), organizationId: task.organizationId, taskId: task.id, status: paused ? "stopped" : "pending",
+      availableAt: now, attempts: 0, leaseOwner: null, leaseUntil: null, lastError: null, createdAt: now, updatedAt: now,
+    }, { onConflictFields: ["taskId"], onConflictAction: "ignore", disableIdentityMap: true });
+    if (paused) {
+      await this.entityManager.nativeUpdate(SubscriptionEntity, { organizationId: task.organizationId, taskId: task.id },
+        { status: "stopped", leaseOwner: null, leaseUntil: null, lastError: null, updatedAt: now });
+    } else {
+      // A reply re-arms a paused subscription without stealing an active lease.
+      await this.entityManager.nativeUpdate(SubscriptionEntity, { organizationId: task.organizationId, taskId: task.id, status: "stopped" },
+        { status: "pending", availableAt: now, attempts: 0, lastError: null, updatedAt: now });
+    }
+  }
+  async findByTaskId(organizationId: string, taskId: string) {
+    const entity = await this.entityManager.findOne(SubscriptionEntity, { organizationId, taskId }, { refresh: true });
+    return entity ? this.record(entity) : undefined;
+  }
+  async claim(owner: string, now: Date, until: Date) {
+    const entity = await this.entityManager.findOne(SubscriptionEntity, {
+      $or: [{ status: "pending", availableAt: { $lte: now } }, { status: "streaming", leaseUntil: { $lte: now } }],
+    }, { orderBy: { availableAt: "asc", id: "asc" }, lockMode: LockMode.PESSIMISTIC_PARTIAL_WRITE, refresh: true });
+    if (!entity) return undefined;
+    this.entityManager.assign(entity, { status: "streaming", leaseOwner: owner, leaseUntil: until, attempts: entity.attempts + 1, updatedAt: now });
+    await this.entityManager.flush();
+    return this.record(entity);
+  }
+  async renew(lease: SubscriptionRecord, now: Date, until: Date) {
+    return (await this.entityManager.nativeUpdate(SubscriptionEntity,
+      { id: lease.id, organizationId: lease.organizationId, status: "streaming", leaseOwner: lease.leaseOwner, leaseUntil: { $gt: now } },
+      { leaseUntil: until, updatedAt: now })) === 1;
+  }
+  async finish(lease: SubscriptionRecord, now: Date, changes: Pick<SubscriptionRecord, "status" | "availableAt" | "lastError">) {
+    return (await this.entityManager.nativeUpdate(SubscriptionEntity,
+      { id: lease.id, organizationId: lease.organizationId, status: "streaming", leaseOwner: lease.leaseOwner, leaseUntil: { $gt: now } },
+      { ...changes, leaseOwner: null, leaseUntil: null, updatedAt: now })) === 1;
+  }
+  private record(entity: SubscriptionEntity): SubscriptionRecord {
+    return { id: entity.id, organizationId: entity.organizationId, taskId: entity.taskId, status: entity.status,
+      availableAt: entity.availableAt, attempts: entity.attempts, leaseOwner: entity.leaseOwner ?? null, leaseUntil: entity.leaseUntil ?? null,
+      lastError: entity.lastError ?? null, createdAt: entity.createdAt, updatedAt: entity.updatedAt };
+  }
+}
+
 export function createPersistenceRepositories(entityManager: EntityManager) {
   return {
     organizations: new MikroOrmOrganizationRepository(entityManager),
@@ -411,5 +473,8 @@ export function createPersistenceRepositories(entityManager: EntityManager) {
     taskEvents: new MikroOrmTaskEventRepository(entityManager),
     outbox: new MikroOrmOutboxRepository(entityManager),
     commands: new MikroOrmTaskCommandRepository(entityManager),
+    subscriptions: new MikroOrmSubscriptionRepository(entityManager),
+    push: new MikroOrmPushRepository(entityManager),
+    syncCursors: new MikroOrmSyncCursorRepository(entityManager),
   };
 }

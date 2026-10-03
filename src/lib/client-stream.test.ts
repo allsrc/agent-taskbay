@@ -3,6 +3,12 @@ import { sendAndStream } from "./client-stream";
 
 afterEach(() => vi.unstubAllGlobals());
 describe("durable stream delivery", () => {
+  it("delivers the authoritative snapshot before replayed diagnostic events", async () => {
+    const calls: string[] = [];
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response('event: snapshot\ndata: {"localId":"local","state":"TASK_STATE_INPUT_REQUIRED"}\n\nevent: a2a\ndata: {"task":{"status":{"state":"TASK_STATE_WORKING"}}}\n\n')));
+    await sendAndStream("agent", { taskId: "remote", resubscribe: true }, { onSnapshot: () => calls.push("snapshot"), onEvent: () => calls.push("event") });
+    expect(calls).toEqual(["snapshot", "event"]);
+  });
   it("exposes accepted command identity before durable task events", async () => {
     const onAccepted = vi.fn();
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response('event: accepted\ndata: {"commandId":"command"}\n\n')));

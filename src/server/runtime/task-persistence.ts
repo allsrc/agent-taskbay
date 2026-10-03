@@ -1,3 +1,4 @@
+import { loadPushCredentials } from "./push-config";
 import { randomUUID } from "node:crypto";
 import type { MikroORM, EntityManager } from "@mikro-orm/core";
 import type { DurableTaskView } from "../../shared/task-types";
@@ -10,6 +11,7 @@ import { FilesystemArtifactStore } from "../adapters/blob/filesystem-artifact-st
 import { createPersistenceRepositories } from "../adapters/db/repositories";
 import { withRequestEntityManager } from "../adapters/db/orm";
 import type { JsonValue, TaskEventSource } from "../domain/persistence-model";
+import type { StreamMetadata } from "../application/ports/subscriptions";
 
 export const artifactStore = new FilesystemArtifactStore();
 
@@ -54,11 +56,17 @@ export interface ObservationSession {
   requestId: string;
   userMessage?: JsonValue;
   source?: TaskEventSource;
+  streamMetadata?: StreamMetadata;
 }
 
-/** Browser-triggered streams remain temporary writers until the Phase 2 worker. */
+/** Shared command/worker ingestion adapter; callers never persist browser events. */
 export function createTaskObserver(session: ObservationSession, options: {
   orm?: MikroORM; store?: ArtifactStore;
+  manageSubscription?: boolean;
+  managePush?: boolean;
+  sourceKey?: string;
+  stableSourceIdentity?: boolean;
+  beforeObserve?: (transaction: EntityManager) => Promise<void>;
   onObserved?: (view: DurableTaskView, event: JsonValue, transaction: EntityManager) => Promise<void>;
 } = {}) {
   const occurrences = new Map<string, number>();
@@ -75,17 +83,31 @@ export function createTaskObserver(session: ObservationSession, options: {
     const ordinal = subject.append === true ? (occurrences.get(digest) ?? 0) : 0;
     occurrences.set(digest, ordinal + 1);
     return em.transactional(async (transaction) => {
+      await options.beforeObserve?.(transaction);
       const ports = createPersistenceRepositories(transaction);
       const service = new ObserveTaskService(ports.agents, ports.tasks, ports.taskEvents);
       const view = await service.observe({
         ...session, organizationId: organization.id, tenant: session.tenant ?? "",
         event: archived.event, originalEventObjectKey: archived.originalEventObjectKey,
-        payloadDigest: digest, source: session.source ?? "stream", sourceKey: `${kind}:${digest}:${ordinal}`,
+        payloadDigest: digest, source: session.source ?? "stream", stableSourceIdentity: options.stableSourceIdentity,
+        // A new send/reply is a new observation even if the peer repeats an
+        // identical untimestamped snapshot. Retries of that command stay stable.
+        sourceKey: options.sourceKey ?? `${kind}:${digest}:${ordinal}${session.source === "command_response" && session.userMessage ? `:command:${session.requestId}` : ""}`,
         directThreadId, userMessage: user?.event,
         userMessagePayloadDigest: session.userMessage ? eventDigest(session.userMessage) : undefined,
         userMessageOriginalObjectKey: user?.originalEventObjectKey,
       });
       await options.onObserved?.(view, archived.event, transaction);
+      if (options.manageSubscription !== false) {
+        const task = await ports.tasks.findById(organization.id, view.localId);
+        if (task) await ports.subscriptions.sync(task, new Date());
+      }
+      if (options.managePush ?? Boolean(loadPushCredentials())) {
+        const task = await ports.tasks.findById(organization.id, view.localId);
+        if (task) await ports.push.sync(task, new Date());
+      }
+      const reconciled = await ports.tasks.findById(organization.id, view.localId);
+      if (reconciled) await ports.syncCursors.sync(reconciled, new Date());
       return view;
     });
   }, options.orm);

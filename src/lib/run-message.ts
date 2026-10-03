@@ -1,13 +1,13 @@
 "use client";
 
 import { taskStorageKey } from "../shared/task-types";
-import { sendAndStream } from "@/lib/client-stream";
-import { assembleTasks } from "@/lib/content";
-import type { OutgoingPart } from "@/lib/message-parts";
-import { applyEvents } from "@/lib/track-events";
-import { MESSAGE_ONLY_STATE, type SendConfig, type ThreadMessage, type TrackedTask, useTaskStore } from "@/store/task-store";
+import { sendAndStream } from "./client-stream";
+import { assembleTasks } from "./content";
+import type { OutgoingPart } from "./message-parts";
+import { applyEvents } from "./track-events";
+import { MESSAGE_ONLY_STATE, type SendConfig, type ThreadMessage, type TrackedTask, useTaskStore } from "../store/task-store";
 
-export { userThreadMessage } from "@/lib/track-events";
+export { userThreadMessage } from "./track-events";
 
 export interface RunSendInput {
   agentId: string;
@@ -45,6 +45,7 @@ export async function runSend(
   const shell: TrackedTask = input.base ? { ...input.base, messages: [...input.base.messages] } : freshShell;
   const events: unknown[] = [];
   let latest: TrackedTask | undefined;
+  let authoritative = false;
   let identity: { localId: string; taskId: string; tenant: string } | undefined;
   await sendAndStream(
     input.agentId,
@@ -52,9 +53,13 @@ export async function runSend(
     {
       onAccepted: (commandId) => handlers.onRawEvent?.({ commandAccepted: { commandId } }),
       onTaskIdentity: (value) => { identity = value; },
+      onSnapshot: (task) => { authoritative = true; latest = task; handlers.onUpdate(task); },
       onEvent: (event) => {
-        events.push(event);
         handlers.onRawEvent?.(event);
+        // Committed projections include the full history. Replaying the ledger
+        // into an existing browser cache would repeat old transitions/prompts.
+        if (authoritative) return;
+        events.push(event);
         // A direct-reply thread that spawns a real Task splits off into its own tracked task.
         const splitsToTask = shell.kind === "message" && shell.taskId && assembleTasks(events).length > 0;
         const next = applyEvents(events, splitsToTask ? freshShell : shell, localReplyId);
@@ -77,9 +82,18 @@ export async function runResubscribe(
 ): Promise<void> {
   const events: unknown[] = [];
   let identity: { localId: string; taskId: string; tenant: string } | undefined;
+  let authoritative = false;
   await sendAndStream(task.agentId, { taskId: task.taskId, contextId: task.contextId, resubscribe: true, tenant: task.tenant }, {
     onTaskIdentity: (value) => { identity = value; },
+    onSnapshot: (view) => {
+      authoritative = true;
+      const latest = useTaskStore.getState().tasks[taskStorageKey(task)];
+      const known = new Set(view.messages.map((message) => message.id));
+      const extra = latest?.messages.filter((message) => message.role === "user" && !known.has(message.id)) ?? [];
+      handlers.onUpdate(extra.length ? { ...view, messages: [...view.messages, ...extra] } : view);
+    },
     onEvent: (event) => {
+      if (authoritative) return;
       events.push(event);
       const applied = { ...applyEvents(events, task, task.taskId), ...(identity ? { localId: identity.localId, tenant: identity.tenant } : {}) };
       // The user may have sent a message since this stream opened; don't drop it.

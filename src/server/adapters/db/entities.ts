@@ -5,6 +5,8 @@ import type {
   OutboxStatus,
   TaskEventSource,
   CommandStatus,
+  SubscriptionStatus,
+  PushStatus,
 } from "../../domain/persistence-model";
 
 // Entity names must remain stable across independently minified Next.js chunks.
@@ -141,6 +143,7 @@ const TaskEventSchema = defineEntity({
   name: "TaskEventEntity",
   tableName: "task_events",
   properties: {
+    sequence: p.integer().autoincrement(),
     id: p.uuid().primary(),
     organizationId: () =>
       p
@@ -164,6 +167,7 @@ const TaskEventSchema = defineEntity({
     projectionVersion: p.integer(),
   },
   indexes: [
+    { name: "idx_task_events_feed", properties: ["taskId", "sequence"] },
     {
       name: "idx_task_events_task_received",
       properties: ["taskId", "receivedAt"],
@@ -247,6 +251,63 @@ export class TaskCommandEntity extends TaskCommandSchema.class {}
 Object.defineProperty(TaskCommandEntity, "name", { value: "TaskCommandEntity" });
 TaskCommandSchema.setClass(TaskCommandEntity);
 
+const SubscriptionSchema = defineEntity({
+  name: "SubscriptionEntity", tableName: "task_subscriptions",
+  properties: {
+    id: p.uuid().primary(),
+    organizationId: () => p.manyToOne(OrganizationEntity).mapToPk().joinColumn("organization_id"),
+    taskId: () => p.manyToOne(TaskEntity).mapToPk().joinColumn("task_id").unique("uq_task_subscriptions_task"),
+    status: p.string().length(32).$type<SubscriptionStatus>(),
+    availableAt: p.datetime(), attempts: p.integer().default(0),
+    leaseOwner: p.string().length(255).nullable(), leaseUntil: p.datetime().nullable(), lastError: p.text().nullable(),
+    createdAt: p.datetime(), updatedAt: p.datetime(),
+  },
+  indexes: [{ name: "idx_task_subscriptions_ready", properties: ["status", "availableAt"] },
+    { name: "idx_task_subscriptions_lease", properties: ["leaseUntil"] }],
+});
+export class SubscriptionEntity extends SubscriptionSchema.class {}
+Object.defineProperty(SubscriptionEntity, "name", { value: "SubscriptionEntity" });
+SubscriptionSchema.setClass(SubscriptionEntity);
+
+const PushRegistrationSchema = defineEntity({
+  name: "PushRegistrationEntity", tableName: "task_push_registrations",
+  properties: {
+    id: p.uuid().primary(),
+    organizationId: () => p.manyToOne(OrganizationEntity).mapToPk().joinColumn("organization_id"),
+    taskId: () => p.manyToOne(TaskEntity).mapToPk().joinColumn("task_id").unique("uq_task_push_registrations_task"),
+    status: p.string().length(32).$type<PushStatus>(), desired: p.boolean(),
+    availableAt: p.datetime(), attempts: p.integer().default(0),
+    leaseOwner: p.string().length(255).nullable(), leaseUntil: p.datetime().nullable(), lastError: p.text().nullable(),
+    rateWindow: p.datetime(), rateCount: p.integer().default(0), createdAt: p.datetime(), updatedAt: p.datetime(),
+  },
+  indexes: [{ name: "idx_task_push_registrations_ready", properties: ["status", "availableAt"] },
+    { name: "idx_task_push_registrations_lease", properties: ["leaseUntil"] }],
+});
+export class PushRegistrationEntity extends PushRegistrationSchema.class {}
+Object.defineProperty(PushRegistrationEntity, "name", { value: "PushRegistrationEntity" });
+PushRegistrationSchema.setClass(PushRegistrationEntity);
+
+const SyncCursorSchema = defineEntity({
+  name: "SyncCursorEntity", tableName: "sync_cursors",
+  properties: {
+    id: p.uuid().primary(),
+    organizationId: () => p.manyToOne(OrganizationEntity).mapToPk().joinColumn("organization_id"),
+    agentId: () => p.manyToOne(AgentEntity).mapToPk().joinColumn("agent_id"),
+    tenant: p.string().length(255), resourceKey: p.string().length(36),
+    taskId: () => p.manyToOne(TaskEntity).mapToPk().joinColumn("task_id").nullable(),
+    status: p.string().length(32).$type<import("../../domain/persistence-model").SyncCursorRecord["status"]>(),
+    pageToken: p.text(), availableAt: p.datetime(), attempts: p.integer().default(0),
+    leaseOwner: p.string().length(255).nullable(), leaseUntil: p.datetime().nullable(), lastError: p.text().nullable(),
+    lastSyncedAt: p.datetime().nullable(), createdAt: p.datetime(), updatedAt: p.datetime(),
+  },
+  uniques: [{ name: "uq_sync_cursors_scope_resource", properties: ["organizationId", "agentId", "tenant", "resourceKey"] }],
+  indexes: [{ name: "idx_sync_cursors_ready", properties: ["status", "availableAt"] },
+    { name: "idx_sync_cursors_lease", properties: ["leaseUntil"] }],
+});
+export class SyncCursorEntity extends SyncCursorSchema.class {}
+Object.defineProperty(SyncCursorEntity, "name", { value: "SyncCursorEntity" });
+SyncCursorSchema.setClass(SyncCursorEntity);
+
 export const persistenceEntities = [
   OrganizationEntity,
   AgentEntity,
@@ -255,4 +316,7 @@ export const persistenceEntities = [
   TaskEventEntity,
   OutboxMessageEntity,
   TaskCommandEntity,
+  SubscriptionEntity,
+  PushRegistrationEntity,
+  SyncCursorEntity,
 ];

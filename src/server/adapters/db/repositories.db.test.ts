@@ -238,7 +238,7 @@ async function verifyRepositoryContract(config: DatabaseConfig) {
         organization.id,
         firstTask.id,
       ),
-    ).toEqual([firstEvent]);
+    ).toEqual([{ ...firstEvent, sequence: expect.any(Number) }]);
     expect(
       await repositories.taskEvents.findByTaskId(
         otherOrganization.id,

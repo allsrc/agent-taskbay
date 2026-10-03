@@ -72,7 +72,7 @@ remain Phase 2 work (ADR 0006).
 ```text
 id, organizationId, agentId, taskId,
 source, eventKind, receivedAt, remoteTimestamp,
-sourceKey, payloadDigest, payloadJson,
+sourceKey, payloadDigest, payloadJson, sequence,
 sessionId, requestId, traceId, projectionVersion
 ```
 
@@ -81,6 +81,16 @@ Events containing inline binary parts retain their complete original JSON in
 ArtifactStore; `payloadJson` holds `{ event, originalEventObjectKey }`, where
 `event` uses local binary download references. Non-binary events remain inline.
 `payloadDigest` fingerprints the original canonical value (ADR 0006).
+
+Slice 2.2 adds a database-generated sequence and `(taskId, sequence)` feed
+index. Inserts allocate sequence values under the task ingestion lock; the
+compatibility browser stream tails only committed, organization-scoped events.
+Chat uses committed projection snapshots so historical ledger delivery does not
+repeat visible transitions. Untimestamped task/status events use persisted
+user-turn identity in addition to their fingerprint; command responses also
+use stable command identity. Worker events persist safe
+protocol/transport/negotiated-extension metadata
+in the event envelope. This metadata never includes credentials or headers.
 
 The preferred deduplication key is a stable protocol/source identifier. When
 the peer supplies none, use a documented canonical payload digest plus task,
@@ -118,6 +128,76 @@ pre-dispatch failures retry at most three times with stable message IDs;
 expired attempts and uncertain remote results do not automatically resend
 (ADR 0007). Command intent is distinct from the future workflow audit model.
 
+### SubscriptionLease (Slice 2.2)
+
+```text
+id, organizationId, taskId, status, availableAt, attempts,
+leaseOwner, leaseUntil, lastError, createdAt, updatedAt
+```
+
+Stored in `task_subscriptions`, unique by local `taskId`. Task ingestion and
+subscription intent commit together. Active tasks use `pending`/`streaming`;
+terminal and input/auth-required tasks use `stopped`. A command that returns
+active state re-arms observation. Direct Messages have no subscription row.
+Migration adopts existing active tasks.
+
+Leases last 15 seconds and renew every 5 seconds, including quiet streams.
+Each attempt uses a unique owner. Every worker event validates remote identity
+and commits ingestion with an unexpired ownership fence. Expired leases may
+reconnect safely because SubscribeToTask observes existing work without sending
+new messages. Disconnects retry with 1–30 second exponential backoff. Graceful
+shutdown aborts observation and releases intent; crash recovery waits for expiry.
+The initial pool has eight streams per worker. See ADR 0008.
+
+### WebhookRegistration (Slice 2.3)
+
+```text
+id, organizationId, taskId, status, desired, availableAt, attempts,
+leaseOwner, leaseUntil, lastError, rateWindow, rateCount, createdAt, updatedAt
+```
+
+Stored in `task_push_registrations`, unique by local task ID. The registration
+UUID is the remote config ID and callback path. No credential values are stored;
+a server-only signing key derives single-purpose Bearer credentials (ADR 0009).
+Push is opt-in. A configured worker adopts existing nonterminal tasks at startup,
+and new intent commits with task ingestion. Direct Messages have no registration.
+
+States are `pending`, `registering`, `active`, `deleting`, `deleted`, or `failed`.
+Fifteen-second leases renew every five seconds, with fenced completion and safe
+1–30 second retries. Interrupted creates recover by reading the same config ID.
+Input/auth-required retains push; terminal state or agent disablement schedules
+cleanup. An in-flight create cannot overwrite concurrent cleanup intent.
+Authenticated callbacks have a persistent 120-per-minute rate window. Deleted
+and disabled registrations reject callbacks; terminal tasks acknowledge late
+valid deliveries without changing projections. Webhook event fingerprints are
+registration scoped, with optional stable delivery IDs for repeated append bytes.
+
+### SyncCursor (Slice 2.4)
+
+```text
+id, organizationId, agentId, tenant, resourceKey, taskId,
+status, pageToken, availableAt, attempts, leaseOwner, leaseUntil,
+lastError, lastSyncedAt, createdAt, updatedAt
+```
+
+Stored in `sync_cursors`, unique by organization/agent/tenant/resourceKey.
+An empty resource key is a ListTasks scope; a local task UUID is a GetTask
+schedule with a task foreign key. Ingestion creates intent transactionally;
+migration adopts existing nonterminal work. Direct Messages never get cursors.
+States are `pending`, `syncing`, `stopped`, and `unsupported`. Terminal tasks
+stop their GetTask cursor; input/auth-required work remains polled.
+
+Read leases last fifteen seconds and renew every five seconds. GetTask repeats
+after fifteen seconds; complete list sweeps repeat after sixty seconds. Full
+sweeps avoid missing artifacts with unchanged status timestamps. Page tokens
+advance only after page ingestion; a crash replays the page. Failures reset the
+page token and retry with bounded backoff, using safe operational errors.
+Snapshots validate task/context/tenant identity, recheck the pre-read task
+version under its ingestion lock, and renew the cursor lease in the same
+transaction. Older remote timestamps and concurrent updates cannot regress
+content/state. ListTasks only updates known scoped tasks. Unsupported listing
+stops that cursor but preserves GetTask fallback. See ADR 0010.
+
 ## Later entities
 
 ### Identity and access
@@ -136,9 +216,6 @@ expired attempts and uncertain remote results do not automatically resend
 - `AgentInterface`
 - `AgentSkill`
 - `AgentCredentialBinding` containing only vault references and metadata
-- `WebhookRegistration`
-- `SubscriptionLease`
-- `SyncCursor`
 - `AgentHealthSample`
 
 ### Task content and workflow

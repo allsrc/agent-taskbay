@@ -39,8 +39,7 @@ export async function acceptCommand(agentId: string, body: unknown, idempotencyK
   const parsed = commandInputSchema.safeParse(body);
   if (!parsed.success) throw new CommandError(parsed.error.issues.map((issue) => issue.message).join("; "), 400);
   const { action, tenant, config, ...input } = parsed.data;
-  // Initial sends return a snapshot; browser subscriptions remain the temporary
-  // follow-up writer until Slice 2.2. Explicit send configuration is preserved.
+  // Initial sends return a snapshot; the worker observes open tasks independently.
   const params = JSON.parse(JSON.stringify({ ...input, returnImmediately: true, ...config })) as Record<string, JsonValue>;
   return withRequestEntityManager(async (em) => {
     const organization = await bootstrapDefaultLocalOrganization(createPersistenceRepositories(em).organizations);

@@ -77,7 +77,7 @@ Requirements: `AGT-001..003`, `TSK-002`, `REL-001`, `PERF-001`, `OPS-001`,
 
 ## Phase 2 — durable task runtime
 
-**Status:** In progress; Slice 2.1 verified with Phase 1 prerequisites complete.
+**Status:** In progress; Slices 2.1–2.4 verified with Phase 1 prerequisites complete.
 
 ### Slice 2.1: durable command dispatch
 
@@ -91,19 +91,50 @@ long-lived streams to workers in the next slice.
 
 ### Slice 2.2: worker-owned subscriptions
 
-- [ ] Move long-lived A2A streams and resubscription into a worker entry point.
+- [x] Move long-lived A2A streams and resubscription into a worker entry point.
 
 Persist subscription intent and leases, reconnect outside browser requests,
 and retain server ingestion as the authority. Verify continued observation
 after all browsers close, worker restart, input-required and artifact updates.
 Use the embedded PGlite owner or separate PostgreSQL workers per ADR 0007.
 
-### Remaining deliverables
+### Slice 2.3: authenticated push delivery
 
-- [ ] Implement authenticated webhook receipt and push-config lifecycle.
-- [ ] Implement `GetTask`/`ListTasks` reconciliation and sync cursors.
-- [ ] Send all sources through one idempotent ingestion transaction.
+- [x] Implement authenticated webhook receipt and push-config lifecycle.
+
+Build authenticated, expected-task-scoped webhook receipt and durable push
+registration/lifecycle through the gateway and worker ports. Route deliveries
+through common ingestion and verify duplicate delivery, invalid authentication,
+organization/agent/tenant scope, and restart recovery. Do not begin reconciliation
+or projection rebuild in the same slice.
+
+### Slice 2.4: task reconciliation and sync cursors
+
+- [x] Implement `GetTask`/`ListTasks` reconciliation and sync cursors.
+
+Recover missed updates and uncertain observations through worker-owned reads,
+with durable scheduling and organization/agent/tenant-scoped cursors. Route
+snapshots through common ingestion. Verify missed-event recovery, worker restart,
+unsupported streaming peers and scoped remote-ID collisions. Do not resend
+uncertain commands automatically or begin projection rebuild/application SSE
+in this slice.
+
+- [x] Send all sources through one idempotent ingestion transaction.
+
+### Slice 2.5: versioned projections and rebuild
+
 - [ ] Version and rebuild task/message/artifact projections.
+
+Replace the transitional content projection with versioned task/message/artifact
+projections behind existing query and ingestion ports. Rebuild from retained
+protocol events, including original binary event archives. Verify deterministic
+rebuild, cross-source duplicates, out-of-order deliveries, artifact assembly,
+restart and organization/agent/tenant isolation on PGlite and PostgreSQL. Keep
+reads available during rebuild and record projection-version migration evidence.
+Do not begin application freshness SSE or browser-cache authority removal in
+this slice.
+
+### Remaining deliverables
 - [ ] Publish application SSE as a freshness signal over durable state.
 - [ ] Remove task content and notification authority from browser persistence.
 

@@ -70,6 +70,8 @@ export type TaskEventSource =
   | "import";
 
 export interface TaskEventRecord {
+  /** Database-generated feed cursor, allocated under the task ingestion lock. */
+  sequence?: number;
   id: string;
   organizationId: string;
   agentId: string;
@@ -85,6 +87,21 @@ export interface TaskEventRecord {
   requestId: string | null;
   traceId: string | null;
   projectionVersion: number;
+}
+
+export type SubscriptionStatus = "pending" | "streaming" | "stopped";
+export interface SubscriptionRecord {
+  id: string;
+  organizationId: string;
+  taskId: string;
+  status: SubscriptionStatus;
+  availableAt: Date;
+  attempts: number;
+  leaseOwner: string | null;
+  leaseUntil: Date | null;
+  lastError: string | null;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export type OutboxStatus = "pending" | "processing" | "processed" | "failed";
@@ -122,4 +139,32 @@ export interface OutboxMessageRecord {
   lastError: string | null;
   createdAt: Date;
   processedAt: Date | null;
+}
+
+export type PushStatus = "pending" | "registering" | "active" | "deleting" | "deleted" | "failed";
+export interface PushRegistrationRecord {
+  id: string;
+  organizationId: string;
+  taskId: string;
+  status: PushStatus;
+  desired: boolean;
+  availableAt: Date;
+  attempts: number;
+  leaseOwner: string | null;
+  leaseUntil: Date | null;
+  lastError: string | null;
+  rateWindow: Date;
+  rateCount: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/** resourceKey is empty for a scoped list sweep, otherwise the local task UUID. */
+export interface SyncCursorRecord {
+  id: string; organizationId: string; agentId: string; tenant: string;
+  resourceKey: string; taskId: string | null;
+  status: "pending" | "syncing" | "stopped" | "unsupported";
+  pageToken: string; availableAt: Date; attempts: number;
+  leaseOwner: string | null; leaseUntil: Date | null; lastError: string | null;
+  lastSyncedAt: Date | null; createdAt: Date; updatedAt: Date;
 }

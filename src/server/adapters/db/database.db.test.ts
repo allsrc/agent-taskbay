@@ -17,6 +17,9 @@ const migrationNames = [
   "Migration20261001131340_InitialModel",
   "Migration20261003000000_TaskContent",
   "Migration20261003010000_TaskCommands",
+  "Migration20261003020000_TaskSubscriptions",
+  "Migration20261003030000_TaskPushRegistrations",
+  "Migration20261003045027_TaskReconciliation",
 ];
 
 async function verifyMigrationContract(config: DatabaseConfig) {
@@ -33,7 +36,7 @@ async function verifyMigrationContract(config: DatabaseConfig) {
     const applied = await orm.migrator.up();
     expect(applied.map((migration) => migration.name)).toEqual(migrationNames);
     expect(await orm.migrator.getPending()).toHaveLength(0);
-    expect(await orm.migrator.getExecuted()).toHaveLength(4);
+    expect(await orm.migrator.getExecuted()).toHaveLength(7);
     expect(await orm.migrator.checkSchema()).toBe(false);
   } finally {
     await orm.close(true);
@@ -59,29 +62,39 @@ describe("PGlite database adapter", () => {
 
     reopenedOrm = await createDatabaseOrm(config);
     expect(await reopenedOrm.migrator.getPending()).toHaveLength(0);
-    expect(await reopenedOrm.migrator.getExecuted()).toHaveLength(4);
+    expect(await reopenedOrm.migrator.getExecuted()).toHaveLength(7);
   });
 
-  it("upgrades the immediately previous task-content schema", async () => {
+  it("upgrades the immediately previous push schema", async () => {
     const upgradeDataDir = await mkdtemp(
       path.join(tmpdir(), "a2a-ops-pglite-upgrade-"),
     );
     const config = { profile: "pglite" as const, dataDir: upgradeDataDir };
     try {
       const previousOrm = await createDatabaseOrm(config);
-      await previousOrm.migrator.up({ to: migrationNames[2] });
+      await previousOrm.migrator.up({ to: migrationNames[5] });
       await previousOrm.em.getConnection().execute(`insert into organizations (id, slug, name, created_at, updated_at) values ('00000000-0000-4000-a000-000000000001', 'upgrade', 'Upgrade', now(), now())`);
       await previousOrm.em.getConnection().execute(`insert into agents (id, organization_id, card_url, source, enabled, created_at, updated_at) values ('00000000-0000-4000-a000-000000000002', '00000000-0000-4000-a000-000000000001', 'https://upgrade.example.test', 'managed', true, now(), now())`);
       await previousOrm.em.getConnection().execute(`insert into tasks (id, organization_id, agent_id, tenant, remote_task_id, kind, state, created_at, updated_at) values ('00000000-0000-4000-a000-000000000003', '00000000-0000-4000-a000-000000000001', '00000000-0000-4000-a000-000000000002', '', 'retained', 'task', 'TASK_STATE_WORKING', now(), now())`);
+      await previousOrm.em.getConnection().execute(`insert into task_subscriptions (id, organization_id, task_id, status, available_at, created_at, updated_at) values ('00000000-0000-4000-a000-000000000004', '00000000-0000-4000-a000-000000000001', '00000000-0000-4000-a000-000000000003', 'pending', now(), now(), now())`);
       await previousOrm.close(true);
 
       const upgradedOrm = await createDatabaseOrm(config);
       expect(
         (await upgradedOrm.migrator.getPending()).map(({ name }) => name),
-      ).toEqual([migrationNames[3]]);
+      ).toEqual([migrationNames[6]]);
       await upgradedOrm.migrator.up();
       const rows = await upgradedOrm.em.getConnection().execute(`select remote_task_id, state, content_json from tasks where id = '00000000-0000-4000-a000-000000000003'`);
       expect(rows).toEqual([{ remote_task_id: "retained", state: "TASK_STATE_WORKING", content_json: {} }]);
+      const adopted = await upgradedOrm.em.getConnection().execute(`select task_id, status from task_subscriptions`);
+      expect(adopted).toEqual([{ task_id: "00000000-0000-4000-a000-000000000003", status: "pending" }]);
+      const push = await upgradedOrm.em.getConnection().execute(`select count(*)::int as count from task_push_registrations`);
+      expect(push).toEqual([{ count: 0 }]);
+      const sync = await upgradedOrm.em.getConnection().execute(`select resource_key, task_id, status from sync_cursors order by resource_key`);
+      expect(sync).toEqual([
+        { resource_key: "", task_id: null, status: "pending" },
+        { resource_key: "00000000-0000-4000-a000-000000000003", task_id: "00000000-0000-4000-a000-000000000003", status: "pending" },
+      ]);
       expect(await upgradedOrm.migrator.checkSchema()).toBe(false);
       await upgradedOrm.close(true);
     } finally {

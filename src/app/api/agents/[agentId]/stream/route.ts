@@ -1,10 +1,10 @@
 import { agentRegistry } from "@/lib/agent-registry";
-import { serializeStreamEvent, streamOperation } from "@/lib/gateway";
 import { readJsonRequest } from "@/lib/request-guard";
-import { createTaskObserver } from "@/server/runtime/task-persistence";
-import type { JsonValue } from "@/server/domain/persistence-model";
 import { acceptCommand, waitForCommand, compatibilityCommandKey } from "@/server/runtime/commands";
 import { apiError } from "@/lib/api-response";
+import { ensureTaskSubscription, readTaskFeed } from "@/server/runtime/subscriptions";
+import { observationPaused } from "@/server/application/services/subscription-state";
+import { object } from "@/server/application/services/task-projection";
 import { extractSidebandEvents } from "@/server/sideband/decoder";
 
 export const runtime = "nodejs";
@@ -35,7 +35,7 @@ interface SendBody {
 const encoder = new TextEncoder();
 const frame = (event: string, data: unknown) => encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
 
-/** `message/stream` (design doc §1/§7.2.6), proxied so agent credentials never reach the browser. */
+/** Compatibility event view over committed state; workers own all remote streams. */
 export async function POST(request: Request, context: { params: Promise<{ agentId: string }> }) {
   const { agentId } = await context.params;
   const agent = await agentRegistry().get(agentId);
@@ -54,7 +54,11 @@ export async function POST(request: Request, context: { params: Promise<{ agentI
   const sessionId = crypto.randomUUID();
   const requestId = crypto.randomUUID();
   let commandId: string | undefined;
-  if (!body.resubscribe) {
+  let localId: string | undefined;
+  if (body.resubscribe) {
+    try { localId = await ensureTaskSubscription(agent.id, body.tenant ?? "", body.taskId!); }
+    catch (error) { return apiError(error, 400); }
+  } else {
     try {
       const input = { ...body };
       delete input.resubscribe;
@@ -62,52 +66,45 @@ export async function POST(request: Request, context: { params: Promise<{ agentI
       commandId = command.id;
     } catch (error) { return apiError(error, 400); }
   }
-  const observer = createTaskObserver({ agentId: agent.id, tenant: body.tenant, sessionId, requestId });
 
   let disconnected = false;
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       const emit = (event: string, data: unknown) => { if (!disconnected) controller.enqueue(frame(event, data)); };
       try {
-        let taskId = body.taskId;
         if (commandId) {
           emit("accepted", { commandId });
           const command = await waitForCommand(commandId, request.signal);
-          const result = command.resultJson as { event: JsonValue; localId: string; taskId: string; tenant: string };
-          emit("persisted", { localId: result.localId, taskId: result.taskId, tenant: result.tenant });
-          emit("a2a", result.event);
-          const task = (result.event as { task?: { id: string; status?: { state: string } } }).task;
-          if (!task || ["TASK_STATE_COMPLETED", "TASK_STATE_FAILED", "TASK_STATE_CANCELED", "TASK_STATE_REJECTED", "TASK_STATE_INPUT_REQUIRED", "TASK_STATE_AUTH_REQUIRED"].includes(task.status?.state ?? "")) {
-            emit("end", { sessionId, requestId, commandId });
-            return;
-          }
-          taskId = task.id;
+          localId = (command.resultJson as { localId: string }).localId;
         }
-        // Initial sends are worker-dispatched. Only the follow-up subscription
-        // remains attached to this browser request until Slice 2.2.
-        const session = await streamOperation({
-          connection: { cardUrl: agent.cardUrl, auth: { type: "none" }, headers: {} },
-          action: "getTask", params: { tenant: body.tenant, taskId }, sessionId, requestId,
-        });
-        emit("meta", {
-          sessionId,
-          requestId,
-          protocolVersion: session.client.protocolVersion,
-          transport: session.client.transport.protocolName,
-          negotiatedExtensions: session.negotiatedExtensions,
-        });
-        for await (const event of session.events) {
-          if (disconnected || request.signal.aborted) break;
-          const serialized = serializeStreamEvent(event);
-          const durable = await observer(serialized as JsonValue);
-          emit("persisted", { localId: durable.localId, taskId: durable.taskId, tenant: durable.tenant });
-          emit("a2a", serialized);
-          const sidebandEvents = extractSidebandEvents(serialized, { sessionId, requestId, negotiatedExtensions: session.negotiatedExtensions });
-          for (const sidebandEvent of sidebandEvents) emit("sideband", sidebandEvent);
+        let cursor = 0;
+        let version = -1;
+        const deadline = Date.now() + 50_000;
+        while (!disconnected && !request.signal.aborted && Date.now() < deadline) {
+          const { task, view, events, subscription } = await readTaskFeed(localId!, cursor);
+          emit("persisted", { localId: task.id, taskId: task.remoteTaskId ?? task.id, tenant: task.tenant });
+          if (version !== task.version) { emit("snapshot", view); version = task.version; }
+          for (const event of events) {
+            cursor = event.sequence!;
+            const envelope = object(event.payloadJson);
+            const value = envelope.originalEventObjectKey || envelope.streamMetadata ? envelope.event : event.payloadJson;
+            const metadata = object(envelope.streamMetadata);
+            if (envelope.streamMetadata) emit("meta", { ...metadata, sessionId: event.sessionId, requestId: event.requestId });
+            emit("a2a", value);
+            for (const sideband of extractSidebandEvents(value, { sessionId, requestId,
+              negotiatedExtensions: Array.isArray(metadata.negotiatedExtensions) ? metadata.negotiatedExtensions as string[] : [] })) emit("sideband", sideband);
+          }
+          // Drain every committed event before ending a paused/terminal view.
+          if (events.length === 100) continue;
+          if (observationPaused(task.state)) break;
+          if (subscription?.status === "stopped" && subscription.lastError) {
+            emit("error", { sessionId, requestId, message: subscription.lastError }); break;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 250));
         }
         emit("end", { sessionId, requestId });
-      } catch (error) {
-        emit("error", { sessionId, requestId, commandId, message: error instanceof Error ? error.message : "Streaming request failed." });
+      } catch {
+        emit("error", { sessionId, requestId, commandId, message: "Durable task stream unavailable; query task or command status before retrying." });
       } finally {
         if (!disconnected) controller.close();
       }

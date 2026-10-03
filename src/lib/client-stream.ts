@@ -2,7 +2,7 @@
 
 import { readSse } from "./sse";
 import type { OutgoingPart } from "./message-parts";
-import type { SendConfig } from "../shared/task-types";
+import type { DurableTaskView, SendConfig } from "../shared/task-types";
 
 export interface StreamMeta {
   sessionId: string;
@@ -13,6 +13,7 @@ export interface StreamMeta {
 }
 
 export interface StreamCallbacks {
+  onSnapshot?: (task: DurableTaskView) => void;
   onAccepted?: (commandId: string) => void;
   onTaskIdentity?: (identity: { localId: string; taskId: string; tenant: string }) => void;
   onMeta?: (meta: StreamMeta) => void;
@@ -21,7 +22,7 @@ export interface StreamCallbacks {
   onError?: (message: string) => void;
 }
 
-/** Drives the server-mediated `message/stream` proxy at /api/agents/[agentId]/stream. */
+/** Reads committed task snapshots and protocol events from the compatibility stream. */
 export async function sendAndStream(
   agentId: string,
   body: {
@@ -47,6 +48,7 @@ export async function sendAndStream(
     if (event === "accepted") callbacks.onAccepted?.((data as { commandId: string }).commandId);
     else if (event === "meta") callbacks.onMeta?.(data as StreamMeta);
     else if (event === "persisted") callbacks.onTaskIdentity?.(data as { localId: string; taskId: string; tenant: string });
+    else if (event === "snapshot") callbacks.onSnapshot?.(data as DurableTaskView);
     else if (event === "a2a") callbacks.onEvent?.(data);
     else if (event === "sideband") callbacks.onSideband?.(data);
     else if (event === "error") {
