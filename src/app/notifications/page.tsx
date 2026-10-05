@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Bell, Loader2 } from "lucide-react";
 import { EmptyState } from "@/components/a2a/primitives";
 import { Button } from "@/components/ui/button";
-import { KIND_LABEL, needsAction, safeLink, unreadLabel } from "@/lib/notification-view";
+import { KIND_LABEL, NOTIFICATIONS_CHANGED, needsAction, safeLink, unreadLabel } from "@/lib/notification-view";
 import { relativeTime } from "@/lib/task-view";
 import { useServerResource } from "@/lib/use-server-resource";
 import type { InboxPage, NotificationView } from "@/shared/notification-types";
@@ -36,7 +36,7 @@ function Inbox({ unreadOnly, onFilter }: { unreadOnly: boolean; onFilter: (unrea
       if (!response.ok) throw new Error((await response.json())?.error?.message ?? "Could not save the read mark.");
       setProblem(null);
     } catch (cause) { setProblem(cause instanceof Error ? cause.message : "Could not save the read mark."); }
-    finally { first.refresh(); }
+    finally { first.refresh(); window.dispatchEvent(new Event(NOTIFICATIONS_CHANGED)); }
   }
   async function open(item: NotificationView) {
     if (!item.readAt) await mark({ ids: [item.id] });

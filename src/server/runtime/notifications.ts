@@ -93,7 +93,10 @@ export async function markRead(input: { ids?: string[]; all?: true }, options: {
   return withJobEntityManager((em) => em.transactional(async (transaction) => {
     const repository = new MikroOrmNotificationRepository(transaction);
     const now = new Date();
-    return input.all ? repository.markAllRead(principal.organizationId, principal.membershipId, now) : repository.markRead(principal.organizationId, principal.membershipId, input.ids ?? [], now);
+    const updated = input.all ? await repository.markAllRead(principal.organizationId, principal.membershipId, now) : await repository.markRead(principal.organizationId, principal.membershipId, input.ids ?? [], now);
+    // Other tabs and devices of this person re-query on the shared signal; their membership ID is a stable aggregate.
+    if (updated > 0) await sharedPorts(transaction).freshen(principal.organizationId, principal.membershipId);
+    return updated;
   }), options.orm);
 }
 

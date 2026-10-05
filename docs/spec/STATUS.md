@@ -1608,7 +1608,12 @@ Verification commands and results:
 - Scripted Chromium run (not committed): the inbox, unread badge, opening an item marking it
   read, marking all read with the badge clearing, read state surviving reload, the Unread tab,
   the channel card and test notification, and a 390px layout, with no console errors. The run
-  hit the page's script policy when it tried string evaluation, so it polls with locators.
+  hit the page's script policy when it tried string evaluation, so it polls with locators. It
+  also caught a real lag: marking notifications read updated the list but the navigation badge
+  waited for its next poll. The inbox now announces read marks so the badge clears within a
+  request round trip, and a mark also publishes the freshness signal for the person's other
+  tabs. After that fix the scripted run passed eleven consecutive times (three with the badge
+  checked within three seconds). Before it, two of two runs in one batch failed on that check.
 - Bugs found and fixed by the new tests: a fan-out hang on single-connection PGlite (a nested
   transaction), page-boundary duplicates in the inbox cursor, and test events whose aggregate
   ID was not a UUID.

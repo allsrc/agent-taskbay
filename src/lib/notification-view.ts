@@ -1,5 +1,8 @@
 import type { NotificationKind } from "@/shared/notification-types";
 
+/** Fired on `window` after a read mark so other parts of the page (the navigation badge) refresh immediately. */
+export const NOTIFICATIONS_CHANGED = "a2a-notifications-changed";
+
 /** The badge shows at most "99+", since the server counts at most the latest hundred unread. */
 export const unreadLabel = (unread: number) => unread > 99 ? "99+" : String(unread);
 

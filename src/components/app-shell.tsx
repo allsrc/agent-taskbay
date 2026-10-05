@@ -9,7 +9,7 @@ import { LogoMark, Wordmark } from "@/components/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { DurableTaskSync } from "@/components/chat/durable-task-sync";
 import { useTaskStore } from "@/store/task-store";
-import { unreadLabel } from "@/lib/notification-view";
+import { NOTIFICATIONS_CHANGED, unreadLabel } from "@/lib/notification-view";
 import type { InboxPage } from "@/shared/notification-types";
 import { useAgentStore } from "@/store/agent-store";
 import { useServerResource } from "@/lib/use-server-resource";
@@ -46,7 +46,14 @@ export function AppShell({ children, identity }: { children: React.ReactNode;
   identity: { displayName: string; role: string; development: boolean } }) {
   const active = useActive();
   const nav = NAV.filter((item) => !item.adminOnly || identity.role === "admin");
-  const unread = useServerResource<InboxPage>("/api/notifications?limit=1&unread=true").data?.unread ?? 0;
+  const unreadResource = useServerResource<InboxPage>("/api/notifications?limit=1&unread=true");
+  const unread = unreadResource.data?.unread ?? 0;
+  const refreshUnread = unreadResource.refresh;
+  // The inbox announces its own read marks so the badge updates at once instead of at the next poll.
+  useEffect(() => {
+    window.addEventListener(NOTIFICATIONS_CHANGED, refreshUnread);
+    return () => window.removeEventListener(NOTIFICATIONS_CHANGED, refreshUnread);
+  }, [refreshUnread]);
   const pending = (useServerResource<{ decisions: DecisionRequestView[] }>("/api/decisions?status=pending").data?.decisions.length) ?? 0;
   const taskError = useTaskStore((state) => state.error);
   const agents = useAgentStore((state) => state.agents);
