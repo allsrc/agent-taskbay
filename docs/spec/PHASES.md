@@ -297,7 +297,8 @@ Requirements: `HITL-001..005`, `HITL-007..008`, `NTF-001..002`, `AUD-001..002`; 
 
 ## Phase 5 — operator experience
 
-**Status:** In progress (slice 5.1 verified 2026-10-05).
+**Status:** Paused after slice 5.1 (verified 2026-10-05). Remaining work is deferred to
+[issue #5](https://github.com/shashikanth-gs/a2a-ops/issues/5); exit criteria are unverified.
 
 ### Deliverables
 
@@ -329,11 +330,11 @@ Requirements: `INB-001..002`, `TSK-006`, `HITL-005`, `ADM-001`, `PERF-001`,
 
 ## Phase 6 — rich interoperability
 
-**Status:** Planned.
+**Status:** In progress (started 2026-10-05).
 
 ### Deliverables
 
-- [ ] Structured start/input forms through an advertised schema extension.
+- [~] Structured start/input forms through an advertised schema extension. (Slice 6.1: input forms in the chat view, ADR 0020; start-of-task forms and the approval page follow.)
 - [ ] Render structured and A2UI proposals inside the approval review page through the
   action-renderer registry, with edit-before-approve for structured actions.
 - [ ] Agent-originated approval requests through a reviewed extension or recognized
