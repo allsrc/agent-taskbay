@@ -297,7 +297,8 @@ Requirements: `HITL-001..005`, `HITL-007..008`, `NTF-001..002`, `AUD-001..002`; 
 
 ## Phase 5 — operator experience
 
-**Status:** In progress (slice 5.1 verified 2026-10-05).
+**Status:** Paused after slice 5.1 (verified 2026-10-05). Remaining work is deferred to
+[issue #5](https://github.com/shashikanth-gs/a2a-ops/issues/5); exit criteria are unverified.
 
 ### Deliverables
 

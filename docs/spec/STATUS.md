@@ -5,9 +5,9 @@ Last updated: 2026-10-05
 ## Active position
 
 - Last completed phase: **Phase 4 — approval-grade human intervention**
-- Active phase: **Phase 5 — operator experience** (in progress)
+- Active phase: **Phase 6 — rich interoperability** (started 2026-10-05 by explicit decision; Phase 5 is paused, not complete)
 - Last completed slice: **5.1 — unified authorized inbox over tasks and approvals**
-- Next executable slice: **5.2 — saved views, full-text search, arbitrary-assignee/skill/team filters and bulk triage**
+- Next executable slice: **6.1 — structured input forms** (see the Phase 6 section of `PHASES.md`)
 - Blocking decisions: none
 
 ## Pending follow-ups
@@ -17,6 +17,13 @@ Last updated: 2026-10-05
   [GitHub issue #1](https://github.com/shashikanth-gs/a2a-ops/issues/1).
   Deferred by agreement on 2026-10-03 for later review. This is separate from the
   verified Phase 3 service identity baseline and does not block Slice 4.1.
+
+- **Phase 5 remainder — deferred:** saved views, full-text search, advanced filters,
+  bulk triage, SLA indicators, agent health administration, workflow links and
+  notification preferences are tracked in
+  [GitHub issue #5](https://github.com/shashikanth-gs/a2a-ops/issues/5). Deferred by
+  agreement on 2026-10-05 so Phase 6 could start; Phase 5 exit criteria are still
+  unverified and the phase is not complete. Resume at slice 5.2.
 
 ## Accepted implementation choices
 
@@ -1692,7 +1699,8 @@ Remaining risks:
 **Slice 5.1 is verified. Phase 5 remains active.**
 
 Next executable slice: **5.2 — saved views, full-text search, advanced filters and bulk triage** on the inbox
-query. Do not begin it without a continuation request.
+query. Deferred to [issue #5](https://github.com/shashikanth-gs/a2a-ops/issues/5) on 2026-10-05; the active
+slice moved to Phase 6 (6.1) by explicit decision.
 
 ## Known repository-state issue
 
