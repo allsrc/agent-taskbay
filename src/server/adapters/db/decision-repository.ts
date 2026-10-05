@@ -88,6 +88,15 @@ export class MikroOrmDecisionRepository implements DecisionRepository {
       { orderBy: { expiresAt: "asc" }, limit, refresh: true });
     return entities.map(requestRecord);
   }
+  async dueForExpiryWarning(now: Date, windowMs: number, limit: number) {
+    const ids = await this.em.getConnection().execute(
+      `select id from decision_requests where status in ('pending', 'changes_requested') and expiry_warned_at is null and expires_at > ? and expires_at <= ?
+         and expires_at - created_at > ? * interval '1 millisecond' order by expires_at asc limit ?`,
+      [now, new Date(now.getTime() + windowMs), windowMs * 2, limit], "all", this.em.getTransactionContext()) as Array<{ id: string }>;
+    if (!ids.length) return [];
+    return (await this.em.find(DecisionRequestEntity, { id: { $in: ids.map((row) => row.id) } }, { orderBy: { expiresAt: "asc" }, refresh: true })).map(requestRecord);
+  }
+  async markExpiryWarned(id: string, at: Date) { await this.em.nativeUpdate(DecisionRequestEntity, { id }, { expiryWarnedAt: at }); }
   async forFinishedTasks(limit: number) {
     const ids = await this.em.getConnection().execute(
       `select r.id from decision_requests r join tasks t on t.id = r.task_id

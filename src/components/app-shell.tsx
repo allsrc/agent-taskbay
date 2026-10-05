@@ -9,7 +9,8 @@ import { LogoMark, Wordmark } from "@/components/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { DurableTaskSync } from "@/components/chat/durable-task-sync";
 import { useTaskStore } from "@/store/task-store";
-import { useNotifications } from "@/store/notification-store";
+import { unreadLabel } from "@/lib/notification-view";
+import type { InboxPage } from "@/shared/notification-types";
 import { useAgentStore } from "@/store/agent-store";
 import { useServerResource } from "@/lib/use-server-resource";
 import type { DecisionRequestView } from "@/shared/decision-types";
@@ -45,7 +46,7 @@ export function AppShell({ children, identity }: { children: React.ReactNode;
   identity: { displayName: string; role: string; development: boolean } }) {
   const active = useActive();
   const nav = NAV.filter((item) => !item.adminOnly || identity.role === "admin");
-  const { unread } = useNotifications();
+  const unread = useServerResource<InboxPage>("/api/notifications?limit=1&unread=true").data?.unread ?? 0;
   const pending = (useServerResource<{ decisions: DecisionRequestView[] }>("/api/decisions?status=pending").data?.decisions.length) ?? 0;
   const taskError = useTaskStore((state) => state.error);
   const agents = useAgentStore((state) => state.agents);
@@ -86,7 +87,7 @@ export function AppShell({ children, identity }: { children: React.ReactNode;
                 <item.icon className="relative size-[18px]" strokeWidth={1.8} />
                 <span className="relative flex-1">{item.label}</span>
                 {item.href === "/notifications" && unread > 0 && (
-                  <span className="bg-brand text-brand-foreground relative rounded-full px-1.5 font-mono text-[11px] font-bold">{unread}</span>
+                  <span className="bg-brand text-brand-foreground relative rounded-full px-1.5 font-mono text-[11px] font-bold" aria-label={`${unread} unread notifications`}>{unreadLabel(unread)}</span>
                 )}
                 {item.href === "/approvals" && pending > 0 && (
                   <span className="bg-brand text-brand-foreground relative rounded-full px-1.5 font-mono text-[11px] font-bold" aria-label={`${pending} pending approvals`}>{pending}</span>

@@ -25,7 +25,7 @@ function ports(em: EntityManagerLike): WorkflowPorts {
   const shared = sharedPorts(em);
   return {
     workflow: new MikroOrmWorkflowRepository(em), tasks: shared.tasks, requireOperate: shared.requireOperate, canOperate: shared.canOperate,
-    isReviewer: shared.isReviewer, freshen: shared.freshen, audit: shared.audit,
+    isReviewer: shared.isReviewer, freshen: shared.freshen, notify: shared.notify, audit: shared.audit,
     names: shared.names,
   };
 }

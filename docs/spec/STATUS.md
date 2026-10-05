@@ -4,10 +4,10 @@ Last updated: 2026-10-05
 
 ## Active position
 
-- Last completed phase: **Phase 3 — identity and security**
-- Active phase: **Phase 4 — approval-grade human intervention**
-- Last completed slice: **4.4 — immutable workflow audit views** (after 4.1, 4.1b, 4.2 and 4.3)
-- Next executable slice: **4.5 — durable notifications and one external channel**
+- Last completed phase: **Phase 4 — approval-grade human intervention**
+- Active phase: **Phase 5 — operator experience** (not started)
+- Last completed slice: **4.5 — durable notifications and one external channel** (completing Phase 4)
+- Next executable slice: **5.1 — unified authorized inbox over tasks and approvals**
 - Blocking decisions: none
 
 ## Pending follow-ups
@@ -1555,6 +1555,95 @@ Remaining risks:
 Next executable slice: **4.5 — durable notifications and one external channel**: per-user
 notification and read state, delivery through the outbox behind adapters, a browser inbox
 replacing the session-only alerts, and one external channel.
+
+## Phase 4 Slice 4.5 and phase exit verified evidence
+
+Date: 2026-10-05
+
+Slice: **4.5 — durable notifications and one external channel**
+
+Changes:
+
+- Added durable per-person notifications (ADR 0018). Events are raised in the transaction that
+  causes them: approval opened, revised, assigned or delegated, decided, expiring, expired and
+  superseded; task assigned and escalated; and tasks entering input-required, auth-required,
+  finished or failed during ingestion. A leased fan-out worker turns each event into one
+  immutable notification and one recipient row per person, exactly once (the notification ID is
+  the event's outbox ID), with bounded retries that stop without blocking other events.
+- Recipients follow responsibility and access: the assignee, otherwise eligible reviewers;
+  never whoever caused the event; the requester for outcomes and closures; always only people
+  who can read the task's agent. Wording carries no proposal text, rationale or note body.
+- Read state is a per-recipient mark that only its owner can set (database trigger enforces
+  that nothing else changes). The inbox hides notifications about tasks a member can no longer
+  read. `GET /api/notifications`, `POST /api/notifications/read`, an unread count in the
+  navigation, and a rebuilt Notifications page replace the browser-derived, session-only alerts
+  (their store and derivation are removed).
+- One external channel behind a `NotificationChannel` port: a signed webhook (Slack-compatible
+  `text`) for one organization, using the agent network policy. Each notification is posted at
+  least once with delivery ID, timestamp and HMAC signature headers; delivery uses outbox
+  retries with backoff and ends in a visible failed state; stored errors are fixed strings.
+  An administrator card shows state, counts and last failure (host only) and sends a test.
+- An expiring warning fires once per open request near its deadline (`expiry_warned_at`).
+- Phase 4 follow-ups that do not block its exit criteria are listed in PHASES.md.
+
+Verification commands and results:
+
+- `npx tsc --noEmit`, `npm run lint` (no warnings) and `npm run build`: passed. Full quality
+  gate: 32 unit files/99 tests and 16 database files/36 tests on PGlite and PostgreSQL, schema
+  check clean against a freshly migrated database, and all HTTP suites including the new
+  notifications suite.
+- The shared notification contract verifies recipient rules for every event kind (including
+  that actors, the unprivileged and other organizations are never told), absence of proposal
+  text and rationale from notifications and webhook bodies, exactly-once fan-out on
+  reprocessing, retry then permanent failure of a poisoned event without blocking others,
+  expiring warnings once, personal read state (others' marks change nothing), keyset paging
+  equal to the full list, access revocation hiding notifications, immutability triggers, a real
+  HTTP receiver checking the signature, timestamp, delivery ID and one post per notification,
+  retry with redacted errors and a bounded failed state, administrator-only status and test,
+  configuration validation, restart, and migration rollback/reapply.
+- Production HTTP verifies the same through real routes, including notifications created by the
+  real ingestion path (input needed, finished), escalation and worker expiry, validation and
+  paging, read marks, and the webhook's signature and content; the OIDC suite verifies
+  authentication, per-member inboxes, administrator-only channel routes and origin checks.
+- Scripted Chromium run (not committed): the inbox, unread badge, opening an item marking it
+  read, marking all read with the badge clearing, read state surviving reload, the Unread tab,
+  the channel card and test notification, and a 390px layout, with no console errors. The run
+  hit the page's script policy when it tried string evaluation, so it polls with locators.
+- Bugs found and fixed by the new tests: a fan-out hang on single-connection PGlite (a nested
+  transaction), page-boundary duplicates in the inbox cursor, and test events whose aggregate
+  ID was not a UUID.
+
+Phase 4 exit criteria verified:
+
+- The audit record alone identifies who decided exactly what and when (4.4: exact content,
+  revision digest, rationale, reviewer, delivery; database-enforced immutability).
+- Replayed, repeated or concurrent decisions do not execute twice (4.1: one command per
+  decision, idempotency keys, locks; HTTP and both databases).
+- Expired or superseded approvals cannot authorize anything (4.1/4.3: refusal on decide,
+  worker expiry and supersession, final task states).
+- Assigned input and approval work reaches the responsible user's durable queue (4.2 ownership
+  and queue views with 4.5 notifications and read state).
+
+Migration tested from:
+
+- Clean PGlite and PostgreSQL through all fifteen migrations, with rollback/reapply and no
+  schema drift. The migration adds two tables, a column and triggers.
+
+Remaining risks:
+
+- PostgreSQL verification used the sandbox's PostgreSQL 16, not the 18 service CI uses.
+- The webhook is one destination per deployment for one organization; delivery is at least once.
+  Unowned input-required work notifies up to 25 eligible reviewers, which can be noisy until
+  per-person preferences exist (Phase 5). Notification retention is unlimited.
+- The removed browser alerts also showed finished tasks and ready artifacts to everyone;
+  finished tasks now notify owners only and artifact-ready notices are not produced.
+- Browser-level tests are still manual scripts outside the CI gate.
+
+**Slice 4.5 and every Phase 4 exit criterion are verified. Phase 4 is complete.**
+
+Next executable slice: **Phase 5, 5.1 — unified authorized inbox over tasks and approvals**
+(global inbox, folding the Approvals queue into it, with indexed queries). Do not begin Phase 5
+without a continuation request.
 
 ## Known repository-state issue
 

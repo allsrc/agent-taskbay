@@ -50,7 +50,7 @@ function ports(em: Parameters<Parameters<typeof withJobEntityManager>[0]>[0], st
   const shared = sharedPorts(em);
   return {
     decisions: new MikroOrmDecisionRepository(em), tasks: shared.tasks, commands: shared.commands,
-    requireOperate: shared.requireOperate, canRead: shared.canRead, canOperate: shared.canOperate, freshen: shared.freshen, audit: shared.audit,
+    requireOperate: shared.requireOperate, canRead: shared.canRead, canOperate: shared.canOperate, freshen: shared.freshen, notify: shared.notify, audit: shared.audit,
     acceptCommand: (input) => acceptCommandWithin(em, { organizationId: input.organizationId, agentId: input.agentId, tenant: input.tenant,
       action: "send", skillId: input.skillId ?? undefined, idempotencyKey: input.idempotencyKey, store,
       input: { text: input.text, taskId: input.taskRemoteId, ...(input.contextId ? { contextId: input.contextId } : {}), messageId: input.messageId },

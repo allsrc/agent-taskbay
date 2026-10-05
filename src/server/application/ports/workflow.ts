@@ -1,6 +1,7 @@
 import type { AssignmentEventRecord, EscalationPolicyRecord, TaskAssignmentRecord, TaskNoteRecord } from "../../domain/workflow-model";
 import type { TaskRecord } from "../../domain/persistence-model";
 import type { Principal } from "./identity";
+import type { NotificationEvent } from "../../domain/notification-model";
 
 export type WorkflowFilter = "mine" | "overdue" | "unassigned";
 
@@ -35,6 +36,7 @@ export interface WorkflowPorts {
   /** Display names keyed by user ID and membership ID, for people in this organization only. */
   names(organizationId: string, userIds: string[], membershipIds: string[]): Promise<Record<string, string>>;
   freshen(organizationId: string, taskId: string): Promise<void>;
+  notify(organizationId: string, event: NotificationEvent): Promise<void>;
   audit(principal: Principal | null, organizationId: string, action: string, targetId: string, eventKey: string): Promise<void>;
 }
 

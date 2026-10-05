@@ -293,7 +293,9 @@ freshness signals remain a subsequent slice (ADR 0008).
 Slice 4.3 adds an approval sweep to the same worker profiles: it expires overdue approvals,
 supersedes those whose task finished and refreshes in-flight deliveries, publishing the
 existing freshness signal for each change (ADR 0015). The same loop escalates overdue owned
-tasks to the configured reviewer (ADR 0016). The Audit view (ADR 0017) reads the immutable records through one read-only timeline query.
+tasks to the configured reviewer (ADR 0016). The Audit view (ADR 0017) reads the immutable records through one read-only timeline query. Slice 4.5 adds a notification
+fan-out and a webhook delivery loop to the same worker profiles: events raised in the causing
+transaction become per-person inbox rows, and an optional signed webhook posts each one (ADR 0018).
 
 Slice 2.3 adds opt-in push registration and cleanup in the same worker profiles.
 Intent commits with ingestion, while leased workers perform remote config

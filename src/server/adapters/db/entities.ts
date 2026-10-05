@@ -1,6 +1,7 @@
 import { defineEntity, p } from "@mikro-orm/core";
 
 import type { AssignmentEventKind } from "../../domain/workflow-model";
+import type { NotificationKind } from "../../domain/notification-model";
 import type { DecisionOutcome, DecisionPolicy, DecisionRequestStatus, DecisionRisk, ExecutionStatus, ProposedAction } from "../../domain/decision-model";
 import type {
   JsonValue,
@@ -494,7 +495,7 @@ const DecisionRequestSchema = defineEntity({
     requestKey: p.string().length(255), title: p.string().length(300), summary: p.text(),
     risk: p.string().length(16).$type<DecisionRisk>(), policyJson: p.json<DecisionPolicy>(),
     requesterUserId: p.uuid().nullable(), assignedMembershipId: p.uuid().nullable(),
-    currentRevision: p.integer(), expiresAt: p.datetime(), createdAt: p.datetime(), updatedAt: p.datetime(),
+    currentRevision: p.integer(), expiresAt: p.datetime(), expiryWarnedAt: p.datetime().nullable(), createdAt: p.datetime(), updatedAt: p.datetime(),
     version: p.integer().default(1).version(),
   },
   uniques: [{ name: "uq_decision_requests_org_key", properties: ["organizationId", "requestKey"] }],
@@ -640,7 +641,49 @@ export class EscalationPolicyEntity extends EscalationPolicySchema.class {}
 Object.defineProperty(EscalationPolicyEntity, "name", { value: "EscalationPolicyEntity" });
 EscalationPolicySchema.setClass(EscalationPolicyEntity);
 
+const NotificationSchema = defineEntity({
+  name: "NotificationEntity", tableName: "notifications",
+  properties: {
+    id: p.uuid().primary(),
+    organizationId: () => p.manyToOne(OrganizationEntity).mapToPk().joinColumn("organization_id"),
+    kind: p.string().length(48).$type<NotificationKind>(),
+    taskId: () => p.manyToOne(TaskEntity).mapToPk().joinColumn("task_id").nullable(),
+    subjectId: p.uuid().nullable(),
+    actorUserId: () => p.manyToOne(UserEntity).mapToPk().joinColumn("actor_user_id").nullable().deleteRule("no action"),
+    title: p.string().length(200), body: p.text(), link: p.string().length(300), createdAt: p.datetime(),
+  },
+  indexes: [{ name: "idx_notifications_org_created", properties: ["organizationId", "createdAt"] }],
+  triggers: [{ name: "trg_notifications_immutable", timing: "before", events: ["update", "delete"],
+    body: "raise exception 'notifications are immutable' using errcode = '23000';" }],
+});
+export class NotificationEntity extends NotificationSchema.class {}
+Object.defineProperty(NotificationEntity, "name", { value: "NotificationEntity" });
+NotificationSchema.setClass(NotificationEntity);
+
+const NotificationRecipientSchema = defineEntity({
+  name: "NotificationRecipientEntity", tableName: "notification_recipients",
+  properties: {
+    id: p.uuid().primary(),
+    notificationId: () => p.manyToOne(NotificationEntity).mapToPk().joinColumn("notification_id"),
+    organizationId: () => p.manyToOne(OrganizationEntity).mapToPk().joinColumn("organization_id"),
+    membershipId: () => p.manyToOne(MembershipEntity).mapToPk().joinColumn("membership_id"),
+    readAt: p.datetime().nullable(), createdAt: p.datetime(),
+  },
+  uniques: [{ name: "uq_notification_recipient", properties: ["notificationId", "membershipId"] }],
+  indexes: [
+    { name: "idx_notification_recipients_inbox", properties: ["membershipId", "createdAt"] },
+    { name: "idx_notification_recipients_unread", properties: ["membershipId", "readAt"] },
+  ],
+  // Who was told is permanent; only the read mark may change.
+  triggers: [{ name: "trg_nr_read_mark_only", timing: "before", events: ["update", "delete"],
+    body: "if tg_op = 'DELETE' or new.id <> old.id or new.notification_id <> old.notification_id or new.organization_id <> old.organization_id or new.membership_id <> old.membership_id or new.created_at <> old.created_at then raise exception 'notification recipients are immutable except the read mark' using errcode = '23000'; end if; return new;" }],
+});
+export class NotificationRecipientEntity extends NotificationRecipientSchema.class {}
+Object.defineProperty(NotificationRecipientEntity, "name", { value: "NotificationRecipientEntity" });
+NotificationRecipientSchema.setClass(NotificationRecipientEntity);
+
 export const persistenceEntities = [
+  NotificationEntity, NotificationRecipientEntity,
   TaskAssignmentEntity, TaskAssignmentEventEntity, TaskNoteEntity, EscalationPolicyEntity,
   DecisionRequestEntity, DecisionRevisionEntity, DecisionEntity, DecisionExecutionEntity,
   ArtifactAccessEntity,

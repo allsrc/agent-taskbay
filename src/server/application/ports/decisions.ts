@@ -3,6 +3,7 @@ import type {
 } from "../../domain/decision-model";
 import type { TaskCommandRecord, TaskRecord } from "../../domain/persistence-model";
 import type { Principal } from "./identity";
+import type { NotificationEvent } from "../../domain/notification-model";
 
 export interface DecisionRequestFilter {
   status?: DecisionRequestStatus;
@@ -25,6 +26,9 @@ export interface DecisionRepository {
   /** Open (pending or changes-requested) requests for a task, locked in id order. */
   lockActiveForTask(organizationId: string, taskId: string): Promise<DecisionRequestRecord[]>;
   dueForExpiry(now: Date, limit: number): Promise<DecisionRequestRecord[]>;
+  /** Open requests within `windowMs` of expiring that were open at least twice that long and not yet warned. */
+  dueForExpiryWarning(now: Date, windowMs: number, limit: number): Promise<DecisionRequestRecord[]>;
+  markExpiryWarned(id: string, at: Date): Promise<void>;
   /** Open requests whose task has finished (or no longer exists), oldest first. */
   forFinishedTasks(limit: number): Promise<DecisionRequestRecord[]>;
   /** Executions whose delivery or observed task outcome may still change, oldest first. */
@@ -66,6 +70,8 @@ export interface DecisionPorts {
   acceptCommand(input: DecisionCommandInput): Promise<TaskCommandRecord>;
   /** Queues a content-free freshness signal in the surrounding transaction so open views re-query. */
   freshen(organizationId: string, taskId: string): Promise<void>;
+  /** Queues a notification event in the surrounding transaction; people and wording are decided by the fan-out worker. */
+  notify(organizationId: string, event: NotificationEvent): Promise<void>;
   audit(principal: Principal | null, organizationId: string, action: string, targetId: string, eventKey: string): Promise<void>;
 }
 

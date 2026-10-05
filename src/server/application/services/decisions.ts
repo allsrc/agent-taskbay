@@ -9,6 +9,7 @@ import type { Clock } from "../ports/clock";
 import { authorize } from "./authorization";
 import { eventDigest } from "./event-identity";
 import type { JsonValue } from "../../domain/persistence-model";
+import type { NotificationEvent } from "../../domain/notification-model";
 
 export class DecisionError extends Error {
   constructor(message: string, public readonly status: number) { super(message); }
@@ -21,6 +22,7 @@ const TERMINAL_STATES = ["COMPLETED", "FAILED", "CANCELED", "REJECTED"];
 const MAX_ACTION_DATA_BYTES = 64 * 1024;
 /** Deliveries stop being refreshed this long after approval, even if the task never finishes. */
 const EXECUTION_WATCH_MS = 7 * 24 * 60 * 60 * 1000;
+export const EXPIRY_WARNING_MS = 15 * 60 * 1000;
 
 export function actionDigest(action: ProposedAction) {
   return eventDigest({ kind: action.kind, text: action.text, data: (action.data ?? null) as JsonValue });
@@ -73,9 +75,10 @@ export class DecisionService {
   constructor(private readonly work: DecisionUnitOfWork, private readonly clock: Clock = { now: () => new Date() }) {}
 
   /** Every state change is audited and announces itself to live views in the same transaction. */
-  private async record(ports: DecisionPorts, taskId: string, principal: Principal | null, organizationId: string, action: string, targetId: string, eventKey: string) {
+  private async record(ports: DecisionPorts, taskId: string, principal: Principal | null, organizationId: string, action: string, targetId: string, eventKey: string, event?: NotificationEvent) {
     await ports.audit(principal, organizationId, action, targetId, eventKey);
     await ports.freshen(organizationId, taskId);
+    if (event) await ports.notify(organizationId, event);
   }
 
   async open(input: OpenDecisionInput) {
@@ -118,9 +121,9 @@ export class DecisionService {
       for (const older of await ports.decisions.lockActiveForTask(task.organizationId, task.id)) {
         if (older.id === id) continue;
         await ports.decisions.updateRequest({ ...older, status: "superseded", updatedAt: now });
-        await this.record(ports, task.id, input.principal, task.organizationId, "decision.superseded", older.id, `decision-superseded:${older.id}`);
+        await this.record(ports, task.id, input.principal, task.organizationId, "decision.superseded", older.id, `decision-superseded:${older.id}`, { kind: "approval.superseded", taskId: task.id, subjectId: older.id, actorUserId: input.principal.userId });
       }
-      await this.record(ports, task.id, input.principal, task.organizationId, "decision.requested", id, `decision-requested:${id}`);
+      await this.record(ports, task.id, input.principal, task.organizationId, "decision.requested", id, `decision-requested:${id}`, { kind: "approval.requested", taskId: task.id, subjectId: id, actorUserId: input.principal.userId });
       return { request: result.request, created: true };
     });
   }
@@ -144,7 +147,7 @@ export class DecisionService {
         authorUserId: input.principal.userId, createdAt: now };
       await ports.decisions.appendRevision(revision);
       const updated = await ports.decisions.updateRequest({ ...request, status: "pending", currentRevision: revision.number, updatedAt: now });
-      await this.record(ports, request.taskId, input.principal, request.organizationId, "decision.revised", revision.id, `decision-revised:${revision.id}`);
+      await this.record(ports, request.taskId, input.principal, request.organizationId, "decision.revised", revision.id, `decision-revised:${revision.id}`, { kind: "approval.revised", taskId: request.taskId, subjectId: request.id, actorUserId: input.principal.userId });
       return { request: updated, revision };
     });
   }
@@ -184,13 +187,13 @@ export class DecisionService {
       if (!ACTIVE.includes(request.status)) throw new DecisionError(`This request is already ${request.status.replace("_", " ")}.`, 409);
       if (now >= request.expiresAt) {
         const expired = await ports.decisions.updateRequest({ ...request, status: "expired", updatedAt: now });
-        await this.record(ports, request.taskId, null, org, "decision.expired", request.id, `decision-expired:${request.id}`);
+        await this.record(ports, request.taskId, null, org, "decision.expired", request.id, `decision-expired:${request.id}`, { kind: "approval.expired", taskId: request.taskId, subjectId: request.id });
         return { kind: "refused", reason: "expired", request: expired };
       }
       const task = await ports.tasks.findById(org, request.taskId);
       if (!task || terminalTask(task) || !task.remoteTaskId) {
         const superseded = await ports.decisions.updateRequest({ ...request, status: "superseded", updatedAt: now });
-        await this.record(ports, request.taskId, null, org, "decision.superseded", request.id, `decision-superseded:${request.id}`);
+        await this.record(ports, request.taskId, null, org, "decision.superseded", request.id, `decision-superseded:${request.id}`, { kind: "approval.superseded", taskId: request.taskId, subjectId: request.id });
         return { kind: "refused", reason: "superseded", request: superseded };
       }
       if (request.status !== "pending") throw new DecisionError("Awaiting a revised proposal before it can be decided.", 409);
@@ -241,7 +244,7 @@ export class DecisionService {
           revisionDigest: revision.digest, commandId: command.id, messageId: command.messageId, status: "pending", observedTaskState: null,
           observedAt: null, lastError: null, createdAt: now, updatedAt: now });
       }
-      await this.record(ports, request.taskId, input.principal, org, `decision.${input.outcome}`, decision.id, `decision:${decision.id}`);
+      await this.record(ports, request.taskId, input.principal, org, `decision.${input.outcome}`, decision.id, `decision:${decision.id}`, input.outcome === "delegate" ? { kind: "approval.assigned", taskId: request.taskId, subjectId: request.id, actorUserId: input.principal.userId, toMembershipId: input.delegateMembershipId } : { kind: "approval.decided", taskId: request.taskId, subjectId: request.id, actorUserId: input.principal.userId, detail: input.outcome });
       return { kind: "decided", request: updated, decision, execution, replay: false };
     });
   }
@@ -282,7 +285,19 @@ export class DecisionService {
         const task = await ports.tasks.findById(locked.organizationId, locked.taskId);
         if (task && !terminalTask(task)) continue;
         await ports.decisions.updateRequest({ ...locked, status: "superseded", updatedAt: now });
-        await this.record(ports, locked.taskId, null, locked.organizationId, "decision.superseded", locked.id, `decision-superseded:${locked.id}`);
+        await this.record(ports, locked.taskId, null, locked.organizationId, "decision.superseded", locked.id, `decision-superseded:${locked.id}`, { kind: "approval.superseded", taskId: locked.taskId, subjectId: locked.id });
+        count += 1;
+      }
+      return count;
+    });
+    // Warn once, shortly before an approval lapses, if it was open long enough for a warning to be useful.
+    const warned = await this.work.run(async (ports) => {
+      let count = 0;
+      for (const candidate of await ports.decisions.dueForExpiryWarning(now, EXPIRY_WARNING_MS, limit)) {
+        const locked = await ports.decisions.lockRequest(candidate.organizationId, candidate.id);
+        if (!locked || !ACTIVE.includes(locked.status) || locked.expiresAt <= now) continue;
+        await ports.decisions.markExpiryWarned(locked.id, now);
+        await ports.notify(locked.organizationId, { kind: "approval.expiring", taskId: locked.taskId, subjectId: locked.id });
         count += 1;
       }
       return count;
@@ -295,7 +310,7 @@ export class DecisionService {
       const after = await this.refreshExecution(execution.organizationId, execution.decisionId);
       if (after && `${after.status}|${after.observedTaskState}` !== before) refreshed += 1;
     }
-    return { expired, superseded, refreshed };
+    return { expired, superseded, refreshed, warned };
   }
 
   /** Expires open requests whose deadline passed. Workers call this; reviewers also discover expiry on decide. */
@@ -307,7 +322,7 @@ export class DecisionService {
         const locked = await ports.decisions.lockRequest(due.organizationId, due.id);
         if (!locked || !ACTIVE.includes(locked.status) || locked.expiresAt > now) continue;
         await ports.decisions.updateRequest({ ...locked, status: "expired", updatedAt: now });
-        await this.record(ports, locked.taskId, null, locked.organizationId, "decision.expired", locked.id, `decision-expired:${locked.id}`);
+        await this.record(ports, locked.taskId, null, locked.organizationId, "decision.expired", locked.id, `decision-expired:${locked.id}`, { kind: "approval.expired", taskId: locked.taskId, subjectId: locked.id });
         expired += 1;
       }
       return expired;

@@ -17,4 +17,6 @@ export async function register() {
   startEmbeddedFreshnessLoop();
   const { startEmbeddedDecisionLoop } = await import("./server/workers/decision-loop");
   startEmbeddedDecisionLoop();
+  const { startEmbeddedNotificationLoop } = await import("./server/workers/notification-loop");
+  startEmbeddedNotificationLoop();
 }

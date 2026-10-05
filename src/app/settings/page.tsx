@@ -2,6 +2,7 @@
 
 import { SecuritySettings } from "@/components/security-settings";
 import { EscalationSettings } from "@/components/escalation-settings";
+import { NotificationChannelSettings } from "@/components/notification-channel-settings";
 
 import { useState } from "react";
 import { Trash2 } from "lucide-react";
@@ -72,6 +73,7 @@ export default function SettingsPage() {
 
         <SecuritySettings />
         <EscalationSettings />
+        <NotificationChannelSettings />
       </div>
     </div>
   );

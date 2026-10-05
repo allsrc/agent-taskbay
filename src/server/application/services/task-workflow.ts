@@ -91,6 +91,7 @@ export class TaskWorkflowService {
       const at = this.next(assignment);
       const saved = await ports.workflow.saveAssignment({ ...assignment, assigneeMembershipId, claimedAt: assigneeMembershipId === principal.membershipId ? at : null, updatedAt: at });
       await this.record(ports, principal, task, "assigned", { fromMembershipId: assignment.assigneeMembershipId, toMembershipId: assigneeMembershipId, createdAt: at });
+      await ports.notify(task.organizationId, { kind: "task.assigned", taskId: task.id, actorUserId: principal.userId, toMembershipId: assigneeMembershipId, fromMembershipId: assignment.assigneeMembershipId });
       return saved;
     });
   }
@@ -169,6 +170,7 @@ export class TaskWorkflowService {
           escalationLevel: assignment.escalationLevel + 1, escalatedAt: at, updatedAt: at });
         // toMembershipId is null when the target could no longer operate the agent, so the owner kept the task.
         await this.record(ports, null, task, "escalated", { fromMembershipId: assignment.assigneeMembershipId, toMembershipId: eligible ? policy.targetMembershipId : null, dueAt: assignment.dueAt, createdAt: at });
+        await ports.notify(task.organizationId, { kind: "task.escalated", taskId: task.id, fromMembershipId: assignment.assigneeMembershipId, toMembershipId: eligible ? policy.targetMembershipId : null });
         escalated += 1;
       }
       return escalated;

@@ -3,6 +3,7 @@ import type { DurableTaskView } from "../../../shared/task-types";
 import type { JsonValue, TaskRecord, TaskEventSource } from "../../domain/persistence-model";
 import type { AgentRepository, TaskRepository, TaskEventRepository, OutboxRepository } from "../ports/persistence";
 import { enqueueTaskFreshness } from "./task-freshness";
+import { enqueueNotificationEvent } from "./notification-fanout";
 import type { Clock } from "../ports/clock";
 import type { StreamMetadata } from "../ports/subscriptions";
 import { eventSubject, object } from "./task-projection";
@@ -116,6 +117,14 @@ export class ObserveTaskService {
       };
       await this.tasks.saveProjection(projection);
       await enqueueTaskFreshness(this.outbox, input.organizationId, task.id, now);
+      // Tell the responsible people when work needs them or ends; entering the same state again re-notifies, replays do not.
+      const next = view.state.replace("TASK_STATE_", "");
+      const NOTIFY: Record<string, { kind: "task.needs_input" | "task.finished" | "task.failed"; detail?: string }> = {
+        INPUT_REQUIRED: { kind: "task.needs_input", detail: "input" }, AUTH_REQUIRED: { kind: "task.needs_input", detail: "auth" },
+        COMPLETED: { kind: "task.finished" }, FAILED: { kind: "task.failed" },
+      };
+      if (task.kind === "task" && task.state !== view.state && NOTIFY[next])
+        await enqueueNotificationEvent(this.outbox, input.organizationId, { ...NOTIFY[next], taskId: task.id }, now);
     }
     return view;
   }

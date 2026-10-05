@@ -348,10 +348,12 @@ PostgreSQL-compatible migration and adapter contract.
 
 ### Notifications and audit
 
-- `Notification`
-- `NotificationRecipient`
-- `NotificationDelivery`
-- `NotificationRead`
+- `Notification` (implemented, ADR 0018): immutable, content-light, one per event; its ID is the
+  event's outbox ID so reprocessing cannot duplicate it.
+- `NotificationRecipient` (implemented): one row per person told; only `readAt` can change,
+  which is also the durable per-person `NotificationRead` state.
+- `NotificationDelivery` (implemented as outbox rows, topic `notification.webhook`): leased,
+  retried with backoff and ending in a visible `failed` state.
 - `AuditEvent` (implemented as `security_audit_events`): append-only by database trigger.
   The Audit view (ADR 0017) joins it with decisions, ownership events and notes.
 - `IdempotencyKey`
