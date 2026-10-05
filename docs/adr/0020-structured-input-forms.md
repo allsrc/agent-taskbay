@@ -28,6 +28,9 @@ task model, and without letting agent-supplied content run code or bypass author
   and sends them as an `application/json` data part through the normal send path. The user's authorization,
   skill routing, idempotency and audit are therefore the same as for a typed reply. The agent still owns
   validation of what it receives.
+- **Start-of-task form.** The same extension entry in the agent card may carry `params.startForm`, a form definition of the
+  same shape. When it advertises the extension and the definition validates, the chat page offers it for a new task; the
+  submission starts a task with one `application/json` data part. The composer stays available beside it.
 - **Fallback.** A missing extension, wrong media type, malformed or unsupported schema, an already-answered
   message or a task that is no longer waiting leaves the part as ordinary data and the composer available.
   The form is an addition to the composer, never a replacement.
@@ -36,6 +39,6 @@ task model, and without letting agent-supplied content run code or bypass author
 
 - Forms with nesting, conditional fields or rich validation need a new extension version, not silent
   interpretation of unknown schema.
-- Initial scope is the chat view. Start-of-task forms and forms on the approval review page reuse the same
-  parser and renderer in later slices.
+- Input forms (6.1) and start-of-task forms (6.4) are in the chat view. Forms on the approval review page reuse the same
+  parser and renderer in a later slice (6.5).
 - Vitest gains a `vitest.config.ts` with the `@` path alias so component tests can import application modules.

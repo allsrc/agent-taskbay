@@ -6,8 +6,8 @@ Last updated: 2026-10-05
 
 - Last completed phase: **Phase 4 — approval-grade human intervention**
 - Active phase: **Phase 6 — rich interoperability** (started 2026-10-05 by explicit decision; Phase 5 is paused, not complete)
-- Last completed slice: **6.3 — AG-UI adapter** (last Phase 5 slice: 5.1)
-- Next executable slice: **6.4 — start-of-task forms and forms on the approval review page** (6.1–6.3 verified; AG-UI adapter done)
+- Last completed slice: **6.4 — start-of-task forms** (last Phase 5 slice: 5.1)
+- Next executable slice: **6.5 — structured actions on the approval review page** (6.1–6.4 verified)
 - Blocking decisions: none
 
 ## Pending follow-ups
@@ -1839,6 +1839,41 @@ Remaining risks:
 
 Next executable slice: **6.4 — start-of-task forms and forms on the approval review page**, then **6.5 safe A2UI
 renderer**, **6.6 agent-originated approvals**, **6.7 plugin contract**.
+
+## Slice 6.4 evidence (2026-10-05)
+
+Date: 2026-10-05
+Slice: 6.4 — start-of-task forms (ADR 0020)
+
+Changes:
+
+- `viewAgentCard` keeps per-extension `params` objects (`extensionParams`); `startFormFromCard` returns the form in the
+  structured-form extension's `params.startForm` only when the extension is advertised and the definition validates.
+- The chat page offers it for a new task (`<details>`, open on an empty chat); a valid submission starts a task with one
+  `application/json` data part; the composer remains. Agents without the extension, or with an invalid definition, show nothing.
+- `scripts/fixture-form-agent.mjs`: the `form` variant advertises a start form and completes a started task; a data part
+  with a task id is still the reply to an input request.
+- `verify-forms-http.mjs` extended: the card carries the start form, the plain agent has none, and a start submission
+  begins a new task with exactly one JSON part.
+
+Verification commands and results:
+
+- 4 new unit tests (3 start-form, 1 card params): 123 unit tests pass.
+- Scripted Chromium run (not committed): start form open on an empty chat in declared order, empty submit shows
+  "Required" and sends nothing, valid submit completes the task with exactly the entered values, the plain agent shows no
+  start form; the earlier form flow, fallbacks and 375px check still pass; no console errors.
+- `npm run check` against PostgreSQL 16 (lint, 123 unit tests, 38 DB tests, schema check, build, all HTTP suites): passed.
+
+Migration tested from: not applicable (no schema change).
+
+Remaining risks:
+
+- Forms on the approval review page (edit-before-approve of structured actions) are slice 6.5 and need an ADR 0015
+  addendum because they change the proposed-action union and the exact-revision digest.
+- The committed browser suite is tracked in [#14](https://github.com/shashikanth-gs/a2a-ops/issues/14).
+
+Next executable slice: **6.5 — structured actions on the approval review page**, then **6.6 safe A2UI renderer**,
+**6.7 agent-originated approvals**, **6.8 plugin contract**.
 
 ## Known repository-state issue
 

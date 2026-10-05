@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { NormalizedPart } from "@/lib/types";
-import { STRUCTURED_FORM_EXTENSION_URI, STRUCTURED_FORM_MEDIA_TYPE, formFromPart, initialValues, parseFormDefinition, validateForm } from "./structured-form";
+import { STRUCTURED_FORM_EXTENSION_URI, STRUCTURED_FORM_MEDIA_TYPE, formFromPart, initialValues, parseFormDefinition, startFormFromCard, validateForm } from "./structured-form";
 
 const definition = {
   title: "Deploy", submitLabel: "Send",
@@ -48,6 +48,18 @@ describe("structured form definitions", () => {
     expect(formFromPart(part(definition), ["https://example.com/other"])).toBeUndefined();
     expect(formFromPart(part(definition, "application/json"), [STRUCTURED_FORM_EXTENSION_URI])).toBeUndefined();
     expect(formFromPart({ ...part(definition), kind: "text" }, [STRUCTURED_FORM_EXTENSION_URI])).toBeUndefined();
+  });
+});
+
+describe("start-of-task form", () => {
+  const params = { [STRUCTURED_FORM_EXTENSION_URI]: { startForm: definition } };
+  it("is offered only when the extension is advertised and the definition validates", () => {
+    expect(startFormFromCard([STRUCTURED_FORM_EXTENSION_URI], params)?.title).toBe("Deploy");
+    expect(startFormFromCard([], params)).toBeUndefined();
+    expect(startFormFromCard(["https://example.com/other"], params)).toBeUndefined();
+    expect(startFormFromCard([STRUCTURED_FORM_EXTENSION_URI], undefined)).toBeUndefined();
+    expect(startFormFromCard([STRUCTURED_FORM_EXTENSION_URI], { [STRUCTURED_FORM_EXTENSION_URI]: {} })).toBeUndefined();
+    expect(startFormFromCard([STRUCTURED_FORM_EXTENSION_URI], { [STRUCTURED_FORM_EXTENSION_URI]: { startForm: { schema: { type: "object", properties: { n: { type: "object" } } } } } })).toBeUndefined();
   });
 });
 

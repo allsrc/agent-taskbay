@@ -23,6 +23,15 @@ const deployForm = {
     },
   },
 };
+const startForm = {
+  title: "New deployment task",
+  description: "Tell the agent what to deploy.",
+  submitLabel: "Start task",
+  order: ["service", "priority"],
+  schema: { type: "object", required: ["service"], properties: {
+    service: { type: "string", title: "Service", maxLength: 60 },
+    priority: { type: "string", title: "Priority", enum: ["low", "high"], default: "low" } } },
+};
 const invalidForm = { title: "Nested", schema: { type: "object", properties: { nested: { type: "object", properties: {} } } } };
 
 export async function startFormAgent(port = 0) {
@@ -37,7 +46,7 @@ export async function startFormAgent(port = 0) {
       response.end(JSON.stringify({
         name: `Form fixture (${variant})`, description: "Asks for input with a structured form", version: "1.0.0",
         supportedInterfaces: [{ url: `${origin}/${variant}/a2a`, protocolBinding: "JSONRPC", protocolVersion: "1.0" }],
-        capabilities: { streaming: true, extensions: variant === "plain" ? [] : [{ uri: FORM_EXTENSION_URI, required: false }] },
+        capabilities: { streaming: true, extensions: variant === "plain" ? [] : [{ uri: FORM_EXTENSION_URI, required: false, params: variant === "form" ? { startForm } : {} }] },
         defaultInputModes: ["text/plain", "application/json"], defaultOutputModes: ["text/plain"], skills: [],
       }));
       return;
@@ -61,8 +70,13 @@ export async function startFormAgent(port = 0) {
     }
     received.push({ variant, message });
     contexts.set(taskId, contextId);
-    const reply = message.parts?.find((part) => part.data !== undefined);
-    const events = reply
+    const data = message.parts?.find((part) => part.data !== undefined);
+    const reply = message.taskId ? data : undefined;
+    const started = !message.taskId ? data : undefined;
+    const events = started
+      ? [{ task: { id: taskId, contextId, status: { state: "TASK_STATE_WORKING", timestamp: new Date().toISOString() }, history: [message] } },
+        { statusUpdate: { ...status("TASK_STATE_COMPLETED", `Started ${started.data.service} at ${started.data.priority ?? "default"} priority.`), final: true } }]
+      : reply
       ? [{ task: { id: taskId, contextId, status: { state: "TASK_STATE_WORKING", timestamp: new Date().toISOString() } } },
         { statusUpdate: { ...status("TASK_STATE_COMPLETED", `Deploying ${reply.data.replicas} replica(s) to ${reply.data.environment}.`), final: true } }]
       : [{ task: { id: taskId, contextId, status: { state: "TASK_STATE_WORKING", timestamp: new Date().toISOString() }, history: [message] } },

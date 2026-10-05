@@ -26,6 +26,8 @@ export interface AgentView {
   inputModes: string[];
   outputModes: string[];
   extensions: string[];
+  /** Per-extension `params` objects keyed by extension URI (only objects are kept). */
+  extensionParams: Record<string, Record<string, unknown>>;
 }
 
 const SCHEME_LABELS: Record<string, string> = {
@@ -60,9 +62,10 @@ export function viewAgentCard(card: unknown): AgentView {
     description: String(skill.description ?? ""),
     examples: strings(skill.examples),
   }));
-  const extensions = (Array.isArray(capabilities.extensions) ? capabilities.extensions.filter(isObj) : [])
-    .map((item) => String(item.uri ?? ""))
-    .filter(Boolean);
+  const declared = (Array.isArray(capabilities.extensions) ? capabilities.extensions.filter(isObj) : []).filter((item) => typeof item.uri === "string" && item.uri);
+  const extensions = declared.map((item) => String(item.uri));
+  const extensionParams: Record<string, Record<string, unknown>> = {};
+  for (const item of declared) if (isObj(item.params)) extensionParams[String(item.uri)] = item.params;
   return {
     requiresSkill: isObj(c.access) && c.access.requiresSkill === true,
     name: String(c.name ?? "Unnamed agent"),
@@ -79,6 +82,7 @@ export function viewAgentCard(card: unknown): AgentView {
     inputModes: strings(c.defaultInputModes),
     outputModes: strings(c.defaultOutputModes),
     extensions,
+    extensionParams,
   };
 }
 

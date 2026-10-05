@@ -87,6 +87,15 @@ export function formFromPart(part: NormalizedPart, advertisedExtensions: readonl
   return parseFormDefinition(part.value);
 }
 
+/**
+ * The agent's start-of-task form: the `startForm` entry of the structured-form extension's card params, honoured only when
+ * the agent advertises the extension and the definition validates.
+ */
+export function startFormFromCard(extensions: readonly string[], extensionParams: Record<string, Record<string, unknown>> | undefined): FormDefinition | undefined {
+  if (!extensions.includes(STRUCTURED_FORM_EXTENSION_URI)) return undefined;
+  return parseFormDefinition(extensionParams?.[STRUCTURED_FORM_EXTENSION_URI]?.startForm);
+}
+
 export function initialValues(form: FormDefinition): FormValues {
   const values: FormValues = {};
   for (const field of form.fields) {

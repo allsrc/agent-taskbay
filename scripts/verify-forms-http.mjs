@@ -77,6 +77,20 @@ try {
   assert.equal(done.localId, task.localId, "The reply continues the same task");
   assert.ok((await call(`/api/tasks/${done.localId}`)).body.task.messages.some((message) => message.parts.some((part) => part.value === "Deploying 3 replica(s) to production.")));
 
+  // Start-of-task form: the advertised definition is in the card params, and a submission starts a task with one JSON part.
+  const startDefinition = (listed.find((agent) => agent.id === agents.form.id)?.card?.capabilities?.extensions ?? []).find((extension) => extension.uri === FORM_EXTENSION_URI)?.params?.startForm;
+  assert.equal(startDefinition?.schema?.properties?.service?.type, "string", "card params carry the start form");
+  assert.equal((listed.find((agent) => agent.id === agents.plain.id)?.card?.capabilities?.extensions ?? []).length, 0);
+  const startValues = { service: "billing", priority: "high" };
+  const beforeStart = fixture.received.length;
+  await send(agents.form.id, "form-start-task", { parts: [{ data: startValues, mediaType: "application/json" }] });
+  const startMessage = fixture.received.slice(beforeStart).at(-1).message;
+  assert.equal(fixture.received.length, beforeStart + 1);
+  assert.equal(startMessage.taskId ?? undefined, undefined, "A start form begins a new task");
+  assert.equal(startMessage.parts.length, 1);
+  assert.deepEqual(startMessage.parts[0].data, startValues);
+  await until(async () => ((await call("/api/tasks")).body?.tasks ?? []).some((candidate) => candidate.agentId === agents.form.id && candidate.localId !== task.localId && candidate.state === "TASK_STATE_COMPLETED"), "start-form task completed");
+
   // Non-advertising and malformed variants still persist as ordinary input requests; the UI falls back to the composer.
   for (const variant of ["plain", "invalid"]) {
     await send(agents[variant].id, `${variant}-start`, { text: "Deploy the app" });

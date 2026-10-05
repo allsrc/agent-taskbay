@@ -7,6 +7,8 @@ import { toast } from "sonner";
 import { useShallow } from "zustand/react/shallow";
 import { AgentAvatar } from "@/components/a2a/primitives";
 import { Composer } from "@/components/chat/composer";
+import { StructuredForm } from "@/components/chat/structured-form";
+import { startFormFromCard } from "@/lib/structured-form";
 import { AgentBubble, ArtifactCard, TaskCard, UserBubble } from "@/components/chat/timeline";
 import { SideRail, useIsDesktop, type RailTab } from "@/components/chat/side-rail";
 import { Button } from "@/components/ui/button";
@@ -174,6 +176,7 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
   const name = view?.name ?? conversation?.agentName ?? (agent ? "Unreachable agent" : "Agent");
   const suggestion = view?.skills.find((skill) => skill.examples.length)?.examples[0] ?? view?.skills[0]?.description;
   const empty = tasks.length === 0 && !pending;
+  const startForm = startFormFromCard(view?.extensions ?? [], view?.extensionParams);
 
   const messageColumn = "mx-auto w-full max-w-[760px]";
 
@@ -302,6 +305,14 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
             {view.skills.map((skill) => <option key={skill.id} value={skill.id}>{skill.name}</option>)}
           </select>
         </label>}
+        {startForm && target === NEW_TASK && (
+          <details open={empty} className="border-border bg-card mb-2 rounded-xl border px-3 py-2" data-testid="start-form">
+            <summary className="cursor-pointer text-sm font-medium">Start with a form: {startForm.title}</summary>
+            <div className="pt-3 pb-1">
+              <StructuredForm form={startForm} disabled={sending} onSubmit={(submission) => send([{ data: submission, mediaType: "application/json" }])} />
+            </div>
+          </details>
+        )}
         <Composer
               inputModes={view?.inputModes ?? []}
               sending={sending}
