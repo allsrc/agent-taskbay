@@ -31,3 +31,4 @@ accepted ADR. Small implementation details do not require an ADR.
 - [ADR 0014: Service credentials and scoped security](0014-service-credentials-and-scoped-security.md)
 
 - [0019 — Unified inbox read model](./0019-unified-inbox-read-model.md)
+- [0020 — Structured input forms](./0020-structured-input-forms.md)

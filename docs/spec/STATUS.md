@@ -6,8 +6,8 @@ Last updated: 2026-10-05
 
 - Last completed phase: **Phase 4 — approval-grade human intervention**
 - Active phase: **Phase 6 — rich interoperability** (started 2026-10-05 by explicit decision; Phase 5 is paused, not complete)
-- Last completed slice: **5.1 — unified authorized inbox over tasks and approvals**
-- Next executable slice: **6.1 — structured input forms** (see the Phase 6 section of `PHASES.md`)
+- Last completed slice: **6.1 — structured input forms in the chat view** (last Phase 5 slice: 5.1)
+- Next executable slice: **6.2 — reference agent and browser verification of forms** (6.1 verified; see slice 6.1 evidence)
 - Blocking decisions: none
 
 ## Pending follow-ups
@@ -1701,6 +1701,42 @@ Remaining risks:
 Next executable slice: **5.2 — saved views, full-text search, advanced filters and bulk triage** on the inbox
 query. Deferred to [issue #5](https://github.com/shashikanth-gs/a2a-ops/issues/5) on 2026-10-05; the active
 slice moved to Phase 6 (6.1) by explicit decision.
+
+## Slice 6.1 evidence (2026-10-05)
+
+Date: 2026-10-05
+Slice: 6.1 — structured input forms in the chat view (ADR 0020)
+
+Changes:
+
+- `src/lib/structured-form.ts`: extension URI, media type, parser for a flat JSON-Schema subset (string,
+  number, integer, boolean, string enum; 30 fields, 50 options; no nesting, `$ref` or `pattern`), and
+  validation/coercion that submits only declared keys.
+- `src/components/chat/structured-form.tsx` and `timeline.tsx`: an accessible form rendered inside an
+  `INPUT_REQUIRED` agent message only when the agent card advertises the extension; submission goes through
+  the existing send path as an `application/json` data part. `chat-view.tsx` wires it to the latest message.
+- Unadvertised, malformed, answered or no-longer-waiting forms fall back to ordinary data rendering; the
+  composer is unchanged and always available.
+- `vitest.config.ts` adds the `@` alias for component tests. No migration, route or storage change.
+
+Verification commands and results:
+
+- `npm run check` (lint, unit, `test:db`, `db:schema:check`, build, `test:http`) against PostgreSQL 16: passed.
+- New tests: 6 parser/validation tests and 2 server-rendered component tests (form shown when advertised
+  with agent text escaped; fallback when not advertised, answered, or task not waiting).
+
+Migration tested from: not applicable (no schema change).
+
+Remaining risks:
+
+- Not yet exercised in a browser against a real reference agent; the Phase 6 exit criterion (a reference
+  agent rendering a form and an A2UI surface) is open.
+- Start-of-task forms and forms on the approval review page, A2UI, agent-originated approvals (`HITL-006`),
+  the AG-UI adapter and the extension plugin contract are later Phase 6 slices.
+- No form state is persisted across a reload before submission.
+
+Next executable slice: **6.2 — a fixture reference agent advertising the form extension, with a browser
+run of the form flow, then start-of-task forms** (or the safe A2UI renderer; choose in the next request).
 
 ## Known repository-state issue
 

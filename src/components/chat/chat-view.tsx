@@ -236,7 +236,9 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
                 message.role === "user" ? (
                   <UserBubble key={message.id} message={message} />
                 ) : (
-                  <AgentBubble key={message.id} message={message} taskState={task.kind === "message" ? undefined : task.state} onReply={(text) => void send([{ text, mediaType: "text/plain" }])} />
+                  <AgentBubble key={message.id} message={message} taskState={task.kind === "message" ? undefined : task.state} onReply={(text) => void send([{ text, mediaType: "text/plain" }])}
+                    extensions={view?.extensions} answered={sending || index !== task.messages.length - 1}
+                    onSubmitForm={(submission) => send([{ data: submission, mediaType: "application/json" }])} />
                 ),
                 ...(index === cardAt ? [<TaskCard key={`card-${task.taskId}`} task={task} canceling={cancelingId === task.taskId} onCancel={() => void cancelTask(task)} />] : []),
               ]);

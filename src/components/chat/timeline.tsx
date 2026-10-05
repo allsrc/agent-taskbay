@@ -10,6 +10,8 @@ import type { ThreadMessage, TrackedTask } from "@/store/task-store";
 import { Button } from "@/components/ui/button";
 import { PartRenderer } from "@/components/PartRenderer";
 import { cn } from "@/lib/utils";
+import { StructuredForm } from "@/components/chat/structured-form";
+import { formFromPart, type FormSubmission } from "@/lib/structured-form";
 
 const enter = { initial: { opacity: 0, y: 8 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.2, ease: "easeOut" as const } };
 
@@ -38,15 +40,27 @@ export function AgentBubble({
   message,
   taskState,
   onReply,
+  extensions = [],
+  onSubmitForm,
+  answered = false,
 }: {
   message: ThreadMessage;
   /** State of the task this message belongs to; drives the amber / purple prompt styling. */
   taskState?: string;
   onReply?: (text: string) => void;
+  /** Extension URIs the agent advertises; a structured form renders only when it opted in. */
+  extensions?: readonly string[];
+  onSubmitForm?: (submission: FormSubmission) => void | Promise<void>;
+  /** The form was already answered or the task no longer waits, so the form is shown read-only as data. */
+  answered?: boolean;
 }) {
   const state = taskState ? stateName(taskState) : "";
   const prompt = message.fromStatus && (state === "INPUT_REQUIRED" || state === "AUTH_REQUIRED") ? state : null;
   const options = prompt === "INPUT_REQUIRED" ? quickReplies(message) : [];
+  // Unrecognized or unadvertised forms stay ordinary data parts, so the generic composer remains the fallback.
+  const formPart = prompt === "INPUT_REQUIRED" && !answered && onSubmitForm
+    ? message.parts.map((part) => ({ part, form: formFromPart(part, extensions) })).find((entry) => entry.form)
+    : undefined;
   return (
     <motion.div
       {...enter}
@@ -59,11 +73,12 @@ export function AgentBubble({
       <div>
         {message.parts
           // The options list is shown as buttons below; don't echo it as raw JSON too.
-          .filter((part) => !(options.length > 0 && part.kind === "data"))
+          .filter((part) => !(options.length > 0 && part.kind === "data") && part !== formPart?.part)
           .map((part, index) => (
             <BubblePart key={index} part={part} />
           ))}
       </div>
+      {formPart?.form && <StructuredForm form={formPart.form} onSubmit={onSubmitForm!} />}
       {options.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {options.map((option, index) => (
