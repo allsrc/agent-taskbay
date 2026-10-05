@@ -55,6 +55,10 @@ export interface DecisionCommandInput {
   contextId: string | null;
   text: string;
   data?: Record<string, unknown>;
+  /** Explicit message parts (a structured reply); when present they replace `text`. */
+  parts?: Array<Record<string, unknown>>;
+  /** Binds the dispatched message to the exact approved content so a cooperating agent can verify and echo it. */
+  approval: { requestId: string; decisionId: string; revision: number; revisionDigest: string };
 }
 
 export interface DecisionPorts {

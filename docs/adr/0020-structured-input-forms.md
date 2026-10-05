@@ -39,6 +39,6 @@ task model, and without letting agent-supplied content run code or bypass author
 
 - Forms with nesting, conditional fields or rich validation need a new extension version, not silent
   interpretation of unknown schema.
-- Input forms (6.1) and start-of-task forms (6.4) are in the chat view. Forms on the approval review page reuse the same
-  parser and renderer in a later slice (6.5).
+- Input forms (6.1) and start-of-task forms (6.4) are in the chat view. Forms on the approval review page (6.5) reuse the same
+  parser and renderer as the `send_data` action of ADR 0015.
 - Vitest gains a `vitest.config.ts` with the `@` path alias so component tests can import application modules.

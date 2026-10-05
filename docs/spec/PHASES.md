@@ -275,8 +275,8 @@ Requirements: `AGT-004`, `SEC-001..005`, `AUD-001`, `SCL-001`.
 - Audit hardening: record who read or exported the trail, cursor-based export beyond one
   page, and an audit projection for very large organizations (Phase 7 lists tamper evidence,
   retention and external export).
-- Additional typed action kinds beyond `send_message`, each with a server variant, an
-  execution adapter and an entry in the UI action-renderer registry.
+- Additional typed action kinds beyond `send_message` and `send_data` (Phase 6 slice 6.5), each with a server
+  variant, an execution adapter and an entry in the UI action-renderer registry.
 - Browser-level UI tests in CI for the approval, ownership, audit and notification flows; the
   slices were verified with scripted browser runs that are not yet part of the quality gate.
 - Agent-originated approval requests through a reviewed extension or recognized in-task
@@ -335,8 +335,9 @@ Requirements: `INB-001..002`, `TSK-006`, `HITL-005`, `ADM-001`, `PERF-001`,
 ### Deliverables
 
 - [~] Structured start/input forms through an advertised schema extension. (Slices 6.1–6.2 and 6.4: input and start-of-task forms in the chat view with a reference agent and browser verification, ADR 0020; forms on the approval page follow in 6.5.)
-- [ ] Render structured and A2UI proposals inside the approval review page through the
-  action-renderer registry, with edit-before-approve for structured actions.
+- [~] Render structured and A2UI proposals inside the approval review page through the
+  action-renderer registry, with edit-before-approve for structured actions. (Slice 6.5: structured `send_data`
+  actions with edit-before-approve, ADR 0015 addendum; A2UI proposals follow with the A2UI renderer.)
 - [ ] Agent-originated approval requests through a reviewed extension or recognized
   in-task pattern (`HITL-006`).
 - [ ] Safe A2UI renderer with an explicit component allowlist.

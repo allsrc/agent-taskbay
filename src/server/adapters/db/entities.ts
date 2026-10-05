@@ -491,7 +491,7 @@ const DecisionRequestSchema = defineEntity({
     taskId: () => p.manyToOne(TaskEntity).mapToPk().joinColumn("task_id"),
     agentId: () => p.manyToOne(AgentEntity).mapToPk().joinColumn("agent_id"),
     tenant: p.string().length(255), skillId: p.string().length(255).nullable(),
-    kind: p.string().length(64).$type<"send_message">(), status: p.string().length(32).$type<DecisionRequestStatus>(),
+    kind: p.string().length(64).$type<"send_message" | "send_data">(), status: p.string().length(32).$type<DecisionRequestStatus>(),
     requestKey: p.string().length(255), title: p.string().length(300), summary: p.text(),
     risk: p.string().length(16).$type<DecisionRisk>(), policyJson: p.json<DecisionPolicy>(),
     requesterUserId: p.uuid().nullable(), assignedMembershipId: p.uuid().nullable(),

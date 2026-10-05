@@ -130,7 +130,7 @@ function Review({ detail, refresh, error }: { detail: DecisionDetail; refresh: (
                     {busy === "edit" && <Loader2 className="animate-spin" />} Approve edited version</Button>
                   <Button variant="outline" onClick={() => { setMode("none"); setDraft(current.action); }}>Cancel edit</Button>
                 </div>
-                {!changed && <p className="text-muted-foreground mt-1 text-[11px]">Change the text to enable this.</p>}
+                {!changed && <p className="text-muted-foreground mt-1 text-[11px]">Change the content to enable this.</p>}
               </div>
             )}
             {mode === "delegate" && (
@@ -226,7 +226,7 @@ function Review({ detail, refresh, error }: { detail: DecisionDetail; refresh: (
               <div className="flex items-center gap-2"><Chip>#{revision.number}</Chip>
                 {revision.id === current.id && <span className="text-primary font-mono text-[11px]">current</span>}
                 <span className="text-muted-foreground ml-auto font-mono text-[11px]">{person(revision.authorUserId)} · {when(revision.createdAt)}</span></div>
-              <p className="mt-1 line-clamp-3 text-[13px] whitespace-pre-wrap">{revision.action.text}</p>
+              <p className="mt-1 line-clamp-3 text-[13px] whitespace-pre-wrap">{revision.action.kind === "send_data" ? Object.entries(revision.action.values).map(([key, value]) => `${key}: ${String(value)}`).join(" · ") : revision.action.text}</p>
             </div>
           ))}
         </InfoCard>

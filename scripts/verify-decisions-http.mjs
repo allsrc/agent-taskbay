@@ -34,7 +34,7 @@ const fixture = createServer(async (request, response) => {
   const message = rpc.params.message;
   received.push(message);
   const approving = Boolean(message.taskId);
-  response.end(JSON.stringify({ jsonrpc: "2.0", id: rpc.id, result: { task: { id: message.taskId ?? (message.parts?.[0]?.text?.includes("Another") ? "approval-task-2" : "approval-task"), contextId: "approval-context",
+  response.end(JSON.stringify({ jsonrpc: "2.0", id: rpc.id, result: { task: { id: message.taskId ?? (message.parts?.[0]?.text?.includes("Third") ? "approval-task-3" : message.parts?.[0]?.text?.includes("Another") ? "approval-task-2" : "approval-task"), contextId: "approval-context",
     status: { state: approving ? "TASK_STATE_COMPLETED" : "TASK_STATE_INPUT_REQUIRED", timestamp: approving ? "2026-10-05T00:00:02Z" : "2026-10-05T00:00:01Z" },
     history: [message] } } }));
 });
@@ -197,6 +197,37 @@ try {
   assert.equal(csv.headers.get("x-content-type-options"), "nosniff");
   assert.ok((await csv.text()).startsWith("time,kind,actor,task,subject,detail\r\n"));
   for (const method of ["POST", "PUT", "DELETE", "PATCH"]) assert.ok([404, 405].includes((await call("/api/audit", { method, body: "{}" })).status), `${method} must not exist on the trail`);
+
+  // Structured reply (ADR 0015 addendum): values for a pinned form are validated, edited by a reviewer, and sent as one JSON part
+  // that carries the approved revision's identity.
+  const third = await call(`/api/agents/${agent.id}/commands`, { method: "POST", headers: { "Idempotency-Key": "third-task" }, body: JSON.stringify({ text: "Third job" }) });
+  assert.equal(third.status, 202);
+  const thirdTask = await until(async () => (await call("/api/tasks")).body.tasks.find((candidate) => candidate.taskId === "approval-task-3" && candidate.state === "TASK_STATE_INPUT_REQUIRED"), "third task");
+  const deployForm = { title: "Deploy request", order: ["environment", "replicas"], schema: { type: "object", required: ["environment", "replicas"], properties: {
+    environment: { type: "string", title: "Environment", enum: ["staging", "production"] }, replicas: { type: "integer", minimum: 1, maximum: 10 } } } };
+  const structuredOpen = { taskId: thirdTask.localId, requestKey: "structured", title: "Approve deploy", summary: "Agent asked for deployment parameters", risk: "high",
+    action: { kind: "send_data", form: deployForm, values: { environment: "staging", replicas: 2 } }, expiresAt: new Date(Date.now() + 3_600_000).toISOString(), policy: { separationOfDuties: false } };
+  assert.equal((await call("/api/decisions", { method: "POST", body: JSON.stringify({ ...structuredOpen, requestKey: "bad", action: { ...structuredOpen.action, values: { environment: "staging", replicas: 99 } } }) })).status, 400);
+  assert.equal((await call("/api/decisions", { method: "POST", body: JSON.stringify({ ...structuredOpen, requestKey: "extra", action: { ...structuredOpen.action, values: { environment: "staging", replicas: 2, sneaky: 1 } } }) })).status, 400);
+  const structuredCreated = await call("/api/decisions", { method: "POST", body: JSON.stringify(structuredOpen) });
+  assert.equal(structuredCreated.status, 201, structuredCreated.text);
+  assert.equal(structuredCreated.body.decision.kind, "send_data");
+  const sid = structuredCreated.body.decision.id;
+  const sBefore = received.length;
+  const sDecide = `/api/decisions/${sid}/decisions`;
+  assert.equal((await call(sDecide, { method: "POST", headers: { "Idempotency-Key": "form-edit" }, body: JSON.stringify({ outcome: "edit", expectedRevision: 1, rationale: "x",
+    edit: { kind: "send_data", form: { ...deployForm, title: "Changed" }, values: { environment: "staging", replicas: 3 } } }) })).status, 422, "A reviewer cannot change the form");
+  assert.equal(received.length, sBefore, "Refused edits send nothing");
+  const sApproved = await call(sDecide, { method: "POST", headers: { "Idempotency-Key": "structured-edit" }, body: JSON.stringify({ outcome: "edit", expectedRevision: 1, rationale: "Production with fewer replicas",
+    edit: { kind: "send_data", form: deployForm, values: { environment: "production", replicas: 3 } } }) });
+  assert.equal(sApproved.status, 201, sApproved.text);
+  const sDetail = await until(async () => { const current = (await call(`/api/decisions/${sid}`)).body; return current?.executions?.[0]?.status === "succeeded" ? current : undefined; }, "structured execution");
+  const sMessage = received.slice(sBefore).find((message) => message.taskId === "approval-task-3");
+  assert.ok(sMessage, "The structured approval reached the agent");
+  assert.equal(received.slice(sBefore).filter((message) => message.taskId === "approval-task-3").length, 1);
+  assert.deepEqual(sMessage.parts, [{ data: { environment: "production", replicas: 3 }, mediaType: "application/json" }], "Exactly one JSON data part, not text");
+  assert.deepEqual(sMessage.metadata.approval, { requestId: sid, decisionId: sApproved.body.decision.id, revision: 2, revisionDigest: sDetail.revisions[1].digest });
+  assert.equal(sDetail.decisions[0].revisionDigest, sDetail.revisions[1].digest);
 
   // Malformed and unknown identifiers are indistinguishable from absent requests.
   assert.equal((await call("/api/decisions/not-a-uuid")).status, 404);

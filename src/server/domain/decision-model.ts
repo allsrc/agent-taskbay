@@ -6,15 +6,20 @@ export type DecisionRequestStatus = "pending" | "approved" | "rejected" | "chang
 export type DecisionRisk = "low" | "medium" | "high";
 export type ExecutionStatus = "pending" | "dispatching" | "succeeded" | "failed" | "uncertain";
 
+/** Values a structured reply may carry: exactly what the ADR 0020 form field kinds produce. */
+export type StructuredValues = Record<string, string | number | boolean>;
+
 /**
- * The only typed action in this slice: send one reply message into the task the request is scoped to.
- * Scope (agent, tenant, skill, task) is fixed on the request, never taken from the action content.
+ * Typed actions: each sends one reply into the task the request is scoped to. Scope (agent, tenant, skill, task) is
+ * fixed on the request, never taken from the action content.
+ * - `send_message`: a text reply (optionally with extra data in the message metadata).
+ * - `send_data` (ADR 0015 addendum): validated values for a pinned form definition, sent as one JSON data part. The form
+ *   is part of the digest, so a reviewer's edit can change values but never the form that gives them meaning.
  */
-export interface ProposedAction {
-  kind: "send_message";
-  text: string;
-  data?: Record<string, JsonValue>;
-}
+export type ProposedAction =
+  | { kind: "send_message"; text: string; data?: Record<string, JsonValue> }
+  | { kind: "send_data"; form: Record<string, JsonValue>; values: StructuredValues };
+export type ProposedActionKind = ProposedAction["kind"];
 
 /** Reviewer policy snapshot recorded with each request and with each decision made under it. */
 export interface DecisionPolicy {
@@ -30,7 +35,7 @@ export interface DecisionRequestRecord {
   agentId: string;
   tenant: string;
   skillId: string | null;
-  kind: "send_message";
+  kind: ProposedActionKind;
   status: DecisionRequestStatus;
   requestKey: string;
   title: string;

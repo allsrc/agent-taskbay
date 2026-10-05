@@ -11,10 +11,8 @@ import { initialValues, validateForm, type FormDefinition, type FormErrors, type
  * submission is the validated values object, sent back as an ordinary application/json data part.
  */
 export function StructuredForm({ form, disabled, onSubmit }: { form: FormDefinition; disabled?: boolean; onSubmit: (submission: FormSubmission) => void | Promise<void> }) {
-  const base = useId();
   const [values, setValues] = useState<FormValues>(() => initialValues(form));
   const [errors, setErrors] = useState<FormErrors>({});
-  const set = (key: string, value: FormValues[string]) => setValues((current) => ({ ...current, [key]: value }));
 
   function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -29,6 +27,19 @@ export function StructuredForm({ form, disabled, onSubmit }: { form: FormDefinit
         <p className="text-[14px] font-medium">{form.title}</p>
         {form.description && <p className="text-muted-foreground mt-0.5 text-xs whitespace-pre-wrap">{form.description}</p>}
       </div>
+      <FormFields form={form} values={values} errors={errors} disabled={disabled} onChange={(key, value) => setValues((current) => ({ ...current, [key]: value }))} />
+      <div><Button type="submit" variant="brand" size="sm" disabled={disabled}>{form.submitLabel}</Button></div>
+    </form>
+  );
+}
+
+/** The controlled field list shared by the chat form and the approval editor. Strings render as text only. */
+export function FormFields({ form, values, errors, disabled, onChange }: {
+  form: FormDefinition; values: FormValues; errors: FormErrors; disabled?: boolean; onChange: (key: string, value: FormValues[string]) => void;
+}) {
+  const base = useId();
+  return (
+    <>
       {form.fields.map((field) => {
         const id = `${base}-${field.key}`;
         const error = errors[field.key];
@@ -37,20 +48,19 @@ export function StructuredForm({ form, disabled, onSubmit }: { form: FormDefinit
             {field.type === "boolean" ? (
               <label htmlFor={id} className="flex items-center gap-2 text-sm">
                 <input id={id} type="checkbox" checked={values[field.key] === true} disabled={disabled}
-                  onChange={(event) => set(field.key, event.target.checked)} />
+                  onChange={(event) => onChange(field.key, event.target.checked)} />
                 {field.label}
               </label>
             ) : (
               <label htmlFor={id} className="text-sm font-medium">{field.label}{field.required && <span aria-hidden className="text-brand"> *</span>}</label>
             )}
-            {field.type !== "boolean" && <FieldInput id={id} field={field} value={values[field.key]} disabled={disabled} invalid={!!error} onChange={(value) => set(field.key, value)} />}
+            {field.type !== "boolean" && <FieldInput id={id} field={field} value={values[field.key]} disabled={disabled} invalid={!!error} onChange={(value) => onChange(field.key, value)} />}
             {field.description && <p id={`${id}-hint`} className="text-muted-foreground text-xs">{field.description}</p>}
             {error && <p id={`${id}-error`} role="alert" className="text-brand text-xs">{error}</p>}
           </div>
         );
       })}
-      <div><Button type="submit" variant="brand" size="sm" disabled={disabled}>{form.submitLabel}</Button></div>
-    </form>
+    </>
   );
 }
 

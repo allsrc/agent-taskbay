@@ -15,8 +15,11 @@ import type { JsonValue } from "../domain/persistence-model";
 import { acceptCommandWithin } from "./commands";
 import { sharedPorts } from "./shared-ports";
 
-const actionSchema = z.object({ kind: z.literal("send_message"), text: z.string().min(1).max(20_000),
-  data: z.record(z.string(), z.unknown()).optional() }).strict();
+const actionSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("send_message"), text: z.string().min(1).max(20_000), data: z.record(z.string(), z.unknown()).optional() }).strict(),
+  // Content is validated against the form subset by the domain service; the schema only bounds the shape.
+  z.object({ kind: z.literal("send_data"), form: z.record(z.string(), z.unknown()), values: z.record(z.string(), z.unknown()) }).strict(),
+]);
 const outcome = z.enum(["approve", "reject", "edit", "request_changes", "delegate"]);
 const uuid = z.string().uuid();
 
@@ -31,8 +34,9 @@ export const decideSchema = z.object({ outcome, rationale: z.string().max(4000).
   edit: actionSchema.optional(), delegateMembershipId: uuid.optional() }).strict();
 
 /** The schema already bounds the action; this only narrows the parsed JSON for the domain type. */
-export const toAction = (action: z.infer<typeof actionSchema>): ProposedAction => ({ kind: action.kind, text: action.text,
-  ...(action.data ? { data: JSON.parse(JSON.stringify(action.data)) as Record<string, JsonValue> } : {}) });
+export const toAction = (action: z.infer<typeof actionSchema>): ProposedAction => action.kind === "send_data"
+  ? { kind: "send_data", form: JSON.parse(JSON.stringify(action.form)) as Record<string, JsonValue>, values: JSON.parse(JSON.stringify(action.values)) as Extract<ProposedAction, { kind: "send_data" }>["values"] }
+  : { kind: action.kind, text: action.text, ...(action.data ? { data: JSON.parse(JSON.stringify(action.data)) as Record<string, JsonValue> } : {}) };
 
 export function parseBody<T>(schema: z.ZodType<T>, body: unknown): T {
   const parsed = schema.safeParse(body);
@@ -53,9 +57,11 @@ function ports(em: Parameters<Parameters<typeof withJobEntityManager>[0]>[0], st
     requireOperate: shared.requireOperate, canRead: shared.canRead, canOperate: shared.canOperate, freshen: shared.freshen, notify: shared.notify, audit: shared.audit,
     acceptCommand: (input) => acceptCommandWithin(em, { organizationId: input.organizationId, agentId: input.agentId, tenant: input.tenant,
       action: "send", skillId: input.skillId ?? undefined, idempotencyKey: input.idempotencyKey, store,
-      input: { text: input.text, taskId: input.taskRemoteId, ...(input.contextId ? { contextId: input.contextId } : {}), messageId: input.messageId },
-      params: JSON.parse(JSON.stringify({ text: input.text, taskId: input.taskRemoteId, messageId: input.messageId, returnImmediately: true,
-        ...(input.contextId ? { contextId: input.contextId } : {}), ...(input.data ? { metadata: { decision: input.data } } : {}) })) as Record<string, JsonValue> }),
+      input: { ...(input.parts ? { parts: input.parts } : { text: input.text }), taskId: input.taskRemoteId, ...(input.contextId ? { contextId: input.contextId } : {}), messageId: input.messageId },
+      params: JSON.parse(JSON.stringify({ ...(input.parts ? { parts: input.parts } : { text: input.text }), taskId: input.taskRemoteId, messageId: input.messageId, returnImmediately: true,
+        ...(input.contextId ? { contextId: input.contextId } : {}),
+        // The approved revision's identity travels with the message so a cooperating agent can verify what it was approved to do.
+        metadata: { ...(input.data ? { decision: input.data } : {}), approval: input.approval } })) as Record<string, JsonValue> }),
   };
 }
 

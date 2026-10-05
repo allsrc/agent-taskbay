@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -10,7 +10,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useServerResource } from "@/lib/use-server-resource";
-import type { DecisionRisk, ReviewerOption } from "@/shared/decision-types";
+import { FormFields } from "@/components/chat/structured-form";
+import { STRUCTURED_FORM_EXTENSION_URI, STRUCTURED_FORM_MEDIA_TYPE, formFromPart, initialValues, validateForm, type FormValues } from "@/lib/structured-form";
+import type { DecisionRisk, ProposedAction, ReviewerOption } from "@/shared/decision-types";
+import type { DurableTaskView } from "@/shared/task-types";
 
 const LIFETIMES = [{ label: "1 hour", hours: 1 }, { label: "8 hours", hours: 8 }, { label: "24 hours", hours: 24 }, { label: "7 days", hours: 168 }];
 const select = "border-input bg-background h-9 w-full rounded-md border px-2 text-sm";
@@ -36,6 +39,8 @@ function RequestForm({ taskId, onDone, onCreated }: { taskId: string; onDone: ()
   const [title, setTitle] = useState("");
   const [summary, setSummary] = useState("");
   const [text, setText] = useState("");
+  const [mode, setMode] = useState<"message" | "form">("message");
+  const [values, setValues] = useState<FormValues | null>(null);
   const [risk, setRisk] = useState<DecisionRisk>("medium");
   const [hours, setHours] = useState(24);
   const [assignee, setAssignee] = useState("");
@@ -43,7 +48,24 @@ function RequestForm({ taskId, onDone, onCreated }: { taskId: string; onDone: ()
   const [error, setError] = useState<string | null>(null);
   // One key per form, so a retried submit after a lost response returns the same request.
   const requestKey = useRef(crypto.randomUUID());
-  const valid = title.trim().length > 0 && text.trim().length > 0;
+  // When the agent asked for structured input (and advertises the form extension), the reply can be the agent's own form.
+  const task = useServerResource<{ task: DurableTaskView }>(`/api/tasks/${encodeURIComponent(taskId)}`);
+  const agents = useServerResource<{ agents: Array<{ id: string; card?: { capabilities?: { extensions?: Array<{ uri?: string }> } } }> }>("/api/agents");
+  const offered = useMemo(() => {
+    const view = task.data?.task;
+    const extensions = (agents.data?.agents.find((agent) => agent.id === view?.agentId)?.card?.capabilities?.extensions ?? []).map((extension) => extension.uri ?? "");
+    if (!view || !extensions.includes(STRUCTURED_FORM_EXTENSION_URI)) return undefined;
+    for (const message of [...view.messages].reverse()) {
+      if (message.role !== "agent" || !message.fromStatus) continue;
+      const part = message.parts.find((candidate) => candidate.mediaType === STRUCTURED_FORM_MEDIA_TYPE);
+      const form = part && formFromPart(part, extensions);
+      return form && part ? { form, raw: part.value as Record<string, unknown> } : undefined;
+    }
+    return undefined;
+  }, [task.data, agents.data]);
+  const formValues = values ?? (offered ? initialValues(offered.form) : {});
+  const formErrors = offered && mode === "form" ? validateForm(offered.form, formValues).errors : {};
+  const valid = title.trim().length > 0 && (mode === "form" && offered ? Object.keys(formErrors).length === 0 : text.trim().length > 0);
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -52,7 +74,9 @@ function RequestForm({ taskId, onDone, onCreated }: { taskId: string; onDone: ()
     try {
       const response = await fetch("/api/decisions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
         taskId, requestKey: requestKey.current, title: title.trim(), summary: summary.trim(), risk,
-        action: { kind: "send_message", text }, expiresAt: new Date(Date.now() + hours * 3_600_000).toISOString(),
+        action: (mode === "form" && offered
+          ? { kind: "send_data", form: offered.raw, values: validateForm(offered.form, formValues).submission }
+          : { kind: "send_message", text }) satisfies ProposedAction, expiresAt: new Date(Date.now() + hours * 3_600_000).toISOString(),
         ...(assignee ? { assignedMembershipId: assignee } : {}) }) });
       const body = await response.json();
       if (!response.ok) throw new Error(body?.error?.message ?? "Could not open the approval request.");
@@ -74,8 +98,20 @@ function RequestForm({ taskId, onDone, onCreated }: { taskId: string; onDone: ()
         <Input id="ra-title" value={title} maxLength={300} onChange={(event) => setTitle(event.target.value)} placeholder="Delete the staging cluster" autoFocus /></div>
       <div className="flex flex-col gap-1.5"><Label htmlFor="ra-summary">Context for the reviewer</Label>
         <Textarea id="ra-summary" value={summary} maxLength={4000} rows={2} onChange={(event) => setSummary(event.target.value)} /></div>
-      <div className="flex flex-col gap-1.5"><Label htmlFor="ra-text">Message to send if approved</Label>
-        <Textarea id="ra-text" value={text} maxLength={20000} rows={4} onChange={(event) => setText(event.target.value)} /></div>
+      {offered && (
+        <div className="flex flex-col gap-1.5"><Label htmlFor="ra-kind">Reply type</Label>
+          <select id="ra-kind" className={select} value={mode} onChange={(event) => setMode(event.target.value as "message" | "form")}>
+            <option value="message">Text message</option><option value="form">Fill in the agent&apos;s form: {offered.form.title}</option></select></div>
+      )}
+      {mode === "form" && offered ? (
+        <div className="border-border flex flex-col gap-3 rounded-lg border p-3" data-testid="request-form-values">
+          <FormFields form={offered.form} values={formValues} errors={formErrors} onChange={(key, value) => setValues({ ...formValues, [key]: value })} />
+          <p className="text-muted-foreground text-[11px]">The reviewer can change these values but not the form. Sent as one JSON data part if approved.</p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-1.5"><Label htmlFor="ra-text">Message to send if approved</Label>
+          <Textarea id="ra-text" value={text} maxLength={20000} rows={4} onChange={(event) => setText(event.target.value)} /></div>
+      )}
       <div className="grid grid-cols-2 gap-3">
         <div className="flex flex-col gap-1.5"><Label htmlFor="ra-risk">Risk</Label>
           <select id="ra-risk" className={select} value={risk} onChange={(event) => setRisk(event.target.value as DecisionRisk)}>
