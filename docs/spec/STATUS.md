@@ -25,6 +25,15 @@ Last updated: 2026-10-05
   agreement on 2026-10-05 so Phase 6 could start; Phase 5 exit criteria are still
   unverified and the phase is not complete. Resume at slice 5.2.
 
+- **Phase 6 limitations — tracked:** AG-UI thread-to-context mapping
+  ([#8](https://github.com/shashikanth-gs/a2a-ops/issues/8)), skill-scoped principals
+  ([#9](https://github.com/shashikanth-gs/a2a-ops/issues/9)), tools/context/state/non-text content
+  ([#10](https://github.com/shashikanth-gs/a2a-ops/issues/10)), cross-origin browser clients
+  ([#11](https://github.com/shashikanth-gs/a2a-ops/issues/11)), runs longer than 50 s
+  ([#12](https://github.com/shashikanth-gs/a2a-ops/issues/12)), real-client and schema verification
+  ([#13](https://github.com/shashikanth-gs/a2a-ops/issues/13)) and a committed browser E2E suite for forms
+  ([#14](https://github.com/shashikanth-gs/a2a-ops/issues/14)). None blocks the next slice.
+
 ## Accepted implementation choices
 
 - Product name: A2A Ops.

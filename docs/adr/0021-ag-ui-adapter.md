@@ -53,6 +53,9 @@ specification (docs.ag-ui.com) found:
 - Approval-grade decisions stay in the Phase 4 aggregate. An AG-UI resume answers an agent's own input request like the
   composer does; it is never a decision record, and an interrupt is not a substitute for a reviewer's approval.
 
+Each limitation above is tracked: thread-to-context mapping #8, skill-scoped principals #9, tools/context/state/non-text
+content #10, cross-origin clients #11, long-running tasks #12, real-client/schema verification #13.
+
 ## Consequences
 
 - AG-UI clients get durable, audited, authorization-checked runs without a second dispatch path.
