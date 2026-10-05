@@ -6,7 +6,7 @@ Last updated: 2026-10-05
 
 - Last completed phase: **Phase 3 — identity and security**
 - Active phase: **Phase 4 — approval-grade human intervention**
-- Last completed slice: **4.1 — typed decision requests and revisions**
+- Last completed slice: **4.1b — approval review UI** (after 4.1 — typed decision requests and revisions)
 - Next executable slice: **4.2 — assignment, claiming, due times, escalation and notes**
 - Blocking decisions: none
 
@@ -1281,6 +1281,70 @@ Remaining risks:
   (issue #1) are unchanged.
 
 **Slice 4.1 acceptance criteria are verified. Phase 4 remains active.**
+
+## Phase 4 Slice 4.1b verified evidence
+
+Date: 2026-10-05
+
+Slice: **4.1b — approval review UI**
+
+Changes:
+
+- Added an **Approvals** area using the existing shell, split-pane, chips, cards and
+  polling resource hook: a filterable queue (Pending, Needs changes, Assigned, Closed,
+  All), a review page, and a pending-count badge in desktop and mobile navigation.
+- The review page shows the exact proposed action and digest, the requester, expiry and
+  linked task, revision history, the decision record (who, what, when, why, which
+  revision) and the delivery result with the observed task state. Approve, Edit
+  (edit-before-approve), Reject, Request changes and Delegate are available to a
+  permitted reviewer; reject, edit, delegate and request-changes need a rationale.
+  Approval asks for confirmation. A requester who may not decide their own request, or a
+  reviewer it is not assigned to, sees why instead of dead buttons; the server still
+  enforces every rule. A proposer can submit a revised proposal after changes are requested.
+- Retried or double-clicked submissions reuse one idempotency key per identical request,
+  so they replay the same decision; a changed request gets a new key. A decision always
+  names the revision the reviewer saw, so a stale page is refused rather than applied.
+- Task pages gain an **Approvals** card and a **Request approval** dialog (title,
+  context, message, risk, expiry, optional assignee), because agents cannot yet open
+  requests themselves. Actions render through a per-kind registry
+  (`proposed-action.tsx`) so new action kinds and Phase 6 structured forms plug in
+  without changing the review page.
+- Added `GET /api/reviewers` (eligible reviewers for a task's agent/skill) and display
+  context on decision views (agent and task names, people names, signed-in viewer).
+- Recorded the remaining Phase 4 work as new `HITL-006..008` requirements and Phase 4–7
+  deliverables in PRODUCT_SPEC.md and PHASES.md.
+
+Verification commands and results:
+
+- `npx tsc --noEmit` and `npm run lint`: passed. `npm test`: 29 unit files/86 tests,
+  including the new approval-helper tests (expiry labels, decidable states, delivery
+  wording, idempotency-key reuse).
+- `npm run build`: passed with the new pages and routes. The decision HTTP suite
+  (`scripts/verify-decisions-http.mjs`) now also checks the reviewer list, display names,
+  viewer and people on the production server, and passed.
+- Scripted Chromium run against the production build (not committed; the repository has
+  no browser test dependency yet): requested an approval from the task page, saw a
+  requester blocked from deciding their own request, edited and approved a request and
+  watched it reach the fixture agent exactly once with the edited text and the result
+  panel show the delivered/working state, rejected one, requested changes then revised and
+  delegated another, checked the queue filters, task-page card and navigation badge, and
+  checked a 390px mobile layout with no horizontal scroll. No console errors or warnings.
+
+Migration tested from:
+
+- No schema change in this slice.
+
+Remaining risks:
+
+- The queue and badge poll every five seconds; decision changes do not yet publish
+  freshness signals. Expiry is not enforced by a worker, and a finished task's open
+  requests are only superseded when someone next acts on them. Both are Phase 4
+  deliverables in PHASES.md.
+- Assignment is the initial assignee and delegation; claiming, due times, escalation
+  and notes are slice 4.2. There are no notifications, and agents cannot open requests.
+- Browser-level tests are not part of the CI gate; the keyboard and screen-reader
+  behavior was reviewed by structure (labels, roles, tabs), not with assistive technology.
+- The list shows the most recent 100 requests visible to the caller, with no paging.
 
 Next executable slice: **4.2 — assignment, claiming, due times, escalation and notes**.
 Add task claiming/assignment independent of remote state, due times and escalation

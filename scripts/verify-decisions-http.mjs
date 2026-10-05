@@ -63,6 +63,7 @@ try {
   await until(async () => { try { return (await fetch(base + "/api/auth/session")).ok; } catch { return false; } }, "server ready");
 
   const agent = (await call("/api/agents", { method: "POST", body: JSON.stringify({ cardUrl: `http://127.0.0.1:${fixturePort}/card.json` }) })).body.agent;
+  await call("/api/agents"); // Persist the discovered display name.
   const started = await call(`/api/agents/${agent.id}/commands`, { method: "POST", headers: { "Idempotency-Key": "start" }, body: JSON.stringify({ text: "Begin the cleanup" }) });
   assert.equal(started.status, 202, started.text);
   const commandId = started.body.command.id;
@@ -90,6 +91,18 @@ try {
   assert.equal(repeat.body.decision.id, created.body.decision.id);
   assert.equal((await call("/api/decisions", { method: "POST", body: JSON.stringify({ ...open, action: { kind: "send_message", text: "Different" } }) })).status, 409);
   const id = created.body.decision.id;
+  // Display context for the review screens: names, viewer and eligible reviewers, within the caller's scope.
+  const reviewers = await call(`/api/reviewers?taskId=${taskId}`);
+  assert.equal(reviewers.status, 200, reviewers.text);
+  assert.deepEqual(reviewers.body.reviewers.map((reviewer) => [reviewer.displayName, reviewer.self]), [["Local operator", true]]);
+  assert.equal((await call("/api/reviewers?taskId=00000000-0000-4000-a000-000000000000")).status, 404);
+  assert.equal((await call("/api/reviewers?taskId=nope")).status, 404);
+  const firstDetail = (await call(`/api/decisions/${id}`)).body;
+  assert.equal(firstDetail.request.agentName, "Approval fixture");
+  assert.equal((await call("/api/decisions")).body.decisions[0].agentName, "Approval fixture");
+  assert.equal(firstDetail.viewer.role, "admin");
+  assert.equal(firstDetail.people[firstDetail.viewer.userId], "Local operator");
+  assert.equal(firstDetail.request.requesterUserId, firstDetail.viewer.userId);
   assert.equal((await call(`/api/decisions?status=pending`)).body.decisions.length, 1);
   assert.equal((await call("/api/decisions?status=bogus")).status, 400);
   assert.equal(received.length, 1, "Opening a request must not contact the agent.");

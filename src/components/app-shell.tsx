@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, LayoutGrid, ListChecks, MessageSquare, SlidersHorizontal, Workflow, type LucideIcon } from "lucide-react";
+import { Bell, LayoutGrid, ListChecks, MessageSquare, ShieldCheck, SlidersHorizontal, Workflow, type LucideIcon } from "lucide-react";
 import { motion } from "motion/react";
 import { LogoMark, Wordmark } from "@/components/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -11,6 +11,8 @@ import { DurableTaskSync } from "@/components/chat/durable-task-sync";
 import { useTaskStore } from "@/store/task-store";
 import { useNotifications } from "@/store/notification-store";
 import { useAgentStore } from "@/store/agent-store";
+import { useServerResource } from "@/lib/use-server-resource";
+import type { DecisionRequestView } from "@/shared/decision-types";
 import { cn } from "@/lib/utils";
 import { IdentityMenu } from "./identity-menu";
 
@@ -25,6 +27,7 @@ const NAV: NavItem[] = [
   { href: "/agents", label: "Agents", short: "Agents", icon: LayoutGrid },
   { href: "/chat", label: "Chat", short: "Chat", icon: MessageSquare },
   { href: "/tasks", label: "Tasks", short: "Tasks", icon: ListChecks },
+  { href: "/approvals", label: "Approvals", short: "Approve", icon: ShieldCheck },
   { href: "/flows", label: "Orchestration", short: "Flows", icon: Workflow },
   { href: "/notifications", label: "Notifications", short: "Alerts", icon: Bell },
   { href: "/settings", label: "Settings", short: "Setup", icon: SlidersHorizontal },
@@ -39,6 +42,7 @@ export function AppShell({ children, identity }: { children: React.ReactNode;
   identity: { displayName: string; role: string; development: boolean } }) {
   const active = useActive();
   const { unread } = useNotifications();
+  const pending = (useServerResource<{ decisions: DecisionRequestView[] }>("/api/decisions?status=pending").data?.decisions.length) ?? 0;
   const taskError = useTaskStore((state) => state.error);
   const agents = useAgentStore((state) => state.agents);
   const refreshAgents = useAgentStore((state) => state.refresh);
@@ -80,6 +84,9 @@ export function AppShell({ children, identity }: { children: React.ReactNode;
                 {item.href === "/notifications" && unread > 0 && (
                   <span className="bg-brand text-brand-foreground relative rounded-full px-1.5 font-mono text-[11px] font-bold">{unread}</span>
                 )}
+                {item.href === "/approvals" && pending > 0 && (
+                  <span className="bg-brand text-brand-foreground relative rounded-full px-1.5 font-mono text-[11px] font-bold" aria-label={`${pending} pending approvals`}>{pending}</span>
+                )}
               </Link>
             );
           })}
@@ -119,7 +126,7 @@ export function AppShell({ children, identity }: { children: React.ReactNode;
               >
                 <span className="relative">
                   <item.icon className="size-[22px]" strokeWidth={1.8} />
-                  {item.href === "/notifications" && unread > 0 && (
+                  {((item.href === "/notifications" && unread > 0) || (item.href === "/approvals" && pending > 0)) && (
                     <span className="bg-brand absolute -top-0.5 -right-1.5 size-[9px] rounded-full" />
                   )}
                 </span>

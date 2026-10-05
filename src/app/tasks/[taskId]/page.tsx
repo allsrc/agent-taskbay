@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { BackLink, Chip, EmptyState, InfoCard, StateChip } from "@/components/a2a/primitives";
+import { TaskApprovals } from "@/components/approvals/task-approvals";
 import { Button } from "@/components/ui/button";
 import { conversationKey } from "@/lib/conversations";
 import { runResubscribe } from "@/lib/run-message";
@@ -134,6 +135,8 @@ export default function TaskDetailPage({ params }: { params: Promise<{ taskId: s
           ))}
           {task.artifacts.length === 0 && <p className="text-muted-foreground pt-1 text-[13px]">No artifacts yet.</p>}
         </InfoCard>
+
+        {task.kind !== "message" && <TaskApprovals taskId={task.localId} canRequest={active} />}
 
         <InfoCard label="Identifiers">
           <dl className="flex flex-col gap-1.5 font-mono text-[11px]">

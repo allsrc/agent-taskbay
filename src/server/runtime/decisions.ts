@@ -5,7 +5,7 @@ import { createPersistenceRepositories } from "../adapters/db/repositories";
 import { MikroOrmDecisionRepository } from "../adapters/db/decision-repository";
 import { DatabaseIdentityRepository } from "../adapters/db/identity-repository";
 import { DatabaseAccessPolicyRepository, requestAccessPolicy } from "../adapters/db/security-repository";
-import { MembershipEntity, UserEntity } from "../adapters/db/entities";
+import { AgentEntity, MembershipEntity, TaskEntity, UserEntity } from "../adapters/db/entities";
 import { currentPrincipal } from "../adapters/auth/principal-context";
 import { AccessPolicy } from "../application/services/access-policy";
 import { AuthenticationError } from "../application/services/authorization";
@@ -85,8 +85,24 @@ export function decisionUnitOfWork(options: { orm?: MikroORM; store?: ArtifactSt
 }
 export const createDecisionService = (options: { orm?: MikroORM; store?: ArtifactStore } = {}) => new DecisionService(decisionUnitOfWork(options));
 
-export function requestView(request: DecisionRequestRecord) {
-  return { id: request.id, taskId: request.taskId, agentId: request.agentId, tenant: request.tenant, skillId: request.skillId, kind: request.kind,
+export interface RequestContext { agentName: string; taskTitle: string | null; taskState: string | null; taskRemoteId: string | null }
+
+/** Display-only names for requests the caller can already see; no extra access is granted by them. */
+async function contextFor(em: Parameters<Parameters<typeof withJobEntityManager>[0]>[0], organizationId: string, requests: DecisionRequestRecord[]) {
+  const agentIds = [...new Set(requests.map((request) => request.agentId))];
+  const taskIds = [...new Set(requests.map((request) => request.taskId))];
+  const agents = agentIds.length ? await em.find(AgentEntity, { organizationId, id: { $in: agentIds } }) : [];
+  const tasks = taskIds.length ? await em.find(TaskEntity, { organizationId, id: { $in: taskIds } }) : [];
+  return new Map(requests.map((request): [string, RequestContext] => {
+    const agent = agents.find((candidate) => candidate.id === request.agentId);
+    const task = tasks.find((candidate) => candidate.id === request.taskId);
+    return [request.id, { agentName: agent?.displayName ?? agent?.cardUrl ?? "Agent", taskTitle: task?.title ?? null,
+      taskState: task?.state ?? null, taskRemoteId: task?.remoteTaskId ?? null }];
+  }));
+}
+
+export function requestView(request: DecisionRequestRecord, context?: RequestContext) {
+  return { ...(context ?? {}), id: request.id, requesterUserId: request.requesterUserId, taskId: request.taskId, agentId: request.agentId, tenant: request.tenant, skillId: request.skillId, kind: request.kind,
     status: request.status, title: request.title, summary: request.summary, risk: request.risk, policy: request.policy,
     assignedMembershipId: request.assignedMembershipId, currentRevision: request.currentRevision, expiresAt: request.expiresAt.toISOString(),
     createdAt: request.createdAt.toISOString(), updatedAt: request.updatedAt.toISOString() };
@@ -110,7 +126,8 @@ export async function listDecisions(filter: { status?: DecisionRequestRecord["st
       policy.grants.map((grant) => ({ agentId: grant.agentId, skillId: grant.skillId }));
     const requests = await new MikroOrmDecisionRepository(em).listRequests(principal.organizationId,
       { status: filter.status, taskId: filter.taskId, assignedMembershipId: filter.mine ? principal.membershipId : undefined, scope }, 100);
-    return requests.map(requestView);
+    const context = await contextFor(em, principal.organizationId, requests);
+    return requests.map((request) => requestView(request, context.get(request.id)));
   }, options.orm);
 }
 
@@ -129,10 +146,52 @@ export async function readDecision(id: string, options: { orm?: MikroORM; store?
   if (!detail) return undefined;
   // Correlate each approved revision with its dispatch and observed task outcome on read.
   await Promise.all(detail.decisions.map((decision) => service.refreshExecution(principal.organizationId, decision.id)));
-  return unit.run((p) => loadDecisionDetail(p, principal.organizationId, id));
+  const fresh = await unit.run((p) => loadDecisionDetail(p, principal.organizationId, id));
+  if (!fresh) return undefined;
+  const context = (await withJobEntityManager((em) => contextFor(em, principal.organizationId, [fresh.request]), options.orm)).get(fresh.request.id);
+  return { ...fresh, context, people: await peopleFor(fresh, options.orm) };
+}
+
+/** Display names for the people named in a request, keyed by user ID and membership ID (same organization only). */
+async function peopleFor(detail: { request: DecisionRequestRecord; revisions: DecisionRevisionRecord[]; decisions: DecisionRecord[] }, orm?: MikroORM) {
+  const organizationId = detail.request.organizationId;
+  const membershipIds = [...new Set([detail.request.assignedMembershipId, ...detail.decisions.flatMap((d) => [d.reviewerMembershipId, d.delegateMembershipId])]
+    .filter((id): id is string => Boolean(id)))];
+  return withJobEntityManager(async (em) => {
+    const memberships = membershipIds.length ? await em.find(MembershipEntity, { organizationId, id: { $in: membershipIds } }) : [];
+    const userIds = [...new Set([detail.request.requesterUserId, ...detail.revisions.map((r) => r.authorUserId), ...detail.decisions.map((d) => d.reviewerUserId),
+      ...memberships.map((m) => m.userId)].filter((id): id is string => Boolean(id)))];
+    const users = userIds.length ? await em.find(UserEntity, { id: { $in: userIds } }) : [];
+    const memberUserIds = new Set((await em.find(MembershipEntity, { organizationId, userId: { $in: userIds } })).map((m) => m.userId));
+    const name = new Map(users.filter((user) => memberUserIds.has(user.id)).map((user) => [user.id, user.displayName]));
+    const people: Record<string, string> = Object.fromEntries(name);
+    for (const membership of memberships) { const label = name.get(membership.userId); if (label) people[membership.id] = label; }
+    return people;
+  }, orm);
+}
+
+/** Enabled operator-capable members who could review this task's agent/skill, for assignment and delegation. */
+export async function listEligibleReviewers(taskId: string, options: { orm?: MikroORM } = {}) {
+  const principal = requirePrincipal();
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(taskId)) return undefined;
+  return withJobEntityManager(async (em) => {
+    const p = ports(em);
+    const task = await p.tasks.findById(principal.organizationId, taskId);
+    if (!task) return undefined;
+    const members = await em.find(MembershipEntity, { organizationId: principal.organizationId, enabled: true, role: { $in: ["admin", "operator"] } }, { refresh: true });
+    const users = members.length ? await em.find(UserEntity, { id: { $in: members.map((member) => member.userId) }, enabled: true }) : [];
+    const eligible = [];
+    for (const member of members) {
+      const user = users.find((candidate) => candidate.id === member.userId);
+      if (user && await p.canOperate(principal.organizationId, member.id, task.agentId, task.skillId ?? null))
+        eligible.push({ membershipId: member.id, displayName: user.displayName, role: member.role, self: member.id === principal.membershipId });
+    }
+    return eligible.sort((a, b) => a.displayName.localeCompare(b.displayName));
+  }, options.orm);
 }
 
 export function detailView(detail: NonNullable<Awaited<ReturnType<typeof readDecision>>>) {
-  return { request: requestView(detail.request), revisions: detail.revisions.map(revisionView),
-    decisions: detail.decisions.map(decisionView), executions: detail.executions.map(executionView) };
+  return { request: requestView(detail.request, detail.context), revisions: detail.revisions.map(revisionView),
+    decisions: detail.decisions.map(decisionView), executions: detail.executions.map(executionView), people: detail.people,
+    viewer: (({ userId, membershipId, role }) => ({ userId, membershipId, role }))(requirePrincipal()) };
 }

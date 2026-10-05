@@ -235,7 +235,7 @@ Requirements: `AGT-004`, `SEC-001..005`, `AUD-001`, `SCL-001`.
 
 ## Phase 4 — approval-grade human intervention
 
-**Status:** In progress; Slice 4.1 verified 2026-10-05.
+**Status:** In progress; Slices 4.1 and 4.1b verified 2026-10-05.
 
 ### Deliverables
 
@@ -243,10 +243,28 @@ Requirements: `AGT-004`, `SEC-001..005`, `AUD-001`, `SCL-001`.
 - [x] Implement approve, reject, edit, request-changes, and delegate actions.
 - [x] Record scope, expiry, rationale, proposed action, reviewer, and policy.
 - [x] Correlate the approved revision to the dispatched and observed result.
+- [x] Slice 4.1b: approval review UI (queue, review page with approve, edit,
+  reject, request-changes and delegate, task-page integration, navigation badge).
 - [ ] Add task claiming, assignment, due times, escalation, and internal notes.
-- [ ] Add immutable workflow audit views.
+  Assignment is limited to an initial assignee and `delegate` so far; the review page
+  has no claim, due-time, escalation or notes panels yet (slice 4.2).
+- [ ] Run decision expiry from a worker (`DecisionService.expireDue` exists but nothing
+  schedules it) and supersede open requests when their task finishes, instead of
+  discovering both when a reviewer next acts (`HITL-007`, slice 4.3).
+- [ ] Publish decision changes through the existing freshness outbox and refresh
+  observed execution outcomes from the worker rather than on read; replace the
+  approvals pages' five-second polling with the shared freshness signal (slice 4.3).
+- [ ] Add immutable workflow audit views over the decision, assignment and audit records.
 - [ ] Persist notifications/read state and add browser plus one external
-  notification channel behind adapters.
+  notification channel behind adapters, including a notification when a request opens,
+  is assigned, is about to expire, expires or is superseded. Replace the approvals
+  badge's polling with this durable state.
+- [ ] Agent-originated approval requests through a reviewed extension or recognized
+  in-task pattern (`HITL-006`); agents currently cannot ask for approval themselves.
+- [ ] Additional typed action kinds beyond `send_message`, each with a server
+  variant, an execution adapter and an entry in the UI action-renderer registry.
+- [ ] Browser-level UI tests in CI for the approval flows; slice 4.1b verified them
+  manually with a scripted browser run that is not yet part of the quality gate.
 
 ### Exit criteria
 
@@ -255,7 +273,7 @@ Requirements: `AGT-004`, `SEC-001..005`, `AUD-001`, `SCL-001`.
 - An expired or superseded approval cannot authorize a new action.
 - Assigned input/approval work reaches the responsible user's durable queue.
 
-Requirements: `HITL-001..005`, `NTF-001..002`, `AUD-001..002`.
+Requirements: `HITL-001..008`, `NTF-001..002`, `AUD-001..002`.
 
 ## Phase 5 — operator experience
 
@@ -263,9 +281,14 @@ Requirements: `HITL-001..005`, `NTF-001..002`, `AUD-001..002`.
 
 ### Deliverables
 
-- [ ] Global authorized inbox across agents and teams.
+- [ ] Global authorized inbox across agents and teams. Fold the standalone Approvals
+  queue (slice 4.1b) into it, reusing the review page as the detail view and keeping
+  approvals filterable by status, risk, assignee and expiry.
 - [ ] Saved views, full-text search, advanced filters, and bulk triage.
-- [ ] SLA, overdue, escalation, and failure indicators.
+- [ ] SLA, overdue, escalation, and failure indicators, including approvals nearing
+  expiry and executions whose delivery outcome is unknown.
+- [ ] Bulk approval actions that still require a per-item rationale and the exact
+  revision each reviewer saw.
 - [ ] Agent/skill health and compatibility administration.
 - [ ] Typed local workflow links and “use artifact as input to” actions.
 - [ ] Durable per-user preferences and notification controls.
@@ -288,6 +311,8 @@ Requirements: `INB-001..002`, `TSK-006`, `HITL-005`, `ADM-001`, `PERF-001`,
 ### Deliverables
 
 - [ ] Structured start/input forms through an advertised schema extension.
+- [ ] Render structured and A2UI proposals inside the approval review page through the
+  action-renderer registry, with edit-before-approve for structured actions.
 - [ ] Safe A2UI renderer with an explicit component allowlist.
 - [ ] Optional AG-UI adapter where it adds richer user interaction.
 - [ ] Extension plugin contract and compatibility fixtures.
@@ -314,6 +339,8 @@ Requirements: `ART-002`, `INT-002..004`, `ACC-001`.
 - [ ] Backup, restore, point-in-time recovery, and migration runbooks.
 - [ ] Load, soak, failover, chaos, and recovery testing.
 - [ ] Dependency review, SAST, container scanning, and release provenance.
+- [ ] Run the PostgreSQL and browser-level suites against the supported PostgreSQL
+  version in CI, including the approval flows.
 - [ ] Data deletion, retention, export, and administrative controls.
 - [ ] SCIM and additional enterprise identity features only when required.
 
