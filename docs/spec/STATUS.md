@@ -6,8 +6,8 @@ Last updated: 2026-10-05
 
 - Last completed phase: **Phase 3 — identity and security**
 - Active phase: **Phase 4 — approval-grade human intervention**
-- Last completed slice: **4.3 — worker-enforced expiry and live approval signals** (after 4.1 and 4.1b)
-- Next executable slice: **4.2 — assignment, claiming, due times, escalation and notes**
+- Last completed slice: **4.2 — task ownership, due times, escalation and notes** (after 4.1, 4.1b and 4.3)
+- Next executable slice: **4.4 — immutable workflow audit views**
 - Blocking decisions: none
 
 ## Pending follow-ups
@@ -1406,6 +1406,79 @@ Remaining risks:
 **Slice 4.3 acceptance criteria are verified. Phase 4 remains active.**
 
 Next executable slice: **4.2 — assignment, claiming, due times, escalation and notes**.
+
+## Phase 4 Slice 4.2 verified evidence
+
+Date: 2026-10-05
+
+Slice: **4.2 — task ownership, due times, escalation and notes**
+
+Changes:
+
+- Added local task ownership independent of the remote task state (ADR 0016): claim,
+  release, assign and reassign, due times, internal notes and escalation policies, with
+  a migration for `task_assignments`, `task_assignment_events`, `task_notes` and
+  `escalation_policies`. History and notes are immutable by database trigger.
+- Anyone with an operate grant may take unowned work; only the owner or an administrator
+  may release, reassign or change the due time of owned work. Assignees must be enabled
+  operators or administrators with an operate grant for the agent/skill. Finished tasks
+  cannot change ownership. Visibility follows the existing grants (404 without a read grant).
+- Every change appends an event with strictly increasing per-task timestamps, an audit
+  fact and a freshness signal in one transaction; repeating a true change writes nothing.
+  Notes are idempotent per client note key and never reach the agent.
+- The existing worker sweep now also escalates unfinished owned tasks whose due time passed,
+  once per due time, to the administrator-configured target (agent rule over organization
+  rule), recording a system event; an ineligible target leaves the owner in place and says so.
+- UI: Ownership card (claim, release or take away, assign, due time, activity), Internal
+  notes card and Escalation settings card (administrators), plus Mine, Overdue and
+  Unassigned task filters and ownership/due chips on list rows. `GET /api/tasks` accepts
+  the new filters and returns a per-row ownership summary. New routes under
+  `/api/tasks/[id]/workflow` and `/api/escalation-policies`.
+- Extracted the access/audit/freshness ports shared by approvals and workflow, and
+  recorded the remaining work in PHASES.md.
+
+Verification commands and results:
+
+- `npx tsc --noEmit`, `npm run lint` (no warnings) and `npm run build`: passed. `npm run
+  check`-equivalent: 30 unit files/91 tests (including new ownership-helper tests) and 14
+  database files/32 tests on PGlite and PostgreSQL; schema check against a freshly migrated
+  database showed no drift; all HTTP suites passed including the new workflow suite.
+- The shared workflow contract verifies role, grant and cross-organization denial, a single
+  winner for concurrent claims, idempotent repeats, owner/administrator rules, assignee
+  eligibility, due-time validation and re-arming, idempotent and immutable notes and
+  history, administrator-only policies, concurrent policy saves producing one rule, escalation
+  by two concurrent sweepers exactly once per due time, finished tasks skipped, an
+  ineligible target, agent policy overriding organization policy, disabled policies, queue
+  views, summaries scoped to the organization, restart, and migration rollback/reapply.
+- Production HTTP verifies the same flows through the real routes, the list filters and
+  summaries, input validation, and a worker escalating overdue work to a second administrator
+  exactly once with nobody acting.
+- Scripted Chromium run (not committed): claim, assign, take away, due time, note (persisting
+  across reload), Mine and Unassigned filters, saving an escalation rule in Settings, and an
+  open task page switching to the escalation target with an ESCALATED badge without a reload.
+  The 390px mobile layout still passed. No console errors or warnings. The run also exposed
+  two controls both labelled "Assign to"; the ownership one is now "Assign task to".
+
+Migration tested from:
+
+- Clean PGlite and PostgreSQL through all thirteen migrations, with rollback/reapply and no
+  schema drift. The migration only adds tables and triggers.
+
+Remaining risks:
+
+- No notifications yet: assignment and escalation are visible in the task page and queue
+  views only. Approval requests keep their own assignee and `delegate`; they do not share
+  task ownership.
+- Escalation targets are individual reviewers (no teams or rotations) and escalate in one
+  hop per due time. Queue views load assignment IDs before paging, which will not scale to
+  very large queues; the Phase 5 inbox projection is the intended fix.
+- Same-millisecond notes have no defined order; history rows are ordered per task.
+- Escalation timing depends on the sweep interval (`A2A_DECISION_SWEEP_MS`, default 15 s).
+
+**Slice 4.2 acceptance criteria are verified. Phase 4 remains active.**
+
+Next executable slice: **4.4 — immutable workflow audit views** over decisions, ownership
+events, notes and audit facts. Do not begin notifications in that slice.
 
 ## Known repository-state issue
 

@@ -1,5 +1,6 @@
 import { defineEntity, p } from "@mikro-orm/core";
 
+import type { AssignmentEventKind } from "../../domain/workflow-model";
 import type { DecisionOutcome, DecisionPolicy, DecisionRequestStatus, DecisionRisk, ExecutionStatus, ProposedAction } from "../../domain/decision-model";
 import type {
   JsonValue,
@@ -562,7 +563,80 @@ export class DecisionExecutionEntity extends DecisionExecutionSchema.class {}
 Object.defineProperty(DecisionExecutionEntity, "name", { value: "DecisionExecutionEntity" });
 DecisionExecutionSchema.setClass(DecisionExecutionEntity);
 
+const TaskAssignmentSchema = defineEntity({
+  name: "TaskAssignmentEntity", tableName: "task_assignments",
+  properties: {
+    id: p.uuid().primary(),
+    organizationId: () => p.manyToOne(OrganizationEntity).mapToPk().joinColumn("organization_id"),
+    taskId: () => p.manyToOne(TaskEntity).mapToPk().joinColumn("task_id"),
+    assigneeMembershipId: p.uuid().nullable(), claimedAt: p.datetime().nullable(), dueAt: p.datetime().nullable(),
+    escalationLevel: p.integer().default(0), escalatedAt: p.datetime().nullable(), updatedAt: p.datetime(),
+    version: p.integer().default(1).version(),
+  },
+  uniques: [{ name: "uq_task_assignments_task", properties: ["taskId"] }],
+  indexes: [
+    { name: "idx_task_assignments_assignee", properties: ["organizationId", "assigneeMembershipId"] },
+    { name: "idx_task_assignments_due", properties: ["dueAt"] },
+  ],
+});
+export class TaskAssignmentEntity extends TaskAssignmentSchema.class {}
+Object.defineProperty(TaskAssignmentEntity, "name", { value: "TaskAssignmentEntity" });
+TaskAssignmentSchema.setClass(TaskAssignmentEntity);
+
+const TaskAssignmentEventSchema = defineEntity({
+  name: "TaskAssignmentEventEntity", tableName: "task_assignment_events",
+  properties: {
+    id: p.uuid().primary(),
+    organizationId: () => p.manyToOne(OrganizationEntity).mapToPk().joinColumn("organization_id"),
+    taskId: () => p.manyToOne(TaskEntity).mapToPk().joinColumn("task_id"),
+    kind: p.string().length(32).$type<AssignmentEventKind>(),
+    actorUserId: () => p.manyToOne(UserEntity).mapToPk().joinColumn("actor_user_id").nullable().deleteRule("no action"),
+    fromMembershipId: p.uuid().nullable(), toMembershipId: p.uuid().nullable(), dueAt: p.datetime().nullable(), createdAt: p.datetime(),
+  },
+  indexes: [{ name: "idx_task_assignment_events_task", properties: ["taskId", "createdAt"] }],
+  triggers: [{ name: "trg_task_assignment_events_immutable", timing: "before", events: ["update", "delete"],
+    body: "raise exception 'workflow history is immutable' using errcode = '23000';" }],
+});
+export class TaskAssignmentEventEntity extends TaskAssignmentEventSchema.class {}
+Object.defineProperty(TaskAssignmentEventEntity, "name", { value: "TaskAssignmentEventEntity" });
+TaskAssignmentEventSchema.setClass(TaskAssignmentEventEntity);
+
+const TaskNoteSchema = defineEntity({
+  name: "TaskNoteEntity", tableName: "task_notes",
+  properties: {
+    id: p.uuid().primary(),
+    organizationId: () => p.manyToOne(OrganizationEntity).mapToPk().joinColumn("organization_id"),
+    taskId: () => p.manyToOne(TaskEntity).mapToPk().joinColumn("task_id"),
+    noteKey: p.string().length(255),
+    authorUserId: () => p.manyToOne(UserEntity).mapToPk().joinColumn("author_user_id").deleteRule("no action"),
+    body: p.text(), createdAt: p.datetime(),
+  },
+  uniques: [{ name: "uq_task_notes_org_key", properties: ["organizationId", "noteKey"] }],
+  indexes: [{ name: "idx_task_notes_task", properties: ["taskId", "createdAt"] }],
+  triggers: [{ name: "trg_task_notes_immutable", timing: "before", events: ["update", "delete"],
+    body: "raise exception 'workflow history is immutable' using errcode = '23000';" }],
+});
+export class TaskNoteEntity extends TaskNoteSchema.class {}
+Object.defineProperty(TaskNoteEntity, "name", { value: "TaskNoteEntity" });
+TaskNoteSchema.setClass(TaskNoteEntity);
+
+const EscalationPolicySchema = defineEntity({
+  name: "EscalationPolicyEntity", tableName: "escalation_policies",
+  properties: {
+    id: p.uuid().primary(),
+    organizationId: () => p.manyToOne(OrganizationEntity).mapToPk().joinColumn("organization_id"),
+    agentId: () => p.manyToOne(AgentEntity).mapToPk().joinColumn("agent_id").nullable(),
+    targetMembershipId: () => p.manyToOne(MembershipEntity).mapToPk().joinColumn("target_membership_id"),
+    enabled: p.boolean(), createdAt: p.datetime(), updatedAt: p.datetime(),
+  },
+  indexes: [{ name: "idx_escalation_policies_scope", properties: ["organizationId", "agentId"] }],
+});
+export class EscalationPolicyEntity extends EscalationPolicySchema.class {}
+Object.defineProperty(EscalationPolicyEntity, "name", { value: "EscalationPolicyEntity" });
+EscalationPolicySchema.setClass(EscalationPolicyEntity);
+
 export const persistenceEntities = [
+  TaskAssignmentEntity, TaskAssignmentEventEntity, TaskNoteEntity, EscalationPolicyEntity,
   DecisionRequestEntity, DecisionRevisionEntity, DecisionEntity, DecisionExecutionEntity,
   ArtifactAccessEntity,
   TeamEntity, TeamMembershipEntity, AccessGrantEntity, AgentCredentialEntity, RateBucketEntity,

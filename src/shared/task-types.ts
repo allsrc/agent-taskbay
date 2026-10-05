@@ -68,6 +68,8 @@ export interface DurableTaskView extends TrackedTask {
   localId: string;
   tenant: string;
   referenceLinks: Record<string, string>;
+  /** Ownership and due time, present on Tasks list rows. */
+  workflow?: import("./workflow-types").WorkflowSummary | null;
 }
 
 export function taskStorageKey(task: TrackedTask): string {

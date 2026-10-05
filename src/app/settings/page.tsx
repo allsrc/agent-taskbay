@@ -1,6 +1,7 @@
 "use client";
 
 import { SecuritySettings } from "@/components/security-settings";
+import { EscalationSettings } from "@/components/escalation-settings";
 
 import { useState } from "react";
 import { Trash2 } from "lucide-react";
@@ -70,6 +71,7 @@ export default function SettingsPage() {
         </InfoCard>
 
         <SecuritySettings />
+        <EscalationSettings />
       </div>
     </div>
   );

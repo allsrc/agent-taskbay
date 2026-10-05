@@ -1,18 +1,24 @@
 import { createDecisionService } from "../runtime/decisions";
+import { createWorkflowService } from "../runtime/workflow";
 
 const interval = () => {
   const configured = Number(process.env.A2A_DECISION_SWEEP_MS);
   return Number.isFinite(configured) && configured >= 100 ? configured : 15_000;
 };
 
-/** Periodically expires/supersedes approvals and refreshes in-flight deliveries; every pass is idempotent. */
+/**
+ * Periodically expires/supersedes approvals, refreshes in-flight deliveries and escalates overdue task ownership.
+ * Every pass is idempotent and each step fails independently.
+ */
 export function startDecisionLoop() {
   const service = createDecisionService();
+  const workflow = createWorkflowService();
   let stopped = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let running: Promise<void> = Promise.resolve();
   const tick = async () => {
     try { await service.sweep(); } catch { console.error("Decision sweeper could not access durable state; will retry."); }
+    try { await workflow.sweepEscalations(); } catch { console.error("Escalation sweeper could not access durable state; will retry."); }
     if (!stopped) { timer = setTimeout(() => { running = tick(); }, interval()); timer.unref?.(); }
   };
   running = tick();

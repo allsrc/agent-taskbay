@@ -325,8 +325,11 @@ PostgreSQL-compatible migration and adapter contract.
 - `TaskTransition`
 - `TaskLink` with `depends_on`, `produced_input_for`, `retry_of`,
   `spawned_from`, or `related_to`
-- `TaskAssignment`
-- `TaskNote`
+- `TaskAssignment` (implemented, ADR 0016): one row per task with assignee, claim time, due
+  time and escalation state, independent of the remote task state.
+- `TaskAssignmentEvent` (implemented): immutable ownership history (claim, release,
+  assign, due time, escalation) with the actor, or null for the system.
+- `TaskNote` (implemented): internal, append-only notes, idempotent per client note key.
 
 ### Human decisions
 
@@ -339,7 +342,8 @@ PostgreSQL-compatible migration and adapter contract.
 - `DecisionExecution` correlating approved scope with observed execution
   (implemented): one per approving decision; revision, command and message identity
   are immutable, only observed status/task state change.
-- `EscalationPolicy` (planned, slice 4.2)
+- `EscalationPolicy` (implemented, ADR 0016): organization-wide or per-agent target
+  reviewer for overdue owned work.
 
 ### Notifications and audit
 

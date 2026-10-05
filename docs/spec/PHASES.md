@@ -235,7 +235,7 @@ Requirements: `AGT-004`, `SEC-001..005`, `AUD-001`, `SCL-001`.
 
 ## Phase 4 — approval-grade human intervention
 
-**Status:** In progress; Slices 4.1, 4.1b and 4.3 verified 2026-10-05.
+**Status:** In progress; Slices 4.1, 4.1b, 4.2 and 4.3 verified 2026-10-05.
 
 ### Deliverables
 
@@ -245,9 +245,14 @@ Requirements: `AGT-004`, `SEC-001..005`, `AUD-001`, `SCL-001`.
 - [x] Correlate the approved revision to the dispatched and observed result.
 - [x] Slice 4.1b: approval review UI (queue, review page with approve, edit,
   reject, request-changes and delegate, task-page integration, navigation badge).
-- [ ] Add task claiming, assignment, due times, escalation, and internal notes.
-  Assignment is limited to an initial assignee and `delegate` so far; the review page
-  has no claim, due-time, escalation or notes panels yet (slice 4.2).
+- [x] Add task claiming, assignment, due times, escalation, and internal notes
+  (slice 4.2, ADR 0016): claim, release and reassign, due times, worker escalation to a
+  policy target, internal notes, mine/overdue/unassigned task views and an Escalation
+  settings card.
+- [ ] Extend ownership to approvals: claim, release and reassign an approval request, and
+  give it a due time and escalation, instead of only its initial assignee and `delegate`.
+- [ ] Escalation to a team or an on-call rotation, and multi-step escalation chains.
+- [ ] Notes: attachments, mentions, and an explicit redaction/retention policy.
 - [x] Run decision expiry from a worker and supersede open requests when their task
   finishes (`HITL-007`, slice 4.3). Notifying requesters and reviewers when a request
   closes remains with the notification work below.

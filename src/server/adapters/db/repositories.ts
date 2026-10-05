@@ -304,10 +304,11 @@ export class MikroOrmTaskRepository implements TaskRepository {
     return this.withContent(entity);
   }
 
-  async listByOrganization(organizationId: string, limit: number, offset: number, filter = "all") {
+  async listByOrganization(organizationId: string, limit: number, offset: number, filter = "all", restriction?: { include?: string[]; exclude?: string[] }) {
     const terminal = ["TASK_STATE_COMPLETED", "TASK_STATE_FAILED", "TASK_STATE_CANCELED", "TASK_STATE_REJECTED"];
-    const state = filter === "active" ? { $nin: terminal } : filter === "needs-input" ? { $in: ["TASK_STATE_INPUT_REQUIRED", "TASK_STATE_AUTH_REQUIRED"] } : filter === "done" ? { $in: terminal } : undefined;
-    const entities = await this.entityManager.find(TaskEntity, { organizationId, $and: [await taskAccessFilter(this.entityManager)], kind: "task", ...(state ? { state } : {}) }, {
+    const ids = [...(restriction?.include ? [{ id: { $in: restriction.include } }] : []), ...(restriction?.exclude?.length ? [{ id: { $nin: restriction.exclude } }] : [])];
+    const state = filter === "active" || ["mine", "overdue", "unassigned"].includes(filter) ? { $nin: terminal } : filter === "needs-input" ? { $in: ["TASK_STATE_INPUT_REQUIRED", "TASK_STATE_AUTH_REQUIRED"] } : filter === "done" ? { $in: terminal } : undefined;
+    const entities = await this.entityManager.find(TaskEntity, { organizationId, $and: [await taskAccessFilter(this.entityManager), ...ids], kind: "task", ...(state ? { state } : {}) }, {
       orderBy: { updatedAt: "desc", id: "asc" }, limit, offset,
       fields: ["id", "organizationId", "agentId", "tenant", "remoteTaskId", "remoteContextId", "kind", "skillId", "state", "title", "createdAt", "updatedAt", "version"],
     });

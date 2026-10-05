@@ -1,13 +1,10 @@
 import type { MikroORM } from "@mikro-orm/core";
 import { z } from "zod";
 import { withJobEntityManager } from "../adapters/db/orm";
-import { createPersistenceRepositories } from "../adapters/db/repositories";
 import { MikroOrmDecisionRepository } from "../adapters/db/decision-repository";
-import { DatabaseIdentityRepository } from "../adapters/db/identity-repository";
-import { DatabaseAccessPolicyRepository, requestAccessPolicy } from "../adapters/db/security-repository";
+import { requestAccessPolicy } from "../adapters/db/security-repository";
 import { AgentEntity, MembershipEntity, TaskEntity, UserEntity } from "../adapters/db/entities";
 import { currentPrincipal } from "../adapters/auth/principal-context";
-import { AccessPolicy } from "../application/services/access-policy";
 import { AuthenticationError } from "../application/services/authorization";
 import { DecisionError, DecisionService, loadDecisionDetail } from "../application/services/decisions";
 import type { DecisionPorts, DecisionUnitOfWork } from "../application/ports/decisions";
@@ -16,7 +13,7 @@ import type { ProposedAction, DecisionExecutionRecord, DecisionRecord, DecisionR
 import type { ArtifactStore } from "../application/ports/artifact-store";
 import type { JsonValue } from "../domain/persistence-model";
 import { acceptCommandWithin } from "./commands";
-import { enqueueTaskFreshness } from "../application/services/task-freshness";
+import { sharedPorts } from "./shared-ports";
 
 const actionSchema = z.object({ kind: z.literal("send_message"), text: z.string().min(1).max(20_000),
   data: z.record(z.string(), z.unknown()).optional() }).strict();
@@ -50,35 +47,15 @@ export function requirePrincipal(): Principal {
 }
 
 function ports(em: Parameters<Parameters<typeof withJobEntityManager>[0]>[0], store?: ArtifactStore): DecisionPorts {
-  const base = createPersistenceRepositories(em);
-  const identity = new DatabaseIdentityRepository(em);
+  const shared = sharedPorts(em);
   return {
-    decisions: new MikroOrmDecisionRepository(em), tasks: base.tasks, commands: base.commands,
-    requireOperate: async (principal, agentId, skillId) => {
-      const policy = await requestAccessPolicy(em);
-      (policy ?? new AccessPolicy(principal, [])).require(agentId, "operate", skillId);
-    },
-    canRead: async (principal, agentId, skillId) => {
-      const policy = await requestAccessPolicy(em);
-      return (policy ?? new AccessPolicy(principal, [])).allows(agentId, "read", skillId);
-    },
-    canOperate: async (organizationId, membershipId, agentId, skillId) => {
-      const membership = await em.findOne(MembershipEntity, { id: membershipId, organizationId, enabled: true }, { refresh: true });
-      const user = membership && await em.findOne(UserEntity, { id: membership.userId, enabled: true }, { refresh: true });
-      if (!membership || !user || !["admin", "operator"].includes(membership.role)) return false;
-      const principal: Principal = { userId: user.id, organizationId, membershipId, displayName: user.displayName, role: membership.role as Principal["role"] };
-      return new AccessPolicy(principal, await new DatabaseAccessPolicyRepository(em).grantsFor(principal)).allows(agentId, "operate", skillId);
-    },
+    decisions: new MikroOrmDecisionRepository(em), tasks: shared.tasks, commands: shared.commands,
+    requireOperate: shared.requireOperate, canRead: shared.canRead, canOperate: shared.canOperate, freshen: shared.freshen, audit: shared.audit,
     acceptCommand: (input) => acceptCommandWithin(em, { organizationId: input.organizationId, agentId: input.agentId, tenant: input.tenant,
       action: "send", skillId: input.skillId ?? undefined, idempotencyKey: input.idempotencyKey, store,
       input: { text: input.text, taskId: input.taskRemoteId, ...(input.contextId ? { contextId: input.contextId } : {}), messageId: input.messageId },
       params: JSON.parse(JSON.stringify({ text: input.text, taskId: input.taskRemoteId, messageId: input.messageId, returnImmediately: true,
         ...(input.contextId ? { contextId: input.contextId } : {}), ...(input.data ? { metadata: { decision: input.data } } : {}) })) as Record<string, JsonValue> }),
-    freshen: async (organizationId, taskId) => { await enqueueTaskFreshness(base.outbox, organizationId, taskId, new Date()); },
-    audit: async (principal, organizationId, action, targetId, eventKey) => {
-      if (principal) await identity.appendAudit(principal, action, targetId, eventKey);
-      else await identity.appendSystemAudit(organizationId, action, targetId);
-    },
   };
 }
 

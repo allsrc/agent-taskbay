@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SplitPane, StateChip } from "@/components/a2a/primitives";
 import { isActiveState, needsYou, relativeTime, taskTitle } from "@/lib/task-view";
+import { dueLabel, isOverdue } from "@/lib/workflow";
 import { useServerResource } from "@/lib/use-server-resource";
 import type { DurableTaskView } from "@/shared/task-types";
 import { cn } from "@/lib/utils";
@@ -14,14 +15,18 @@ const FILTERS = {
   Active: (state: string) => isActiveState(state),
   "Needs you": (state: string) => needsYou(state),
   Done: (state: string) => !isActiveState(state),
+  Mine: () => true,
+  Overdue: () => true,
+  Unassigned: () => true,
 } as const;
+const API_FILTER = { All: "all", Active: "active", "Needs you": "needs-input", Done: "done", Mine: "mine", Overdue: "overdue", Unassigned: "unassigned" } as const;
 
 export default function TasksLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() ?? "";
   const activeId = pathname.split("/")[2];
   const [filter, setFilter] = useState<keyof typeof FILTERS>("All");
   const [offset, setOffset] = useState(0);
-  const apiFilter = { All: "all", Active: "active", "Needs you": "needs-input", Done: "done" }[filter];
+  const apiFilter = API_FILTER[filter];
   const resource = useServerResource<{ tasks: DurableTaskView[] }>(`/api/tasks?filter=${apiFilter}&limit=50&offset=${offset}`);
   const rows = resource.data?.tasks ?? [];
 
@@ -64,6 +69,14 @@ export default function TasksLayout({ children }: { children: React.ReactNode })
                 <div className="text-muted-foreground truncate font-mono text-[11px]">
                   {task.taskId.slice(0, 8)} · {task.agentName} · {relativeTime(task.updatedAt)}
                 </div>
+                {task.workflow && (task.workflow.assigneeName || task.workflow.dueAt) && (
+                  <div className="flex flex-wrap items-center gap-1.5 font-mono text-[11px]">
+                    {task.workflow.assigneeName && <span className="text-muted-foreground">→ {task.workflow.assigneeName}</span>}
+                    {task.workflow.dueAt && isActiveState(task.state) && (
+                      <span className={isOverdue(task.workflow.dueAt) ? "text-brand" : "text-muted-foreground"}>{dueLabel(task.workflow.dueAt)}</span>)}
+                    {task.workflow.escalationLevel > 0 && <span className="text-auth">escalated</span>}
+                  </div>
+                )}
               </Link>
             ))}
           </div>
