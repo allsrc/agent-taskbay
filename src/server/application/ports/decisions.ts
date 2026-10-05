@@ -25,6 +25,11 @@ export interface DecisionRepository {
   /** Open (pending or changes-requested) requests for a task, locked in id order. */
   lockActiveForTask(organizationId: string, taskId: string): Promise<DecisionRequestRecord[]>;
   dueForExpiry(now: Date, limit: number): Promise<DecisionRequestRecord[]>;
+  /** Open requests whose task has finished (or no longer exists), oldest first. */
+  forFinishedTasks(limit: number): Promise<DecisionRequestRecord[]>;
+  /** Executions whose delivery or observed task outcome may still change, oldest first. */
+  unsettledExecutions(since: Date, limit: number): Promise<DecisionExecutionRecord[]>;
+  decisionById(organizationId: string, id: string): Promise<DecisionRecord | undefined>;
   revisions(organizationId: string, requestId: string): Promise<DecisionRevisionRecord[]>;
   appendRevision(revision: DecisionRevisionRecord): Promise<DecisionRevisionRecord>;
   decisions(organizationId: string, requestId: string): Promise<DecisionRecord[]>;
@@ -59,6 +64,8 @@ export interface DecisionPorts {
   canOperate(organizationId: string, membershipId: string, agentId: string, skillId: string | null): Promise<boolean>;
   /** Command intent and outbox row commit with the surrounding transaction. */
   acceptCommand(input: DecisionCommandInput): Promise<TaskCommandRecord>;
+  /** Queues a content-free freshness signal in the surrounding transaction so open views re-query. */
+  freshen(organizationId: string, taskId: string): Promise<void>;
   audit(principal: Principal | null, organizationId: string, action: string, targetId: string, eventKey: string): Promise<void>;
 }
 

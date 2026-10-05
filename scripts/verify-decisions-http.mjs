@@ -13,7 +13,7 @@ const port = Number(process.env.A2A_DECISIONS_HTTP_TEST_PORT ?? 3105);
 const base = `http://127.0.0.1:${port}`;
 const env = { ...process.env, A2A_ALLOWED_AGENT_ORIGINS: "", A2A_AUTH_MODE: "development", A2A_ALLOW_DEVELOPMENT_AUTH: "true", A2A_COMMAND_WORKER_MODE: "embedded",
   A2A_DATABASE_PROFILE: "pglite", A2A_PGLITE_DATA_DIR: join(directory, "db"), A2A_ARTIFACT_DATA_DIR: join(directory, "artifacts"),
-  A2A_DATA_DIR: directory, A2A_REGISTERED_AGENTS: "", A2A_ALLOW_PRIVATE_NETWORKS: "true" };
+  A2A_DATA_DIR: directory, A2A_REGISTERED_AGENTS: "", A2A_ALLOW_PRIVATE_NETWORKS: "true", A2A_DECISION_SWEEP_MS: "300" };
 const received = [];
 let fixturePort, app, log = "";
 
@@ -34,7 +34,7 @@ const fixture = createServer(async (request, response) => {
   const message = rpc.params.message;
   received.push(message);
   const approving = Boolean(message.taskId);
-  response.end(JSON.stringify({ jsonrpc: "2.0", id: rpc.id, result: { task: { id: "approval-task", contextId: "approval-context",
+  response.end(JSON.stringify({ jsonrpc: "2.0", id: rpc.id, result: { task: { id: message.taskId ?? (message.parts?.[0]?.text?.includes("Another") ? "approval-task-2" : "approval-task"), contextId: "approval-context",
     status: { state: approving ? "TASK_STATE_COMPLETED" : "TASK_STATE_INPUT_REQUIRED", timestamp: approving ? "2026-10-05T00:00:02Z" : "2026-10-05T00:00:01Z" },
     history: [message] } } }));
 });
@@ -142,6 +142,31 @@ try {
   assert.equal(approvals[0].parts[0].text, "Yes, delete staging but keep backups");
   assert.equal(approvals[0].messageId, `decision-${decisionId}`);
   assert.equal(approvals[0].messageId, detail.executions[0].messageId);
+
+  // Workers, not reviewers, close an overdue request, and live views are told about each change.
+  const live = new AbortController();
+  let frames = "";
+  const stream = await fetch(`${base}/api/tasks/events`, { signal: live.signal });
+  (async () => { const decoder = new TextDecoder(); try { for await (const chunk of stream.body) frames += decoder.decode(chunk); } catch { /* Closed by the test. */ } })();
+  await until(() => frames.includes("event: ready"), "live stream ready");
+  const baseline = (frames.match(/event: freshness/g) ?? []).length;
+  const shortLived = await call(`/api/agents/${agent.id}/commands`, { method: "POST", headers: { "Idempotency-Key": "second-task" }, body: JSON.stringify({ text: "Another job" }) });
+  assert.equal(shortLived.status, 202);
+  const another = await until(async () => (await call("/api/tasks")).body.tasks.find((candidate) => candidate.localId !== taskId && candidate.state === "TASK_STATE_INPUT_REQUIRED"), "second task");
+  const brief = await call("/api/decisions", { method: "POST", body: JSON.stringify({ ...open, taskId: another.localId, requestKey: "brief",
+    expiresAt: new Date(Date.now() + 2000).toISOString() }) });
+  assert.equal(brief.status, 201, brief.text);
+  await until(() => (frames.match(/event: freshness/g) ?? []).length > baseline, "freshness signal after opening a request");
+  const lapsed = await until(async () => {
+    const current = (await call(`/api/decisions/${brief.body.decision.id}`)).body;
+    return current.request.status === "expired" ? current : undefined;
+  }, "worker expiry");
+  assert.equal(lapsed.request.status, "expired");
+  const afterExpiry = await call(`/api/decisions/${brief.body.decision.id}/decisions`, { method: "POST", headers: { "Idempotency-Key": "too-late" }, body: JSON.stringify(approve) });
+  assert.equal(afterExpiry.status, 409);
+  assert.equal(received.filter((message) => message.taskId).length, 1, "An expired request must never reach the agent.");
+  assert.ok(!(await call("/api/decisions?status=pending")).body.decisions.some((request) => request.id === brief.body.decision.id));
+  live.abort();
 
   // Malformed and unknown identifiers are indistinguishable from absent requests.
   assert.equal((await call("/api/decisions/not-a-uuid")).status, 404);

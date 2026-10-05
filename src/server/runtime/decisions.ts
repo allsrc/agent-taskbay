@@ -16,6 +16,7 @@ import type { ProposedAction, DecisionExecutionRecord, DecisionRecord, DecisionR
 import type { ArtifactStore } from "../application/ports/artifact-store";
 import type { JsonValue } from "../domain/persistence-model";
 import { acceptCommandWithin } from "./commands";
+import { enqueueTaskFreshness } from "../application/services/task-freshness";
 
 const actionSchema = z.object({ kind: z.literal("send_message"), text: z.string().min(1).max(20_000),
   data: z.record(z.string(), z.unknown()).optional() }).strict();
@@ -73,6 +74,7 @@ function ports(em: Parameters<Parameters<typeof withJobEntityManager>[0]>[0], st
       input: { text: input.text, taskId: input.taskRemoteId, ...(input.contextId ? { contextId: input.contextId } : {}), messageId: input.messageId },
       params: JSON.parse(JSON.stringify({ text: input.text, taskId: input.taskRemoteId, messageId: input.messageId, returnImmediately: true,
         ...(input.contextId ? { contextId: input.contextId } : {}), ...(input.data ? { metadata: { decision: input.data } } : {}) })) as Record<string, JsonValue> }),
+    freshen: async (organizationId, taskId) => { await enqueueTaskFreshness(base.outbox, organizationId, taskId, new Date()); },
     audit: async (principal, organizationId, action, targetId, eventKey) => {
       if (principal) await identity.appendAudit(principal, action, targetId, eventKey);
       else await identity.appendSystemAudit(organizationId, action, targetId);

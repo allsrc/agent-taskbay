@@ -19,6 +19,8 @@ export const ALL_OUTCOMES: DecisionOutcome[] = ["approve", "reject", "edit", "re
 export const DEFAULT_POLICY: DecisionPolicy = { allowedOutcomes: ALL_OUTCOMES, separationOfDuties: true };
 const TERMINAL_STATES = ["COMPLETED", "FAILED", "CANCELED", "REJECTED"];
 const MAX_ACTION_DATA_BYTES = 64 * 1024;
+/** Deliveries stop being refreshed this long after approval, even if the task never finishes. */
+const EXECUTION_WATCH_MS = 7 * 24 * 60 * 60 * 1000;
 
 export function actionDigest(action: ProposedAction) {
   return eventDigest({ kind: action.kind, text: action.text, data: (action.data ?? null) as JsonValue });
@@ -70,6 +72,12 @@ export type DecideResult =
 export class DecisionService {
   constructor(private readonly work: DecisionUnitOfWork, private readonly clock: Clock = { now: () => new Date() }) {}
 
+  /** Every state change is audited and announces itself to live views in the same transaction. */
+  private async record(ports: DecisionPorts, taskId: string, principal: Principal | null, organizationId: string, action: string, targetId: string, eventKey: string) {
+    await ports.audit(principal, organizationId, action, targetId, eventKey);
+    await ports.freshen(organizationId, taskId);
+  }
+
   async open(input: OpenDecisionInput) {
     authorize(input.principal, "operate");
     if (!input.requestKey || input.requestKey.length > 255) throw new DecisionError("A request key of 1–255 characters is required.", 400);
@@ -110,9 +118,9 @@ export class DecisionService {
       for (const older of await ports.decisions.lockActiveForTask(task.organizationId, task.id)) {
         if (older.id === id) continue;
         await ports.decisions.updateRequest({ ...older, status: "superseded", updatedAt: now });
-        await ports.audit(input.principal, task.organizationId, "decision.superseded", older.id, `decision-superseded:${older.id}`);
+        await this.record(ports, task.id, input.principal, task.organizationId, "decision.superseded", older.id, `decision-superseded:${older.id}`);
       }
-      await ports.audit(input.principal, task.organizationId, "decision.requested", id, `decision-requested:${id}`);
+      await this.record(ports, task.id, input.principal, task.organizationId, "decision.requested", id, `decision-requested:${id}`);
       return { request: result.request, created: true };
     });
   }
@@ -136,7 +144,7 @@ export class DecisionService {
         authorUserId: input.principal.userId, createdAt: now };
       await ports.decisions.appendRevision(revision);
       const updated = await ports.decisions.updateRequest({ ...request, status: "pending", currentRevision: revision.number, updatedAt: now });
-      await ports.audit(input.principal, request.organizationId, "decision.revised", revision.id, `decision-revised:${revision.id}`);
+      await this.record(ports, request.taskId, input.principal, request.organizationId, "decision.revised", revision.id, `decision-revised:${revision.id}`);
       return { request: updated, revision };
     });
   }
@@ -176,13 +184,13 @@ export class DecisionService {
       if (!ACTIVE.includes(request.status)) throw new DecisionError(`This request is already ${request.status.replace("_", " ")}.`, 409);
       if (now >= request.expiresAt) {
         const expired = await ports.decisions.updateRequest({ ...request, status: "expired", updatedAt: now });
-        await ports.audit(null, org, "decision.expired", request.id, `decision-expired:${request.id}`);
+        await this.record(ports, request.taskId, null, org, "decision.expired", request.id, `decision-expired:${request.id}`);
         return { kind: "refused", reason: "expired", request: expired };
       }
       const task = await ports.tasks.findById(org, request.taskId);
       if (!task || terminalTask(task) || !task.remoteTaskId) {
         const superseded = await ports.decisions.updateRequest({ ...request, status: "superseded", updatedAt: now });
-        await ports.audit(null, org, "decision.superseded", request.id, `decision-superseded:${request.id}`);
+        await this.record(ports, request.taskId, null, org, "decision.superseded", request.id, `decision-superseded:${request.id}`);
         return { kind: "refused", reason: "superseded", request: superseded };
       }
       if (request.status !== "pending") throw new DecisionError("Awaiting a revised proposal before it can be decided.", 409);
@@ -233,7 +241,7 @@ export class DecisionService {
           revisionDigest: revision.digest, commandId: command.id, messageId: command.messageId, status: "pending", observedTaskState: null,
           observedAt: null, lastError: null, createdAt: now, updatedAt: now });
       }
-      await ports.audit(input.principal, org, `decision.${input.outcome}`, decision.id, `decision:${decision.id}`);
+      await this.record(ports, request.taskId, input.principal, org, `decision.${input.outcome}`, decision.id, `decision:${decision.id}`);
       return { kind: "decided", request: updated, decision, execution, replay: false };
     });
   }
@@ -250,9 +258,44 @@ export class DecisionService {
       const result = command.resultJson as { localId?: string } | null;
       const task = status === "succeeded" && result?.localId ? await ports.tasks.findById(organizationId, result.localId) : undefined;
       if (status === execution.status && (task?.state ?? null) === execution.observedTaskState) return execution;
-      return ports.decisions.updateExecution({ ...execution, status, lastError: command.lastError,
+      const updated = await ports.decisions.updateExecution({ ...execution, status, lastError: command.lastError,
         observedTaskState: task?.state ?? execution.observedTaskState, observedAt: task ? now : execution.observedAt, updatedAt: now });
+      const decision = await ports.decisions.decisionById(organizationId, decisionId);
+      const request = decision && await ports.decisions.findRequest(organizationId, decision.requestId);
+      if (request) await ports.freshen(organizationId, request.taskId);
+      return updated;
     });
+  }
+
+  /**
+   * One worker pass: expire overdue requests, supersede requests whose task has finished, and refresh deliveries
+   * that are still in flight. Safe to run from several workers: each change re-checks state under the request lock.
+   */
+  async sweep(limit = 100) {
+    const expired = await this.expireDue(limit);
+    const now = this.clock.now();
+    const superseded = await this.work.run(async (ports) => {
+      let count = 0;
+      for (const candidate of await ports.decisions.forFinishedTasks(limit)) {
+        const locked = await ports.decisions.lockRequest(candidate.organizationId, candidate.id);
+        if (!locked || !ACTIVE.includes(locked.status)) continue;
+        const task = await ports.tasks.findById(locked.organizationId, locked.taskId);
+        if (task && !terminalTask(task)) continue;
+        await ports.decisions.updateRequest({ ...locked, status: "superseded", updatedAt: now });
+        await this.record(ports, locked.taskId, null, locked.organizationId, "decision.superseded", locked.id, `decision-superseded:${locked.id}`);
+        count += 1;
+      }
+      return count;
+    });
+    const since = new Date(now.getTime() - EXECUTION_WATCH_MS);
+    const unsettled = await this.work.run((ports) => ports.decisions.unsettledExecutions(since, limit));
+    let refreshed = 0;
+    for (const execution of unsettled) {
+      const before = `${execution.status}|${execution.observedTaskState}`;
+      const after = await this.refreshExecution(execution.organizationId, execution.decisionId);
+      if (after && `${after.status}|${after.observedTaskState}` !== before) refreshed += 1;
+    }
+    return { expired, superseded, refreshed };
   }
 
   /** Expires open requests whose deadline passed. Workers call this; reviewers also discover expiry on decide. */
@@ -264,7 +307,7 @@ export class DecisionService {
         const locked = await ports.decisions.lockRequest(due.organizationId, due.id);
         if (!locked || !ACTIVE.includes(locked.status) || locked.expiresAt > now) continue;
         await ports.decisions.updateRequest({ ...locked, status: "expired", updatedAt: now });
-        await ports.audit(null, locked.organizationId, "decision.expired", locked.id, `decision-expired:${locked.id}`);
+        await this.record(ports, locked.taskId, null, locked.organizationId, "decision.expired", locked.id, `decision-expired:${locked.id}`);
         expired += 1;
       }
       return expired;

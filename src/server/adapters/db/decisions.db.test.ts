@@ -221,6 +221,71 @@ async function contract(config: DatabaseConfig, directory: string) {
     await expect(decide(op1, hidden.id, { key: "hidden" })).rejects.toMatchObject({ status: 404 });
     void replacement;
 
+    // --- Workers: expiry, supersession and delivery refresh run without any reviewer acting, and announce themselves.
+    const fresh = async () => Number((await sql("select count(*)::int as c from outbox_messages where topic = 'task.freshness'"))[0].c);
+    const status = async (id: string) => (await as(admin, () => readDecision(id, { orm, store })))!.request.status;
+    const audits = (action: string, id: string) => orm.em.fork().count(SecurityAuditEntity, { action, targetId: id });
+    const w1 = await task(); const w2 = await task(); const w3 = await task();
+    const lapses = (await open(admin, w1, "lapses")).request;
+    const ends = (await open(admin, w2, "ends")).request;
+    const stays = (await open(admin, w3, "stays", "Still wanted")).request;
+    const beforeOpen = await fresh();
+    await open(admin, await task(), "announced");
+    expect(await fresh()).toBe(beforeOpen + 1);
+    now = new Date(now.getTime() + 90 * 60_000);
+    // Everything opened above has a one-hour life, so all three are now overdue; the first sweep also sees the finished task.
+    await orm.em.fork().nativeUpdate(TaskEntity, { id: w2 }, { state: "TASK_STATE_COMPLETED" });
+    const stays2 = (await open(admin, w3, "stays-2", "Still wanted, newer", { expiresAt: new Date(now.getTime() + 4 * HOUR) })).request;
+    const beforeSweep = await fresh();
+    const sweeps = await Promise.all([service.sweep(), service.sweep()]);
+    expect(sweeps.reduce((sum, result) => sum + result.expired, 0)).toBeGreaterThanOrEqual(1);
+    expect(await status(lapses.id)).toBe("expired");
+    expect(await status(ends.id)).toBe("expired"); // Overdue and finished: expiry is reported first.
+    expect(await status(stays.id)).toBe("superseded"); // Replaced by the newer request for its task when that was opened.
+    expect(await status(stays2.id)).toBe("pending");
+    // Concurrent sweepers record each closure exactly once.
+    expect(await audits("decision.expired", lapses.id)).toBe(1);
+    expect(await audits("decision.expired", ends.id)).toBe(1);
+    expect(await fresh()).toBeGreaterThan(beforeSweep);
+    const quiet = await fresh();
+    expect(await service.sweep()).toMatchObject({ expired: 0, superseded: 0 });
+    expect(await fresh()).toBe(quiet); // A no-op pass publishes nothing.
+    await expect(decide(op1, lapses.id, { key: "after-sweep" })).rejects.toMatchObject({ status: 409 });
+
+    // A request whose task finishes while it is still within its deadline is superseded by the worker.
+    const w4 = await task();
+    const finishing = (await open(admin, w4, "finishing", "Wrap up", { expiresAt: new Date(now.getTime() + 4 * HOUR) })).request;
+    await orm.em.fork().nativeUpdate(TaskEntity, { id: w4 }, { state: "TASK_STATE_CANCELED" });
+    const beforeSupersede = await fresh();
+    expect((await service.sweep()).superseded).toBe(1);
+    expect(await status(finishing.id)).toBe("superseded");
+    expect(await audits("decision.superseded", finishing.id)).toBe(1);
+    expect(await fresh()).toBeGreaterThan(beforeSupersede);
+    expect((await service.sweep()).superseded).toBe(0);
+
+    // In-flight deliveries are refreshed by the worker until the task outcome is final.
+    const w5 = await task();
+    const delivering = (await open(admin, w5, "delivering", "Go", { expiresAt: new Date(now.getTime() + 4 * HOUR) })).request;
+    const approvedResult = await decide(op1, delivering.id, { key: "deliver" });
+    if (approvedResult.kind !== "decided" || !approvedResult.execution) throw new Error("expected execution");
+    const executionRow = () => orm.em.fork().findOneOrFail(DecisionExecutionEntity, { id: approvedResult.execution!.id });
+    expect(await service.sweep()).toMatchObject({ refreshed: 0 }); // Still queued: nothing changed, nothing announced.
+    expect((await executionRow()).status).toBe("pending");
+    await orm.em.fork().nativeUpdate(TaskCommandEntity, { id: approvedResult.execution.commandId }, { status: "succeeded", resultJson: { localId: w5 } });
+    await orm.em.fork().nativeUpdate(TaskEntity, { id: w5 }, { state: "TASK_STATE_WORKING" });
+    const beforeRefresh = await fresh();
+    expect((await service.sweep()).refreshed).toBeGreaterThanOrEqual(1);
+    expect(await executionRow()).toMatchObject({ status: "succeeded", observedTaskState: "TASK_STATE_WORKING" });
+    expect(await fresh()).toBeGreaterThan(beforeRefresh);
+    await orm.em.fork().nativeUpdate(TaskEntity, { id: w5 }, { state: "TASK_STATE_COMPLETED" });
+    await service.sweep();
+    expect(await executionRow()).toMatchObject({ observedTaskState: "TASK_STATE_COMPLETED" });
+    const settled = await fresh();
+    expect((await service.sweep()).refreshed).toBe(0); // Final outcome: no further refresh work or signals.
+    expect(await fresh()).toBe(settled);
+    // The decision itself never changes because of what the agent later does.
+    expect((await as(admin, () => readDecision(delivering.id, { orm, store })))!.request.status).toBe("approved");
+
     // --- Everything survives a restart.
     await orm.close(true); orm = await createDatabaseOrm(config);
     const reopened = await withPrincipal(admin, () => readDecision(r1.id, { orm, store }));

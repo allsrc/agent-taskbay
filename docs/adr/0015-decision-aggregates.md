@@ -53,6 +53,20 @@ and what then happened.
   deterministic event key. The decision rows themselves carry the full detail, so
   audit and aggregate remain distinct from A2A protocol events (AUD-002).
 
+## Addendum: worker enforcement and live signals (slice 4.3)
+
+- A worker pass (`DecisionService.sweep`, every `A2A_DECISION_SWEEP_MS`, embedded and
+  external workers) expires overdue requests, supersedes open requests whose task has
+  finished, and refreshes deliveries until the task outcome is final. Each change
+  re-checks state under the request row lock, so several workers (or a reviewer acting at
+  the same moment) close a request exactly once. The sweep holds no principal and
+  dispatches nothing.
+- Every state change, including a worker's, queues the existing content-free
+  `task.freshness` outbox signal in its own transaction; no-op passes publish nothing.
+  Open approval pages re-query on the signal and keep the five-second poll as the fallback
+  for missed signals, as the Tasks views do.
+- A delivery is watched for seven days after approval, then left as last observed.
+
 ## Consequences
 
 - Phase 4 assignment, escalation, notes, notification channels and audit views build

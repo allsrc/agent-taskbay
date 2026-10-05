@@ -235,7 +235,7 @@ Requirements: `AGT-004`, `SEC-001..005`, `AUD-001`, `SCL-001`.
 
 ## Phase 4 — approval-grade human intervention
 
-**Status:** In progress; Slices 4.1 and 4.1b verified 2026-10-05.
+**Status:** In progress; Slices 4.1, 4.1b and 4.3 verified 2026-10-05.
 
 ### Deliverables
 
@@ -248,12 +248,13 @@ Requirements: `AGT-004`, `SEC-001..005`, `AUD-001`, `SCL-001`.
 - [ ] Add task claiming, assignment, due times, escalation, and internal notes.
   Assignment is limited to an initial assignee and `delegate` so far; the review page
   has no claim, due-time, escalation or notes panels yet (slice 4.2).
-- [ ] Run decision expiry from a worker (`DecisionService.expireDue` exists but nothing
-  schedules it) and supersede open requests when their task finishes, instead of
-  discovering both when a reviewer next acts (`HITL-007`, slice 4.3).
-- [ ] Publish decision changes through the existing freshness outbox and refresh
-  observed execution outcomes from the worker rather than on read; replace the
-  approvals pages' five-second polling with the shared freshness signal (slice 4.3).
+- [x] Run decision expiry from a worker and supersede open requests when their task
+  finishes (`HITL-007`, slice 4.3). Notifying requesters and reviewers when a request
+  closes remains with the notification work below.
+- [x] Publish decision changes through the existing freshness outbox and refresh
+  observed execution outcomes from the worker (slice 4.3). The approvals pages now
+  update on the shared freshness signal and keep the five-second poll only as the
+  missed-signal fallback, as the Tasks views do.
 - [ ] Add immutable workflow audit views over the decision, assignment and audit records.
 - [ ] Persist notifications/read state and add browser plus one external
   notification channel behind adapters, including a notification when a request opens,

@@ -166,7 +166,7 @@ serves downloads as attachments subject to current task grants. Remote artifact
 media is not automatically loaded.
 
 Initial sends and cancellations persist command intent before dispatch. The
-local default starts embedded command, subscription, push and reconciliation workers in the Next.js
+local default starts embedded command, subscription, push, reconciliation, freshness and approval-sweep workers in the Next.js
 Node server; use a
 long-running server for this profile. For separate workers, configure
 PostgreSQL and `A2A_COMMAND_WORKER_MODE=external`, then run

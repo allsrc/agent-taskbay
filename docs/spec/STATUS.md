@@ -6,7 +6,7 @@ Last updated: 2026-10-05
 
 - Last completed phase: **Phase 3 — identity and security**
 - Active phase: **Phase 4 — approval-grade human intervention**
-- Last completed slice: **4.1b — approval review UI** (after 4.1 — typed decision requests and revisions)
+- Last completed slice: **4.3 — worker-enforced expiry and live approval signals** (after 4.1 and 4.1b)
 - Next executable slice: **4.2 — assignment, claiming, due times, escalation and notes**
 - Blocking decisions: none
 
@@ -1350,6 +1350,62 @@ Next executable slice: **4.2 — assignment, claiming, due times, escalation and
 Add task claiming/assignment independent of remote state, due times and escalation
 policy, and internal notes, scoped by the same grants. Do not begin notifications or
 audit views in that slice.
+
+## Phase 4 Slice 4.3 verified evidence
+
+Date: 2026-10-05
+
+Slice: **4.3 — worker-enforced expiry and live approval signals**
+
+Changes:
+
+- Added `DecisionService.sweep` and a decision loop in the embedded PGlite server and the
+  external PostgreSQL worker (`A2A_DECISION_SWEEP_MS`, default 15 s). A pass expires
+  overdue requests, supersedes open requests whose task has finished, and refreshes
+  approved deliveries until the task outcome is final (watched for seven days).
+  Changes re-check state under the request lock, so concurrent workers or a reviewer
+  acting at the same time close a request once. The sweep has no principal and sends nothing.
+- Every state change (open, revise, decide, expiry, supersession, delivery refresh) now
+  audits and queues the existing content-free freshness signal in the same transaction;
+  no-op passes publish nothing. Approval pages and the navigation badge re-query on the
+  signal and keep their five-second poll as the missed-signal fallback.
+- Added repository queries for requests on finished tasks and unsettled executions, ADR
+  0015 addendum, and README, ARCHITECTURE and `.env.example` updates.
+
+Verification commands and results:
+
+- `npx tsc --noEmit`, `npm run lint` and `npm run build`: passed.
+- The shared decision contract now also verifies expiry and supersession without any
+  reviewer acting, two concurrent sweepers recording each closure once, a request on a
+  task that finished within its deadline being superseded, no-op passes publishing no
+  signal, unchanged deliveries not being rewritten, delivery refresh through WORKING to
+  COMPLETED and then stopping, and the approved decision staying untouched by later task
+  states. It passes on PGlite and PostgreSQL.
+- Production HTTP verifies that the embedded worker expires a two-second request with
+  nobody acting, that an `/api/tasks/events` stream receives a freshness signal when a
+  request opens, that a late approval is refused and nothing reaches the agent, and that
+  the expired request leaves the pending list.
+- Scripted Chromium run (not committed): with a 300 ms sweep, an open review page changed
+  from PENDING to EXPIRED and lost its action buttons with no reload; the earlier approval
+  flows and the 390px mobile layout still passed, with no console errors or warnings.
+
+Migration tested from:
+
+- No schema change in this slice.
+
+Remaining risks:
+
+- Requesters and reviewers are not notified when a request expires, is superseded or is
+  about to expire; that depends on the durable notification work.
+- Opening a request for a task supersedes its other open requests, so two independent
+  approvals cannot be open on one task. This matches the specified one-live-approval rule
+  but is a product decision to revisit if multi-step approvals are wanted.
+- The sweep scans in pages of 100 per pass; very large backlogs clear over several passes.
+- The embedded worker needs the long-running Node server, as the other workers do.
+
+**Slice 4.3 acceptance criteria are verified. Phase 4 remains active.**
+
+Next executable slice: **4.2 — assignment, claiming, due times, escalation and notes**.
 
 ## Known repository-state issue
 

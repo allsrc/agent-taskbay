@@ -30,6 +30,7 @@ function executionRecord(entity: DecisionExecutionEntity): DecisionExecutionReco
 }
 
 const ACTIVE = ["pending", "changes_requested"];
+const TERMINAL_TASK_STATES = ["TASK_STATE_COMPLETED", "TASK_STATE_FAILED", "TASK_STATE_CANCELED", "TASK_STATE_REJECTED"];
 
 export class MikroOrmDecisionRepository implements DecisionRepository {
   constructor(private readonly em: EntityManager) {}
@@ -86,6 +87,26 @@ export class MikroOrmDecisionRepository implements DecisionRepository {
     const entities = await this.em.find(DecisionRequestEntity, { status: { $in: ACTIVE as never[] }, expiresAt: { $lte: now } },
       { orderBy: { expiresAt: "asc" }, limit, refresh: true });
     return entities.map(requestRecord);
+  }
+  async forFinishedTasks(limit: number) {
+    const ids = await this.em.getConnection().execute(
+      `select r.id from decision_requests r join tasks t on t.id = r.task_id
+       where r.status in ('pending', 'changes_requested') and (t.terminal_at is not null
+         or t.state in ('TASK_STATE_COMPLETED', 'TASK_STATE_FAILED', 'TASK_STATE_CANCELED', 'TASK_STATE_REJECTED'))
+       order by r.updated_at asc limit ?`, [limit], "all", this.em.getTransactionContext()) as Array<{ id: string }>;
+    if (!ids.length) return [];
+    return (await this.em.find(DecisionRequestEntity, { id: { $in: ids.map((row) => row.id) } }, { orderBy: { updatedAt: "asc" }, refresh: true })).map(requestRecord);
+  }
+  async unsettledExecutions(since: Date, limit: number) {
+    const entities = await this.em.find(DecisionExecutionEntity, { createdAt: { $gte: since }, $or: [
+      { status: { $in: ["pending", "dispatching"] as never[] } },
+      { status: "succeeded", $or: [{ observedTaskState: null }, { observedTaskState: { $nin: TERMINAL_TASK_STATES } }] }] },
+    { orderBy: { updatedAt: "asc" }, limit, refresh: true });
+    return entities.map(executionRecord);
+  }
+  async decisionById(organizationId: string, id: string) {
+    const entity = await this.em.findOne(DecisionEntity, { organizationId, id }, { refresh: true });
+    return entity ? decisionRecord(entity) : undefined;
   }
   async revisions(organizationId: string, requestId: string) {
     return (await this.em.find(DecisionRevisionEntity, { organizationId, requestId }, { orderBy: { number: "asc" }, refresh: true })).map(revisionRecord);

@@ -290,6 +290,10 @@ commits with task ingestion, survives process restart, and reconnects without
 a browser. The existing browser stream reads committed events; application SSE
 freshness signals remain a subsequent slice (ADR 0008).
 
+Slice 4.3 adds an approval sweep to the same worker profiles: it expires overdue approvals,
+supersedes those whose task finished and refreshes in-flight deliveries, publishing the
+existing freshness signal for each change (ADR 0015).
+
 Slice 2.3 adds opt-in push registration and cleanup in the same worker profiles.
 Intent commits with ingestion, while leased workers perform remote config
 operations. Callback credentials derive from server-only configuration and a
