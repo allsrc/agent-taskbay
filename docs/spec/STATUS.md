@@ -6,8 +6,8 @@ Last updated: 2026-10-05
 
 - Last completed phase: **Phase 4 — approval-grade human intervention**
 - Active phase: **Phase 6 — rich interoperability** (started 2026-10-05 by explicit decision; Phase 5 is paused, not complete)
-- Last completed slice: **6.5 — structured actions on the approval review page** (last Phase 5 slice: 5.1)
-- Next executable slice: **6.6 — safe A2UI renderer** (6.1–6.5 verified)
+- Last completed slice: **6.6 — safe A2UI renderer** (last Phase 5 slice: 5.1)
+- Next executable slice: **6.7 — agent-originated approval requests** (6.1–6.6 verified)
 - Blocking decisions: none
 
 ## Pending follow-ups
@@ -18,6 +18,9 @@ Last updated: 2026-10-05
   Deferred by agreement on 2026-10-03 for later review. This is separate from the
   verified Phase 3 service identity baseline and does not block Slice 4.1.
 
+- **Phase 6 A2UI follow-ups — tracked:** components [#22](https://github.com/shashikanth-gs/a2a-ops/issues/22), functions and
+  `openUrl` [#23](https://github.com/shashikanth-gs/a2a-ops/issues/23), other surfaces [#24](https://github.com/shashikanth-gs/a2a-ops/issues/24),
+  real-agent verification [#25](https://github.com/shashikanth-gs/a2a-ops/issues/25).
 - **Phase 6 approval follow-ups — tracked:** agent-originated requests [#15](https://github.com/shashikanth-gs/a2a-ops/issues/15),
   bypass and approval-required policy [#16](https://github.com/shashikanth-gs/a2a-ops/issues/16), digest-echo contract
   [#17](https://github.com/shashikanth-gs/a2a-ops/issues/17), ADK adapter [#18](https://github.com/shashikanth-gs/a2a-ops/issues/18),
@@ -1929,6 +1932,52 @@ Remaining risks and follow-ups (tracked):
 - A2UI proposals in the review page wait for the A2UI renderer; the browser run is not committed (#14).
 
 Next executable slice: **6.6 — safe A2UI renderer**, then **6.7 agent-originated approvals**, **6.8 plugin contract**.
+
+## Slice 6.6 evidence (2026-10-05)
+
+Date: 2026-10-05
+Slice: 6.6 — safe A2UI renderer (ADR 0022)
+
+Research (2026-10-05, public specs): A2UI v0.9 envelopes and Basic Catalog component schemas (a2ui.org and the
+a2ui-project repository's `server_to_client.json`, `common_types.json`, `client_to_server.json`, `catalogs/basic/catalog.json`),
+the A2A extension specification (URI, data-part media type, `a2uiClientCapabilities`), and the canonical v0.9 Basic Catalog id.
+
+Changes:
+
+- `src/lib/a2ui.ts`: envelope validation and a pure surface reducer (createSurface, updateComponents, updateDataModel,
+  deleteSurface) with limits, safe JSON Pointer get/set (prototype keys refused), viewer-edit overlay, literal/absolute-path
+  value resolution, `readEvent` (server events only, resolved context, size bound), `buildActionMessage`, client-capabilities metadata.
+- `src/components/a2ui/surface.tsx`: renders Text, Row, Column, Card, Divider, Button, TextField, CheckBox, ChoicePicker;
+  everything else is an inert placeholder; text only, no URL loaded or opened, no agent code or regular expressions run.
+- Chat: surfaces render per task for agents advertising the extension; the bubble notes the update instead of dumping JSON;
+  every message to such an agent activates the extension and declares `a2uiClientCapabilities`; a Button action is sent on the
+  same task as one `application/a2ui+json` data part; surfaces are read-only once the task finishes.
+- Fix found by the browser run: a message sent before the agent card loaded omitted the extension and capabilities, so the
+  composer now waits for discovery.
+- `scripts/fixture-form-agent.mjs`: new `a2ui` variant (bound inputs, an event button, plus an Image and an `openUrl` button
+  that must degrade, and a markup-looking string that must stay text); `scripts/verify-a2ui-http.mjs` added to `test:http`.
+
+Verification commands and results:
+
+- 15 new unit/SSR tests (pointers, reducer limits and rejection counts, bindings, action envelope; escaping, no external
+  markup, placeholders, disabled unsupported actions, read-only after completion, unknown catalog).
+- `verify-a2ui-http.mjs` against `next start`: the card advertises the extension; the envelopes persist unmodified; the user's
+  action reaches the agent exactly once as one A2UI part on the same task with the capabilities and extension; the task completes.
+- Scripted Chromium run (not committed), three consecutive passes: surface renders; agent strings stay text with no
+  injected element and no script run; the Image becomes a placeholder and `openUrl` is disabled; editing sends nothing; Confirm
+  sends exactly the entered context and the task completes; the surface turns read-only; no request to an agent-named URL;
+  no horizontal overflow at 375 px; no console errors. The earlier form and approval-form browser runs still pass.
+- `npm run check` against PostgreSQL 16 (lint, 138 unit tests, 38 DB tests, schema check, build, all HTTP suites incl. A2UI): passed.
+
+Migration tested from: not applicable (no schema change).
+
+Remaining risks and follow-ups (tracked): remaining components [#22](https://github.com/shashikanth-gs/a2a-ops/issues/22),
+functions/checks/`openUrl`/`sendDataModel` [#23](https://github.com/shashikanth-gs/a2a-ops/issues/23), task and approval pages,
+AG-UI mapping and the edit-merge rule [#24](https://github.com/shashikanth-gs/a2a-ops/issues/24), real A2UI agent and official-schema
+verification [#25](https://github.com/shashikanth-gs/a2a-ops/issues/25). The browser run is not committed (#14).
+
+Next executable slice: **6.7 — agent-originated approval requests** ([#15](https://github.com/shashikanth-gs/a2a-ops/issues/15)),
+then **6.8 plugin contract and Phase 6 exit verification**.
 
 ## Known repository-state issue
 

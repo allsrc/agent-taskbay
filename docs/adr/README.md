@@ -33,3 +33,4 @@ accepted ADR. Small implementation details do not require an ADR.
 - [0019 — Unified inbox read model](./0019-unified-inbox-read-model.md)
 - [0020 — Structured input forms](./0020-structured-input-forms.md)
 - [0021 — AG-UI adapter](./0021-ag-ui-adapter.md)
+- [0022 — A2UI renderer](./0022-a2ui-renderer.md)

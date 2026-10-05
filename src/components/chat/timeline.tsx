@@ -12,6 +12,7 @@ import { PartRenderer } from "@/components/PartRenderer";
 import { cn } from "@/lib/utils";
 import { StructuredForm } from "@/components/chat/structured-form";
 import { formFromPart, type FormSubmission } from "@/lib/structured-form";
+import { isA2uiPart } from "@/lib/a2ui";
 
 const enter = { initial: { opacity: 0, y: 8 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.2, ease: "easeOut" as const } };
 
@@ -43,6 +44,7 @@ export function AgentBubble({
   extensions = [],
   onSubmitForm,
   answered = false,
+  a2ui = false,
 }: {
   message: ThreadMessage;
   /** State of the task this message belongs to; drives the amber / purple prompt styling. */
@@ -53,6 +55,8 @@ export function AgentBubble({
   onSubmitForm?: (submission: FormSubmission) => void | Promise<void>;
   /** The form was already answered or the task no longer waits, so the form is shown read-only as data. */
   answered?: boolean;
+  /** The agent advertises A2UI: its interface parts render as surfaces, so the bubble only notes them. */
+  a2ui?: boolean;
 }) {
   const state = taskState ? stateName(taskState) : "";
   const prompt = message.fromStatus && (state === "INPUT_REQUIRED" || state === "AUTH_REQUIRED") ? state : null;
@@ -74,9 +78,9 @@ export function AgentBubble({
         {message.parts
           // The options list is shown as buttons below; don't echo it as raw JSON too.
           .filter((part) => !(options.length > 0 && part.kind === "data") && part !== formPart?.part)
-          .map((part, index) => (
-            <BubblePart key={index} part={part} />
-          ))}
+          .map((part, index) => a2ui && isA2uiPart(part)
+            ? <span key={index} className="text-muted-foreground mt-1 block font-mono text-[11px]">Interface update (shown below)</span>
+            : <BubblePart key={index} part={part} />)}
       </div>
       {formPart?.form && <StructuredForm form={formPart.form} onSubmit={onSubmitForm!} />}
       {options.length > 0 && (

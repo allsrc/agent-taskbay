@@ -117,6 +117,9 @@ discovery, streaming, content-type rendering, and sideband decoding.
   `referenceTaskIds` links between them.
 - **Notifications** (`/notifications`) — input requests, finished tasks and
   ready artifacts derived from task streams, with read state and an unread badge.
+- **A2UI interfaces** — an agent that advertises the A2UI v0.9 extension can describe forms and confirmations as declarative
+  JSON; the console renders an allowlisted subset of the Basic Catalog as text-only components (no external URLs, no agent
+  code) and sends the user's action back on the same task (ADR 0022).
 - **AG-UI adapter** (optional, `A2A_AGUI_ENABLED=true`) — `POST /api/agents/{agentId}/ag-ui`
   accepts an AG-UI `RunAgentInput` and streams AG-UI events for one durable agent task.
   Input requests end the run with an interrupt (carrying the agent's form schema when it

@@ -9,6 +9,8 @@ import { AgentAvatar } from "@/components/a2a/primitives";
 import { Composer } from "@/components/chat/composer";
 import { StructuredForm } from "@/components/chat/structured-form";
 import { startFormFromCard } from "@/lib/structured-form";
+import { A2uiSurfaces } from "@/components/a2ui/surface";
+import { A2UI_EXTENSION_URI, a2uiClientMetadata, surfacesFromParts } from "@/lib/a2ui";
 import { AgentBubble, ArtifactCard, TaskCard, UserBubble } from "@/components/chat/timeline";
 import { SideRail, useIsDesktop, type RailTab } from "@/components/chat/side-rail";
 import { Button } from "@/components/ui/button";
@@ -35,6 +37,9 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
   const agentId = conversation?.agentId ?? initialAgentId ?? "";
   const agent = useAgentStore((state) => state.agents.find((item) => item.id === agentId));
   const view = agent?.view;
+  // The card decides which extensions this send activates (A2UI), so wait for discovery instead of sending without it.
+  const agentsStatus = useAgentStore((state) => state.status);
+  const discovering = !agent?.view && agentsStatus !== "ready" && agentsStatus !== "error";
   const settings = useSettingsStore();
 
   const desktop = useIsDesktop();
@@ -114,28 +119,31 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
    * `contextId` without a `taskId`; the agent then answers with a Message or
    * opens a new Task, and both land in this conversation.
    */
-  async function send(parts: OutgoingPart[]) {
-    if (sending || !agentId) return;
-    const skillId = targetTask?.skillId ?? (view?.requiresSkill ? selectedSkill || view.skills[0]?.id : undefined);
-    const contextId = view?.requiresSkill ? targetTask?.contextId : tasks.find((task) => task.contextId)?.contextId;
+  async function send(parts: OutgoingPart[], forTask?: TrackedTask) {
+    const effectiveTarget = forTask ?? targetTask;
+    if (sending || !agentId || discovering) return;
+    const skillId = effectiveTarget?.skillId ?? (view?.requiresSkill ? selectedSkill || view.skills[0]?.id : undefined);
+    const contextId = view?.requiresSkill ? effectiveTarget?.contextId : tasks.find((task) => task.contextId)?.contextId;
     const config: SendConfig = {
       returnImmediately,
       acceptedOutputModes: outputModes,
       referenceTaskIds: refIds.length ? refIds : undefined,
-      extensions: settings.extensions.filter((item) => item.enabled).map((item) => item.uri),
+      extensions: [...new Set([...settings.extensions.filter((item) => item.enabled).map((item) => item.uri), ...(a2uiOn ? [A2UI_EXTENSION_URI] : [])])],
+      // An agent that advertises A2UI learns which catalog this console renders on every message (extension spec).
+      ...(a2uiOn ? { metadata: a2uiClientMetadata() } : {}),
     };
     if (historyLength.trim() && Number.isInteger(Number(historyLength)) && Number(historyLength) >= 0) config.historyLength = Number(historyLength);
 
     setSending(true);
     setError(null);
-    const userMessage = userThreadMessage(parts, { contextId, taskId: targetTask?.taskId }, config);
-    const base = targetTask;
+    const userMessage = userThreadMessage(parts, { contextId, taskId: effectiveTarget?.taskId }, config);
+    const base = effectiveTarget;
     setPending(userMessage);
     pushWire("out", "SendMessage", {
       jsonrpc: "2.0",
       method: "SendMessage",
       params: {
-        message: { messageId: userMessage.id, contextId, taskId: targetTask?.taskId, role: "ROLE_USER", parts, referenceTaskIds: config.referenceTaskIds },
+        message: { messageId: userMessage.id, contextId, taskId: effectiveTarget?.taskId, role: "ROLE_USER", parts, referenceTaskIds: config.referenceTaskIds },
         configuration: { acceptedOutputModes: outputModes, returnImmediately, historyLength: config.historyLength },
       },
     });
@@ -143,7 +151,7 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
     let landed: string | undefined;
     try {
       await runSend(
-        { skillId, agentId, agentName: view?.name ?? conversation?.agentName ?? "Agent", parts, taskId: targetTask?.taskId, contextId, tenant: tasks[0]?.tenant, config, userMessage, base },
+        { skillId, agentId, agentName: view?.name ?? conversation?.agentName ?? "Agent", parts, taskId: effectiveTarget?.taskId, contextId, tenant: tasks[0]?.tenant, config, userMessage, base },
         {
           onUpdate: (next) => {
             landed = conversationKey(next);
@@ -177,6 +185,7 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
   const suggestion = view?.skills.find((skill) => skill.examples.length)?.examples[0] ?? view?.skills[0]?.description;
   const empty = tasks.length === 0 && !pending;
   const startForm = startFormFromCard(view?.extensions ?? [], view?.extensionParams);
+  const a2uiOn = (view?.extensions ?? []).includes(A2UI_EXTENSION_URI);
 
   const messageColumn = "mx-auto w-full max-w-[760px]";
 
@@ -240,7 +249,7 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
                   <UserBubble key={message.id} message={message} />
                 ) : (
                   <AgentBubble key={message.id} message={message} taskState={task.kind === "message" ? undefined : task.state} onReply={(text) => void send([{ text, mediaType: "text/plain" }])}
-                    extensions={view?.extensions} answered={sending || index !== task.messages.length - 1}
+                    extensions={view?.extensions} a2ui={a2uiOn} answered={sending || index !== task.messages.length - 1}
                     onSubmitForm={(submission) => send([{ data: submission, mediaType: "application/json" }])} />
                 ),
                 ...(index === cardAt ? [<TaskCard key={`card-${task.taskId}`} task={task} canceling={cancelingId === task.taskId} onCancel={() => void cancelTask(task)} />] : []),
@@ -248,6 +257,10 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
               return (
                 <div key={task.taskId} className="flex flex-col gap-3.5">
                   {rows}
+                  {a2uiOn && (
+                    <A2uiSurfaces state={surfacesFromParts(task.messages.filter((message) => message.role === "agent").flatMap((message) => message.parts))}
+                      interactive={!sending && isOpenTask(task)} onAction={(message) => send([{ data: message, mediaType: "application/a2ui+json" }], task)} />
+                  )}
                   {task.kind !== "message" && task.messages.length === 0 && (
                     <TaskCard task={task} canceling={cancelingId === task.taskId} onCancel={() => void cancelTask(task)} />
                   )}
@@ -316,6 +329,7 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
         <Composer
               inputModes={view?.inputModes ?? []}
               sending={sending}
+              disabled={discovering}
               seed={seed}
               hint={waiting ? "Reply to the agent, or pick an option above…" : targetTask ? "Send a follow-up to the running task…" : undefined}
               onSend={send}
