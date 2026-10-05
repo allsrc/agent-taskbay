@@ -235,7 +235,7 @@ Requirements: `AGT-004`, `SEC-001..005`, `AUD-001`, `SCL-001`.
 
 ## Phase 4 — approval-grade human intervention
 
-**Status:** In progress; Slices 4.1, 4.1b, 4.2 and 4.3 verified 2026-10-05.
+**Status:** In progress; Slices 4.1, 4.1b, 4.2, 4.3 and 4.4 verified 2026-10-05.
 
 ### Deliverables
 
@@ -260,7 +260,12 @@ Requirements: `AGT-004`, `SEC-001..005`, `AUD-001`, `SCL-001`.
   observed execution outcomes from the worker (slice 4.3). The approvals pages now
   update on the shared freshness signal and keep the five-second poll only as the
   missed-signal fallback, as the Tasks views do.
-- [ ] Add immutable workflow audit views over the decision, assignment and audit records.
+- [x] Add immutable workflow audit views over the decision, assignment and audit records
+  (slice 4.4, ADR 0017): an append-only trail with an Audit page, per-task trails,
+  filters, paging and CSV export.
+- [ ] Audit hardening: record who read or exported the trail, cursor-based export beyond
+  one page, and an audit projection for very large organizations (Phase 7 tamper
+  evidence, retention and external export are listed there).
 - [ ] Persist notifications/read state and add browser plus one external
   notification channel behind adapters, including a notification when a request opens,
   is assigned, is about to expire, expires or is superseded. Replace the approvals
@@ -347,7 +352,9 @@ Requirements: `ART-002`, `INT-002..004`, `ACC-001`.
 - [ ] Dependency review, SAST, container scanning, and release provenance.
 - [ ] Run the PostgreSQL and browser-level suites against the supported PostgreSQL
   version in CI, including the approval flows.
-- [ ] Data deletion, retention, export, and administrative controls.
+- [ ] Data deletion, retention, export, and administrative controls, including a controlled
+  path for audit retention (audit facts are append-only) and optional hash chaining or
+  external anchoring for tamper evidence.
 - [ ] SCIM and additional enterprise identity features only when required.
 
 ### Exit criteria

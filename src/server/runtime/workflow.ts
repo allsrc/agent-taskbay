@@ -2,7 +2,6 @@ import type { MikroORM } from "@mikro-orm/core";
 import { z } from "zod";
 import { withJobEntityManager } from "../adapters/db/orm";
 import { MikroOrmWorkflowRepository } from "../adapters/db/workflow-repository";
-import { MembershipEntity, UserEntity } from "../adapters/db/entities";
 import type { WorkflowFilter, WorkflowPorts, WorkflowUnitOfWork } from "../application/ports/workflow";
 import { TaskWorkflowService, WorkflowError } from "../application/services/task-workflow";
 import type { AssignmentEventRecord, EscalationPolicyRecord, TaskAssignmentRecord, TaskNoteRecord } from "../domain/workflow-model";
@@ -27,18 +26,7 @@ function ports(em: EntityManagerLike): WorkflowPorts {
   return {
     workflow: new MikroOrmWorkflowRepository(em), tasks: shared.tasks, requireOperate: shared.requireOperate, canOperate: shared.canOperate,
     isReviewer: shared.isReviewer, freshen: shared.freshen, audit: shared.audit,
-    names: async (organizationId, userIds, membershipIds) => {
-      const memberships = membershipIds.length ? await em.find(MembershipEntity, { organizationId, id: { $in: [...new Set(membershipIds)] } }) : [];
-      const memberUsers = memberships.map((membership) => membership.userId);
-      // Only people with a membership in this organization are named.
-      const inOrg = new Set((userIds.length ? await em.find(MembershipEntity, { organizationId, userId: { $in: [...new Set(userIds)] } }) : []).map((membership) => membership.userId));
-      const ids = [...new Set([...memberUsers, ...inOrg])];
-      const users = ids.length ? await em.find(UserEntity, { id: { $in: ids } }) : [];
-      const people: Record<string, string> = {};
-      for (const user of users) if (inOrg.has(user.id)) people[user.id] = user.displayName;
-      for (const membership of memberships) { const user = users.find((candidate) => candidate.id === membership.userId); if (user) people[membership.id] = user.displayName; }
-      return people;
-    },
+    names: shared.names,
   };
 }
 export function workflowUnitOfWork(options: { orm?: MikroORM } = {}): WorkflowUnitOfWork {

@@ -1,5 +1,5 @@
 import type { EntityManager } from "@mikro-orm/core";
-import { MembershipEntity, UserEntity } from "../adapters/db/entities";
+import { AgentEntity, MembershipEntity, TaskEntity, UserEntity } from "../adapters/db/entities";
 import { DatabaseIdentityRepository } from "../adapters/db/identity-repository";
 import { DatabaseAccessPolicyRepository, requestAccessPolicy } from "../adapters/db/security-repository";
 import { createPersistenceRepositories } from "../adapters/db/repositories";
@@ -32,6 +32,26 @@ export function sharedPorts(em: EntityManager) {
       const membership = await em.findOne(MembershipEntity, { id: membershipId, organizationId, enabled: true }, { refresh: true });
       const user = membership && await em.findOne(UserEntity, { id: membership.userId, enabled: true }, { refresh: true });
       return Boolean(membership && user && ["admin", "operator"].includes(membership.role));
+    },
+    names: async (organizationId: string, userIds: string[], membershipIds: string[]) => {
+      const memberships = membershipIds.length ? await em.find(MembershipEntity, { organizationId, id: { $in: [...new Set(membershipIds)] } }) : [];
+      const memberUsers = memberships.map((membership) => membership.userId);
+      // Only people with a membership in this organization are named.
+      const inOrg = new Set((userIds.length ? await em.find(MembershipEntity, { organizationId, userId: { $in: [...new Set(userIds)] } }) : []).map((membership) => membership.userId));
+      const ids = [...new Set([...memberUsers, ...inOrg])];
+      const users = ids.length ? await em.find(UserEntity, { id: { $in: ids } }) : [];
+      const people: Record<string, string> = {};
+      for (const user of users) if (inOrg.has(user.id)) people[user.id] = user.displayName;
+      for (const membership of memberships) { const user = users.find((candidate) => candidate.id === membership.userId); if (user) people[membership.id] = user.displayName; }
+      return people;
+    },
+    taskContext: async (organizationId: string, taskIds: string[]) => {
+      const ids = [...new Set(taskIds)];
+      const tasks = ids.length ? await em.find(TaskEntity, { organizationId, id: { $in: ids } }, { fields: ["id", "agentId", "title", "state"] }) : [];
+      const agentIds = [...new Set(tasks.map((task) => task.agentId))];
+      const agents = agentIds.length ? await em.find(AgentEntity, { organizationId, id: { $in: agentIds } }) : [];
+      return Object.fromEntries(tasks.map((task) => [task.id, { title: task.title ?? null, state: task.state,
+        agentName: agents.find((agent) => agent.id === task.agentId)?.displayName ?? agents.find((agent) => agent.id === task.agentId)?.cardUrl ?? "Agent" }]));
     },
     freshen: async (organizationId: string, taskId: string) => { await enqueueTaskFreshness(base.outbox, organizationId, taskId, new Date()); },
     audit: async (principal: Principal | null, organizationId: string, action: string, targetId: string, eventKey: string) => {

@@ -168,6 +168,36 @@ try {
   assert.ok(!(await call("/api/decisions?status=pending")).body.decisions.some((request) => request.id === brief.body.decision.id));
   live.abort();
 
+  // The audit trail alone says who decided exactly what, when and why, and it can only be read, never changed.
+  const trail = (await call("/api/audit?limit=200")).body;
+  const approvalEntry = trail.entries.find((entry) => entry.kind === "decision.edit" && entry.subjectId === id);
+  assert.ok(approvalEntry, "The edited approval is in the audit trail.");
+  assert.equal(trail.people[approvalEntry.actorUserId], "Local operator");
+  assert.equal(approvalEntry.data.text, "Yes, delete staging but keep backups");
+  assert.equal(approvalEntry.data.rationale, "Keep backups");
+  assert.equal(approvalEntry.data.digest, detail.revisions[1].digest);
+  assert.equal(approvalEntry.data.revision, 2);
+  assert.equal(approvalEntry.data.messageId, `decision-${decisionId}`);
+  assert.equal(approvalEntry.taskId, taskId);
+  const expiredEntry = trail.entries.find((entry) => entry.kind === "decision.expired" && entry.subjectId === brief.body.decision.id);
+  assert.ok(expiredEntry && expiredEntry.actorUserId === null, "The worker's expiry is recorded as the system.");
+  assert.ok(trail.entries.some((entry) => entry.kind === "decision.requested" && entry.subjectId === id));
+  assert.ok(trail.entries.every((entry, index, all) => index === 0 || all[index - 1].at >= entry.at), "Newest first.");
+  const walked = []; let cursor = "";
+  do { const next = (await call(`/api/audit?limit=3${cursor ? `&cursor=${cursor}` : ""}`)).body; walked.push(...next.entries); cursor = next.next ?? ""; } while (cursor);
+  assert.deepEqual(walked.map((entry) => entry.key), trail.entries.map((entry) => entry.key), "Paging neither skips nor repeats entries.");
+  assert.ok((await call("/api/audit?group=approvals")).body.entries.every((entry) => entry.kind.startsWith("decision.")));
+  assert.ok((await call(`/api/audit?taskId=${taskId}`)).body.entries.every((entry) => entry.taskId === taskId));
+  assert.equal((await call("/api/audit?group=bogus")).status, 400);
+  assert.equal((await call("/api/audit?taskId=nope")).status, 400);
+  assert.equal((await call(`/api/audit?taskId=00000000-0000-4000-a000-000000000000`)).status, 404);
+  const csv = await fetch(`${base}/api/audit/export?group=approvals`);
+  assert.equal(csv.status, 200);
+  assert.match(csv.headers.get("content-disposition"), /attachment/);
+  assert.equal(csv.headers.get("x-content-type-options"), "nosniff");
+  assert.ok((await csv.text()).startsWith("time,kind,actor,task,subject,detail\r\n"));
+  for (const method of ["POST", "PUT", "DELETE", "PATCH"]) assert.ok([404, 405].includes((await call("/api/audit", { method, body: "{}" })).status), `${method} must not exist on the trail`);
+
   // Malformed and unknown identifiers are indistinguishable from absent requests.
   assert.equal((await call("/api/decisions/not-a-uuid")).status, 404);
   assert.equal((await call("/api/decisions/00000000-0000-4000-a000-000000000000")).status, 404);

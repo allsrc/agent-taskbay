@@ -33,7 +33,7 @@ agent builder, generic workflow engine, or trace explorer.
 | 1. Persistence foundation | Complete | MikroORM, PGlite/PostgreSQL, migrations, repositories, durable registry and initial task/event storage. |
 | 2. Durable task runtime | Complete | Browser-independent commands, stream workers, webhook ingestion, reconciliation, projections, outbox, and live fan-out. |
 | 3. Identity and security | Complete | OIDC sessions, encrypted service credentials, teams/agent/skill grants, connection-bound network policy, safe artifacts and card trust; all phase exit criteria verified. |
-| 4. Approval-grade HITL | In progress | Typed decisions, the approval review UI, task ownership/due times/escalation/notes and worker-enforced expiry (slices 4.1, 4.1b, 4.2, 4.3 verified); immutable audit views and notification channels remain. |
+| 4. Approval-grade HITL | In progress | Typed decisions, the approval review UI, task ownership/due times/escalation/notes and worker-enforced expiry and an append-only audit trail with a read-only Audit view (slices 4.1, 4.1b, 4.2, 4.3, 4.4 verified); durable notifications and external channels remain. |
 | 5. Operator experience | Planned | Shared queues, saved views, search, SLAs, notes, bulk triage, and agent health. |
 | 6. Rich interoperability | Planned | Structured forms, A2UI rendering, optional AG-UI adapter, and extension plugins. |
 | 7. Enterprise hardening | Planned | HA, backup/restore, object lifecycle, KMS, load/recovery tests, retention, and administration. |

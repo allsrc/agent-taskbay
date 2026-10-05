@@ -276,8 +276,9 @@ Implemented identities use local UUIDs and exact external identity mappings:
 - `SecurityAuditEvent`: `id, organizationId, actorUserId?, actorType, action,
   targetId, eventKey, createdAt`. The append-only port stores fixed safe facts.
   Provisioning has a system actor; command audit keys are unique and stable.
-  Audit and accepted command/catalog intent commit atomically. Full workflow
-  AuditEvent semantics/views remain Phase 4 work.
+  Audit and accepted command/catalog intent commit atomically. Rows are append-only
+  (a trigger rejects update and delete). Workflow views are the read-only Audit
+  timeline (ADR 0017); retention needs a controlled maintenance path (Phase 7).
 
 Users/identities are global mappings reachable through organization memberships;
 sessions are reachable only through their membership. Browser identity/scope
@@ -351,7 +352,8 @@ PostgreSQL-compatible migration and adapter contract.
 - `NotificationRecipient`
 - `NotificationDelivery`
 - `NotificationRead`
-- `AuditEvent`
+- `AuditEvent` (implemented as `security_audit_events`): append-only by database trigger.
+  The Audit view (ADR 0017) joins it with decisions, ownership events and notes.
 - `IdempotencyKey`
 - `BackgroundFailure`
 

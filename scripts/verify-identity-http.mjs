@@ -193,6 +193,27 @@ try {
   }
   assert.equal((await json(`/api/commands/${command.id}`, operatorSession)).command.status, "succeeded"); assert.equal(sends, 1);
   assert.equal((await request(`/api/commands/${command.id}`, foreignSession)).status, 404);
+  // Audit trail: administrators read their organization; other members only a task they may read; nobody crosses organizations.
+  const trail = await json("/api/audit", adminSession);
+  assert.ok(trail.entries.some((entry) => entry.kind === "task.send.accepted" && entry.subjectId === command.id));
+  assert.ok(trail.entries.some((entry) => entry.kind === "session.started"));
+  assert.equal(trail.viewer.role, "admin");
+  for (const session of [operatorSession, viewerSession, ungrantedSession]) {
+    assert.equal((await request("/api/audit", session)).status, 403);
+    assert.equal((await request("/api/audit/export", session)).status, 403);
+  }
+  assert.equal((await request(`/api/audit?taskId=${privateView.localId}`, ungrantedSession)).status, 404);
+  assert.equal((await request(`/api/audit?taskId=${privateView.localId}`, foreignSession)).status, 404);
+  const foreignTrail = await request("/api/audit", foreignSession);
+  assert.ok([200, 403].includes(foreignTrail.status));
+  if (foreignTrail.status === 200) assert.ok(!(await foreignTrail.text()).includes(command.id), "Another organization's trail leaked");
+  assert.equal((await request("/api/audit?limit=0", adminSession)).status, 400);
+  assert.equal((await request("/api/audit?cursor=garbage", adminSession)).status, 400);
+  const exported = await request("/api/audit/export", adminSession);
+  assert.equal(exported.status, 200);
+  assert.match(exported.headers.get("content-type"), /text\/csv/);
+  assert.match(exported.headers.get("content-disposition"), /attachment/);
+  noSecrets(await exported.text());
   await stop(); await start();
   assert.equal((await json("/api/auth/session", adminSession)).user.role, "admin", "Session did not survive restart");
   await json("/api/auth/logout", adminSession, { method: "POST", headers: { Origin: origin } });

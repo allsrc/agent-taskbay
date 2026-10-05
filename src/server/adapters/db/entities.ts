@@ -424,6 +424,8 @@ const SecurityAuditSchema = defineEntity({
     actorType: p.string().length(32),
     action: p.string().length(100), targetId: p.text(), eventKey: p.text().unique("uq_security_audit_event_key"), createdAt: p.datetime() },
   indexes: [{ name: "idx_security_audit_org_time", properties: ["organizationId", "createdAt"] }],
+  triggers: [{ name: "trg_security_audit_append_only", timing: "before", events: ["update", "delete"],
+    body: "raise exception 'audit records are append-only' using errcode = '23000';" }],
 });
 export class SecurityAuditEntity extends SecurityAuditSchema.class {}
 Object.defineProperty(SecurityAuditEntity, "name", { value: "SecurityAuditEntity" });
@@ -501,6 +503,9 @@ const DecisionRequestSchema = defineEntity({
     { name: "idx_decision_requests_task", properties: ["taskId"] },
     { name: "idx_decision_requests_assignee", properties: ["organizationId", "assignedMembershipId", "status"] },
   ],
+  // What was asked, of whom and when is fixed; only status, assignment, current revision and bookkeeping may change.
+  triggers: [{ name: "trg_decision_requests_core_fixed", timing: "before", events: ["update", "delete"],
+    body: "if tg_op = 'DELETE' or new.id <> old.id or new.organization_id <> old.organization_id or new.task_id <> old.task_id or new.agent_id <> old.agent_id or new.tenant <> old.tenant or new.skill_id is distinct from old.skill_id or new.kind <> old.kind or new.request_key <> old.request_key or new.title <> old.title or new.summary <> old.summary or new.risk <> old.risk or new.policy_json::text <> old.policy_json::text or new.requester_user_id is distinct from old.requester_user_id or new.expires_at <> old.expires_at or new.created_at <> old.created_at then raise exception 'decision request core is immutable' using errcode = '23000'; end if; return new;" }],
 });
 export class DecisionRequestEntity extends DecisionRequestSchema.class {}
 Object.defineProperty(DecisionRequestEntity, "name", { value: "DecisionRequestEntity" });

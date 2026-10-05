@@ -6,8 +6,8 @@ Last updated: 2026-10-05
 
 - Last completed phase: **Phase 3 — identity and security**
 - Active phase: **Phase 4 — approval-grade human intervention**
-- Last completed slice: **4.2 — task ownership, due times, escalation and notes** (after 4.1, 4.1b and 4.3)
-- Next executable slice: **4.4 — immutable workflow audit views**
+- Last completed slice: **4.4 — immutable workflow audit views** (after 4.1, 4.1b, 4.2 and 4.3)
+- Next executable slice: **4.5 — durable notifications and one external channel**
 - Blocking decisions: none
 
 ## Pending follow-ups
@@ -1479,6 +1479,79 @@ Remaining risks:
 
 Next executable slice: **4.4 — immutable workflow audit views** over decisions, ownership
 events, notes and audit facts. Do not begin notifications in that slice.
+
+## Phase 4 Slice 4.4 verified evidence
+
+Date: 2026-10-05
+
+Slice: **4.4 — immutable workflow audit views**
+
+Changes:
+
+- Added a read-only, newest-first audit timeline (ADR 0017) built by one query over the
+  sources of truth: approval requests, revisions and decisions (exact content, revision
+  digest, rationale, reviewer and delivery result), ownership events, note existence
+  (never note text), expiry and supersession, and every other audit fact. Audit facts that a
+  domain row already represents are not repeated.
+- Immutability moved into the database: audit facts are append-only, and an approval
+  request's identity and proposal can no longer be altered (only status, assignment,
+  current revision and bookkeeping change). Migration `AuditImmutability` adds the triggers.
+- Access: administrators read the organization trail; any member who can read a task reads
+  that task's trail without identity or access facts (404 without a read grant); other
+  organizations are unreachable. Reads are keyset-paged in a read-only transaction,
+  filterable by task, group, actor and time range, bounded to 200 rows, and write nothing.
+- `GET /api/audit` and an administrator CSV export (`/api/audit/export`, one bounded page
+  with `X-Next-Cursor`, formula-neutralized cells, attachment and `nosniff`). No mutation
+  routes exist for the trail.
+- UI: an Audit page (administrators; task trails for readers) with group tabs, date range,
+  paging, expandable exact facts and CSV export; an Audit card on every task; a link from
+  each approval; an Audit item in navigation for administrators.
+
+Verification commands and results:
+
+- `npx tsc --noEmit`, `npm run lint` (no warnings) and `npm run build`: passed. Full
+  `npm run check`-equivalent: 31 unit files/96 tests and 15 database files/34 tests on PGlite
+  and PostgreSQL, schema check clean against a freshly migrated database, and all HTTP
+  suites passed.
+- The shared audit contract builds every kind of fact through the real services and verifies:
+  administrators-only organization trail and per-task read rules; newest-first ordering with
+  unique keys; that the trail alone names who decided what, when and why (actor, exact text,
+  revision, digest, rationale, delivery, message ID); edit attribution; system-attributed
+  expiry; ownership detail; note text absent from the trail; a cross-check that every audited
+  decision and ownership action has its timeline entry and none is invented; all filters;
+  cursor paging that equals the unpaged list; rejection of bad cursors, limits and ranges;
+  reads that write nothing; database rejection of audit updates and deletes and of changes to
+  an approval's title, expiry, requester or existence; formula-injection-safe CSV; restart; and
+  migration rollback/reapply.
+- Production HTTP verifies the same through real routes, including the edited approval's
+  exact content and digest matching its revision, the worker's expiry as a system entry,
+  paging equality, 400/404 handling, absent mutation methods, and the OIDC suite's role,
+  grant and cross-organization denials for the trail and its export.
+- Scripted Chromium run (not committed): opening the Audit page from navigation, expanding a
+  decision to its exact content and rationale, group tabs, absence of note text, the CSV
+  link, a task's Audit card and its full trail page, and a 390px layout, with no console
+  errors. The run exposed a clipped date field on narrow screens, now fixed. One earlier run
+  timed out waiting for an approvals list entry; it did not recur in seven reruns and was not
+  traced to a cause.
+
+Migration tested from:
+
+- Clean PGlite and PostgreSQL through all fourteen migrations, with rollback/reapply and no
+  schema drift. The migration only adds triggers.
+
+Remaining risks:
+
+- The timeline is computed per request with a union; very large organizations need an audit
+  projection and export beyond one page. Reads and exports of the trail are not audited.
+- Tamper evidence is database immutability, not cryptographic; retention needs a controlled
+  maintenance path because ordinary deletes are blocked. Both are Phase 7 items.
+- Entries for deleted agents or removed members show generic names ("A former member").
+
+**Slice 4.4 acceptance criteria are verified. Phase 4 remains active.**
+
+Next executable slice: **4.5 — durable notifications and one external channel**: per-user
+notification and read state, delivery through the outbox behind adapters, a browser inbox
+replacing the session-only alerts, and one external channel.
 
 ## Known repository-state issue
 

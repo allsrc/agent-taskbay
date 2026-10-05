@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, LayoutGrid, ListChecks, MessageSquare, ShieldCheck, SlidersHorizontal, Workflow, type LucideIcon } from "lucide-react";
+import { Bell, LayoutGrid, ListChecks, MessageSquare, ScrollText, ShieldCheck, SlidersHorizontal, Workflow, type LucideIcon } from "lucide-react";
 import { motion } from "motion/react";
 import { LogoMark, Wordmark } from "@/components/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -21,6 +21,8 @@ interface NavItem {
   label: string;
   short: string;
   icon: LucideIcon;
+  /** Shown only to administrators; the server enforces access regardless. */
+  adminOnly?: boolean;
 }
 
 const NAV: NavItem[] = [
@@ -29,6 +31,7 @@ const NAV: NavItem[] = [
   { href: "/tasks", label: "Tasks", short: "Tasks", icon: ListChecks },
   { href: "/approvals", label: "Approvals", short: "Approve", icon: ShieldCheck },
   { href: "/flows", label: "Orchestration", short: "Flows", icon: Workflow },
+  { href: "/audit", label: "Audit", short: "Audit", icon: ScrollText, adminOnly: true },
   { href: "/notifications", label: "Notifications", short: "Alerts", icon: Bell },
   { href: "/settings", label: "Settings", short: "Setup", icon: SlidersHorizontal },
 ];
@@ -41,6 +44,7 @@ function useActive() {
 export function AppShell({ children, identity }: { children: React.ReactNode;
   identity: { displayName: string; role: string; development: boolean } }) {
   const active = useActive();
+  const nav = NAV.filter((item) => !item.adminOnly || identity.role === "admin");
   const { unread } = useNotifications();
   const pending = (useServerResource<{ decisions: DecisionRequestView[] }>("/api/decisions?status=pending").data?.decisions.length) ?? 0;
   const taskError = useTaskStore((state) => state.error);
@@ -60,7 +64,7 @@ export function AppShell({ children, identity }: { children: React.ReactNode;
           <Wordmark className="text-[15px]" />
         </Link>
         <nav className="flex flex-col gap-1" aria-label="Primary">
-          {NAV.map((item) => {
+          {nav.map((item) => {
             const on = active?.href === item.href;
             return (
               <Link
@@ -115,7 +119,7 @@ export function AppShell({ children, identity }: { children: React.ReactNode;
         </main>
 
         <nav className="bg-sidebar border-border flex shrink-0 border-t px-1 pt-1.5 pb-3.5 md:hidden" aria-label="Primary">
-          {NAV.map((item) => {
+          {nav.map((item) => {
             const on = active?.href === item.href;
             return (
               <Link

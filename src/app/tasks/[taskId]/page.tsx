@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { BackLink, Chip, EmptyState, InfoCard, StateChip } from "@/components/a2a/primitives";
+import { TaskAudit } from "@/components/audit/task-audit";
 import { TaskApprovals } from "@/components/approvals/task-approvals";
 import { TaskNotes, TaskOwnership } from "@/components/workflow/task-ownership";
 import { Button } from "@/components/ui/button";
@@ -140,6 +141,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ taskId: s
 
         {task.kind !== "message" && <TaskApprovals taskId={task.localId} canRequest={active} />}
         {task.kind !== "message" && <TaskNotes taskId={task.localId} />}
+        {task.kind !== "message" && <TaskAudit taskId={task.localId} />}
 
         <InfoCard label="Identifiers">
           <dl className="flex flex-col gap-1.5 font-mono text-[11px]">

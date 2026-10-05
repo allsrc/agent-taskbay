@@ -215,6 +215,11 @@ function Review({ detail, refresh, error }: { detail: DecisionDetail; refresh: (
           })}
         </InfoCard>
 
+        <InfoCard label="Audit">
+          <p className="text-muted-foreground mb-2 text-[13px]">Every step of this request, and the task it belongs to, is kept in a permanent audit trail.</p>
+          <Link href={`/audit?taskId=${request.taskId}`} className="text-primary font-mono text-[12px] hover:underline">View the audit trail for this task</Link>
+        </InfoCard>
+
         <InfoCard label="Revisions">
           {[...revisions].reverse().map((revision) => (
             <div key={revision.id} className="border-border border-t py-2 first:border-t-0">
