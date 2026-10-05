@@ -297,13 +297,14 @@ Requirements: `HITL-001..005`, `HITL-007..008`, `NTF-001..002`, `AUD-001..002`; 
 
 ## Phase 5 — operator experience
 
-**Status:** Planned.
+**Status:** In progress (slice 5.1 verified 2026-10-05).
 
 ### Deliverables
 
-- [ ] Global authorized inbox across agents and teams. Fold the standalone Approvals
+- [x] Global authorized inbox across agents and teams. Fold the standalone Approvals
   queue (slice 4.1b) into it, reusing the review page as the detail view and keeping
-  approvals filterable by status, risk, assignee and expiry.
+  approvals filterable by status, risk, assignee and expiry. (Slice 5.1; assignee is "mine" and
+  expiry is the overdue view — arbitrary-assignee filtering ships with 5.2.)
 - [ ] Saved views, full-text search, advanced filters, and bulk triage.
 - [ ] SLA, overdue, escalation, and failure indicators, including approvals nearing
   expiry and executions whose delivery outcome is unknown.

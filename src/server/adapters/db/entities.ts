@@ -502,6 +502,7 @@ const DecisionRequestSchema = defineEntity({
   indexes: [
     { name: "idx_decision_requests_org_status", properties: ["organizationId", "status", "expiresAt"] },
     { name: "idx_decision_requests_task", properties: ["taskId"] },
+    { name: "idx_decision_requests_org_updated", properties: ["organizationId", "updatedAt"] },
     { name: "idx_decision_requests_assignee", properties: ["organizationId", "assignedMembershipId", "status"] },
   ],
   // What was asked, of whom and when is fixed; only status, assignment, current revision and bookkeeping may change.

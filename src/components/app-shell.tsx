@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, LayoutGrid, ListChecks, MessageSquare, ScrollText, ShieldCheck, SlidersHorizontal, Workflow, type LucideIcon } from "lucide-react";
+import { Bell, Inbox, LayoutGrid, ListChecks, MessageSquare, ScrollText, SlidersHorizontal, Workflow, type LucideIcon } from "lucide-react";
 import { motion } from "motion/react";
 import { LogoMark, Wordmark } from "@/components/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -29,8 +29,8 @@ interface NavItem {
 const NAV: NavItem[] = [
   { href: "/agents", label: "Agents", short: "Agents", icon: LayoutGrid },
   { href: "/chat", label: "Chat", short: "Chat", icon: MessageSquare },
+  { href: "/inbox", label: "Inbox", short: "Inbox", icon: Inbox },
   { href: "/tasks", label: "Tasks", short: "Tasks", icon: ListChecks },
-  { href: "/approvals", label: "Approvals", short: "Approve", icon: ShieldCheck },
   { href: "/flows", label: "Orchestration", short: "Flows", icon: Workflow },
   { href: "/audit", label: "Audit", short: "Audit", icon: ScrollText, adminOnly: true },
   { href: "/notifications", label: "Notifications", short: "Alerts", icon: Bell },
@@ -39,7 +39,9 @@ const NAV: NavItem[] = [
 
 function useActive() {
   const pathname = usePathname() ?? "/";
-  return NAV.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`));
+  // The standalone approvals queue now lives in the inbox, so its review pages keep the Inbox item active.
+  const path = pathname === "/approvals" || pathname.startsWith("/approvals/") ? pathname.replace("/approvals", "/inbox") : pathname;
+  return NAV.find((item) => path === item.href || path.startsWith(`${item.href}/`));
 }
 
 export function AppShell({ children, identity }: { children: React.ReactNode;
@@ -96,7 +98,7 @@ export function AppShell({ children, identity }: { children: React.ReactNode;
                 {item.href === "/notifications" && unread > 0 && (
                   <span className="bg-brand text-brand-foreground relative rounded-full px-1.5 font-mono text-[11px] font-bold" aria-label={`${unread} unread notifications`}>{unreadLabel(unread)}</span>
                 )}
-                {item.href === "/approvals" && pending > 0 && (
+                {item.href === "/inbox" && pending > 0 && (
                   <span className="bg-brand text-brand-foreground relative rounded-full px-1.5 font-mono text-[11px] font-bold" aria-label={`${pending} pending approvals`}>{pending}</span>
                 )}
               </Link>
@@ -138,7 +140,7 @@ export function AppShell({ children, identity }: { children: React.ReactNode;
               >
                 <span className="relative">
                   <item.icon className="size-[22px]" strokeWidth={1.8} />
-                  {((item.href === "/notifications" && unread > 0) || (item.href === "/approvals" && pending > 0)) && (
+                  {((item.href === "/notifications" && unread > 0) || (item.href === "/inbox" && pending > 0)) && (
                     <span className="bg-brand absolute -top-0.5 -right-1.5 size-[9px] rounded-full" />
                   )}
                 </span>

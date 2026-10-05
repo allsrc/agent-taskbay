@@ -5,9 +5,9 @@ Last updated: 2026-10-05
 ## Active position
 
 - Last completed phase: **Phase 4 — approval-grade human intervention**
-- Active phase: **Phase 5 — operator experience** (not started)
-- Last completed slice: **4.5 — durable notifications and one external channel** (completing Phase 4)
-- Next executable slice: **5.1 — unified authorized inbox over tasks and approvals**
+- Active phase: **Phase 5 — operator experience** (in progress)
+- Last completed slice: **5.1 — unified authorized inbox over tasks and approvals**
+- Next executable slice: **5.2 — saved views, full-text search, arbitrary-assignee/skill/team filters and bulk triage**
 - Blocking decisions: none
 
 ## Pending follow-ups
@@ -1646,9 +1646,53 @@ Remaining risks:
 
 **Slice 4.5 and every Phase 4 exit criterion are verified. Phase 4 is complete.**
 
-Next executable slice: **Phase 5, 5.1 — unified authorized inbox over tasks and approvals**
-(global inbox, folding the Approvals queue into it, with indexed queries). Do not begin Phase 5
-without a continuation request.
+## Phase 5 Slice 5.1 verified evidence
+
+Date: 2026-10-05
+
+Slice: **5.1 — unified authorized inbox over tasks and approvals**
+
+Changes:
+
+- Added `GET /api/inbox`: one authorized, newest-first list of tasks and approval requests with keyset
+  paging, views (all, active, needs-input, assigned, overdue, done) and filters (kind, agent, skill, risk,
+  status, updated-after). It is a single indexed `UNION ALL` over typed columns; no event payload or content
+  projection is read (ADR 0019, `PERF-001`).
+- Access mirrors task/approval access: administrators see the organization, others only agents/skills
+  they hold a read grant for, with an empty inbox when there is none.
+- Added the `/inbox` page (list plus split detail). Task and approval items reuse the existing task page and
+  approval review page as detail views. The Approvals nav item is replaced by Inbox (keeping the pending
+  badge) and `/approvals` redirects into it.
+- Added migration `InboxIndex` (`decision_requests (organization_id, updated_at)`).
+
+Verification commands and results:
+
+- `npx tsc --noEmit`, `npm run lint` and `npm run build`: passed.
+- `npm test`: 33 files, 103 tests passed (new: request validation, cursor round trip, paging).
+- New shared database contract `inbox.db.test.ts` and the updated migration contract passed on PGlite and on
+  PostgreSQL 16: ordering across both kinds, gapless keyset walk equal to the full list, every view, every filter,
+  grant scoping, empty inbox without a grant, other organizations seeing nothing, validation failures, and
+  no-principal refusal.
+- `node --import tsx scripts/verify-workflow-http.mjs` passed with new inbox assertions through real routes
+  (overdue view, paging cursor, 400 on a bad view and cursor).
+- Scripted Chromium run (not committed): `/approvals` redirected to the inbox, empty state and view tabs
+  rendered with no console errors.
+
+Migration tested from:
+
+- Clean PGlite and PostgreSQL through all sixteen migrations, with the previous-schema upgrade test updated.
+
+Remaining risks:
+
+- Filtering by an arbitrary assignee, saved views, text search and bulk actions are not in this slice.
+- The inbox is not yet live-pushed; it refreshes on the existing five-second poll, focus and freshness signals.
+- The performance budget is exercised through query shape and indexes, not yet a load test (needed for the Phase 5 exit).
+- The review page's "Back to approvals" link still targets the legacy route on mobile.
+
+**Slice 5.1 is verified. Phase 5 remains active.**
+
+Next executable slice: **5.2 — saved views, full-text search, advanced filters and bulk triage** on the inbox
+query. Do not begin it without a continuation request.
 
 ## Known repository-state issue
 
