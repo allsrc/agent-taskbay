@@ -29,3 +29,5 @@ accepted ADR. Small implementation details do not require an ADR.
 - [0013 — Plane A library adapters and membership-bound sessions](./0013-plane-a-sessions-and-membership.md)
 
 - [ADR 0014: Service credentials and scoped security](0014-service-credentials-and-scoped-security.md)
+
+- [0019 — Unified inbox read model](./0019-unified-inbox-read-model.md)

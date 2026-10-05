@@ -133,6 +133,17 @@ try {
   assert.deepEqual(overdueView.map((task) => task.localId), [three.localId]);
   assert.equal(overdueView[0].workflow.escalationLevel, 1);
   assert.equal((await call("/api/tasks?filter=mine")).body.tasks.some((task) => task.localId === three.localId), false, "Escalated work left the original owner's queue.");
+  // INB-001: the unified inbox reads the same authorized work through one indexed endpoint.
+  const inboxOverdue = (await call("/api/inbox?view=overdue")).body;
+  assert.deepEqual(inboxOverdue.items.map((item) => item.id), [three.localId]);
+  assert.equal(inboxOverdue.items[0].kind, "task");
+  assert.equal(inboxOverdue.items[0].escalationLevel, 1);
+  const inboxAll = (await call("/api/inbox?view=all&limit=1")).body;
+  assert.equal(inboxAll.items.length, 1);
+  assert.ok(inboxAll.next, "A second page exists.");
+  assert.notEqual((await call(`/api/inbox?view=all&limit=1&cursor=${encodeURIComponent(inboxAll.next)}`)).body.items[0].id, inboxAll.items[0].id);
+  assert.equal((await call("/api/inbox?view=bogus")).status, 400);
+  assert.equal((await call("/api/inbox?cursor=bad")).status, 400);
   console.log("Workflow HTTP verification passed.");
 } finally {
   if (app?.exitCode === null) { const exited = new Promise((resolve) => app.once("exit", resolve)); app.kill("SIGTERM"); await exited; }

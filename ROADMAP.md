@@ -34,7 +34,7 @@ agent builder, generic workflow engine, or trace explorer.
 | 2. Durable task runtime | Complete | Browser-independent commands, stream workers, webhook ingestion, reconciliation, projections, outbox, and live fan-out. |
 | 3. Identity and security | Complete | OIDC sessions, encrypted service credentials, teams/agent/skill grants, connection-bound network policy, safe artifacts and card trust; all phase exit criteria verified. |
 | 4. Approval-grade HITL | Complete | Typed decisions with exact-revision execution, the approval review UI, task ownership/due times/escalation/notes, worker-enforced expiry, an append-only audit trail with an Audit view, and durable per-person notifications with a signed webhook channel; all exit criteria verified. |
-| 5. Operator experience | Planned | Shared queues, saved views, search, SLAs, notes, bulk triage, and agent health. |
+| 5. Operator experience | In progress | Shared queues, saved views, search, SLAs, notes, bulk triage, and agent health. |
 | 6. Rich interoperability | Planned | Structured forms, A2UI rendering, optional AG-UI adapter, and extension plugins. |
 | 7. Enterprise hardening | Planned | HA, backup/restore, object lifecycle, KMS, load/recovery tests, retention, and administration. |
 

@@ -1,12 +1,6 @@
-import { ShieldCheck } from "lucide-react";
-import { EmptyState } from "@/components/a2a/primitives";
+import { redirect } from "next/navigation";
 
+/** The standalone Approvals queue is folded into the unified inbox. */
 export default function ApprovalsIndexPage() {
-  return (
-    <div className="hidden min-h-0 flex-1 md:flex">
-      <EmptyState icon={<ShieldCheck className="size-7" />} title="Select an approval">
-        Review the exact action an agent wants to take, then approve, edit, reject or send it back. Approved actions are sent once and tracked to the agent&apos;s result.
-      </EmptyState>
-    </div>
-  );
+  redirect("/inbox?kind=approval&view=needs-input");
 }
