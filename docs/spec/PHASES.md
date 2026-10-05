@@ -340,7 +340,7 @@ Requirements: `INB-001..002`, `TSK-006`, `HITL-005`, `ADM-001`, `PERF-001`,
 - [ ] Agent-originated approval requests through a reviewed extension or recognized
   in-task pattern (`HITL-006`).
 - [ ] Safe A2UI renderer with an explicit component allowlist.
-- [ ] Optional AG-UI adapter where it adds richer user interaction.
+- [x] Optional AG-UI adapter where it adds richer user interaction. (Slice 6.3, ADR 0021: HTTP+SSE run endpoint over the durable command path, interrupts/resume; off by default.)
 - [ ] Extension plugin contract and compatibility fixtures.
 - [ ] Preserve the generic A2A composer and durable task model as fallbacks.
 

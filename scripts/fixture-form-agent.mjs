@@ -27,6 +27,8 @@ const invalidForm = { title: "Nested", schema: { type: "object", properties: { n
 
 export async function startFormAgent(port = 0) {
   const received = [];
+  const cancelled = [];
+  const contexts = new Map();
   let origin = "";
   const server = createServer(async (request, response) => {
     const variant = request.url.split("/")[1];
@@ -48,11 +50,17 @@ export async function startFormAgent(port = 0) {
     const contextId = message?.contextId ?? "form-context";
     const status = (state, text, parts) => ({ taskId, contextId, status: { state, timestamp: new Date().toISOString(),
       ...(parts || text ? { message: { messageId: `agent-${taskId}-${state}`, role: "ROLE_AGENT", parts: parts ?? [{ text }] } } : {}) } });
+    if (rpc.method === "CancelTask") {
+      cancelled.push(rpc.params.id);
+      response.end(JSON.stringify({ jsonrpc: "2.0", id: rpc.id, result: { id: rpc.params.id, contextId: contexts.get(rpc.params.id) ?? "form-context", status: { state: "TASK_STATE_CANCELED", timestamp: new Date().toISOString() } } }));
+      return;
+    }
     if (!["SendMessage", "SendStreamingMessage"].includes(rpc.method)) {
       response.end(JSON.stringify({ jsonrpc: "2.0", id: rpc.id, error: { code: -32601, message: `Unsupported ${rpc.method}` } }));
       return;
     }
     received.push({ variant, message });
+    contexts.set(taskId, contextId);
     const reply = message.parts?.find((part) => part.data !== undefined);
     const events = reply
       ? [{ task: { id: taskId, contextId, status: { state: "TASK_STATE_WORKING", timestamp: new Date().toISOString() } } },
@@ -71,7 +79,7 @@ export async function startFormAgent(port = 0) {
   });
   await new Promise((resolve) => server.listen(port, "127.0.0.1", resolve));
   origin = `http://127.0.0.1:${server.address().port}`;
-  return { origin, received, cardUrl: (variant) => `${origin}/${variant}/card.json`, close: () => new Promise((resolve) => server.close(resolve)) };
+  return { origin, received, cancelled, cardUrl: (variant) => `${origin}/${variant}/card.json`, close: () => new Promise((resolve) => server.close(resolve)) };
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

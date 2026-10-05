@@ -117,6 +117,11 @@ discovery, streaming, content-type rendering, and sideband decoding.
   `referenceTaskIds` links between them.
 - **Notifications** (`/notifications`) — input requests, finished tasks and
   ready artifacts derived from task streams, with read state and an unread badge.
+- **AG-UI adapter** (optional, `A2A_AGUI_ENABLED=true`) — `POST /api/agents/{agentId}/ag-ui`
+  accepts an AG-UI `RunAgentInput` and streams AG-UI events for one durable agent task.
+  Input requests end the run with an interrupt (carrying the agent's form schema when it
+  advertises the structured-form extension); a `resume` entry answers or abandons it.
+  Same-origin, authenticated callers only; see ADR 0021 for the mapping and limits.
 - **Settings** (`/settings`) — request defaults, extension URIs and a
   credentials overview.
 - **Design system** — shadcn/ui + Tailwind v4 tokens for the allsrc.dev theme
