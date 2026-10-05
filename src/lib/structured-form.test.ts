@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { NormalizedPart } from "@/lib/types";
-import { STRUCTURED_FORM_EXTENSION_URI, STRUCTURED_FORM_MEDIA_TYPE, formFromPart, initialValues, parseFormDefinition, validateForm } from "./structured-form";
+import { STRUCTURED_FORM_EXTENSION_URI, STRUCTURED_FORM_MEDIA_TYPE, formFromPart, initialValues, parseFormDefinition, startFormFromCard, validateForm } from "./structured-form";
 
 const definition = {
   title: "Deploy", submitLabel: "Send",
@@ -20,6 +20,12 @@ describe("structured form definitions", () => {
     expect(form.fields.map((field) => [field.key, field.type, field.required])).toEqual([
       ["env", "enum", true], ["replicas", "integer", true], ["note", "string", false], ["dryRun", "boolean", false]]);
     expect(form.fields[0]).toMatchObject({ options: [{ value: "staging", label: "Staging" }, { value: "prod", label: "Production" }] });
+  });
+  it("displays fields in the declared order, since stored JSON loses key order", () => {
+    const scrambled = { ...definition, order: ["env", "replicas", "note", "dryRun"], schema: { ...definition.schema, properties: {
+      dryRun: definition.schema.properties.dryRun, note: definition.schema.properties.note, replicas: definition.schema.properties.replicas, env: definition.schema.properties.env } } };
+    expect(parseFormDefinition(scrambled)!.fields.map((field) => field.key)).toEqual(["env", "replicas", "note", "dryRun"]);
+    expect(parseFormDefinition({ ...scrambled, order: ["note"] })!.fields.map((field) => field.key)).toEqual(["note", "dryRun", "replicas", "env"]);
   });
   it("rejects anything outside the subset so the caller falls back to the composer", () => {
     const withProperty = (property: unknown) => ({ schema: { type: "object", properties: { a: property } } });
@@ -42,6 +48,18 @@ describe("structured form definitions", () => {
     expect(formFromPart(part(definition), ["https://example.com/other"])).toBeUndefined();
     expect(formFromPart(part(definition, "application/json"), [STRUCTURED_FORM_EXTENSION_URI])).toBeUndefined();
     expect(formFromPart({ ...part(definition), kind: "text" }, [STRUCTURED_FORM_EXTENSION_URI])).toBeUndefined();
+  });
+});
+
+describe("start-of-task form", () => {
+  const params = { [STRUCTURED_FORM_EXTENSION_URI]: { startForm: definition } };
+  it("is offered only when the extension is advertised and the definition validates", () => {
+    expect(startFormFromCard([STRUCTURED_FORM_EXTENSION_URI], params)?.title).toBe("Deploy");
+    expect(startFormFromCard([], params)).toBeUndefined();
+    expect(startFormFromCard(["https://example.com/other"], params)).toBeUndefined();
+    expect(startFormFromCard([STRUCTURED_FORM_EXTENSION_URI], undefined)).toBeUndefined();
+    expect(startFormFromCard([STRUCTURED_FORM_EXTENSION_URI], { [STRUCTURED_FORM_EXTENSION_URI]: {} })).toBeUndefined();
+    expect(startFormFromCard([STRUCTURED_FORM_EXTENSION_URI], { [STRUCTURED_FORM_EXTENSION_URI]: { startForm: { schema: { type: "object", properties: { n: { type: "object" } } } } } })).toBeUndefined();
   });
 });
 

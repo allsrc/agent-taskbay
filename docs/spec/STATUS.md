@@ -6,8 +6,8 @@ Last updated: 2026-10-05
 
 - Last completed phase: **Phase 4 — approval-grade human intervention**
 - Active phase: **Phase 6 — rich interoperability** (started 2026-10-05 by explicit decision; Phase 5 is paused, not complete)
-- Last completed slice: **6.1 — structured input forms in the chat view** (last Phase 5 slice: 5.1)
-- Next executable slice: **6.2 — reference agent and browser verification of forms** (6.1 verified; see slice 6.1 evidence)
+- Last completed slice: **6.4 — start-of-task forms** (last Phase 5 slice: 5.1)
+- Next executable slice: **6.5 — structured actions on the approval review page** (6.1–6.4 verified)
 - Blocking decisions: none
 
 ## Pending follow-ups
@@ -24,6 +24,15 @@ Last updated: 2026-10-05
   [GitHub issue #5](https://github.com/shashikanth-gs/a2a-ops/issues/5). Deferred by
   agreement on 2026-10-05 so Phase 6 could start; Phase 5 exit criteria are still
   unverified and the phase is not complete. Resume at slice 5.2.
+
+- **Phase 6 limitations — tracked:** AG-UI thread-to-context mapping
+  ([#8](https://github.com/shashikanth-gs/a2a-ops/issues/8)), skill-scoped principals
+  ([#9](https://github.com/shashikanth-gs/a2a-ops/issues/9)), tools/context/state/non-text content
+  ([#10](https://github.com/shashikanth-gs/a2a-ops/issues/10)), cross-origin browser clients
+  ([#11](https://github.com/shashikanth-gs/a2a-ops/issues/11)), runs longer than 50 s
+  ([#12](https://github.com/shashikanth-gs/a2a-ops/issues/12)), real-client and schema verification
+  ([#13](https://github.com/shashikanth-gs/a2a-ops/issues/13)) and a committed browser E2E suite for forms
+  ([#14](https://github.com/shashikanth-gs/a2a-ops/issues/14)). None blocks the next slice.
 
 ## Accepted implementation choices
 
@@ -1737,6 +1746,134 @@ Remaining risks:
 
 Next executable slice: **6.2 — a fixture reference agent advertising the form extension, with a browser
 run of the form flow, then start-of-task forms** (or the safe A2UI renderer; choose in the next request).
+
+## Slice 6.2 evidence (2026-10-05)
+
+Date: 2026-10-05
+Slice: 6.2 — reference form agent and browser verification of structured forms (ADR 0020)
+
+Changes:
+
+- `scripts/fixture-form-agent.mjs`: reference A2A agent with three variants — `form` (advertises the extension and
+  asks for input with a form), `plain` (same form, extension not advertised) and `invalid` (advertised, schema
+  outside the supported subset). Runs standalone or in-process; reused by later Phase 6 slices and the Phase 7 demo profile.
+- `scripts/verify-forms-http.mjs` (added to `test:http`): real production HTTP proof that only the advertising
+  agents expose the extension, the form part is persisted with the task, the submitted values reach the agent as
+  exactly one `application/json` data part on the same task, the task completes, and the other variants keep the
+  part as ordinary content.
+- Bug found by the browser run and fixed: message parts are stored as JSONB, which does not preserve object key
+  order, so fields rendered reversed. The form definition now carries an explicit `order` array (ADR 0020 updated;
+  unit test added).
+
+Verification commands and results:
+
+- `npm run check` against PostgreSQL 16 (lint, 112 unit tests, 38 DB tests, schema check, build, all HTTP suites
+  including the new one): passed.
+- Scripted Chromium run against the fixture agent (not committed): the form rendered in declared order with its
+  default; an empty submit showed "Required" and sent nothing; a valid submit completed the same task and the
+  agent received exactly the entered values; after completion the form was no longer interactive; the `plain` and
+  `invalid` variants showed no form and left the composer usable; at 375px width the page had no horizontal
+  overflow; zero console errors or warnings.
+
+Migration tested from: not applicable (no schema change).
+
+Remaining risks:
+
+- A2UI, start-of-task forms, forms on the approval page, agent-originated approvals, the AG-UI adapter and the
+  plugin contract remain. The Phase 6 exit criterion for a reference agent now holds for forms only.
+- The browser script is not committed (Playwright is not a repository dependency); the committed HTTP script covers
+  the contract and the component test covers rendering.
+- Form state is not preserved across a reload before submission.
+
+Next executable slice: **6.3 — AG-UI adapter** (chosen by the user ahead of start-of-task forms).
+
+## Slice 6.3 evidence (2026-10-05)
+
+Date: 2026-10-05
+Slice: 6.3 — AG-UI adapter over the durable command path (ADR 0021)
+
+Research (2026-10-05, public specs): AG-UI 1.0 (docs.ag-ui.com — HTTP+SSE binding, `RunAgentInput`, run ordering,
+interrupt/resume outcomes) and A2UI (a2ui.org / a2ui-project — extension `https://a2ui.org/a2a-extension/a2ui/v0.9`,
+data parts with `application/a2ui+json`, catalog allowlist). A2UI is deferred to slice 6.5; its findings are recorded
+in the Phase 6 task list, not implemented here.
+
+Changes:
+
+- `POST /api/agents/{agentId}/ag-ui` (`src/app/api/agents/[agentId]/ag-ui/route.ts`), disabled unless
+  `A2A_AGUI_ENABLED=true` (404 otherwise). Same authentication, `operate` permission, rate limit, same-origin check and
+  grants as the command API; a run is one idempotent durable command (`runId`), and the stream is translated from
+  committed task state, so a dropped client never owns dispatch.
+- `src/server/adapters/agui/run-input.ts` (validation and planning) and `translator.ts` (pure run translation):
+  `RUN_STARTED` first, assistant text messages once each, `STATE_SNAPSHOT` per state change, `CUSTOM` events for non-text
+  parts (`a2a.part`) and completed artifacts (`a2a.artifact`), exactly one terminal event.
+  `COMPLETED`/message-only → success, `CANCELED` → cancelled, `FAILED`/`REJECTED` → `RUN_ERROR`,
+  `INPUT_REQUIRED`/`AUTH_REQUIRED` → interrupt outcome whose `responseSchema` is the agent's validated form when it
+  advertises the ADR 0020 extension. A window that elapses while working ends with `RUN_ERROR` `run_timeout`.
+- Resume: one entry naming a `task:{id}` interrupt in this agent and thread; `answered` replies on the same task (string →
+  text, object → one JSON data part), `abandoned` issues the cancel command. Refusals (400/404/409/403) precede the stream.
+- `src/server/runtime/agent-extensions.ts`: advertised extension URIs from the latest card snapshot.
+- `scripts/verify-agui-http.mjs` (in `test:http`) and `scripts/fixture-form-agent.mjs` (now supports `CancelTask`).
+- `.env.example` and README document `A2A_AGUI_ENABLED`.
+
+Verification commands and results:
+
+- 9 new unit tests (input planning, ordering, replay protection, interrupt schema, terminal mapping, truncation); one real
+  bug found by them and fixed (an unsettled task produced no terminal event).
+- `node scripts/verify-agui-http.mjs` against `next start`: adapter off by default (404, nothing sent); bad input,
+  unknown agent, unknown interrupt and cross-origin POST refused before streaming with nothing sent to the agent; a run
+  produces well-formed framing and ordering; the form agent's interrupt carries its schema and the plain agent's does not;
+  a repeated `runId` dispatches once; resume completes the same task with exactly one JSON data part and earlier messages
+  are not replayed; answered interrupts, and interrupts from another thread, are refused; abandon cancels once and ends the
+  run as cancelled; sends and cancels appear in the audit trail.
+- `npm run check` against PostgreSQL 16 (lint, 121 unit tests, 38 DB tests, schema check, build, all HTTP suites including AG-UI): passed.
+
+Migration tested from: not applicable (no schema change).
+
+Remaining risks:
+
+- `threadId` is sent as the A2A `contextId`; an agent that rejects client-chosen contexts fails the run, and skill-scoped
+  principals are refused (a skill-scoped send must start a new context). Frontend `tools`, `context`, `state`,
+  `forwardedProps` and non-text content are ignored or rejected. Cross-origin browser clients need a later CORS design.
+- Not exercised against a real AG-UI client library (CopilotKit); conformance is against the published 1.0 event shapes.
+- Runs longer than the 50 s window end with `run_timeout` and are followed through the task APIs.
+
+Next executable slice: **6.4 — start-of-task forms and forms on the approval review page**, then **6.5 safe A2UI
+renderer**, **6.6 agent-originated approvals**, **6.7 plugin contract**.
+
+## Slice 6.4 evidence (2026-10-05)
+
+Date: 2026-10-05
+Slice: 6.4 — start-of-task forms (ADR 0020)
+
+Changes:
+
+- `viewAgentCard` keeps per-extension `params` objects (`extensionParams`); `startFormFromCard` returns the form in the
+  structured-form extension's `params.startForm` only when the extension is advertised and the definition validates.
+- The chat page offers it for a new task (`<details>`, open on an empty chat); a valid submission starts a task with one
+  `application/json` data part; the composer remains. Agents without the extension, or with an invalid definition, show nothing.
+- `scripts/fixture-form-agent.mjs`: the `form` variant advertises a start form and completes a started task; a data part
+  with a task id is still the reply to an input request.
+- `verify-forms-http.mjs` extended: the card carries the start form, the plain agent has none, and a start submission
+  begins a new task with exactly one JSON part.
+
+Verification commands and results:
+
+- 4 new unit tests (3 start-form, 1 card params): 123 unit tests pass.
+- Scripted Chromium run (not committed): start form open on an empty chat in declared order, empty submit shows
+  "Required" and sends nothing, valid submit completes the task with exactly the entered values, the plain agent shows no
+  start form; the earlier form flow, fallbacks and 375px check still pass; no console errors.
+- `npm run check` against PostgreSQL 16 (lint, 123 unit tests, 38 DB tests, schema check, build, all HTTP suites): passed.
+
+Migration tested from: not applicable (no schema change).
+
+Remaining risks:
+
+- Forms on the approval review page (edit-before-approve of structured actions) are slice 6.5 and need an ADR 0015
+  addendum because they change the proposed-action union and the exact-revision digest.
+- The committed browser suite is tracked in [#14](https://github.com/shashikanth-gs/a2a-ops/issues/14).
+
+Next executable slice: **6.5 — structured actions on the approval review page**, then **6.6 safe A2UI renderer**,
+**6.7 agent-originated approvals**, **6.8 plugin contract**.
 
 ## Known repository-state issue
 

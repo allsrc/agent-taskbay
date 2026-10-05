@@ -22,6 +22,12 @@ describe("viewAgentCard", () => {
     expect(view.skills[0].examples).toEqual(["Review it"]);
   });
 
+  it("keeps extension URIs and only object params", () => {
+    const view = viewAgentCard({ capabilities: { extensions: [{ uri: "https://x/a", params: { startForm: { title: "T" } } }, { uri: "https://x/b", params: "nope" }, { uri: "https://x/c" }, { params: {} }] } });
+    expect(view.extensions).toEqual(["https://x/a", "https://x/b", "https://x/c"]);
+    expect(view.extensionParams).toEqual({ "https://x/a": { startForm: { title: "T" } } });
+  });
+
   it("tolerates an empty or legacy card", () => {
     expect(viewAgentCard(undefined).name).toBe("Unnamed agent");
     expect(viewAgentCard({ name: "Old", url: "https://x", preferredTransport: "JSONRPC" }).bindings).toEqual(["JSONRPC"]);

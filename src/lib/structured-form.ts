@@ -62,6 +62,10 @@ export function parseFormDefinition(value: unknown): FormDefinition | undefined 
   const entries = Object.entries(schema.properties);
   if (entries.length === 0 || entries.length > FORM_LIMITS.fields) return undefined;
   const required = new Set(Array.isArray(schema.required) ? schema.required.filter((item): item is string => typeof item === "string") : []);
+  // Message parts are stored as JSONB, which does not preserve object key order, so display order is explicit.
+  const order = Array.isArray(value.order) ? value.order.filter((item): item is string => typeof item === "string") : [];
+  const rank = (key: string) => { const index = order.indexOf(key); return index === -1 ? order.length : index; };
+  entries.sort(([a], [b]) => rank(a) - rank(b));
   const fields: FormField[] = [];
   for (const [key, raw] of entries) {
     const field = parseField(key, raw, required.has(key));
@@ -81,6 +85,15 @@ export function formFromPart(part: NormalizedPart, advertisedExtensions: readonl
   if (part.kind !== "data" || part.mediaType !== STRUCTURED_FORM_MEDIA_TYPE) return undefined;
   if (!advertisedExtensions.includes(STRUCTURED_FORM_EXTENSION_URI)) return undefined;
   return parseFormDefinition(part.value);
+}
+
+/**
+ * The agent's start-of-task form: the `startForm` entry of the structured-form extension's card params, honoured only when
+ * the agent advertises the extension and the definition validates.
+ */
+export function startFormFromCard(extensions: readonly string[], extensionParams: Record<string, Record<string, unknown>> | undefined): FormDefinition | undefined {
+  if (!extensions.includes(STRUCTURED_FORM_EXTENSION_URI)) return undefined;
+  return parseFormDefinition(extensionParams?.[STRUCTURED_FORM_EXTENSION_URI]?.startForm);
 }
 
 export function initialValues(form: FormDefinition): FormValues {

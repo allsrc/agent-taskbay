@@ -334,13 +334,13 @@ Requirements: `INB-001..002`, `TSK-006`, `HITL-005`, `ADM-001`, `PERF-001`,
 
 ### Deliverables
 
-- [~] Structured start/input forms through an advertised schema extension. (Slice 6.1: input forms in the chat view, ADR 0020; start-of-task forms and the approval page follow.)
+- [~] Structured start/input forms through an advertised schema extension. (Slices 6.1–6.2 and 6.4: input and start-of-task forms in the chat view with a reference agent and browser verification, ADR 0020; forms on the approval page follow in 6.5.)
 - [ ] Render structured and A2UI proposals inside the approval review page through the
   action-renderer registry, with edit-before-approve for structured actions.
 - [ ] Agent-originated approval requests through a reviewed extension or recognized
   in-task pattern (`HITL-006`).
 - [ ] Safe A2UI renderer with an explicit component allowlist.
-- [ ] Optional AG-UI adapter where it adds richer user interaction.
+- [x] Optional AG-UI adapter where it adds richer user interaction. (Slice 6.3, ADR 0021: HTTP+SSE run endpoint over the durable command path, interrupts/resume; off by default.)
 - [ ] Extension plugin contract and compatibility fixtures.
 - [ ] Preserve the generic A2A composer and durable task model as fallbacks.
 
