@@ -21,6 +21,12 @@ describe("structured form definitions", () => {
       ["env", "enum", true], ["replicas", "integer", true], ["note", "string", false], ["dryRun", "boolean", false]]);
     expect(form.fields[0]).toMatchObject({ options: [{ value: "staging", label: "Staging" }, { value: "prod", label: "Production" }] });
   });
+  it("displays fields in the declared order, since stored JSON loses key order", () => {
+    const scrambled = { ...definition, order: ["env", "replicas", "note", "dryRun"], schema: { ...definition.schema, properties: {
+      dryRun: definition.schema.properties.dryRun, note: definition.schema.properties.note, replicas: definition.schema.properties.replicas, env: definition.schema.properties.env } } };
+    expect(parseFormDefinition(scrambled)!.fields.map((field) => field.key)).toEqual(["env", "replicas", "note", "dryRun"]);
+    expect(parseFormDefinition({ ...scrambled, order: ["note"] })!.fields.map((field) => field.key)).toEqual(["note", "dryRun", "replicas", "env"]);
+  });
   it("rejects anything outside the subset so the caller falls back to the composer", () => {
     const withProperty = (property: unknown) => ({ schema: { type: "object", properties: { a: property } } });
     for (const bad of [null, [], { schema: {} }, { schema: { type: "array" } }, { schema: { type: "object", properties: {} } },

@@ -19,7 +19,7 @@ task model, and without letting agent-supplied content run code or bypass author
   protocol operation is needed; the part is already persisted as message content.
 - **Schema subset, not full JSON Schema.** `schema` is a flat `type: "object"` with at most 30 properties of
   type `string` (length bounds, optional multiline), `number`, `integer` (min/max), `boolean`, or a string
-  `enum` (optional `enumNames`, at most 50). `required` and `default` are honoured. Nesting, `$ref`,
+  `enum` (optional `enumNames`, at most 50). `required` and `default` are honoured. Display order is the optional top-level `order` array of property names, because message parts are stored as JSONB, which does not preserve object key order (found in browser verification); unlisted properties follow. Nesting, `$ref`,
   `pattern`, `format` other than multiline, unknown types, unsafe keys or any limit breach reject the whole
   form. Regular expressions from agents are excluded to rule out ReDoS.
 - **Safe rendering.** Fields come from a closed set of console components. Every agent string renders as text

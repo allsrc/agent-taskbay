@@ -6,8 +6,8 @@ Last updated: 2026-10-05
 
 - Last completed phase: **Phase 4 — approval-grade human intervention**
 - Active phase: **Phase 6 — rich interoperability** (started 2026-10-05 by explicit decision; Phase 5 is paused, not complete)
-- Last completed slice: **6.1 — structured input forms in the chat view** (last Phase 5 slice: 5.1)
-- Next executable slice: **6.2 — reference agent and browser verification of forms** (6.1 verified; see slice 6.1 evidence)
+- Last completed slice: **6.2 — reference form agent and browser verification** (last Phase 5 slice: 5.1)
+- Next executable slice: **6.3 — start-of-task forms and forms on the approval review page** (6.1 and 6.2 verified)
 - Blocking decisions: none
 
 ## Pending follow-ups
@@ -1737,6 +1737,46 @@ Remaining risks:
 
 Next executable slice: **6.2 — a fixture reference agent advertising the form extension, with a browser
 run of the form flow, then start-of-task forms** (or the safe A2UI renderer; choose in the next request).
+
+## Slice 6.2 evidence (2026-10-05)
+
+Date: 2026-10-05
+Slice: 6.2 — reference form agent and browser verification of structured forms (ADR 0020)
+
+Changes:
+
+- `scripts/fixture-form-agent.mjs`: reference A2A agent with three variants — `form` (advertises the extension and
+  asks for input with a form), `plain` (same form, extension not advertised) and `invalid` (advertised, schema
+  outside the supported subset). Runs standalone or in-process; reused by later Phase 6 slices and the Phase 7 demo profile.
+- `scripts/verify-forms-http.mjs` (added to `test:http`): real production HTTP proof that only the advertising
+  agents expose the extension, the form part is persisted with the task, the submitted values reach the agent as
+  exactly one `application/json` data part on the same task, the task completes, and the other variants keep the
+  part as ordinary content.
+- Bug found by the browser run and fixed: message parts are stored as JSONB, which does not preserve object key
+  order, so fields rendered reversed. The form definition now carries an explicit `order` array (ADR 0020 updated;
+  unit test added).
+
+Verification commands and results:
+
+- `npm run check` against PostgreSQL 16 (lint, 112 unit tests, 38 DB tests, schema check, build, all HTTP suites
+  including the new one): passed.
+- Scripted Chromium run against the fixture agent (not committed): the form rendered in declared order with its
+  default; an empty submit showed "Required" and sent nothing; a valid submit completed the same task and the
+  agent received exactly the entered values; after completion the form was no longer interactive; the `plain` and
+  `invalid` variants showed no form and left the composer usable; at 375px width the page had no horizontal
+  overflow; zero console errors or warnings.
+
+Migration tested from: not applicable (no schema change).
+
+Remaining risks:
+
+- A2UI, start-of-task forms, forms on the approval page, agent-originated approvals, the AG-UI adapter and the
+  plugin contract remain. The Phase 6 exit criterion for a reference agent now holds for forms only.
+- The browser script is not committed (Playwright is not a repository dependency); the committed HTTP script covers
+  the contract and the component test covers rendering.
+- Form state is not preserved across a reload before submission.
+
+Next executable slice: **6.3 — start-of-task forms and forms on the approval review page**.
 
 ## Known repository-state issue
 

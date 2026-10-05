@@ -334,7 +334,7 @@ Requirements: `INB-001..002`, `TSK-006`, `HITL-005`, `ADM-001`, `PERF-001`,
 
 ### Deliverables
 
-- [~] Structured start/input forms through an advertised schema extension. (Slice 6.1: input forms in the chat view, ADR 0020; start-of-task forms and the approval page follow.)
+- [~] Structured start/input forms through an advertised schema extension. (Slices 6.1–6.2: input forms in the chat view with a reference agent and browser verification, ADR 0020; start-of-task forms and the approval page follow.)
 - [ ] Render structured and A2UI proposals inside the approval review page through the
   action-renderer registry, with edit-before-approve for structured actions.
 - [ ] Agent-originated approval requests through a reviewed extension or recognized

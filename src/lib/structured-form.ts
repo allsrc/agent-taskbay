@@ -62,6 +62,10 @@ export function parseFormDefinition(value: unknown): FormDefinition | undefined 
   const entries = Object.entries(schema.properties);
   if (entries.length === 0 || entries.length > FORM_LIMITS.fields) return undefined;
   const required = new Set(Array.isArray(schema.required) ? schema.required.filter((item): item is string => typeof item === "string") : []);
+  // Message parts are stored as JSONB, which does not preserve object key order, so display order is explicit.
+  const order = Array.isArray(value.order) ? value.order.filter((item): item is string => typeof item === "string") : [];
+  const rank = (key: string) => { const index = order.indexOf(key); return index === -1 ? order.length : index; };
+  entries.sort(([a], [b]) => rank(a) - rank(b));
   const fields: FormField[] = [];
   for (const [key, raw] of entries) {
     const field = parseField(key, raw, required.has(key));
