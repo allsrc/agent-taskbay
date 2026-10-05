@@ -52,7 +52,8 @@ export interface TaskRepository {
   /** Called within an ingestion transaction; returns a row locked for projection updates. */
   getOrCreate(task: TaskRecord): Promise<TaskRecord>;
   saveProjection(task: TaskRecord): Promise<TaskRecord>;
-  listByOrganization(organizationId: string, limit: number, offset: number, filter?: string): Promise<TaskSummaryRecord[]>;
+  /** Workflow views (mine, overdue, unassigned) are active-only and narrowed by task IDs supplied by the caller. */
+  listByOrganization(organizationId: string, limit: number, offset: number, filter?: string, restriction?: { include?: string[]; exclude?: string[] }): Promise<TaskSummaryRecord[]>;
   findById(
     organizationId: string,
     id: string,

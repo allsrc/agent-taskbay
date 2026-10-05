@@ -276,8 +276,9 @@ Implemented identities use local UUIDs and exact external identity mappings:
 - `SecurityAuditEvent`: `id, organizationId, actorUserId?, actorType, action,
   targetId, eventKey, createdAt`. The append-only port stores fixed safe facts.
   Provisioning has a system actor; command audit keys are unique and stable.
-  Audit and accepted command/catalog intent commit atomically. Full workflow
-  AuditEvent semantics/views remain Phase 4 work.
+  Audit and accepted command/catalog intent commit atomically. Rows are append-only
+  (a trigger rejects update and delete). Workflow views are the read-only Audit
+  timeline (ADR 0017); retention needs a controlled maintenance path (Phase 7).
 
 Users/identities are global mappings reachable through organization memberships;
 sessions are reachable only through their membership. Browser identity/scope
@@ -325,24 +326,36 @@ PostgreSQL-compatible migration and adapter contract.
 - `TaskTransition`
 - `TaskLink` with `depends_on`, `produced_input_for`, `retry_of`,
   `spawned_from`, or `related_to`
-- `TaskAssignment`
-- `TaskNote`
+- `TaskAssignment` (implemented, ADR 0016): one row per task with assignee, claim time, due
+  time and escalation state, independent of the remote task state.
+- `TaskAssignmentEvent` (implemented): immutable ownership history (claim, release,
+  assign, due time, escalation) with the actor, or null for the system.
+- `TaskNote` (implemented): internal, append-only notes, idempotent per client note key.
 
 ### Human decisions
 
-- `DecisionRequest`
-- `Decision`
-- `DecisionRevision` for edit-before-approve
+- `DecisionRequest` (implemented, ADR 0015): task-scoped, expiring, with a policy
+  snapshot, assignee and current revision number; unique per `(organization, requestKey)`.
+- `Decision` (implemented): immutable outcome, rationale, reviewer, exact revision
+  ID/digest and idempotency key; update/delete rejected by database triggers.
+- `DecisionRevision` for edit-before-approve (implemented): immutable typed proposed
+  action with a canonical digest, numbered per request.
 - `DecisionExecution` correlating approved scope with observed execution
-- `EscalationPolicy`
+  (implemented): one per approving decision; revision, command and message identity
+  are immutable, only observed status/task state change.
+- `EscalationPolicy` (implemented, ADR 0016): organization-wide or per-agent target
+  reviewer for overdue owned work.
 
 ### Notifications and audit
 
-- `Notification`
-- `NotificationRecipient`
-- `NotificationDelivery`
-- `NotificationRead`
-- `AuditEvent`
+- `Notification` (implemented, ADR 0018): immutable, content-light, one per event; its ID is the
+  event's outbox ID so reprocessing cannot duplicate it.
+- `NotificationRecipient` (implemented): one row per person told; only `readAt` can change,
+  which is also the durable per-person `NotificationRead` state.
+- `NotificationDelivery` (implemented as outbox rows, topic `notification.webhook`): leased,
+  retried with backoff and ending in a visible `failed` state.
+- `AuditEvent` (implemented as `security_audit_events`): append-only by database trigger.
+  The Audit view (ADR 0017) joins it with decisions, ownership events and notes.
 - `IdempotencyKey`
 - `BackgroundFailure`
 

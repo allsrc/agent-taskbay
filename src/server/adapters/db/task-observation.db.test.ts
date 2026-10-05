@@ -12,7 +12,6 @@ import { FilesystemArtifactStore } from "../blob/filesystem-artifact-store";
 import { TaskEntity, TaskEventEntity } from "./entities";
 import { TaskQueryService } from "../../application/services/task-query";
 import { ObserveTaskService, eventDigest } from "../../application/services/observe-task";
-import { deriveNotifications } from "../../../lib/notifications";
 import { groupConversations } from "../../../lib/conversations";
 
 const date = "2026-10-03T00:00:00Z";
@@ -103,7 +102,6 @@ async function contract(config: DatabaseConfig, directory: string) {
     expect(new Set(browserTasks.map((task) => task.localId)).size).toBe(5);
     expect(browserTasks.find((task) => task.localId === directView.localId)).toMatchObject({ kind: "message", messages: expect.arrayContaining([expect.objectContaining({ id: "direct" })]) });
     expect(groupConversations(browserTasks).find((conversation) => conversation.agentId === agent.id && conversation.tasks[0].tenant === "")?.tasks).toHaveLength(2);
-    expect(deriveNotifications(browserTasks).filter((item) => item.localId === first.localId)).toHaveLength(3);
     const previousCount = await orm.em.fork().count(TaskEventEntity, { taskId: first.localId });
     await expect(orm.em.fork().transactional(async (transaction) => {
       const ports = createPersistenceRepositories(transaction);

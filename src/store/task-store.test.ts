@@ -1,13 +1,11 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import type { DurableTaskView } from "../shared/task-types";
 import { useTaskStore } from "./task-store";
-import { useReadStore } from "./notification-store";
 
 const view: DurableTaskView = { localId: "local", tenant: "", taskId: "remote", agentId: "agent", agentName: "Agent", kind: "task",
   state: "TASK_STATE_WORKING", messages: [], artifacts: [], referenceLinks: {}, createdAt: "2026-10-03", updatedAt: "2026-10-03" };
 beforeEach(() => {
   useTaskStore.setState({ tasks: {}, loaded: false, error: undefined, revision: 0 });
-  useReadStore.setState({ read: {} });
 });
 
 it("REL-002 replaces committed content instead of retaining phantom messages or removed tasks", () => {
@@ -27,12 +25,11 @@ it("REL-002 fences a paginated refresh that raced a committed send and preserves
   expect(useTaskStore.getState().error).toBeUndefined();
 });
 
-it("task snapshots and notification read marks never write browser storage", () => {
+it("task snapshots never write browser storage (notification read state is durable on the server)", () => {
   const setItem = vi.fn();
   vi.stubGlobal("window", { localStorage: { setItem } });
   try {
     useTaskStore.getState().upsertTask(view);
-    useReadStore.getState().markRead(["alert"]);
     expect(setItem).not.toHaveBeenCalled();
   } finally { vi.unstubAllGlobals(); }
 });

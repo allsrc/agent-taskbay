@@ -1,7 +1,7 @@
 import { requestAccessPolicy } from "../adapters/db/security-repository";
 import { SKILL_ROUTING_EXTENSION } from "../application/services/access-policy";
 import { randomUUID } from "node:crypto";
-import type { MikroORM } from "@mikro-orm/core";
+import type { EntityManager, MikroORM } from "@mikro-orm/core";
 import { z } from "zod";
 import type { JsonValue, TaskCommandRecord } from "../domain/persistence-model";
 import { withRequestEntityManager, withJobEntityManager } from "../adapters/db/orm";
@@ -41,6 +41,65 @@ export function commandView(command: TaskCommandRecord) {
     createdAt: command.createdAt.toISOString(), updatedAt: command.updatedAt.toISOString() };
 }
 
+export interface AcceptCommandScope {
+  organizationId: string;
+  agentId: string;
+  action: "send" | "cancelTask";
+  tenant: string;
+  skillId?: string;
+  config?: z.infer<typeof config>;
+  input: { text?: string; parts?: Array<Record<string, unknown>>; taskId?: string; contextId?: string; messageId?: string };
+  params: Record<string, JsonValue>;
+  idempotencyKey: string;
+  store?: ArtifactStore;
+}
+
+/** Validates scope/policy and records command intent plus its outbox row in the caller's transaction. */
+export async function acceptCommandWithin(transaction: EntityManager, scope: AcceptCommandScope) {
+  const { organizationId, agentId, tenant, action, config, input, params, idempotencyKey, skillId: requestedSkillId } = scope;
+  const principal = currentPrincipal();
+  const organization = { id: organizationId };
+  const ports = createPersistenceRepositories(transaction);
+  if (!(await ports.agents.findById(organization.id, agentId))?.enabled) throw new CommandError("Unknown agent.", 404);
+  let skillId = requestedSkillId ?? null;
+  const policy = await requestAccessPolicy(transaction);
+  const task = input.taskId ? await ports.tasks.findByRemoteIdentity({organizationId: organization.id, agentId, tenant, remoteTaskId: input.taskId}) : undefined;
+  if (input.taskId && !task) throw new CommandError("Task not found.", 404);
+  if (task) {
+    if (requestedSkillId && requestedSkillId !== task.skillId) throw new CommandError("Task skill cannot be changed.", 403);
+    skillId = task.skillId ?? null;
+    if (input.contextId && input.contextId !== task.remoteContextId) throw new CommandError("Task context mismatch.", 403);
+  }
+  policy?.require(agentId, "operate", skillId);
+  for (const remoteTaskId of config?.referenceTaskIds ?? []) {
+    if (!await ports.tasks.findByRemoteIdentity({ organizationId: organization.id, agentId, tenant, remoteTaskId }))
+      throw new CommandError("Referenced task not found.", 404);
+  }
+  if (params.metadata && typeof params.metadata === "object" && !Array.isArray(params.metadata))
+    delete params.metadata[SKILL_ROUTING_EXTENSION];
+
+  if (policy && !policy.allows(agentId, "operate") && !task && input.contextId) throw new CommandError("A skill-scoped send must start a new context.", 403);
+  if (skillId !== null) {
+    const snapshot = await ports.agents.findLatestCardSnapshot(agentId);
+    const card = snapshot?.normalizedCardJson as {skills?: Array<{id?: string}>; capabilities?: {extensions?: Array<{uri?: string}>}} | undefined;
+    if (!card?.skills?.some((skill) => skill.id === skillId) ||
+      !card.capabilities?.extensions?.some((extension) => extension.uri === SKILL_ROUTING_EXTENSION))
+      throw new CommandError("This agent does not support bounded skill routing.", 403);
+    params.skillId = skillId;
+    params.extensions = [...new Set([...(Array.isArray(params.extensions) ? params.extensions : []), SKILL_ROUTING_EXTENSION])];
+    params.requestMetadata = { ...(params.requestMetadata as Record<string, JsonValue> ?? {}), [SKILL_ROUTING_EXTENSION]: {skillId} };
+  }
+  // Scope-bearing routing metadata is constructed by the server, never accepted independently from callers.
+  if (skillId === null && params.requestMetadata && typeof params.requestMetadata === "object" && !Array.isArray(params.requestMetadata))
+    delete params.requestMetadata[SKILL_ROUTING_EXTENSION];
+  const command = await new TaskCommandService(ports.agents, ports.commands, ports.outbox, scope.store ?? artifactStore).accept({
+    organizationId: organization.id, agentId, tenant, skillId, action, idempotencyKey, params,
+  });
+  if (principal) await new DatabaseIdentityRepository(transaction).appendAudit(principal,
+    action === "send" ? "task.send.accepted" : "task.cancel.accepted", command.id, `command:${command.id}`);
+  return command;
+}
+
 export async function acceptCommand(agentId: string, body: unknown, idempotencyKey: string, options: { orm?: MikroORM; store?: ArtifactStore } = {}) {
   const parsed = commandInputSchema.safeParse(body);
   if (!parsed.success) throw new CommandError(parsed.error.issues.map((issue) => issue.message).join("; "), 400);
@@ -54,44 +113,8 @@ export async function acceptCommand(agentId: string, body: unknown, idempotencyK
     const organization = principal ? await organizations.findById(principal.organizationId) : await bootstrapDefaultLocalOrganization(organizations);
     if (!organization) throw new CommandError("Unknown organization.", 404);
     return em.transactional(async (transaction) => {
-      const ports = createPersistenceRepositories(transaction);
-      if (!(await ports.agents.findById(organization.id, agentId))?.enabled) throw new CommandError("Unknown agent.", 404);
-      let skillId = requestedSkillId ?? null;
-      const policy = await requestAccessPolicy(transaction);
-      const task = input.taskId ? await ports.tasks.findByRemoteIdentity({organizationId: organization.id, agentId, tenant, remoteTaskId: input.taskId}) : undefined;
-      if (input.taskId && !task) throw new CommandError("Task not found.", 404);
-      if (task) {
-        if (requestedSkillId && requestedSkillId !== task.skillId) throw new CommandError("Task skill cannot be changed.", 403);
-        skillId = task.skillId ?? null;
-        if (input.contextId && input.contextId !== task.remoteContextId) throw new CommandError("Task context mismatch.", 403);
-      }
-      policy?.require(agentId, "operate", skillId);
-      for (const remoteTaskId of config?.referenceTaskIds ?? []) {
-        if (!await ports.tasks.findByRemoteIdentity({ organizationId: organization.id, agentId, tenant, remoteTaskId }))
-          throw new CommandError("Referenced task not found.", 404);
-      }
-      if (params.metadata && typeof params.metadata === "object" && !Array.isArray(params.metadata))
-        delete params.metadata[SKILL_ROUTING_EXTENSION];
-
-      if (policy && !policy.allows(agentId, "operate") && !task && input.contextId) throw new CommandError("A skill-scoped send must start a new context.", 403);
-      if (skillId !== null) {
-        const snapshot = await ports.agents.findLatestCardSnapshot(agentId);
-        const card = snapshot?.normalizedCardJson as {skills?: Array<{id?: string}>; capabilities?: {extensions?: Array<{uri?: string}>}} | undefined;
-        if (!card?.skills?.some((skill) => skill.id === skillId) ||
-          !card.capabilities?.extensions?.some((extension) => extension.uri === SKILL_ROUTING_EXTENSION))
-          throw new CommandError("This agent does not support bounded skill routing.", 403);
-        params.skillId = skillId;
-        params.extensions = [...new Set([...(Array.isArray(params.extensions) ? params.extensions : []), SKILL_ROUTING_EXTENSION])];
-        params.requestMetadata = { ...(params.requestMetadata as Record<string, JsonValue> ?? {}), [SKILL_ROUTING_EXTENSION]: {skillId} };
-      }
-      // Scope-bearing routing metadata is constructed by the server, never accepted independently from callers.
-      if (skillId === null && params.requestMetadata && typeof params.requestMetadata === "object" && !Array.isArray(params.requestMetadata))
-        delete params.requestMetadata[SKILL_ROUTING_EXTENSION];
-      const command = await new TaskCommandService(ports.agents, ports.commands, ports.outbox, options.store ?? artifactStore).accept({
-        organizationId: organization.id, agentId, tenant, skillId, action, idempotencyKey, params,
-      });
-      if (principal) await new DatabaseIdentityRepository(transaction).appendAudit(principal,
-        action === "send" ? "task.send.accepted" : "task.cancel.accepted", command.id, `command:${command.id}`);
+      const command = await acceptCommandWithin(transaction, { organizationId: organization.id, agentId, action, tenant, skillId: requestedSkillId,
+        config, input, params, idempotencyKey, store: options.store });
       return command;
     });
   }, options.orm);

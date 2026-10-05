@@ -235,27 +235,65 @@ Requirements: `AGT-004`, `SEC-001..005`, `AUD-001`, `SCL-001`.
 
 ## Phase 4 — approval-grade human intervention
 
-**Status:** Planned; depends on identity and durable runtime.
+**Status:** Complete; Slices 4.1, 4.1b, 4.2, 4.3, 4.4 and 4.5 and every exit criterion verified 2026-10-05.
 
 ### Deliverables
 
-- [ ] Model typed decision requests and revisions.
-- [ ] Implement approve, reject, edit, request-changes, and delegate actions.
-- [ ] Record scope, expiry, rationale, proposed action, reviewer, and policy.
-- [ ] Correlate the approved revision to the dispatched and observed result.
-- [ ] Add task claiming, assignment, due times, escalation, and internal notes.
-- [ ] Add immutable workflow audit views.
-- [ ] Persist notifications/read state and add browser plus one external
-  notification channel behind adapters.
+- [x] Model typed decision requests and revisions.
+- [x] Implement approve, reject, edit, request-changes, and delegate actions.
+- [x] Record scope, expiry, rationale, proposed action, reviewer, and policy.
+- [x] Correlate the approved revision to the dispatched and observed result.
+- [x] Slice 4.1b: approval review UI (queue, review page with approve, edit,
+  reject, request-changes and delegate, task-page integration, navigation badge).
+- [x] Add task claiming, assignment, due times, escalation, and internal notes
+  (slice 4.2, ADR 0016): claim, release and reassign, due times, worker escalation to a
+  policy target, internal notes, mine/overdue/unassigned task views and an Escalation
+  settings card.
+- [x] Run decision expiry from a worker and supersede open requests when their task
+  finishes (`HITL-007`, slice 4.3); requesters and reviewers are told when a request opens,
+  is assigned, nears expiry, expires or is superseded (slice 4.5).
+- [x] Publish decision changes through the existing freshness outbox and refresh
+  observed execution outcomes from the worker (slice 4.3). The approvals pages now
+  update on the shared freshness signal and keep the five-second poll only as the
+  missed-signal fallback, as the Tasks views do.
+- [x] Add immutable workflow audit views over the decision, assignment and audit records
+  (slice 4.4, ADR 0017): an append-only trail with an Audit page, per-task trails,
+  filters, paging and CSV export.
+- [x] Persist notifications/read state and add browser plus one external
+  notification channel behind adapters (slice 4.5, ADR 0018): durable per-person
+  inbox and read state, fan-out for approvals, ownership and task states, an expiring
+  warning, a signed webhook channel with retries and an administrator status card.
+  The Approvals badge keeps showing the live pending-approval count (it is a queue
+  count, not notifications) and updates on the shared freshness signal.
 
-### Exit criteria
+### Pending follow-ups (do not block the exit criteria)
+
+- Extend ownership to approvals: claim, release and reassign an approval request, and give it
+  a due time and escalation, instead of only its initial assignee and `delegate`.
+- Escalation to a team or an on-call rotation, and multi-step escalation chains.
+- Notes: attachments, mentions, and an explicit redaction/retention policy.
+- Audit hardening: record who read or exported the trail, cursor-based export beyond one
+  page, and an audit projection for very large organizations (Phase 7 lists tamper evidence,
+  retention and external export).
+- Additional typed action kinds beyond `send_message`, each with a server variant, an
+  execution adapter and an entry in the UI action-renderer registry.
+- Browser-level UI tests in CI for the approval, ownership, audit and notification flows; the
+  slices were verified with scripted browser runs that are not yet part of the quality gate.
+- Agent-originated approval requests through a reviewed extension or recognized in-task
+  pattern (`HITL-006`, also listed under Phase 6); operators open requests on an agent's
+  behalf today.
+- Per-person notification subscriptions, preferences and quiet hours, email and other
+  channel adapters, and notification retention (Phase 5 preferences, Phase 7 retention).
+- Artifact-ready and other informational notices that the removed browser alerts showed.
+
+### Exit criteria (verified 2026-10-05)
 
 - The audit record alone identifies who decided exactly what and when.
 - Replayed or repeated decisions do not execute twice.
 - An expired or superseded approval cannot authorize a new action.
 - Assigned input/approval work reaches the responsible user's durable queue.
 
-Requirements: `HITL-001..005`, `NTF-001..002`, `AUD-001..002`.
+Requirements: `HITL-001..005`, `HITL-007..008`, `NTF-001..002`, `AUD-001..002`; `HITL-006` moves to Phase 6.
 
 ## Phase 5 — operator experience
 
@@ -263,12 +301,19 @@ Requirements: `HITL-001..005`, `NTF-001..002`, `AUD-001..002`.
 
 ### Deliverables
 
-- [ ] Global authorized inbox across agents and teams.
+- [ ] Global authorized inbox across agents and teams. Fold the standalone Approvals
+  queue (slice 4.1b) into it, reusing the review page as the detail view and keeping
+  approvals filterable by status, risk, assignee and expiry.
 - [ ] Saved views, full-text search, advanced filters, and bulk triage.
-- [ ] SLA, overdue, escalation, and failure indicators.
+- [ ] SLA, overdue, escalation, and failure indicators, including approvals nearing
+  expiry and executions whose delivery outcome is unknown.
+- [ ] Bulk approval actions that still require a per-item rationale and the exact
+  revision each reviewer saw.
 - [ ] Agent/skill health and compatibility administration.
 - [ ] Typed local workflow links and “use artifact as input to” actions.
-- [ ] Durable per-user preferences and notification controls.
+- [ ] Durable per-user preferences and notification controls: per-person subscriptions,
+  quiet hours and channel choice, plus informational notices (artifact ready, finished
+  work for non-owners).
 
 ### Exit criteria
 
@@ -288,6 +333,10 @@ Requirements: `INB-001..002`, `TSK-006`, `HITL-005`, `ADM-001`, `PERF-001`,
 ### Deliverables
 
 - [ ] Structured start/input forms through an advertised schema extension.
+- [ ] Render structured and A2UI proposals inside the approval review page through the
+  action-renderer registry, with edit-before-approve for structured actions.
+- [ ] Agent-originated approval requests through a reviewed extension or recognized
+  in-task pattern (`HITL-006`).
 - [ ] Safe A2UI renderer with an explicit component allowlist.
 - [ ] Optional AG-UI adapter where it adds richer user interaction.
 - [ ] Extension plugin contract and compatibility fixtures.
@@ -299,7 +348,7 @@ Requirements: `INB-001..002`, `TSK-006`, `HITL-005`, `ADM-001`, `PERF-001`,
 - Unrecognized schemas/extensions fall back safely.
 - Generated UI cannot execute arbitrary code or bypass authorization.
 
-Requirements: `ART-002`, `INT-002..004`, `ACC-001`.
+Requirements: `ART-002`, `INT-002..004`, `HITL-006`, `ACC-001`.
 
 ## Phase 7 — enterprise hardening
 
@@ -314,7 +363,11 @@ Requirements: `ART-002`, `INT-002..004`, `ACC-001`.
 - [ ] Backup, restore, point-in-time recovery, and migration runbooks.
 - [ ] Load, soak, failover, chaos, and recovery testing.
 - [ ] Dependency review, SAST, container scanning, and release provenance.
-- [ ] Data deletion, retention, export, and administrative controls.
+- [ ] Run the PostgreSQL and browser-level suites against the supported PostgreSQL
+  version in CI, including the approval flows.
+- [ ] Data deletion, retention, export, and administrative controls, including a controlled
+  path for audit retention (audit facts are append-only) and optional hash chaining or
+  external anchoring for tamper evidence.
 - [ ] SCIM and additional enterprise identity features only when required.
 
 ### Exit criteria

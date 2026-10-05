@@ -1,13 +1,13 @@
 # Execution status
 
-Last updated: 2026-10-03
+Last updated: 2026-10-05
 
 ## Active position
 
-- Last completed phase: **Phase 3 — identity and security**
-- Active phase: **Phase 4 — approval-grade human intervention**
-- Last completed slice: **3.2 — Plane B credentials and scoped security**
-- Next executable slice: **4.1 — typed decision requests and revisions**
+- Last completed phase: **Phase 4 — approval-grade human intervention**
+- Active phase: **Phase 5 — operator experience** (not started)
+- Last completed slice: **4.5 — durable notifications and one external channel** (completing Phase 4)
+- Next executable slice: **5.1 — unified authorized inbox over tasks and approvals**
 - Blocking decisions: none
 
 ## Pending follow-ups
@@ -1210,9 +1210,445 @@ Remaining limits:
 
 **Combined Slices 3.1/3.2 and every Phase 3 exit criterion are verified. Phase 3 is complete.**
 
-Next executable slice: **4.1 — typed decision requests and revisions**. Resolve typed,
-scoped, expiring decision aggregates under ADR 0005 and correlate exact approved revisions
-with dispatch/observed outcomes. Do not begin Phase 4 without a continuation request.
+## Phase 4 Slice 4.1 verified evidence
+
+Date: 2026-10-05
+
+Slice: **4.1 — typed decision requests and revisions**
+
+Changes:
+
+- Added the decision aggregate behind application ports: `DecisionRequest`, immutable
+  `DecisionRevision` and `Decision`, and `DecisionExecution`, with an ORM-independent
+  `DecisionService`, MikroORM repository, migration and ADR 0015.
+- Requests are scoped to one A2A task (agent, tenant, skill and task come from the task
+  row), expire within 30 days, carry a policy snapshot, and are idempotent per request
+  key. Opening supersedes older open requests for the task; finished tasks and direct
+  Messages are refused.
+- Outcomes `approve`, `reject`, `edit` (new revision, approved), `request_changes` and
+  `delegate` record rationale, reviewer, exact revision ID/digest and policy. Reviewers
+  must state the revision they read, hold an operate grant (read grant, else 404), be the
+  assignee (admins excepted) and, by default, not be the requester.
+- Approval commits the decision, execution and an ordinary `TaskCommand` + outbox row in
+  one transaction (keys `decision:<id>` / `decision-<id>`), through the same scope and
+  skill-routing checks as operator sends, so replays and lost races never dispatch twice.
+  Execution status and observed task state are correlated on read.
+- Expiry is checked per decision and swept by `expireDue`; expired/superseded requests
+  authorize nothing. Decisions and revisions are immutable and execution correlation
+  columns are fixed, enforced by database triggers declared on the entities.
+- Added `/api/decisions` (list/open), `/api/decisions/[id]` (detail),
+  `/revisions` and `/decisions` routes using the existing authenticated-route guard.
+  Refactored command acceptance into `acceptCommandWithin` (behavior unchanged).
+
+Verification commands and results:
+
+- `npx tsc --noEmit` and `npm run lint`: passed.
+- `A2A_TEST_POSTGRES_URL=postgresql://postgres:postgres@127.0.0.1:5432/a2a_ops_test npm run check`
+  passed lint, 28 unit files/81 tests and 13 database files/30 tests on PGlite and
+  PostgreSQL. In this sandbox the gate's schema step needs a migrated local database,
+  so it was run separately against a freshly migrated PGlite directory: no schema drift.
+  `npm run build` passed with all four decision routes. `npm run test:http` then passed
+  all suites, including the new decision HTTP suite.
+- The shared decision contract verifies scoped/validated/idempotent opening, concurrent
+  open, role/grant/foreign-organization denial, separation of duties, stale revisions,
+  concurrent and repeated approvals dispatching once, replay with changed input
+  rejected, the stored command payload matching the approved revision, observed-state
+  correlation, audit actor/time/target, database immutability, edit-before-approve,
+  revise/request-changes/reject, delegation, expiry and sweep, supersession by a newer
+  request and by task completion, visibility filtering, restart, and migration rollback
+  and reapply with no schema drift.
+- Production HTTP verifies validation and idempotent open, no agent contact on open,
+  concurrent approvals sharing one decision, a single `SendMessage` to the fixture agent
+  carrying the edited revision and message ID, and the observed `COMPLETED` state.
+
+Migration tested from:
+
+- Clean PGlite and PostgreSQL through all twelve migrations, with rollback/reapply and
+  no schema drift. No existing rows change; the migration only adds tables and triggers.
+
+Remaining risks:
+
+- PostgreSQL verification used the sandbox's PostgreSQL 16 server rather than the
+  PostgreSQL 18 service the repository's CI uses; CI should confirm.
+- Slice 4.1 has no UI and no agent-originated requests; operators open requests on an
+  agent's behalf. Only one typed action (`send_message` into the same task) exists.
+- Tasks that end are only discovered at the next decision attempt; there is no sweep
+  that supersedes their open requests, and no notification of expiry or supersession.
+- Assignment is limited to `delegate`/initial assignee. Claiming, due times, escalation,
+  internal notes, audit views and durable notifications are slice 4.2 and later.
+- Observed outcomes refresh on read, not on a worker or freshness signal.
+- The existing corrupt local `.data/pglite` and the user-delegated OAuth follow-up
+  (issue #1) are unchanged.
+
+**Slice 4.1 acceptance criteria are verified. Phase 4 remains active.**
+
+## Phase 4 Slice 4.1b verified evidence
+
+Date: 2026-10-05
+
+Slice: **4.1b — approval review UI**
+
+Changes:
+
+- Added an **Approvals** area using the existing shell, split-pane, chips, cards and
+  polling resource hook: a filterable queue (Pending, Needs changes, Assigned, Closed,
+  All), a review page, and a pending-count badge in desktop and mobile navigation.
+- The review page shows the exact proposed action and digest, the requester, expiry and
+  linked task, revision history, the decision record (who, what, when, why, which
+  revision) and the delivery result with the observed task state. Approve, Edit
+  (edit-before-approve), Reject, Request changes and Delegate are available to a
+  permitted reviewer; reject, edit, delegate and request-changes need a rationale.
+  Approval asks for confirmation. A requester who may not decide their own request, or a
+  reviewer it is not assigned to, sees why instead of dead buttons; the server still
+  enforces every rule. A proposer can submit a revised proposal after changes are requested.
+- Retried or double-clicked submissions reuse one idempotency key per identical request,
+  so they replay the same decision; a changed request gets a new key. A decision always
+  names the revision the reviewer saw, so a stale page is refused rather than applied.
+- Task pages gain an **Approvals** card and a **Request approval** dialog (title,
+  context, message, risk, expiry, optional assignee), because agents cannot yet open
+  requests themselves. Actions render through a per-kind registry
+  (`proposed-action.tsx`) so new action kinds and Phase 6 structured forms plug in
+  without changing the review page.
+- Added `GET /api/reviewers` (eligible reviewers for a task's agent/skill) and display
+  context on decision views (agent and task names, people names, signed-in viewer).
+- Recorded the remaining Phase 4 work as new `HITL-006..008` requirements and Phase 4–7
+  deliverables in PRODUCT_SPEC.md and PHASES.md.
+
+Verification commands and results:
+
+- `npx tsc --noEmit` and `npm run lint`: passed. `npm test`: 29 unit files/86 tests,
+  including the new approval-helper tests (expiry labels, decidable states, delivery
+  wording, idempotency-key reuse).
+- `npm run build`: passed with the new pages and routes. The decision HTTP suite
+  (`scripts/verify-decisions-http.mjs`) now also checks the reviewer list, display names,
+  viewer and people on the production server, and passed.
+- Scripted Chromium run against the production build (not committed; the repository has
+  no browser test dependency yet): requested an approval from the task page, saw a
+  requester blocked from deciding their own request, edited and approved a request and
+  watched it reach the fixture agent exactly once with the edited text and the result
+  panel show the delivered/working state, rejected one, requested changes then revised and
+  delegated another, checked the queue filters, task-page card and navigation badge, and
+  checked a 390px mobile layout with no horizontal scroll. No console errors or warnings.
+
+Migration tested from:
+
+- No schema change in this slice.
+
+Remaining risks:
+
+- The queue and badge poll every five seconds; decision changes do not yet publish
+  freshness signals. Expiry is not enforced by a worker, and a finished task's open
+  requests are only superseded when someone next acts on them. Both are Phase 4
+  deliverables in PHASES.md.
+- Assignment is the initial assignee and delegation; claiming, due times, escalation
+  and notes are slice 4.2. There are no notifications, and agents cannot open requests.
+- Browser-level tests are not part of the CI gate; the keyboard and screen-reader
+  behavior was reviewed by structure (labels, roles, tabs), not with assistive technology.
+- The list shows the most recent 100 requests visible to the caller, with no paging.
+
+Next executable slice: **4.2 — assignment, claiming, due times, escalation and notes**.
+Add task claiming/assignment independent of remote state, due times and escalation
+policy, and internal notes, scoped by the same grants. Do not begin notifications or
+audit views in that slice.
+
+## Phase 4 Slice 4.3 verified evidence
+
+Date: 2026-10-05
+
+Slice: **4.3 — worker-enforced expiry and live approval signals**
+
+Changes:
+
+- Added `DecisionService.sweep` and a decision loop in the embedded PGlite server and the
+  external PostgreSQL worker (`A2A_DECISION_SWEEP_MS`, default 15 s). A pass expires
+  overdue requests, supersedes open requests whose task has finished, and refreshes
+  approved deliveries until the task outcome is final (watched for seven days).
+  Changes re-check state under the request lock, so concurrent workers or a reviewer
+  acting at the same time close a request once. The sweep has no principal and sends nothing.
+- Every state change (open, revise, decide, expiry, supersession, delivery refresh) now
+  audits and queues the existing content-free freshness signal in the same transaction;
+  no-op passes publish nothing. Approval pages and the navigation badge re-query on the
+  signal and keep their five-second poll as the missed-signal fallback.
+- Added repository queries for requests on finished tasks and unsettled executions, ADR
+  0015 addendum, and README, ARCHITECTURE and `.env.example` updates.
+
+Verification commands and results:
+
+- `npx tsc --noEmit`, `npm run lint` and `npm run build`: passed.
+- The shared decision contract now also verifies expiry and supersession without any
+  reviewer acting, two concurrent sweepers recording each closure once, a request on a
+  task that finished within its deadline being superseded, no-op passes publishing no
+  signal, unchanged deliveries not being rewritten, delivery refresh through WORKING to
+  COMPLETED and then stopping, and the approved decision staying untouched by later task
+  states. It passes on PGlite and PostgreSQL.
+- Production HTTP verifies that the embedded worker expires a two-second request with
+  nobody acting, that an `/api/tasks/events` stream receives a freshness signal when a
+  request opens, that a late approval is refused and nothing reaches the agent, and that
+  the expired request leaves the pending list.
+- Scripted Chromium run (not committed): with a 300 ms sweep, an open review page changed
+  from PENDING to EXPIRED and lost its action buttons with no reload; the earlier approval
+  flows and the 390px mobile layout still passed, with no console errors or warnings.
+
+Migration tested from:
+
+- No schema change in this slice.
+
+Remaining risks:
+
+- Requesters and reviewers are not notified when a request expires, is superseded or is
+  about to expire; that depends on the durable notification work.
+- Opening a request for a task supersedes its other open requests, so two independent
+  approvals cannot be open on one task. This matches the specified one-live-approval rule
+  but is a product decision to revisit if multi-step approvals are wanted.
+- The sweep scans in pages of 100 per pass; very large backlogs clear over several passes.
+- The embedded worker needs the long-running Node server, as the other workers do.
+
+**Slice 4.3 acceptance criteria are verified. Phase 4 remains active.**
+
+Next executable slice: **4.2 — assignment, claiming, due times, escalation and notes**.
+
+## Phase 4 Slice 4.2 verified evidence
+
+Date: 2026-10-05
+
+Slice: **4.2 — task ownership, due times, escalation and notes**
+
+Changes:
+
+- Added local task ownership independent of the remote task state (ADR 0016): claim,
+  release, assign and reassign, due times, internal notes and escalation policies, with
+  a migration for `task_assignments`, `task_assignment_events`, `task_notes` and
+  `escalation_policies`. History and notes are immutable by database trigger.
+- Anyone with an operate grant may take unowned work; only the owner or an administrator
+  may release, reassign or change the due time of owned work. Assignees must be enabled
+  operators or administrators with an operate grant for the agent/skill. Finished tasks
+  cannot change ownership. Visibility follows the existing grants (404 without a read grant).
+- Every change appends an event with strictly increasing per-task timestamps, an audit
+  fact and a freshness signal in one transaction; repeating a true change writes nothing.
+  Notes are idempotent per client note key and never reach the agent.
+- The existing worker sweep now also escalates unfinished owned tasks whose due time passed,
+  once per due time, to the administrator-configured target (agent rule over organization
+  rule), recording a system event; an ineligible target leaves the owner in place and says so.
+- UI: Ownership card (claim, release or take away, assign, due time, activity), Internal
+  notes card and Escalation settings card (administrators), plus Mine, Overdue and
+  Unassigned task filters and ownership/due chips on list rows. `GET /api/tasks` accepts
+  the new filters and returns a per-row ownership summary. New routes under
+  `/api/tasks/[id]/workflow` and `/api/escalation-policies`.
+- Extracted the access/audit/freshness ports shared by approvals and workflow, and
+  recorded the remaining work in PHASES.md.
+
+Verification commands and results:
+
+- `npx tsc --noEmit`, `npm run lint` (no warnings) and `npm run build`: passed. `npm run
+  check`-equivalent: 30 unit files/91 tests (including new ownership-helper tests) and 14
+  database files/32 tests on PGlite and PostgreSQL; schema check against a freshly migrated
+  database showed no drift; all HTTP suites passed including the new workflow suite.
+- The shared workflow contract verifies role, grant and cross-organization denial, a single
+  winner for concurrent claims, idempotent repeats, owner/administrator rules, assignee
+  eligibility, due-time validation and re-arming, idempotent and immutable notes and
+  history, administrator-only policies, concurrent policy saves producing one rule, escalation
+  by two concurrent sweepers exactly once per due time, finished tasks skipped, an
+  ineligible target, agent policy overriding organization policy, disabled policies, queue
+  views, summaries scoped to the organization, restart, and migration rollback/reapply.
+- Production HTTP verifies the same flows through the real routes, the list filters and
+  summaries, input validation, and a worker escalating overdue work to a second administrator
+  exactly once with nobody acting.
+- Scripted Chromium run (not committed): claim, assign, take away, due time, note (persisting
+  across reload), Mine and Unassigned filters, saving an escalation rule in Settings, and an
+  open task page switching to the escalation target with an ESCALATED badge without a reload.
+  The 390px mobile layout still passed. No console errors or warnings. The run also exposed
+  two controls both labelled "Assign to"; the ownership one is now "Assign task to".
+
+Migration tested from:
+
+- Clean PGlite and PostgreSQL through all thirteen migrations, with rollback/reapply and no
+  schema drift. The migration only adds tables and triggers.
+
+Remaining risks:
+
+- No notifications yet: assignment and escalation are visible in the task page and queue
+  views only. Approval requests keep their own assignee and `delegate`; they do not share
+  task ownership.
+- Escalation targets are individual reviewers (no teams or rotations) and escalate in one
+  hop per due time. Queue views load assignment IDs before paging, which will not scale to
+  very large queues; the Phase 5 inbox projection is the intended fix.
+- Same-millisecond notes have no defined order; history rows are ordered per task.
+- Escalation timing depends on the sweep interval (`A2A_DECISION_SWEEP_MS`, default 15 s).
+
+**Slice 4.2 acceptance criteria are verified. Phase 4 remains active.**
+
+Next executable slice: **4.4 — immutable workflow audit views** over decisions, ownership
+events, notes and audit facts. Do not begin notifications in that slice.
+
+## Phase 4 Slice 4.4 verified evidence
+
+Date: 2026-10-05
+
+Slice: **4.4 — immutable workflow audit views**
+
+Changes:
+
+- Added a read-only, newest-first audit timeline (ADR 0017) built by one query over the
+  sources of truth: approval requests, revisions and decisions (exact content, revision
+  digest, rationale, reviewer and delivery result), ownership events, note existence
+  (never note text), expiry and supersession, and every other audit fact. Audit facts that a
+  domain row already represents are not repeated.
+- Immutability moved into the database: audit facts are append-only, and an approval
+  request's identity and proposal can no longer be altered (only status, assignment,
+  current revision and bookkeeping change). Migration `AuditImmutability` adds the triggers.
+- Access: administrators read the organization trail; any member who can read a task reads
+  that task's trail without identity or access facts (404 without a read grant); other
+  organizations are unreachable. Reads are keyset-paged in a read-only transaction,
+  filterable by task, group, actor and time range, bounded to 200 rows, and write nothing.
+- `GET /api/audit` and an administrator CSV export (`/api/audit/export`, one bounded page
+  with `X-Next-Cursor`, formula-neutralized cells, attachment and `nosniff`). No mutation
+  routes exist for the trail.
+- UI: an Audit page (administrators; task trails for readers) with group tabs, date range,
+  paging, expandable exact facts and CSV export; an Audit card on every task; a link from
+  each approval; an Audit item in navigation for administrators.
+
+Verification commands and results:
+
+- `npx tsc --noEmit`, `npm run lint` (no warnings) and `npm run build`: passed. Full
+  `npm run check`-equivalent: 31 unit files/96 tests and 15 database files/34 tests on PGlite
+  and PostgreSQL, schema check clean against a freshly migrated database, and all HTTP
+  suites passed.
+- The shared audit contract builds every kind of fact through the real services and verifies:
+  administrators-only organization trail and per-task read rules; newest-first ordering with
+  unique keys; that the trail alone names who decided what, when and why (actor, exact text,
+  revision, digest, rationale, delivery, message ID); edit attribution; system-attributed
+  expiry; ownership detail; note text absent from the trail; a cross-check that every audited
+  decision and ownership action has its timeline entry and none is invented; all filters;
+  cursor paging that equals the unpaged list; rejection of bad cursors, limits and ranges;
+  reads that write nothing; database rejection of audit updates and deletes and of changes to
+  an approval's title, expiry, requester or existence; formula-injection-safe CSV; restart; and
+  migration rollback/reapply.
+- Production HTTP verifies the same through real routes, including the edited approval's
+  exact content and digest matching its revision, the worker's expiry as a system entry,
+  paging equality, 400/404 handling, absent mutation methods, and the OIDC suite's role,
+  grant and cross-organization denials for the trail and its export.
+- Scripted Chromium run (not committed): opening the Audit page from navigation, expanding a
+  decision to its exact content and rationale, group tabs, absence of note text, the CSV
+  link, a task's Audit card and its full trail page, and a 390px layout, with no console
+  errors. The run exposed a clipped date field on narrow screens, now fixed. Two scripted
+  runs failed waiting for an approvals entry on a task page. The later one was reproduced
+  (the first run after a rebuild) and is a defect in the throwaway script: its text locator
+  matched three elements once the new Audit card had loaded and Playwright's strict mode
+  rejected it, so it is not an application fault. The earlier failure predates the Audit
+  card, was never reproduced and is unexplained; fourteen later runs passed.
+
+Migration tested from:
+
+- Clean PGlite and PostgreSQL through all fourteen migrations, with rollback/reapply and no
+  schema drift. The migration only adds triggers.
+
+Remaining risks:
+
+- The timeline is computed per request with a union; very large organizations need an audit
+  projection and export beyond one page. Reads and exports of the trail are not audited.
+- Tamper evidence is database immutability, not cryptographic; retention needs a controlled
+  maintenance path because ordinary deletes are blocked. Both are Phase 7 items.
+- Entries for deleted agents or removed members show generic names ("A former member").
+
+**Slice 4.4 acceptance criteria are verified. Phase 4 remains active.**
+
+Next executable slice: **4.5 — durable notifications and one external channel**: per-user
+notification and read state, delivery through the outbox behind adapters, a browser inbox
+replacing the session-only alerts, and one external channel.
+
+## Phase 4 Slice 4.5 and phase exit verified evidence
+
+Date: 2026-10-05
+
+Slice: **4.5 — durable notifications and one external channel**
+
+Changes:
+
+- Added durable per-person notifications (ADR 0018). Events are raised in the transaction that
+  causes them: approval opened, revised, assigned or delegated, decided, expiring, expired and
+  superseded; task assigned and escalated; and tasks entering input-required, auth-required,
+  finished or failed during ingestion. A leased fan-out worker turns each event into one
+  immutable notification and one recipient row per person, exactly once (the notification ID is
+  the event's outbox ID), with bounded retries that stop without blocking other events.
+- Recipients follow responsibility and access: the assignee, otherwise eligible reviewers;
+  never whoever caused the event; the requester for outcomes and closures; always only people
+  who can read the task's agent. Wording carries no proposal text, rationale or note body.
+- Read state is a per-recipient mark that only its owner can set (database trigger enforces
+  that nothing else changes). The inbox hides notifications about tasks a member can no longer
+  read. `GET /api/notifications`, `POST /api/notifications/read`, an unread count in the
+  navigation, and a rebuilt Notifications page replace the browser-derived, session-only alerts
+  (their store and derivation are removed).
+- One external channel behind a `NotificationChannel` port: a signed webhook (Slack-compatible
+  `text`) for one organization, using the agent network policy. Each notification is posted at
+  least once with delivery ID, timestamp and HMAC signature headers; delivery uses outbox
+  retries with backoff and ends in a visible failed state; stored errors are fixed strings.
+  An administrator card shows state, counts and last failure (host only) and sends a test.
+- An expiring warning fires once per open request near its deadline (`expiry_warned_at`).
+- Phase 4 follow-ups that do not block its exit criteria are listed in PHASES.md.
+
+Verification commands and results:
+
+- `npx tsc --noEmit`, `npm run lint` (no warnings) and `npm run build`: passed. Full quality
+  gate: 32 unit files/99 tests and 16 database files/36 tests on PGlite and PostgreSQL, schema
+  check clean against a freshly migrated database, and all HTTP suites including the new
+  notifications suite.
+- The shared notification contract verifies recipient rules for every event kind (including
+  that actors, the unprivileged and other organizations are never told), absence of proposal
+  text and rationale from notifications and webhook bodies, exactly-once fan-out on
+  reprocessing, retry then permanent failure of a poisoned event without blocking others,
+  expiring warnings once, personal read state (others' marks change nothing), keyset paging
+  equal to the full list, access revocation hiding notifications, immutability triggers, a real
+  HTTP receiver checking the signature, timestamp, delivery ID and one post per notification,
+  retry with redacted errors and a bounded failed state, administrator-only status and test,
+  configuration validation, restart, and migration rollback/reapply.
+- Production HTTP verifies the same through real routes, including notifications created by the
+  real ingestion path (input needed, finished), escalation and worker expiry, validation and
+  paging, read marks, and the webhook's signature and content; the OIDC suite verifies
+  authentication, per-member inboxes, administrator-only channel routes and origin checks.
+- Scripted Chromium run (not committed): the inbox, unread badge, opening an item marking it
+  read, marking all read with the badge clearing, read state surviving reload, the Unread tab,
+  the channel card and test notification, and a 390px layout, with no console errors. The run
+  hit the page's script policy when it tried string evaluation, so it polls with locators. It
+  also caught a real lag: marking notifications read updated the list but the navigation badge
+  waited for its next poll. The inbox now announces read marks so the badge clears within a
+  request round trip, and a mark also publishes the freshness signal for the person's other
+  tabs. After that fix the scripted run passed eleven consecutive times (three with the badge
+  checked within three seconds). Before it, two of two runs in one batch failed on that check.
+- Bugs found and fixed by the new tests: a fan-out hang on single-connection PGlite (a nested
+  transaction), page-boundary duplicates in the inbox cursor, and test events whose aggregate
+  ID was not a UUID.
+
+Phase 4 exit criteria verified:
+
+- The audit record alone identifies who decided exactly what and when (4.4: exact content,
+  revision digest, rationale, reviewer, delivery; database-enforced immutability).
+- Replayed, repeated or concurrent decisions do not execute twice (4.1: one command per
+  decision, idempotency keys, locks; HTTP and both databases).
+- Expired or superseded approvals cannot authorize anything (4.1/4.3: refusal on decide,
+  worker expiry and supersession, final task states).
+- Assigned input and approval work reaches the responsible user's durable queue (4.2 ownership
+  and queue views with 4.5 notifications and read state).
+
+Migration tested from:
+
+- Clean PGlite and PostgreSQL through all fifteen migrations, with rollback/reapply and no
+  schema drift. The migration adds two tables, a column and triggers.
+
+Remaining risks:
+
+- PostgreSQL verification used the sandbox's PostgreSQL 16, not the 18 service CI uses.
+- The webhook is one destination per deployment for one organization; delivery is at least once.
+  Unowned input-required work notifies up to 25 eligible reviewers, which can be noisy until
+  per-person preferences exist (Phase 5). Notification retention is unlimited.
+- The removed browser alerts also showed finished tasks and ready artifacts to everyone;
+  finished tasks now notify owners only and artifact-ready notices are not produced.
+- Browser-level tests are still manual scripts outside the CI gate.
+
+**Slice 4.5 and every Phase 4 exit criterion are verified. Phase 4 is complete.**
+
+Next executable slice: **Phase 5, 5.1 — unified authorized inbox over tasks and approvals**
+(global inbox, folding the Approvals queue into it, with indexed queries). Do not begin Phase 5
+without a continuation request.
 
 ## Known repository-state issue
 

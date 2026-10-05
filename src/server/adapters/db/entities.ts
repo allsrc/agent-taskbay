@@ -1,5 +1,8 @@
 import { defineEntity, p } from "@mikro-orm/core";
 
+import type { AssignmentEventKind } from "../../domain/workflow-model";
+import type { NotificationKind } from "../../domain/notification-model";
+import type { DecisionOutcome, DecisionPolicy, DecisionRequestStatus, DecisionRisk, ExecutionStatus, ProposedAction } from "../../domain/decision-model";
 import type {
   JsonValue,
   OutboxStatus,
@@ -422,6 +425,8 @@ const SecurityAuditSchema = defineEntity({
     actorType: p.string().length(32),
     action: p.string().length(100), targetId: p.text(), eventKey: p.text().unique("uq_security_audit_event_key"), createdAt: p.datetime() },
   indexes: [{ name: "idx_security_audit_org_time", properties: ["organizationId", "createdAt"] }],
+  triggers: [{ name: "trg_security_audit_append_only", timing: "before", events: ["update", "delete"],
+    body: "raise exception 'audit records are append-only' using errcode = '23000';" }],
 });
 export class SecurityAuditEntity extends SecurityAuditSchema.class {}
 Object.defineProperty(SecurityAuditEntity, "name", { value: "SecurityAuditEntity" });
@@ -478,7 +483,209 @@ export class ArtifactAccessEntity extends ArtifactAccessSchema.class {}
 Object.defineProperty(ArtifactAccessEntity, "name", {value: "ArtifactAccessEntity"});
 ArtifactAccessSchema.setClass(ArtifactAccessEntity);
 
+const DecisionRequestSchema = defineEntity({
+  name: "DecisionRequestEntity", tableName: "decision_requests",
+  properties: {
+    id: p.uuid().primary(),
+    organizationId: () => p.manyToOne(OrganizationEntity).mapToPk().joinColumn("organization_id"),
+    taskId: () => p.manyToOne(TaskEntity).mapToPk().joinColumn("task_id"),
+    agentId: () => p.manyToOne(AgentEntity).mapToPk().joinColumn("agent_id"),
+    tenant: p.string().length(255), skillId: p.string().length(255).nullable(),
+    kind: p.string().length(64).$type<"send_message">(), status: p.string().length(32).$type<DecisionRequestStatus>(),
+    requestKey: p.string().length(255), title: p.string().length(300), summary: p.text(),
+    risk: p.string().length(16).$type<DecisionRisk>(), policyJson: p.json<DecisionPolicy>(),
+    requesterUserId: p.uuid().nullable(), assignedMembershipId: p.uuid().nullable(),
+    currentRevision: p.integer(), expiresAt: p.datetime(), expiryWarnedAt: p.datetime().nullable(), createdAt: p.datetime(), updatedAt: p.datetime(),
+    version: p.integer().default(1).version(),
+  },
+  uniques: [{ name: "uq_decision_requests_org_key", properties: ["organizationId", "requestKey"] }],
+  indexes: [
+    { name: "idx_decision_requests_org_status", properties: ["organizationId", "status", "expiresAt"] },
+    { name: "idx_decision_requests_task", properties: ["taskId"] },
+    { name: "idx_decision_requests_assignee", properties: ["organizationId", "assignedMembershipId", "status"] },
+  ],
+  // What was asked, of whom and when is fixed; only status, assignment, current revision and bookkeeping may change.
+  triggers: [{ name: "trg_decision_requests_core_fixed", timing: "before", events: ["update", "delete"],
+    body: "if tg_op = 'DELETE' or new.id <> old.id or new.organization_id <> old.organization_id or new.task_id <> old.task_id or new.agent_id <> old.agent_id or new.tenant <> old.tenant or new.skill_id is distinct from old.skill_id or new.kind <> old.kind or new.request_key <> old.request_key or new.title <> old.title or new.summary <> old.summary or new.risk <> old.risk or new.policy_json::text <> old.policy_json::text or new.requester_user_id is distinct from old.requester_user_id or new.expires_at <> old.expires_at or new.created_at <> old.created_at then raise exception 'decision request core is immutable' using errcode = '23000'; end if; return new;" }],
+});
+export class DecisionRequestEntity extends DecisionRequestSchema.class {}
+Object.defineProperty(DecisionRequestEntity, "name", { value: "DecisionRequestEntity" });
+DecisionRequestSchema.setClass(DecisionRequestEntity);
+
+const DecisionRevisionSchema = defineEntity({
+  name: "DecisionRevisionEntity", tableName: "decision_revisions",
+  properties: {
+    id: p.uuid().primary(),
+    organizationId: () => p.manyToOne(OrganizationEntity).mapToPk().joinColumn("organization_id"),
+    requestId: () => p.manyToOne(DecisionRequestEntity).mapToPk().joinColumn("request_id"),
+    number: p.integer(), actionJson: p.json<ProposedAction>(), digest: p.string().length(64),
+    authorType: p.string().length(16).$type<"agent" | "user" | "system">(), authorUserId: p.uuid().nullable(), createdAt: p.datetime(),
+  },
+  uniques: [{ name: "uq_decision_revisions_request_number", properties: ["requestId", "number"] }],
+  triggers: [{ name: "trg_decision_revisions_immutable", timing: "before", events: ["update", "delete"], body: "raise exception 'decision records are immutable' using errcode = '23000';" }],
+});
+export class DecisionRevisionEntity extends DecisionRevisionSchema.class {}
+Object.defineProperty(DecisionRevisionEntity, "name", { value: "DecisionRevisionEntity" });
+DecisionRevisionSchema.setClass(DecisionRevisionEntity);
+
+const DecisionSchema = defineEntity({
+  name: "DecisionEntity", tableName: "decisions",
+  properties: {
+    id: p.uuid().primary(),
+    organizationId: () => p.manyToOne(OrganizationEntity).mapToPk().joinColumn("organization_id"),
+    requestId: () => p.manyToOne(DecisionRequestEntity).mapToPk().joinColumn("request_id"),
+    revisionId: () => p.manyToOne(DecisionRevisionEntity).mapToPk().joinColumn("revision_id"),
+    revisionDigest: p.string().length(64), outcome: p.string().length(32).$type<DecisionOutcome>(), rationale: p.text(),
+    reviewerUserId: () => p.manyToOne(UserEntity).mapToPk().joinColumn("reviewer_user_id").deleteRule("no action"),
+    reviewerMembershipId: p.uuid(), delegateMembershipId: p.uuid().nullable(),
+    idempotencyKey: p.string().length(255), inputDigest: p.string().length(64), policyJson: p.json<DecisionPolicy>(), createdAt: p.datetime(),
+  },
+  uniques: [{ name: "uq_decisions_org_key", properties: ["organizationId", "idempotencyKey"] }],
+  triggers: [{ name: "trg_decisions_immutable", timing: "before", events: ["update", "delete"], body: "raise exception 'decision records are immutable' using errcode = '23000';" }],
+  indexes: [{ name: "idx_decisions_request", properties: ["requestId", "createdAt"] }],
+});
+export class DecisionEntity extends DecisionSchema.class {}
+Object.defineProperty(DecisionEntity, "name", { value: "DecisionEntity" });
+DecisionSchema.setClass(DecisionEntity);
+
+const DecisionExecutionSchema = defineEntity({
+  name: "DecisionExecutionEntity", tableName: "decision_executions",
+  properties: {
+    id: p.uuid().primary(),
+    organizationId: () => p.manyToOne(OrganizationEntity).mapToPk().joinColumn("organization_id"),
+    decisionId: () => p.manyToOne(DecisionEntity).mapToPk().joinColumn("decision_id"),
+    revisionId: () => p.manyToOne(DecisionRevisionEntity).mapToPk().joinColumn("revision_id"),
+    revisionDigest: p.string().length(64),
+    commandId: () => p.manyToOne(TaskCommandEntity).mapToPk().joinColumn("command_id"),
+    messageId: p.string().length(255), status: p.string().length(32).$type<ExecutionStatus>(),
+    observedTaskState: p.string().length(64).nullable(), observedAt: p.datetime().nullable(),
+    lastError: p.text().nullable(), createdAt: p.datetime(), updatedAt: p.datetime(),
+  },
+  uniques: [{ name: "uq_decision_executions_decision", properties: ["decisionId"] }, { name: "uq_decision_executions_command", properties: ["commandId"] }],
+  triggers: [{ name: "trg_decision_executions_guard", timing: "before", events: ["update", "delete"],
+    body: "if tg_op = 'DELETE' or new.decision_id <> old.decision_id or new.revision_id <> old.revision_id or new.revision_digest <> old.revision_digest or new.command_id <> old.command_id or new.message_id <> old.message_id or new.organization_id <> old.organization_id then raise exception 'decision execution correlation is immutable' using errcode = '23000'; end if; return new;" }],
+});
+export class DecisionExecutionEntity extends DecisionExecutionSchema.class {}
+Object.defineProperty(DecisionExecutionEntity, "name", { value: "DecisionExecutionEntity" });
+DecisionExecutionSchema.setClass(DecisionExecutionEntity);
+
+const TaskAssignmentSchema = defineEntity({
+  name: "TaskAssignmentEntity", tableName: "task_assignments",
+  properties: {
+    id: p.uuid().primary(),
+    organizationId: () => p.manyToOne(OrganizationEntity).mapToPk().joinColumn("organization_id"),
+    taskId: () => p.manyToOne(TaskEntity).mapToPk().joinColumn("task_id"),
+    assigneeMembershipId: p.uuid().nullable(), claimedAt: p.datetime().nullable(), dueAt: p.datetime().nullable(),
+    escalationLevel: p.integer().default(0), escalatedAt: p.datetime().nullable(), updatedAt: p.datetime(),
+    version: p.integer().default(1).version(),
+  },
+  uniques: [{ name: "uq_task_assignments_task", properties: ["taskId"] }],
+  indexes: [
+    { name: "idx_task_assignments_assignee", properties: ["organizationId", "assigneeMembershipId"] },
+    { name: "idx_task_assignments_due", properties: ["dueAt"] },
+  ],
+});
+export class TaskAssignmentEntity extends TaskAssignmentSchema.class {}
+Object.defineProperty(TaskAssignmentEntity, "name", { value: "TaskAssignmentEntity" });
+TaskAssignmentSchema.setClass(TaskAssignmentEntity);
+
+const TaskAssignmentEventSchema = defineEntity({
+  name: "TaskAssignmentEventEntity", tableName: "task_assignment_events",
+  properties: {
+    id: p.uuid().primary(),
+    organizationId: () => p.manyToOne(OrganizationEntity).mapToPk().joinColumn("organization_id"),
+    taskId: () => p.manyToOne(TaskEntity).mapToPk().joinColumn("task_id"),
+    kind: p.string().length(32).$type<AssignmentEventKind>(),
+    actorUserId: () => p.manyToOne(UserEntity).mapToPk().joinColumn("actor_user_id").nullable().deleteRule("no action"),
+    fromMembershipId: p.uuid().nullable(), toMembershipId: p.uuid().nullable(), dueAt: p.datetime().nullable(), createdAt: p.datetime(),
+  },
+  indexes: [{ name: "idx_task_assignment_events_task", properties: ["taskId", "createdAt"] }],
+  triggers: [{ name: "trg_task_assignment_events_immutable", timing: "before", events: ["update", "delete"],
+    body: "raise exception 'workflow history is immutable' using errcode = '23000';" }],
+});
+export class TaskAssignmentEventEntity extends TaskAssignmentEventSchema.class {}
+Object.defineProperty(TaskAssignmentEventEntity, "name", { value: "TaskAssignmentEventEntity" });
+TaskAssignmentEventSchema.setClass(TaskAssignmentEventEntity);
+
+const TaskNoteSchema = defineEntity({
+  name: "TaskNoteEntity", tableName: "task_notes",
+  properties: {
+    id: p.uuid().primary(),
+    organizationId: () => p.manyToOne(OrganizationEntity).mapToPk().joinColumn("organization_id"),
+    taskId: () => p.manyToOne(TaskEntity).mapToPk().joinColumn("task_id"),
+    noteKey: p.string().length(255),
+    authorUserId: () => p.manyToOne(UserEntity).mapToPk().joinColumn("author_user_id").deleteRule("no action"),
+    body: p.text(), createdAt: p.datetime(),
+  },
+  uniques: [{ name: "uq_task_notes_org_key", properties: ["organizationId", "noteKey"] }],
+  indexes: [{ name: "idx_task_notes_task", properties: ["taskId", "createdAt"] }],
+  triggers: [{ name: "trg_task_notes_immutable", timing: "before", events: ["update", "delete"],
+    body: "raise exception 'workflow history is immutable' using errcode = '23000';" }],
+});
+export class TaskNoteEntity extends TaskNoteSchema.class {}
+Object.defineProperty(TaskNoteEntity, "name", { value: "TaskNoteEntity" });
+TaskNoteSchema.setClass(TaskNoteEntity);
+
+const EscalationPolicySchema = defineEntity({
+  name: "EscalationPolicyEntity", tableName: "escalation_policies",
+  properties: {
+    id: p.uuid().primary(),
+    organizationId: () => p.manyToOne(OrganizationEntity).mapToPk().joinColumn("organization_id"),
+    agentId: () => p.manyToOne(AgentEntity).mapToPk().joinColumn("agent_id").nullable(),
+    targetMembershipId: () => p.manyToOne(MembershipEntity).mapToPk().joinColumn("target_membership_id"),
+    enabled: p.boolean(), createdAt: p.datetime(), updatedAt: p.datetime(),
+  },
+  indexes: [{ name: "idx_escalation_policies_scope", properties: ["organizationId", "agentId"] }],
+});
+export class EscalationPolicyEntity extends EscalationPolicySchema.class {}
+Object.defineProperty(EscalationPolicyEntity, "name", { value: "EscalationPolicyEntity" });
+EscalationPolicySchema.setClass(EscalationPolicyEntity);
+
+const NotificationSchema = defineEntity({
+  name: "NotificationEntity", tableName: "notifications",
+  properties: {
+    id: p.uuid().primary(),
+    organizationId: () => p.manyToOne(OrganizationEntity).mapToPk().joinColumn("organization_id"),
+    kind: p.string().length(48).$type<NotificationKind>(),
+    taskId: () => p.manyToOne(TaskEntity).mapToPk().joinColumn("task_id").nullable(),
+    subjectId: p.uuid().nullable(),
+    actorUserId: () => p.manyToOne(UserEntity).mapToPk().joinColumn("actor_user_id").nullable().deleteRule("no action"),
+    title: p.string().length(200), body: p.text(), link: p.string().length(300), createdAt: p.datetime(),
+  },
+  indexes: [{ name: "idx_notifications_org_created", properties: ["organizationId", "createdAt"] }],
+  triggers: [{ name: "trg_notifications_immutable", timing: "before", events: ["update", "delete"],
+    body: "raise exception 'notifications are immutable' using errcode = '23000';" }],
+});
+export class NotificationEntity extends NotificationSchema.class {}
+Object.defineProperty(NotificationEntity, "name", { value: "NotificationEntity" });
+NotificationSchema.setClass(NotificationEntity);
+
+const NotificationRecipientSchema = defineEntity({
+  name: "NotificationRecipientEntity", tableName: "notification_recipients",
+  properties: {
+    id: p.uuid().primary(),
+    notificationId: () => p.manyToOne(NotificationEntity).mapToPk().joinColumn("notification_id"),
+    organizationId: () => p.manyToOne(OrganizationEntity).mapToPk().joinColumn("organization_id"),
+    membershipId: () => p.manyToOne(MembershipEntity).mapToPk().joinColumn("membership_id"),
+    readAt: p.datetime().nullable(), createdAt: p.datetime(),
+  },
+  uniques: [{ name: "uq_notification_recipient", properties: ["notificationId", "membershipId"] }],
+  indexes: [
+    { name: "idx_notification_recipients_inbox", properties: ["membershipId", "createdAt"] },
+    { name: "idx_notification_recipients_unread", properties: ["membershipId", "readAt"] },
+  ],
+  // Who was told is permanent; only the read mark may change.
+  triggers: [{ name: "trg_nr_read_mark_only", timing: "before", events: ["update", "delete"],
+    body: "if tg_op = 'DELETE' or new.id <> old.id or new.notification_id <> old.notification_id or new.organization_id <> old.organization_id or new.membership_id <> old.membership_id or new.created_at <> old.created_at then raise exception 'notification recipients are immutable except the read mark' using errcode = '23000'; end if; return new;" }],
+});
+export class NotificationRecipientEntity extends NotificationRecipientSchema.class {}
+Object.defineProperty(NotificationRecipientEntity, "name", { value: "NotificationRecipientEntity" });
+NotificationRecipientSchema.setClass(NotificationRecipientEntity);
+
 export const persistenceEntities = [
+  NotificationEntity, NotificationRecipientEntity,
+  TaskAssignmentEntity, TaskAssignmentEventEntity, TaskNoteEntity, EscalationPolicyEntity,
+  DecisionRequestEntity, DecisionRevisionEntity, DecisionEntity, DecisionExecutionEntity,
   ArtifactAccessEntity,
   TeamEntity, TeamMembershipEntity, AccessGrantEntity, AgentCredentialEntity, RateBucketEntity,
   UserEntity, ExternalIdentityEntity, MembershipEntity, UserSessionEntity, LoginAttemptEntity, SecurityAuditEntity,

@@ -148,7 +148,7 @@ try {
   await start({ A2A_AUTH_MODE: "", A2A_OIDC_ISSUER: "" });
   assert.equal((await request("/api/tasks")).status, 503); await stop();
   await start();
-  const publicRoutes = ["/api/agents", `/api/agents/${agent.id}`, "/api/tasks", `/api/tasks/${privateView.localId}`, "/api/task-views", "/api/tasks/events", `/api/artifacts/${digest}`, `/api/commands/${randomUUID()}`, "/api/auth/session"];
+  const publicRoutes = ["/api/agents", `/api/agents/${agent.id}`, "/api/tasks", `/api/tasks/${privateView.localId}`, "/api/task-views", "/api/tasks/events", `/api/artifacts/${digest}`, `/api/commands/${randomUUID()}`, "/api/auth/session", "/api/notifications", "/api/notifications/channel", "/api/audit", "/api/decisions", "/api/escalation-policies"];
   for (const path of publicRoutes) assert.equal((await request(path)).status, 401, path);
   for (const path of ["/api/agents", "/api/agents/preview", `/api/agents/${agent.id}/commands`, `/api/agents/${agent.id}/messages`, `/api/agents/${agent.id}/stream`, `/api/agents/${agent.id}/tasks/private-task/cancel`]) {
     assert.equal((await request(path, undefined, { method: "POST" })).status, 401, path);
@@ -193,6 +193,39 @@ try {
   }
   assert.equal((await json(`/api/commands/${command.id}`, operatorSession)).command.status, "succeeded"); assert.equal(sends, 1);
   assert.equal((await request(`/api/commands/${command.id}`, foreignSession)).status, 404);
+  // Notifications are personal: every member gets their own inbox, read marks cannot reach anyone else's, and the channel is administrator-only.
+  for (const session of [adminSession, operatorSession, viewerSession, ungrantedSession, foreignSession]) {
+    const own = await json("/api/notifications", session);
+    assert.ok(Array.isArray(own.items) && typeof own.unread === "number");
+  }
+  for (const session of [operatorSession, viewerSession, ungrantedSession]) {
+    assert.equal((await request("/api/notifications/channel", session)).status, 403);
+    assert.equal((await request("/api/notifications/test", session, { method: "POST", headers: { Origin: origin } })).status, 403);
+  }
+  assert.equal((await request("/api/notifications/read", operatorSession, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ all: true }) })).status, 403, "Mutations need the canonical origin.");
+  assert.equal((await json("/api/notifications/read", operatorSession, { method: "POST", headers: { Origin: origin, "Content-Type": "application/json" }, body: JSON.stringify({ ids: [randomUUID()] }) })).updated, 0);
+  assert.equal((await json("/api/notifications/channel", adminSession)).configured, false);
+  // Audit trail: administrators read their organization; other members only a task they may read; nobody crosses organizations.
+  const trail = await json("/api/audit", adminSession);
+  assert.ok(trail.entries.some((entry) => entry.kind === "task.send.accepted" && entry.subjectId === command.id));
+  assert.ok(trail.entries.some((entry) => entry.kind === "session.started"));
+  assert.equal(trail.viewer.role, "admin");
+  for (const session of [operatorSession, viewerSession, ungrantedSession]) {
+    assert.equal((await request("/api/audit", session)).status, 403);
+    assert.equal((await request("/api/audit/export", session)).status, 403);
+  }
+  assert.equal((await request(`/api/audit?taskId=${privateView.localId}`, ungrantedSession)).status, 404);
+  assert.equal((await request(`/api/audit?taskId=${privateView.localId}`, foreignSession)).status, 404);
+  const foreignTrail = await request("/api/audit", foreignSession);
+  assert.ok([200, 403].includes(foreignTrail.status));
+  if (foreignTrail.status === 200) assert.ok(!(await foreignTrail.text()).includes(command.id), "Another organization's trail leaked");
+  assert.equal((await request("/api/audit?limit=0", adminSession)).status, 400);
+  assert.equal((await request("/api/audit?cursor=garbage", adminSession)).status, 400);
+  const exported = await request("/api/audit/export", adminSession);
+  assert.equal(exported.status, 200);
+  assert.match(exported.headers.get("content-type"), /text\/csv/);
+  assert.match(exported.headers.get("content-disposition"), /attachment/);
+  noSecrets(await exported.text());
   await stop(); await start();
   assert.equal((await json("/api/auth/session", adminSession)).user.role, "admin", "Session did not survive restart");
   await json("/api/auth/logout", adminSession, { method: "POST", headers: { Origin: origin } });

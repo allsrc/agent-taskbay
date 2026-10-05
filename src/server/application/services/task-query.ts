@@ -13,8 +13,8 @@ export class TaskQueryService {
     return { tasks, next: rows.length > limit ? tasks.at(-1)!.localId : null };
   }
 
-  async list(organizationId: string, limit = 50, offset = 0, filter = "all") {
-    const rows = await this.tasks.listByOrganization(organizationId, limit, offset, filter);
+  async list(organizationId: string, limit = 50, offset = 0, filter = "all", restriction?: { include?: string[]; exclude?: string[] }) {
+    const rows = await this.tasks.listByOrganization(organizationId, limit, offset, filter, restriction);
     const agents = new Map((await this.agents.listByOrganization(organizationId)).map((agent) => [agent.id, agent]));
     return rows.map((task) => ({
       localId: task.id, taskId: task.remoteTaskId!, tenant: task.tenant,

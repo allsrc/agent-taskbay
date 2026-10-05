@@ -3,14 +3,17 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, LayoutGrid, ListChecks, MessageSquare, SlidersHorizontal, Workflow, type LucideIcon } from "lucide-react";
+import { Bell, LayoutGrid, ListChecks, MessageSquare, ScrollText, ShieldCheck, SlidersHorizontal, Workflow, type LucideIcon } from "lucide-react";
 import { motion } from "motion/react";
 import { LogoMark, Wordmark } from "@/components/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { DurableTaskSync } from "@/components/chat/durable-task-sync";
 import { useTaskStore } from "@/store/task-store";
-import { useNotifications } from "@/store/notification-store";
+import { NOTIFICATIONS_CHANGED, unreadLabel } from "@/lib/notification-view";
+import type { InboxPage } from "@/shared/notification-types";
 import { useAgentStore } from "@/store/agent-store";
+import { useServerResource } from "@/lib/use-server-resource";
+import type { DecisionRequestView } from "@/shared/decision-types";
 import { cn } from "@/lib/utils";
 import { IdentityMenu } from "./identity-menu";
 
@@ -19,13 +22,17 @@ interface NavItem {
   label: string;
   short: string;
   icon: LucideIcon;
+  /** Shown only to administrators; the server enforces access regardless. */
+  adminOnly?: boolean;
 }
 
 const NAV: NavItem[] = [
   { href: "/agents", label: "Agents", short: "Agents", icon: LayoutGrid },
   { href: "/chat", label: "Chat", short: "Chat", icon: MessageSquare },
   { href: "/tasks", label: "Tasks", short: "Tasks", icon: ListChecks },
+  { href: "/approvals", label: "Approvals", short: "Approve", icon: ShieldCheck },
   { href: "/flows", label: "Orchestration", short: "Flows", icon: Workflow },
+  { href: "/audit", label: "Audit", short: "Audit", icon: ScrollText, adminOnly: true },
   { href: "/notifications", label: "Notifications", short: "Alerts", icon: Bell },
   { href: "/settings", label: "Settings", short: "Setup", icon: SlidersHorizontal },
 ];
@@ -38,7 +45,16 @@ function useActive() {
 export function AppShell({ children, identity }: { children: React.ReactNode;
   identity: { displayName: string; role: string; development: boolean } }) {
   const active = useActive();
-  const { unread } = useNotifications();
+  const nav = NAV.filter((item) => !item.adminOnly || identity.role === "admin");
+  const unreadResource = useServerResource<InboxPage>("/api/notifications?limit=1&unread=true");
+  const unread = unreadResource.data?.unread ?? 0;
+  const refreshUnread = unreadResource.refresh;
+  // The inbox announces its own read marks so the badge updates at once instead of at the next poll.
+  useEffect(() => {
+    window.addEventListener(NOTIFICATIONS_CHANGED, refreshUnread);
+    return () => window.removeEventListener(NOTIFICATIONS_CHANGED, refreshUnread);
+  }, [refreshUnread]);
+  const pending = (useServerResource<{ decisions: DecisionRequestView[] }>("/api/decisions?status=pending").data?.decisions.length) ?? 0;
   const taskError = useTaskStore((state) => state.error);
   const agents = useAgentStore((state) => state.agents);
   const refreshAgents = useAgentStore((state) => state.refresh);
@@ -56,7 +72,7 @@ export function AppShell({ children, identity }: { children: React.ReactNode;
           <Wordmark className="text-[15px]" />
         </Link>
         <nav className="flex flex-col gap-1" aria-label="Primary">
-          {NAV.map((item) => {
+          {nav.map((item) => {
             const on = active?.href === item.href;
             return (
               <Link
@@ -78,7 +94,10 @@ export function AppShell({ children, identity }: { children: React.ReactNode;
                 <item.icon className="relative size-[18px]" strokeWidth={1.8} />
                 <span className="relative flex-1">{item.label}</span>
                 {item.href === "/notifications" && unread > 0 && (
-                  <span className="bg-brand text-brand-foreground relative rounded-full px-1.5 font-mono text-[11px] font-bold">{unread}</span>
+                  <span className="bg-brand text-brand-foreground relative rounded-full px-1.5 font-mono text-[11px] font-bold" aria-label={`${unread} unread notifications`}>{unreadLabel(unread)}</span>
+                )}
+                {item.href === "/approvals" && pending > 0 && (
+                  <span className="bg-brand text-brand-foreground relative rounded-full px-1.5 font-mono text-[11px] font-bold" aria-label={`${pending} pending approvals`}>{pending}</span>
                 )}
               </Link>
             );
@@ -108,7 +127,7 @@ export function AppShell({ children, identity }: { children: React.ReactNode;
         </main>
 
         <nav className="bg-sidebar border-border flex shrink-0 border-t px-1 pt-1.5 pb-3.5 md:hidden" aria-label="Primary">
-          {NAV.map((item) => {
+          {nav.map((item) => {
             const on = active?.href === item.href;
             return (
               <Link
@@ -119,7 +138,7 @@ export function AppShell({ children, identity }: { children: React.ReactNode;
               >
                 <span className="relative">
                   <item.icon className="size-[22px]" strokeWidth={1.8} />
-                  {item.href === "/notifications" && unread > 0 && (
+                  {((item.href === "/notifications" && unread > 0) || (item.href === "/approvals" && pending > 0)) && (
                     <span className="bg-brand absolute -top-0.5 -right-1.5 size-[9px] rounded-full" />
                   )}
                 </span>

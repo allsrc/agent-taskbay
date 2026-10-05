@@ -78,6 +78,13 @@ A2A Tasks and Messages.
   and observed result.
 - `HITL-005`: Work can be assigned, claimed, reassigned, escalated, and given a
   due time independently of the remote task state.
+- `HITL-006`: Approval requests can originate from the agent through a reviewed
+  extension or recognized in-task pattern, not only from an operator on its behalf.
+- `HITL-007`: Expiry and supersession are enforced by workers, not only when a
+  reviewer acts, and reviewers and requesters are told when a request closes.
+- `HITL-008`: Approval-grade review is available in the console UI with the exact
+  proposal, revision history, decision record and delivery result visible, and the
+  same review reaches mobile and keyboard users.
 
 ### Inbox and notifications
 

@@ -5,6 +5,9 @@ import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { BackLink, Chip, EmptyState, InfoCard, StateChip } from "@/components/a2a/primitives";
+import { TaskAudit } from "@/components/audit/task-audit";
+import { TaskApprovals } from "@/components/approvals/task-approvals";
+import { TaskNotes, TaskOwnership } from "@/components/workflow/task-ownership";
 import { Button } from "@/components/ui/button";
 import { conversationKey } from "@/lib/conversations";
 import { runResubscribe } from "@/lib/run-message";
@@ -99,6 +102,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ taskId: s
       </div>
 
       <div className="grid grid-cols-[repeat(auto-fit,minmax(250px,1fr))] gap-3">
+        {task.kind !== "message" && <TaskOwnership taskId={task.localId} active={active} />}
         <InfoCard label="Status timeline">
           {(task.transitions?.length ? task.transitions : [{ state: task.state, timestamp: task.updatedAt }]).map((item, index) => (
             <div key={`${item.state}-${index}`} className="flex items-baseline gap-2.5 py-1.5">
@@ -134,6 +138,10 @@ export default function TaskDetailPage({ params }: { params: Promise<{ taskId: s
           ))}
           {task.artifacts.length === 0 && <p className="text-muted-foreground pt-1 text-[13px]">No artifacts yet.</p>}
         </InfoCard>
+
+        {task.kind !== "message" && <TaskApprovals taskId={task.localId} canRequest={active} />}
+        {task.kind !== "message" && <TaskNotes taskId={task.localId} />}
+        {task.kind !== "message" && <TaskAudit taskId={task.localId} />}
 
         <InfoCard label="Identifiers">
           <dl className="flex flex-col gap-1.5 font-mono text-[11px]">
