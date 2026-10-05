@@ -1530,9 +1530,12 @@ Verification commands and results:
 - Scripted Chromium run (not committed): opening the Audit page from navigation, expanding a
   decision to its exact content and rationale, group tabs, absence of note text, the CSV
   link, a task's Audit card and its full trail page, and a 390px layout, with no console
-  errors. The run exposed a clipped date field on narrow screens, now fixed. One earlier run
-  timed out waiting for an approvals list entry; it did not recur in seven reruns and was not
-  traced to a cause.
+  errors. The run exposed a clipped date field on narrow screens, now fixed. Two scripted
+  runs failed waiting for an approvals entry on a task page. The later one was reproduced
+  (the first run after a rebuild) and is a defect in the throwaway script: its text locator
+  matched three elements once the new Audit card had loaded and Playwright's strict mode
+  rejected it, so it is not an application fault. The earlier failure predates the Audit
+  card, was never reproduced and is unexplained; fourteen later runs passed.
 
 Migration tested from:
 
