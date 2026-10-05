@@ -235,14 +235,14 @@ Requirements: `AGT-004`, `SEC-001..005`, `AUD-001`, `SCL-001`.
 
 ## Phase 4 — approval-grade human intervention
 
-**Status:** Planned; depends on identity and durable runtime.
+**Status:** In progress; Slice 4.1 verified 2026-10-05.
 
 ### Deliverables
 
-- [ ] Model typed decision requests and revisions.
-- [ ] Implement approve, reject, edit, request-changes, and delegate actions.
-- [ ] Record scope, expiry, rationale, proposed action, reviewer, and policy.
-- [ ] Correlate the approved revision to the dispatched and observed result.
+- [x] Model typed decision requests and revisions.
+- [x] Implement approve, reject, edit, request-changes, and delegate actions.
+- [x] Record scope, expiry, rationale, proposed action, reviewer, and policy.
+- [x] Correlate the approved revision to the dispatched and observed result.
 - [ ] Add task claiming, assignment, due times, escalation, and internal notes.
 - [ ] Add immutable workflow audit views.
 - [ ] Persist notifications/read state and add browser plus one external

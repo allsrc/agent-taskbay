@@ -1,13 +1,13 @@
 # Execution status
 
-Last updated: 2026-10-03
+Last updated: 2026-10-05
 
 ## Active position
 
 - Last completed phase: **Phase 3 — identity and security**
 - Active phase: **Phase 4 — approval-grade human intervention**
-- Last completed slice: **3.2 — Plane B credentials and scoped security**
-- Next executable slice: **4.1 — typed decision requests and revisions**
+- Last completed slice: **4.1 — typed decision requests and revisions**
+- Next executable slice: **4.2 — assignment, claiming, due times, escalation and notes**
 - Blocking decisions: none
 
 ## Pending follow-ups
@@ -1210,9 +1210,82 @@ Remaining limits:
 
 **Combined Slices 3.1/3.2 and every Phase 3 exit criterion are verified. Phase 3 is complete.**
 
-Next executable slice: **4.1 — typed decision requests and revisions**. Resolve typed,
-scoped, expiring decision aggregates under ADR 0005 and correlate exact approved revisions
-with dispatch/observed outcomes. Do not begin Phase 4 without a continuation request.
+## Phase 4 Slice 4.1 verified evidence
+
+Date: 2026-10-05
+
+Slice: **4.1 — typed decision requests and revisions**
+
+Changes:
+
+- Added the decision aggregate behind application ports: `DecisionRequest`, immutable
+  `DecisionRevision` and `Decision`, and `DecisionExecution`, with an ORM-independent
+  `DecisionService`, MikroORM repository, migration and ADR 0015.
+- Requests are scoped to one A2A task (agent, tenant, skill and task come from the task
+  row), expire within 30 days, carry a policy snapshot, and are idempotent per request
+  key. Opening supersedes older open requests for the task; finished tasks and direct
+  Messages are refused.
+- Outcomes `approve`, `reject`, `edit` (new revision, approved), `request_changes` and
+  `delegate` record rationale, reviewer, exact revision ID/digest and policy. Reviewers
+  must state the revision they read, hold an operate grant (read grant, else 404), be the
+  assignee (admins excepted) and, by default, not be the requester.
+- Approval commits the decision, execution and an ordinary `TaskCommand` + outbox row in
+  one transaction (keys `decision:<id>` / `decision-<id>`), through the same scope and
+  skill-routing checks as operator sends, so replays and lost races never dispatch twice.
+  Execution status and observed task state are correlated on read.
+- Expiry is checked per decision and swept by `expireDue`; expired/superseded requests
+  authorize nothing. Decisions and revisions are immutable and execution correlation
+  columns are fixed, enforced by database triggers declared on the entities.
+- Added `/api/decisions` (list/open), `/api/decisions/[id]` (detail),
+  `/revisions` and `/decisions` routes using the existing authenticated-route guard.
+  Refactored command acceptance into `acceptCommandWithin` (behavior unchanged).
+
+Verification commands and results:
+
+- `npx tsc --noEmit` and `npm run lint`: passed.
+- `A2A_TEST_POSTGRES_URL=postgresql://postgres:postgres@127.0.0.1:5432/a2a_ops_test npm run check`
+  passed lint, 28 unit files/81 tests and 13 database files/30 tests on PGlite and
+  PostgreSQL. In this sandbox the gate's schema step needs a migrated local database,
+  so it was run separately against a freshly migrated PGlite directory: no schema drift.
+  `npm run build` passed with all four decision routes. `npm run test:http` then passed
+  all suites, including the new decision HTTP suite.
+- The shared decision contract verifies scoped/validated/idempotent opening, concurrent
+  open, role/grant/foreign-organization denial, separation of duties, stale revisions,
+  concurrent and repeated approvals dispatching once, replay with changed input
+  rejected, the stored command payload matching the approved revision, observed-state
+  correlation, audit actor/time/target, database immutability, edit-before-approve,
+  revise/request-changes/reject, delegation, expiry and sweep, supersession by a newer
+  request and by task completion, visibility filtering, restart, and migration rollback
+  and reapply with no schema drift.
+- Production HTTP verifies validation and idempotent open, no agent contact on open,
+  concurrent approvals sharing one decision, a single `SendMessage` to the fixture agent
+  carrying the edited revision and message ID, and the observed `COMPLETED` state.
+
+Migration tested from:
+
+- Clean PGlite and PostgreSQL through all twelve migrations, with rollback/reapply and
+  no schema drift. No existing rows change; the migration only adds tables and triggers.
+
+Remaining risks:
+
+- PostgreSQL verification used the sandbox's PostgreSQL 16 server rather than the
+  PostgreSQL 18 service the repository's CI uses; CI should confirm.
+- Slice 4.1 has no UI and no agent-originated requests; operators open requests on an
+  agent's behalf. Only one typed action (`send_message` into the same task) exists.
+- Tasks that end are only discovered at the next decision attempt; there is no sweep
+  that supersedes their open requests, and no notification of expiry or supersession.
+- Assignment is limited to `delegate`/initial assignee. Claiming, due times, escalation,
+  internal notes, audit views and durable notifications are slice 4.2 and later.
+- Observed outcomes refresh on read, not on a worker or freshness signal.
+- The existing corrupt local `.data/pglite` and the user-delegated OAuth follow-up
+  (issue #1) are unchanged.
+
+**Slice 4.1 acceptance criteria are verified. Phase 4 remains active.**
+
+Next executable slice: **4.2 — assignment, claiming, due times, escalation and notes**.
+Add task claiming/assignment independent of remote state, due times and escalation
+policy, and internal notes, scoped by the same grants. Do not begin notifications or
+audit views in that slice.
 
 ## Known repository-state issue
 

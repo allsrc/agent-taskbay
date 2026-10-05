@@ -330,11 +330,16 @@ PostgreSQL-compatible migration and adapter contract.
 
 ### Human decisions
 
-- `DecisionRequest`
-- `Decision`
-- `DecisionRevision` for edit-before-approve
+- `DecisionRequest` (implemented, ADR 0015): task-scoped, expiring, with a policy
+  snapshot, assignee and current revision number; unique per `(organization, requestKey)`.
+- `Decision` (implemented): immutable outcome, rationale, reviewer, exact revision
+  ID/digest and idempotency key; update/delete rejected by database triggers.
+- `DecisionRevision` for edit-before-approve (implemented): immutable typed proposed
+  action with a canonical digest, numbered per request.
 - `DecisionExecution` correlating approved scope with observed execution
-- `EscalationPolicy`
+  (implemented): one per approving decision; revision, command and message identity
+  are immutable, only observed status/task state change.
+- `EscalationPolicy` (planned, slice 4.2)
 
 ### Notifications and audit
 
