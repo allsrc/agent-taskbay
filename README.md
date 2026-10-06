@@ -1,5 +1,9 @@
 # Agent Taskbay
 
+[![CI](https://github.com/shashikanth-gs/agent-taskbay/actions/workflows/ci.yml/badge.svg)](https://github.com/shashikanth-gs/agent-taskbay/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/agent-taskbay)](https://www.npmjs.com/package/agent-taskbay)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+
 **The human operations console for A2A agent workflows.**
 
 Discover agents, operate durable tasks, handle human approvals, and audit work
@@ -18,19 +22,34 @@ agent-to-agent delegation invisibly; this is the missing human half of
 human-in-the-loop — a place to start a process, get pulled back in exactly
 when an agent needs a decision, and see it through to done.
 
+## Quick start
+
+```bash
+npx agent-taskbay
+```
+
+That downloads the console, starts it at <http://127.0.0.1:3002> and opens your browser. There is nothing else to install: it uses an
+embedded database, generates its own encryption key, and signs you in as a local administrator. Everything lives in `~/.agent-taskbay`
+(`--data-dir` to change it). Requires Node.js 22.17 or newer.
+
+To try it without an agent of your own, serve the sample agents in a second terminal and paste a card URL into **Connect agent**:
+
+```bash
+npx agent-taskbay demo-agent
+```
+
+Local mode is for your own machine only: it has no login screen, so it refuses to listen on anything but loopback. To run it for other
+people, configure OIDC and a PostgreSQL database; see [Hosting](#hosting-and-production) and [`SECURITY.md`](./SECURITY.md).
+`npx agent-taskbay --help` lists the options.
+
 ## Status
 
-Phase 1 is complete: the agent registry and observed task history persist in
-PGlite or PostgreSQL, and Tasks views read shared server state. Phase 2 is also
-complete, with
-durable commands, worker subscriptions, authenticated push, reconciliation,
-rebuildable projections and application freshness SSE. Tracking continues after
-browsers close and reconnects after worker restart. Chat, orchestration and alerts
-reload durable server projections in a fresh browser. Phase 3 now adds
-library-backed OIDC/development identity, membership-bound sessions, organization
-roles and administrative catalog controls. Scoped grants, service credentials
-and approval-grade workflow audit remain planned. See
-**What's not built yet** below.
+Pre-1.0. Phases 0 to 4 and 6 are complete, and Phase 5 (operator experience) is partly done. Delivered: the agent catalog, durable
+commands, worker-owned subscriptions, authenticated push and reconciliation, rebuildable projections, application freshness SSE, OIDC
+sessions with organization roles, encrypted agent credentials with team, agent and skill grants, approval-grade decisions with exact-revision
+execution, task ownership and escalation, an append-only audit trail, durable notifications, structured forms, a safe A2UI renderer
+and an optional AG-UI adapter. Open and planned work, including hosting, is tracked in
+[`docs/spec/STATUS.md`](./docs/spec/STATUS.md) and [`ROADMAP.md`](./ROADMAP.md). See **What's not built yet** below.
 
 ## Project specification
 
@@ -149,25 +168,29 @@ discovery, streaming, content-type rendering, and sideband decoding.
 
 ## What's not built yet
 
-Worker streaming requires advertised support; GetTask polling recovers known
-work when streaming or push is unavailable. Chat, orchestration and current
-alerts load server projections, including direct Message replies, without
-browser history. Notification read marks are session-only; durable per-user
-notifications/read state and external channels remain Phase 4 work. Encrypted Plane B service credentials and team/agent/skill grants are implemented.
-Typed approvals, structured start forms and a workflow audit trail remain planned.
-User-delegated OAuth consent/refresh is a conditional follow-up to the service baseline. Plane A login, membership-bound sessions, baseline
-organization roles and safe security audit facts are implemented.
-[`docs/spec/STATUS.md`](./docs/spec/STATUS.md) identifies the next executable
-slice, with phase deliverables in [`ROADMAP.md`](./ROADMAP.md).
+- Phase 5 remainder: saved views, full-text search, advanced filters, bulk triage, SLA indicators and agent health administration
+  ([#5](https://github.com/shashikanth-gs/agent-taskbay/issues/5)).
+- User-delegated OAuth consent and refresh ([#1](https://github.com/shashikanth-gs/agent-taskbay/issues/1)); service credentials are
+  supported.
+- Hosting: no Dockerfile, compose file or Helm chart, no S3 or Azure Blob artifact adapter and no KMS adapter yet (Phase 7).
+- An extension plugin contract ([#26](https://github.com/shashikanth-gs/agent-taskbay/issues/26)) and a client SDK for the Taskbay API
+  ([#31](https://github.com/shashikanth-gs/agent-taskbay/issues/31)).
 
-## Getting started
+[`docs/spec/STATUS.md`](./docs/spec/STATUS.md) identifies the next executable slice, with phase deliverables in
+[`ROADMAP.md`](./ROADMAP.md).
+
+## Develop from source
 
 ```bash
-npm install
-cp .env.example .env.local   # PGlite is the zero-install database default
-npm run db:migrate           # apply the durable schema baseline
+git clone https://github.com/shashikanth-gs/agent-taskbay.git
+cd agent-taskbay
+npm ci
 npm run dev                  # http://localhost:3002
 ```
+
+PGlite is the zero-install database default and `npm run dev` applies migrations on start, so no `.env` file is needed. Copy
+`.env.example` to `.env.local` to change settings. See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the checks to run before a pull request.
+To apply migrations yourself (required for a PostgreSQL database), run `npm run db:migrate`.
 
 Set `A2A_DATABASE_PROFILE=postgresql` and `A2A_DATABASE_URL` to use a PostgreSQL
 server instead. `A2A_PGLITE_DATA_DIR` overrides the default `.data/pglite`
@@ -327,6 +350,20 @@ socket DNS answers, rejects redirects and limits response bytes. Secure HTTP bin
 are supported; gRPC is disabled until a connection-bound resolver adapter exists.
 Before upgrading existing binary tasks, preserve their archives and rebuild projections
 to establish trusted artifact permissions. See [ADR 0014](./docs/adr/0014-service-credentials-and-scoped-security.md).
+
+## Hosting and production
+
+Production uses PostgreSQL, OIDC sign-in, an exact outbound origin allowlist and HTTPS, with web replicas and separate workers. The
+intended topology, the container count and the artifact-storage options are described in
+[`docs/deployment/PRODUCTION_TOPOLOGY.md`](./docs/deployment/PRODUCTION_TOPOLOGY.md); it is a design, and container images and charts are
+planned work (Phase 7). Configuration is in `.env.example`, and `A2A_AUTO_MIGRATE=true` applies migrations when the server starts if you
+run a single instance.
+
+## Community
+
+[`CONTRIBUTING.md`](./CONTRIBUTING.md) explains how to set up, test and propose a change. Please read [`SECURITY.md`](./SECURITY.md)
+before reporting a vulnerability and follow the [Code of Conduct](./CODE_OF_CONDUCT.md). Release notes are in
+[`CHANGELOG.md`](./CHANGELOG.md).
 
 ## Design background
 

@@ -5,13 +5,22 @@ Last updated: 2026-10-06
 ## Active position
 
 - Last completed phase: **Phase 6 — rich interoperability** (Phase 4 complete; Phase 5 paused after 5.1)
-- Active phase: none. Phase 5 (operator experience) is paused after slice 5.1; Phase 7 (enterprise hardening) has not started.
-- Last completed slice: **6.7 — agent-originated approval requests**; Phase 6 exit verified 2026-10-06
-- Next executable slice: **5.2 — saved views, search, advanced filters and bulk triage** ([#5](https://github.com/shashikanth-gs/a2a-ops/issues/5)) or Phase 7, as the user chooses; the plugin contract is [#26](https://github.com/shashikanth-gs/a2a-ops/issues/26)
+- Active phase: **Phase 8 — open-source distribution and developer experience** (in progress; started 2026-10-06 at the user's direction).
+  Phase 5 (operator experience) stays paused after slice 5.1, and Phase 7 (enterprise hardening) has not started. Hosting is to be discussed separately.
+- Last completed slice: **8.2 — community files and release automation**, with **8.1 — npm package and local launcher** verified the same day
+  (Linux, from a local tarball). Phase 6 exit was verified 2026-10-06.
+- Next executable slice: the **first publish** (a maintainer step: `NPM_TOKEN` secret and a `v*` tag; see Phase 8 in `PHASES.md`), then
+  **5.2 — saved views, search, advanced filters and bulk triage** ([#5](https://github.com/shashikanth-gs/a2a-ops/issues/5)) or Phase 7, as the
+  user chooses; the plugin contract is [#26](https://github.com/shashikanth-gs/a2a-ops/issues/26)
 - Blocking decisions: none
 - Product renamed to **Agent Taskbay** on 2026-10-06 (ADR 0024); see the rename section below. The GitHub repository is renamed after merge.
 
 ## Pending follow-ups
+
+- **Client SDK for the Taskbay API — parked:** ADR 0026 (Proposed) and [#31](https://github.com/shashikanth-gs/agent-taskbay/issues/31).
+  Service-token authentication and a stable `/api/v1` come first. Not scheduled; deferred by agreement on 2026-10-06.
+- **Hosting — to be discussed:** container images, Helm or compose, S3/Azure Blob and KMS adapters (Phase 7). The intended topology is
+  recorded in `docs/deployment/PRODUCTION_TOPOLOGY.md`.
 
 - **User-delegated OAuth — pending:** consent, membership-bound encrypted tokens,
   refresh/revocation and durable worker subject selection are tracked in
@@ -46,6 +55,8 @@ Last updated: 2026-10-06
 
 ## Accepted implementation choices
 
+- Distribution: one npm package, `agent-taskbay`, run locally with `npx agent-taskbay` (ADR 0025). The production build uses webpack so it can be
+  shipped through npm; Turbopack remains the development bundler.
 - Product name: Agent Taskbay (ADR 0024); previously A2A Ops.
 - Repository slug: `agent-taskbay` (rename of the GitHub repository from `a2a-ops` is done after this change merges).
 - Wire and persisted identifiers still use `a2a-ops` on purpose; one coordinated rename is tracked in [#27](https://github.com/shashikanth-gs/a2a-ops/issues/27).
@@ -2097,6 +2108,59 @@ Remaining risks: trademark and domain registration for "Agent Taskbay" were not 
 clean); the repository rename, GitHub description and topics, and npm name reservation are manual steps after merge.
 
 Next executable slice: unchanged (Phase 5 remainder #5 or Phase 7, as the user chooses).
+
+## Phase 8 slices 8.1 and 8.2 verified evidence
+
+Date: 2026-10-06
+
+Slices: **8.1 — npm package and local launcher**, **8.2 — community files and release automation** (ADR 0025)
+
+Changes:
+
+- Added the publishable `agent-taskbay` package: `bin/agent-taskbay.mjs` (I/O) and `bin/launcher.mjs` (pure logic). It runs `next start`
+  from the installed package, binds loopback, refuses development identity elsewhere, keeps state in one data directory
+  (`~/.agent-taskbay`), generates the vault key ring into `secrets.json` (0600, never overwritten or printed), guards a single owner with
+  a pid file, opens the browser, and offers `demo-agent` for the reference fixture agents.
+- Added `A2A_AUTO_MIGRATE` (default on for `next dev` with PGlite and for the launcher) and made the PGlite config create its parent
+  directory; before this, `npm run db:migrate` and `npm run dev` failed with ENOENT on a clean checkout.
+- Switched the production build to webpack. The Turbopack build rewrites externals to hashed names resolved through `.next/node_modules`,
+  which npm strips from tarballs; the first install check failed with `Cannot find package '@mikro-orm/core-<hash>'`.
+- Amended ADR 0014: explicit demo mode no longer requires an origin allowlist; a configured allowlist is still enforced.
+- Added `scripts/verify-package.mjs` (`npm run verify:package`) and a `package` CI job, the release workflow (provenance, tag must match
+  `package.json`), contributing, conduct and security files, issue and PR templates, Dependabot, changelog, `.nvmrc`, `.editorconfig`.
+- Captured the production topology (`docs/deployment/PRODUCTION_TOPOLOGY.md`) and the parked client-SDK proposal (ADR 0026, #31). Added
+  requirements `OPS-003`, `DX-001`, `OSS-001`.
+
+Verification commands and results:
+
+- `npm run verify:package` (Linux, Node 22.22): passed. Tarball 434 files, 1.9 MiB, with the required files and none of `.next/cache`,
+  `.env*`, tests, docs, archives; `npm install` of the tarball with `--omit=dev` (254 packages); `--help` and `--version`; refusal of
+  `--host 0.0.0.0`; refusal of a second instance on the same data directory; `secrets.json` mode 0600; sample agent registered through
+  `POST /api/agents` with no allowlist configured; a command accepted, dispatched by the embedded workers and a durable task created;
+  restart with the agent and task still present and the pid file released. This ran before the PGlite parent-directory fix below.
+- Clean checkout: after deleting `.data`, `npm run db:migrate` applied every migration, and `next dev` started, auto-migrated and returned
+  200 from `/api/agents` and the local operator from `/api/auth/session`.
+- `npm run check` (lint; 43 unit files and 163 tests; 18 database files with 22 passed and 18 PostgreSQL-only cases skipped because no
+  server was available; `db:schema:check`; webpack production build; every HTTP suite including the Phase 6 exit suite): passed.
+- New unit tests: launcher arguments, loopback guard, secrets and environment (`bin/launcher.test.mjs`), demo-mode allowlist
+  (`src/lib/url-safety.test.ts`), auto-migration policy and PGlite parent directory.
+- Workflow files and issue templates parse as YAML; they have not run on GitHub.
+
+Migration tested from: not applicable (no schema change).
+
+Remaining risks:
+
+- Only Linux was verified, from a local tarball. macOS and Windows, and `npx` from the npm registry, are unverified. The package check was not
+  re-run after the PGlite parent-directory fix, which does not touch the launcher path.
+- The first publish needs the maintainer's `NPM_TOKEN` and a tag; provenance is unobserved until then. The `package` CI job and the release
+  workflow have not run on GitHub.
+- The production build is now webpack. Turbopack is still used by `next dev`; a divergence between the two bundlers would show up in
+  development first.
+- Installs are not locked for end users (no `npm-shrinkwrap.json`), so a transitive dependency can change between releases.
+- PostgreSQL-only database cases were not run here; CI runs them.
+- `A2A client UI mockups.zip` and `a2a-details.rtf` remain tracked at the repository root.
+
+Next executable slice: the first publish and the remaining Phase 8 checklist items, then slice 5.2 or Phase 7 as the user chooses.
 
 ## Known repository-state issue
 

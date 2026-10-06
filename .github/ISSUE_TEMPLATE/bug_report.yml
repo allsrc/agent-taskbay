@@ -1,0 +1,49 @@
+name: Bug report
+description: Something does not work as documented
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. For security problems do not use this form; follow SECURITY.md instead.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Include the agent (or the sample agent variant) involved when you can.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Agent Taskbay version
+      description: Output of `npx agent-taskbay --version`, or the commit if you run from source.
+    validations:
+      required: true
+  - type: dropdown
+    id: profile
+    attributes:
+      label: How are you running it?
+      options:
+        - npx agent-taskbay (local)
+        - From source (npm run dev)
+        - From source (production build)
+        - Hosted with PostgreSQL
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Node.js version and operating system
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      description: Remove tokens, keys and anything private first.
+      render: shell

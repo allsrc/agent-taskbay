@@ -1,0 +1,41 @@
+name: Release
+
+# Publishes to npm with provenance when a version tag is pushed, for example `git tag v0.1.0 && git push origin v0.1.0`.
+# Requires the NPM_TOKEN repository secret (an npm automation token with publish rights to `agent-taskbay`).
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write # create the GitHub release
+  id-token: write # npm provenance
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22.17.0
+          cache: npm
+          registry-url: https://registry.npmjs.org
+      - run: npm ci
+      - name: Tag must match package.json
+        run: |
+          version="v$(node -p "require('./package.json').version")"
+          test "$version" = "$GITHUB_REF_NAME" || { echo "Tag $GITHUB_REF_NAME does not match package.json ($version)"; exit 1; }
+      - run: npm run lint
+      - run: npm test
+      - run: npm run verify:package
+      - name: Publish
+        run: |
+          channel=$(node -p "require('./package.json').version.includes('-') ? 'next' : 'latest'")
+          npm publish --provenance --access public --tag "$channel"
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: GitHub release
+        run: gh release create "$GITHUB_REF_NAME" --generate-notes --verify-tag $(case "$GITHUB_REF_NAME" in *-*) echo --prerelease;; esac)
+        env:
+          GH_TOKEN: ${{ github.token }}

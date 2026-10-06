@@ -281,6 +281,11 @@ durable recipient/read records and channels remain Phase 4 work.
 - local artifact directory
 - development identity and locally encrypted secrets
 
+The published package starts this profile with `npx agent-taskbay` (ADR 0025): a launcher runs the production build, applies
+migrations in place, generates the vault key into the data directory and binds loopback only. See
+[`docs/deployment/PRODUCTION_TOPOLOGY.md`](docs/deployment/PRODUCTION_TOPOLOGY.md) for the intended production topology, container
+count and artifact-storage options.
+
 Slices 2.1/2.2 run embedded command dispatch and a subscription pool in the
 long-running Next.js Node server for the local PGlite profile. PostgreSQL
 supports a separate task worker with `A2A_COMMAND_WORKER_MODE=external` and

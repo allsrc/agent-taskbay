@@ -37,6 +37,7 @@ agent builder, generic workflow engine, or trace explorer.
 | 5. Operator experience | Paused after 5.1 (remainder: [#5](https://github.com/shashikanth-gs/a2a-ops/issues/5)) | Shared queues, saved views, search, SLAs, notes, bulk triage, and agent health. |
 | 6. Rich interoperability | Complete | Structured input and start forms, edit-before-approve structured actions, agent-originated approvals, a safe A2UI renderer and an optional AG-UI adapter; all exit criteria verified. The extension plugin contract is deferred ([#26](https://github.com/shashikanth-gs/a2a-ops/issues/26)). |
 | 7. Enterprise hardening | Planned | HA, backup/restore, object lifecycle, KMS, load/recovery tests, retention, and administration. |
+| 8. Open-source distribution and developer experience | In progress | The `agent-taskbay` npm package and `npx` launcher, contributor setup, community files and release automation (ADR 0025). First publish is a maintainer step. |
 
 ## Current baseline
 

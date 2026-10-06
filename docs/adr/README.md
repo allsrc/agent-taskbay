@@ -36,3 +36,5 @@ accepted ADR. Small implementation details do not require an ADR.
 - [0022 — A2UI renderer](./0022-a2ui-renderer.md)
 - [0023 — Agent-originated approval requests](./0023-agent-originated-approvals.md)
 - [0024 — Product name: Agent Taskbay](./0024-product-name.md)
+- [0025 — npm distribution and the local launcher](./0025-npm-distribution-and-local-launcher.md)
+- [0026 — A client SDK for Agent Taskbay (proposed)](./0026-taskbay-client-sdk.md)
