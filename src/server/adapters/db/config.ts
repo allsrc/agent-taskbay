@@ -1,3 +1,4 @@
+import { mkdirSync } from "node:fs";
 import path from "node:path";
 
 import type { Options } from "@mikro-orm/core";
@@ -106,6 +107,9 @@ export function createMikroOrmOptions(
       driver: PostgreSqlDriver,
     };
   }
+
+  // PGlite creates its directory without `recursive`, so a clean checkout (no `.data`) would fail with ENOENT.
+  mkdirSync(path.dirname(config.dataDir), { recursive: true });
 
   return {
     ...commonOptions,

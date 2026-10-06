@@ -37,9 +37,19 @@ export async function bootstrapRuntimeDatabase(orm: MikroORM) {
   return bootstrapDefaultLocalOrganization(repositories.organizations);
 }
 
+/**
+ * ADR 0025. The local launcher and `next dev` own a single-process PGlite directory, so they migrate in place. Multi-replica
+ * PostgreSQL deployments keep migration as an explicit step unless an operator opts in with A2A_AUTO_MIGRATE=true.
+ */
+export function shouldAutoMigrate(environment: Readonly<Record<string, string | undefined>> = process.env): boolean {
+  if (environment.A2A_AUTO_MIGRATE !== undefined && environment.A2A_AUTO_MIGRATE !== "") return environment.A2A_AUTO_MIGRATE === "true";
+  return environment.NODE_ENV === "development" && (environment.A2A_DATABASE_PROFILE ?? "pglite") === "pglite";
+}
+
 async function createRuntimeDatabaseOrm(): Promise<MikroORM> {
   const orm = await createDatabaseOrm();
   try {
+    if (shouldAutoMigrate()) await orm.migrator.up();
     await bootstrapRuntimeDatabase(orm);
     return orm;
   } catch (error) {

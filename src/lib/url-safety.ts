@@ -25,7 +25,9 @@ export function validateTargetUrl(input: string): URL {
     if (configured.href !== `${configured.origin}/`) throw new Error("Agent allowlist entries must be exact origins.");
     return configured.origin;
   });
-  if ((origins.length || production) && !origins.includes(url.origin)) throw new Error("Agent target is not in the configured origin allowlist.");
+  // Explicit demo mode (development identity on a production build, as the local launcher runs) may reach any origin until an
+  // allowlist is configured. A configured allowlist is always enforced, and every other production profile requires one.
+  if ((origins.length || (production && !demo)) && !origins.includes(url.origin)) throw new Error("Agent target is not in the configured origin allowlist.");
   if (production && !demo && url.protocol !== "https:") throw new Error("Production agent targets require HTTPS.");
   return url;
 }

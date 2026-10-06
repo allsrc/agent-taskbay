@@ -393,3 +393,38 @@ Requirements: `ART-002`, `INT-002..004`, `HITL-006`, `ACC-001`.
 
 Requirements: `ART-001..003`, `OPS-001..002`, `SCL-001`, `SEC-003..005`,
 `TST-001..002`.
+
+## Phase 8 — open-source distribution and developer experience
+
+**Status:** In progress. Slices 8.1 and 8.2 are implemented and verified on Linux (2026-10-06); the first publish is a maintainer step.
+Independent of Phases 5 and 7. ADR 0025 records the decisions; hosting is deliberately out of scope and is discussed separately.
+
+### Deliverables
+
+- [x] Slice 8.1: the `agent-taskbay` npm package (production build, launcher, migrations, sample agent) and `npx agent-taskbay`:
+  loopback-only development identity, generated vault key kept in the data directory, single-owner data-directory guard, browser open,
+  and `demo-agent` for sample A2A agents.
+- [x] Slice 8.1: `A2A_AUTO_MIGRATE`, on for `next dev` with PGlite and for the launcher; the production build uses webpack so it can be
+  shipped through npm; demo mode no longer needs an origin allowlist (amends ADR 0014).
+- [x] Slice 8.1: `npm run verify:package` packs the project, installs the tarball into an empty directory, launches it and drives the
+  HTTP API through registration, command dispatch and a restart; it runs as its own CI job.
+- [x] Slice 8.2: community and governance files (contributing guide, code of conduct, security policy, issue and pull request templates,
+  Dependabot, changelog, `.nvmrc`, `.editorconfig`) and a release workflow that publishes with npm provenance on a version tag.
+- [x] Capture the production topology, container count and artifact-storage options (`docs/deployment/PRODUCTION_TOPOLOGY.md`) and the
+  parked client-SDK proposal (ADR 0026, [#31](https://github.com/shashikanth-gs/agent-taskbay/issues/31)).
+- [ ] First publish: add the `NPM_TOKEN` secret, bump or confirm the version, push a `v*` tag, and confirm provenance on npmjs.com.
+- [ ] Verify `npx agent-taskbay` from the npm registry on Linux, macOS and Windows (only Linux was verified from a local tarball).
+- [ ] Observe the new `package` CI job and the release workflow run green on GitHub.
+- [ ] Decide what to do with the tracked `A2A client UI mockups.zip` and `a2a-details.rtf` at the repository root. They are excluded
+  from the package but remain in the public history.
+- [ ] Decide on reproducible installs for end users (`npm-shrinkwrap.json` generated at publish time).
+- [ ] Browser-level (Playwright) smoke test of the launched package.
+
+### Exit criteria
+
+- `npx agent-taskbay` from the npm registry starts the console on Linux, macOS and Windows with no other setup, and a registered sample
+  agent survives a restart.
+- The published tarball contains only intended files and carries a provenance attestation.
+- A new contributor reaches a running console and a passing `npm run check` using only `CONTRIBUTING.md`.
+
+Requirements: `OPS-003`, `DX-001`, `OSS-001`.

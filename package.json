@@ -5,10 +5,14 @@
   "keywords": [
     "a2a",
     "agent2agent",
+    "a2a-protocol",
     "ai-agents",
     "human-in-the-loop",
     "agent-approvals",
+    "agent-workflow",
     "agent-operations",
+    "task-inbox",
+    "generative-ui",
     "nextjs"
   ],
   "homepage": "https://github.com/shashikanth-gs/agent-taskbay#readme",
@@ -20,23 +24,35 @@
     "url": "https://github.com/shashikanth-gs/agent-taskbay/issues"
   },
   "license": "MIT",
-  "private": true,
+  "author": "Shashi Kanth G S",
   "type": "module",
+  "bin": {
+    "agent-taskbay": "bin/agent-taskbay.mjs"
+  },
+  "files": [
+    "bin/",
+    "!bin/*.test.mjs",
+    ".next/",
+    "!.next/cache/",
+    "!.next/dev/",
+    "!.next/diagnostics/",
+    "!.next/trace*",
+    "next.config.mjs",
+    "src/server/adapters/db/migrations/",
+    "scripts/fixture-form-agent.mjs",
+    ".env.example",
+    "NOTICE"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "engines": {
     "node": ">=22.17.0"
   },
-  "keywords": [
-    "a2a",
-    "agent2agent",
-    "a2a-protocol",
-    "human-in-the-loop",
-    "agent-workflow",
-    "task-inbox",
-    "generative-ui"
-  ],
   "scripts": {
     "dev": "next dev -p 3002",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start -p 3002",
     "lint": "eslint",
     "test": "vitest run --exclude 'src/server/adapters/db/**/*.db.test.ts'",
@@ -54,7 +70,9 @@
     "worker:commands": "tsx scripts/command-worker.ts",
     "worker:tasks": "tsx scripts/command-worker.ts",
     "auth:provision": "tsx scripts/provision-identity.ts",
-    "security:credentials": "tsx scripts/manage-credentials.ts"
+    "security:credentials": "tsx scripts/manage-credentials.ts",
+    "prepack": "npm run build",
+    "verify:package": "node scripts/verify-package.mjs"
   },
   "dependencies": {
     "@a2a-js/sdk": "^1.0.1",

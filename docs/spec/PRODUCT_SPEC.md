@@ -151,6 +151,13 @@ A2A Tasks and Messages.
 - `OPS-001`: Local, Docker/demo, and enterprise deployment profiles are
   supported and documented.
 - `OPS-002`: Migrations, backup, restore, health, and recovery are testable.
+- `OPS-003`: The published package starts the local profile with one command and no prior setup. It binds only to loopback while
+  development identity is active, keeps its secrets out of logs and the browser, and refuses a second owner of the same data
+  directory.
+- `DX-001`: A contributor can go from a clean clone to a running console, sample agents and the checks using only repository
+  documentation, with no database server and no `.env` file.
+- `OSS-001`: The repository carries the license and notices, contribution, conduct and security policies, issue and pull request
+  templates, a changelog, and an automated release path with npm provenance.
 - `TST-001`: Core repositories run against PGlite and PostgreSQL.
 - `TST-002`: Streaming, reconnect, duplicate delivery, input-required,
   auth-required, cancellation, and artifact assembly have end-to-end coverage.

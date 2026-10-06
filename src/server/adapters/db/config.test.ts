@@ -1,3 +1,5 @@
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { describe, expect, it } from "vitest";
@@ -51,5 +53,17 @@ describe("database configuration", () => {
         url: "postgresql://localhost/a2a_ops",
       }).driver?.name,
     ).toBe("PostgreSqlDriver");
+  });
+
+  // DX-001: a clean checkout has no `.data` directory and PGlite does not create parents.
+  it("creates the parent of the PGlite directory so a clean checkout can start", () => {
+    const root = mkdtempSync(path.join(tmpdir(), "taskbay-config-"));
+    try {
+      const dataDir = path.join(root, "nested", ".data", "pglite");
+      createMikroOrmOptions({ profile: "pglite", dataDir });
+      expect(existsSync(path.dirname(dataDir))).toBe(true);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });

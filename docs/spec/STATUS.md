@@ -5,13 +5,22 @@ Last updated: 2026-10-06
 ## Active position
 
 - Last completed phase: **Phase 6 — rich interoperability** (Phase 4 complete; Phase 5 paused after 5.1)
-- Active phase: none. Phase 5 (operator experience) is paused after slice 5.1; Phase 7 (enterprise hardening) has not started.
-- Last completed slice: **6.7 — agent-originated approval requests**; Phase 6 exit verified 2026-10-06
-- Next executable slice: **5.2 — saved views, search, advanced filters and bulk triage** ([#5](https://github.com/shashikanth-gs/a2a-ops/issues/5)) or Phase 7, as the user chooses; the plugin contract is [#26](https://github.com/shashikanth-gs/a2a-ops/issues/26)
+- Active phase: **Phase 8 — open-source distribution and developer experience** (in progress; started 2026-10-06 at the user's direction).
+  Phase 5 (operator experience) stays paused after slice 5.1, and Phase 7 (enterprise hardening) has not started. Hosting is to be discussed separately.
+- Last completed slice: **8.2 — community files and release automation**, with **8.1 — npm package and local launcher** verified the same day
+  (Linux, from a local tarball). Phase 6 exit was verified 2026-10-06.
+- Next executable slice: the **first publish** (a maintainer step: `NPM_TOKEN` secret and a `v*` tag; see Phase 8 in `PHASES.md`), then
+  **5.2 — saved views, search, advanced filters and bulk triage** ([#5](https://github.com/shashikanth-gs/a2a-ops/issues/5)) or Phase 7, as the
+  user chooses; the plugin contract is [#26](https://github.com/shashikanth-gs/a2a-ops/issues/26)
 - Blocking decisions: none
 - Product renamed to **Agent Taskbay** on 2026-10-06 (ADR 0024); see the rename section below. The GitHub repository is renamed after merge.
 
 ## Pending follow-ups
+
+- **Client SDK for the Taskbay API — parked:** ADR 0026 (Proposed) and [#31](https://github.com/shashikanth-gs/agent-taskbay/issues/31).
+  Service-token authentication and a stable `/api/v1` come first. Not scheduled; deferred by agreement on 2026-10-06.
+- **Hosting — to be discussed:** container images, Helm or compose, S3/Azure Blob and KMS adapters (Phase 7). The intended topology is
+  recorded in `docs/deployment/PRODUCTION_TOPOLOGY.md`.
 
 - **User-delegated OAuth — pending:** consent, membership-bound encrypted tokens,
   refresh/revocation and durable worker subject selection are tracked in
@@ -46,6 +55,8 @@ Last updated: 2026-10-06
 
 ## Accepted implementation choices
 
+- Distribution: one npm package, `agent-taskbay`, run locally with `npx agent-taskbay` (ADR 0025). The production build uses webpack so it can be
+  shipped through npm; Turbopack remains the development bundler.
 - Product name: Agent Taskbay (ADR 0024); previously A2A Ops.
 - Repository slug: `agent-taskbay` (rename of the GitHub repository from `a2a-ops` is done after this change merges).
 - Wire and persisted identifiers still use `a2a-ops` on purpose; one coordinated rename is tracked in [#27](https://github.com/shashikanth-gs/a2a-ops/issues/27).
