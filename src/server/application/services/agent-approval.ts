@@ -2,8 +2,8 @@ import type { DurableTaskView } from "../../../shared/task-types";
 import type { DecisionRisk, ProposedAction } from "../../domain/decision-model";
 
 /** ADR 0023: an agent that advertises this extension may ask for an approval inside its INPUT_REQUIRED message. */
-export const APPROVAL_REQUEST_EXTENSION_URI = "https://a2a-ops.dev/extensions/approval-request/v1";
-export const APPROVAL_REQUEST_MEDIA_TYPE = "application/vnd.a2a-ops.approval-request+json";
+export const APPROVAL_REQUEST_EXTENSION_URI = "https://extensions.allsrc.dev/agent-taskbay/approval-request/v1";
+export const APPROVAL_REQUEST_MEDIA_TYPE = "application/vnd.agent-taskbay.approval-request+json";
 
 /** Agents propose a lifetime; the console bounds it so an agent cannot hold a request open indefinitely. */
 export const AGENT_REQUEST_LIFETIME = { defaultMs: 24 * 3_600_000, minMs: 5 * 60_000, maxMs: 7 * 24 * 3_600_000 } as const;

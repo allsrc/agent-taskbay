@@ -137,8 +137,8 @@ try {
   const seen = new Set();
   for (const hook of hooks) {
     const body = JSON.parse(hook.body);
-    assert.equal(hook.headers["x-a2a-ops-signature"], `v1=${createHmac("sha256", SECRET).update(`${hook.headers["x-a2a-ops-timestamp"]}.${hook.body}`).digest("hex")}`);
-    assert.equal(hook.headers["x-a2a-ops-delivery"], body.id);
+    assert.equal(hook.headers["x-agent-taskbay-signature"], `v1=${createHmac("sha256", SECRET).update(`${hook.headers["x-agent-taskbay-timestamp"]}.${hook.body}`).digest("hex")}`);
+    assert.equal(hook.headers["x-agent-taskbay-delivery"], body.id);
     assert.ok(!seen.has(body.id), "A healthy channel posts each notification once."); seen.add(body.id);
     assert.ok(body.text.includes(body.title) && body.organization === "local");
     assert.ok(!hook.body.includes("SECRET-PROPOSAL") && !hook.body.includes(SECRET) && !hook.headers.cookie && !hook.headers.authorization);

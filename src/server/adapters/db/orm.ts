@@ -13,7 +13,7 @@ import {
 import { createPersistenceRepositories } from "./repositories";
 
 type DatabaseGlobal = typeof globalThis & {
-  __a2aOpsOrmPromise?: Promise<MikroORM>;
+  __agentTaskbayOrmPromise?: Promise<MikroORM>;
 };
 
 const databaseGlobal = globalThis as DatabaseGlobal;
@@ -59,17 +59,17 @@ async function createRuntimeDatabaseOrm(): Promise<MikroORM> {
 }
 
 export function getDatabaseOrm(): Promise<MikroORM> {
-  if (!databaseGlobal.__a2aOpsOrmPromise) {
+  if (!databaseGlobal.__agentTaskbayOrmPromise) {
     const initialization = createRuntimeDatabaseOrm();
-    databaseGlobal.__a2aOpsOrmPromise = initialization;
+    databaseGlobal.__agentTaskbayOrmPromise = initialization;
     void initialization.catch(() => {
-      if (databaseGlobal.__a2aOpsOrmPromise === initialization) {
-        delete databaseGlobal.__a2aOpsOrmPromise;
+      if (databaseGlobal.__agentTaskbayOrmPromise === initialization) {
+        delete databaseGlobal.__agentTaskbayOrmPromise;
       }
     });
   }
 
-  return databaseGlobal.__a2aOpsOrmPromise;
+  return databaseGlobal.__agentTaskbayOrmPromise;
 }
 
 export async function withRequestEntityManager<T>(
@@ -100,8 +100,8 @@ export async function withJobEntityManager<T>(
 }
 
 export async function closeDatabaseOrm(): Promise<void> {
-  const initialization = databaseGlobal.__a2aOpsOrmPromise;
-  delete databaseGlobal.__a2aOpsOrmPromise;
+  const initialization = databaseGlobal.__agentTaskbayOrmPromise;
+  delete databaseGlobal.__agentTaskbayOrmPromise;
   if (initialization) {
     await (await initialization).close(true);
   }

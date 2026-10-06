@@ -2,9 +2,6 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { migrateBrowserStorageKey } from "./storage-key";
-
-migrateBrowserStorageKey("a2a-agent-workflow-ui.settings", "a2a-ops.settings");
 
 export const OUTPUT_MODE_OPTIONS = [
   { key: "text/plain", title: "Plain text" },
@@ -54,6 +51,6 @@ export const useSettingsStore = create<SettingsState>()(
         set((state) => ({ extensions: state.extensions.map((item) => (item.uri === uri ? { ...item, enabled: !item.enabled } : item)) })),
       removeExtension: (uri) => set((state) => ({ extensions: state.extensions.filter((item) => item.uri !== uri) })),
     }),
-    { name: "a2a-ops.settings" },
+    { name: "agent-taskbay.settings" },
   ),
 );

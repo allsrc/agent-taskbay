@@ -18,12 +18,3 @@ export async function readDurableTasks(signal: AbortSignal): Promise<DurableTask
   } while (after);
   return [...tasks.values()];
 }
-
-/** Retire only obsolete content/read caches; UI preferences keep their own storage. */
-export function retireBrowserTaskPersistence(storage: Pick<Storage, "removeItem">) {
-  for (const namespace of ["a2a-agent-workflow-ui", "a2a-ops"]) {
-    for (const suffix of ["tasks", "notifications"]) {
-      try { storage.removeItem(`${namespace}.${suffix}`); } catch { /* Storage may be disabled. */ }
-    }
-  }
-}

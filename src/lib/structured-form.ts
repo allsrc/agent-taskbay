@@ -1,8 +1,8 @@
 import type { NormalizedPart } from "@/lib/types";
 
 /** Extension an agent advertises to opt in to console-rendered input forms. Negotiation stays URI-based and opt-in. */
-export const STRUCTURED_FORM_EXTENSION_URI = "https://a2a-ops.dev/extensions/structured-form/v1";
-export const STRUCTURED_FORM_MEDIA_TYPE = "application/vnd.a2a-ops.form+json";
+export const STRUCTURED_FORM_EXTENSION_URI = "https://extensions.allsrc.dev/agent-taskbay/structured-form/v1";
+export const STRUCTURED_FORM_MEDIA_TYPE = "application/vnd.agent-taskbay.form+json";
 
 export const FORM_LIMITS = { fields: 30, options: 50, label: 120, text: 2_000, stringMax: 10_000 } as const;
 

@@ -276,7 +276,7 @@ async function verifyRepositoryContract(config: DatabaseConfig) {
 
 describe("PGlite repository contract", () => {
   it("persists the initial model and enforces tenant-scoped identities", async () => {
-    const dataDir = await mkdtemp(path.join(tmpdir(), "a2a-ops-repositories-"));
+    const dataDir = await mkdtemp(path.join(tmpdir(), "agent-taskbay-repositories-"));
     try {
       await verifyRepositoryContract({ profile: "pglite", dataDir });
     } finally {

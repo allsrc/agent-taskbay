@@ -21,12 +21,12 @@ export async function resolvePrincipal(cookie?: string, orm?: MikroORM): Promise
     const identity = new DatabaseIdentityRepository(em);
     if (config.mode === "development") {
       const org = await bootstrapDefaultLocalOrganization(createPersistenceRepositories(em).organizations);
-      const existing = await identity.resolveExternal("a2a-ops:development", "local-operator", org.slug);
+      const existing = await identity.resolveExternal("agent-taskbay:development", "local-operator", org.slug);
       // A disabled membership/user stays disabled; development does not reactivate it.
       if (existing) return existing;
       const { ExternalIdentityEntity } = await import("../adapters/db/entities");
-      if (await em.findOne(ExternalIdentityEntity, { issuer: "a2a-ops:development", subject: "local-operator" })) return;
-      return provisionIdentity(em, { issuer: "a2a-ops:development", subject: "local-operator", organizationId: org.id,
+      if (await em.findOne(ExternalIdentityEntity, { issuer: "agent-taskbay:development", subject: "local-operator" })) return;
+      return provisionIdentity(em, { issuer: "agent-taskbay:development", subject: "local-operator", organizationId: org.id,
         displayName: "Local operator", role: "admin" });
     }
     if (!cookie || !/^[A-Za-z0-9_-]{43}$/.test(cookie)) return;

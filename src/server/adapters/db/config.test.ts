@@ -19,7 +19,7 @@ describe("database configuration", () => {
   });
 
   it("accepts an explicit PostgreSQL URL", () => {
-    const url = "postgresql://a2a:secret@db.example.test:5432/a2a_ops";
+    const url = "postgresql://a2a:secret@db.example.test:5432/agent_taskbay";
     expect(
       loadDatabaseConfig({
         A2A_DATABASE_PROFILE: "postgresql",
@@ -37,7 +37,7 @@ describe("database configuration", () => {
     expect(() =>
       loadDatabaseConfig({
         A2A_DATABASE_PROFILE: "postgresql",
-        A2A_DATABASE_URL: `https://user:${secret}@db.example.test/a2a_ops`,
+        A2A_DATABASE_URL: `https://user:${secret}@db.example.test/agent_taskbay`,
       }),
     ).toThrowError(new RegExp(`^(?!.*${secret}).*$`));
   });
@@ -50,7 +50,7 @@ describe("database configuration", () => {
     expect(
       createMikroOrmOptions({
         profile: "postgresql",
-        url: "postgresql://localhost/a2a_ops",
+        url: "postgresql://localhost/agent_taskbay",
       }).driver?.name,
     ).toBe("PostgreSqlDriver");
   });

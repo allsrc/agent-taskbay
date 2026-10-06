@@ -24,7 +24,10 @@
     "url": "https://github.com/shashikanth-gs/agent-taskbay/issues"
   },
   "license": "MIT",
-  "author": "Shashi Kanth G S",
+  "author": {
+    "name": "Shashi Kanth G S",
+    "url": "https://shashikanth.me"
+  },
   "type": "module",
   "bin": {
     "agent-taskbay": "bin/agent-taskbay.mjs"

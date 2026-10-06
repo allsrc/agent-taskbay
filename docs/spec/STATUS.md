@@ -10,10 +10,9 @@ Last updated: 2026-10-06
 - Last completed slice: **8.2 — community files and release automation**, with **8.1 — npm package and local launcher** verified the same day
   (Linux, from a local tarball). Phase 6 exit was verified 2026-10-06.
 - Next executable slice: the **first publish** (a maintainer step: `NPM_TOKEN` secret and a `v*` tag; see Phase 8 in `PHASES.md`), then
-  **5.2 — saved views, search, advanced filters and bulk triage** ([#5](https://github.com/shashikanth-gs/a2a-ops/issues/5)) or Phase 7, as the
-  user chooses; the plugin contract is [#26](https://github.com/shashikanth-gs/a2a-ops/issues/26)
+  **5.2 — saved views, search, advanced filters and bulk triage** ([#5](https://github.com/shashikanth-gs/agent-taskbay/issues/5)) or Phase 7, as the
+  user chooses; the plugin contract is [#26](https://github.com/shashikanth-gs/agent-taskbay/issues/26)
 - Blocking decisions: none
-- Product renamed to **Agent Taskbay** on 2026-10-06 (ADR 0024); see the rename section below. The GitHub repository is renamed after merge.
 
 ## Pending follow-ups
 
@@ -24,42 +23,40 @@ Last updated: 2026-10-06
 
 - **User-delegated OAuth — pending:** consent, membership-bound encrypted tokens,
   refresh/revocation and durable worker subject selection are tracked in
-  [GitHub issue #1](https://github.com/shashikanth-gs/a2a-ops/issues/1).
+  [GitHub issue #1](https://github.com/shashikanth-gs/agent-taskbay/issues/1).
   Deferred by agreement on 2026-10-03 for later review. This is separate from the
   verified Phase 3 service identity baseline and does not block Slice 4.1.
 
-- **Phase 6 plugin contract — deferred:** [#26](https://github.com/shashikanth-gs/a2a-ops/issues/26), by agreement on 2026-10-06; does not block the Phase 6 exit.
-- **Phase 6 A2UI follow-ups — tracked:** components [#22](https://github.com/shashikanth-gs/a2a-ops/issues/22), functions and
-  `openUrl` [#23](https://github.com/shashikanth-gs/a2a-ops/issues/23), other surfaces [#24](https://github.com/shashikanth-gs/a2a-ops/issues/24),
-  real-agent verification [#25](https://github.com/shashikanth-gs/a2a-ops/issues/25).
-- **Phase 6 approval follow-ups — tracked:** agent-originated requests [#15](https://github.com/shashikanth-gs/a2a-ops/issues/15),
-  bypass and approval-required policy [#16](https://github.com/shashikanth-gs/a2a-ops/issues/16), digest-echo contract
-  [#17](https://github.com/shashikanth-gs/a2a-ops/issues/17), ADK adapter [#18](https://github.com/shashikanth-gs/a2a-ops/issues/18),
-  upstream extension proposals [#19](https://github.com/shashikanth-gs/a2a-ops/issues/19), AG-UI approval interrupts
-  [#20](https://github.com/shashikanth-gs/a2a-ops/issues/20).
+- **Phase 6 plugin contract — deferred:** [#26](https://github.com/shashikanth-gs/agent-taskbay/issues/26), by agreement on 2026-10-06; does not block the Phase 6 exit.
+- **Phase 6 A2UI follow-ups — tracked:** components [#22](https://github.com/shashikanth-gs/agent-taskbay/issues/22), functions and
+  `openUrl` [#23](https://github.com/shashikanth-gs/agent-taskbay/issues/23), other surfaces [#24](https://github.com/shashikanth-gs/agent-taskbay/issues/24),
+  real-agent verification [#25](https://github.com/shashikanth-gs/agent-taskbay/issues/25).
+- **Phase 6 approval follow-ups — tracked:** agent-originated requests [#15](https://github.com/shashikanth-gs/agent-taskbay/issues/15),
+  bypass and approval-required policy [#16](https://github.com/shashikanth-gs/agent-taskbay/issues/16), digest-echo contract
+  [#17](https://github.com/shashikanth-gs/agent-taskbay/issues/17), ADK adapter [#18](https://github.com/shashikanth-gs/agent-taskbay/issues/18),
+  upstream extension proposals [#19](https://github.com/shashikanth-gs/agent-taskbay/issues/19), AG-UI approval interrupts
+  [#20](https://github.com/shashikanth-gs/agent-taskbay/issues/20).
 - **Phase 5 remainder — deferred:** saved views, full-text search, advanced filters,
   bulk triage, SLA indicators, agent health administration, workflow links and
   notification preferences are tracked in
-  [GitHub issue #5](https://github.com/shashikanth-gs/a2a-ops/issues/5). Deferred by
+  [GitHub issue #5](https://github.com/shashikanth-gs/agent-taskbay/issues/5). Deferred by
   agreement on 2026-10-05 so Phase 6 could start; Phase 5 exit criteria are still
   unverified and the phase is not complete. Resume at slice 5.2.
 
 - **Phase 6 limitations — tracked:** AG-UI thread-to-context mapping
-  ([#8](https://github.com/shashikanth-gs/a2a-ops/issues/8)), skill-scoped principals
-  ([#9](https://github.com/shashikanth-gs/a2a-ops/issues/9)), tools/context/state/non-text content
-  ([#10](https://github.com/shashikanth-gs/a2a-ops/issues/10)), cross-origin browser clients
-  ([#11](https://github.com/shashikanth-gs/a2a-ops/issues/11)), runs longer than 50 s
-  ([#12](https://github.com/shashikanth-gs/a2a-ops/issues/12)), real-client and schema verification
-  ([#13](https://github.com/shashikanth-gs/a2a-ops/issues/13)) and a committed browser E2E suite for forms
-  ([#14](https://github.com/shashikanth-gs/a2a-ops/issues/14)). None blocks the next slice.
+  ([#8](https://github.com/shashikanth-gs/agent-taskbay/issues/8)), skill-scoped principals
+  ([#9](https://github.com/shashikanth-gs/agent-taskbay/issues/9)), tools/context/state/non-text content
+  ([#10](https://github.com/shashikanth-gs/agent-taskbay/issues/10)), cross-origin browser clients
+  ([#11](https://github.com/shashikanth-gs/agent-taskbay/issues/11)), runs longer than 50 s
+  ([#12](https://github.com/shashikanth-gs/agent-taskbay/issues/12)), real-client and schema verification
+  ([#13](https://github.com/shashikanth-gs/agent-taskbay/issues/13)) and a committed browser E2E suite for forms
+  ([#14](https://github.com/shashikanth-gs/agent-taskbay/issues/14)). None blocks the next slice.
 
 ## Accepted implementation choices
 
 - Distribution: one npm package, `agent-taskbay`, run locally with `npx agent-taskbay` (ADR 0025). The production build uses webpack so it can be
   shipped through npm; Turbopack remains the development bundler.
-- Product name: Agent Taskbay (ADR 0024); previously A2A Ops.
-- Repository slug: `agent-taskbay` (rename of the GitHub repository from `a2a-ops` is done after this change merges).
-- Wire and persisted identifiers still use `a2a-ops` on purpose; one coordinated rename is tracked in [#27](https://github.com/shashikanth-gs/a2a-ops/issues/27).
+- Product name: Agent Taskbay (ADR 0024); repository and package slug `agent-taskbay`. Wire and persisted identifiers use the same slug.
 - Tagline: "The human operations console for A2A agent workflows."
 - ORM: MikroORM using Data Mapper/Unit of Work/Entity Repository patterns.
 - Local default database: file-backed PGlite.
@@ -110,7 +107,7 @@ Changes:
 
 Verification commands and results:
 
-- `A2A_TEST_POSTGRES_URL=postgresql://postgres:postgres@127.0.0.1:55432/a2a_ops_test npm run check`:
+- `A2A_TEST_POSTGRES_URL=postgresql://postgres:postgres@127.0.0.1:55432/agent_taskbay_test npm run check`:
   passed lint; 8 unit files and 31 tests; 1 database file and 3 tests against
   PGlite and PostgreSQL; migration schema check; and the Next.js 16.3.6
   production build with all 18 routes reported successfully.
@@ -165,7 +162,7 @@ Changes:
 
 Verification commands and results:
 
-- `A2A_TEST_POSTGRES_URL=postgresql://postgres:postgres@127.0.0.1:55432/a2a_ops_test npm run check`:
+- `A2A_TEST_POSTGRES_URL=postgresql://postgres:postgres@127.0.0.1:55432/agent_taskbay_test npm run check`:
   passed lint; 8 unit files and 31 tests; 2 database files and 6 tests against
   PGlite and PostgreSQL; migration schema check; and the Next.js 16.3.6
   production build with all 18 routes reported successfully.
@@ -248,7 +245,7 @@ Verification commands and results:
 - Before implementation, the existing full quality gate passed against
   PGlite and PostgreSQL 18: 31 unit tests, 6 database tests, lint, schema check,
   and production build.
-- `A2A_TEST_POSTGRES_URL=postgresql://postgres:postgres@127.0.0.1:55432/a2a_ops_test npm run check`:
+- `A2A_TEST_POSTGRES_URL=postgresql://postgres:postgres@127.0.0.1:55432/agent_taskbay_test npm run check`:
   passed lint; 9 unit files and 29 tests; 3 database files and 10 tests across
   PGlite and PostgreSQL; schema check; and the Next.js production build.
 - `npm run build`: passed again after excluding runtime import data from
@@ -318,7 +315,7 @@ Verification commands and results:
 
 - Before implementation, the previous quality gate passed: 29 unit tests,
   10 database tests across PGlite and PostgreSQL, lint, schema, and build.
-- `A2A_TEST_POSTGRES_URL=postgresql://postgres:postgres@127.0.0.1:55432/a2a_ops_test npm run check`:
+- `A2A_TEST_POSTGRES_URL=postgresql://postgres:postgres@127.0.0.1:55432/agent_taskbay_test npm run check`:
   passed lint; 11 unit files and 35 tests; 4 database files and 12 tests on
   PGlite and PostgreSQL 18; schema check; production build; and production
   HTTP verification.
@@ -408,7 +405,7 @@ Verification commands and results:
   PostgreSQL 18: 35 unit tests, 12 database tests, lint, schema, build, and HTTP
   restart verification. The initial PostgreSQL attempt failed because its
   disposable container was absent; recreating it restored the baseline.
-- `A2A_TEST_POSTGRES_URL=postgresql://postgres:postgres@127.0.0.1:55432/a2a_ops_test npm run check`:
+- `A2A_TEST_POSTGRES_URL=postgresql://postgres:postgres@127.0.0.1:55432/agent_taskbay_test npm run check`:
   passed lint; 11 unit files and 36 tests; 5 database files and 14 tests on
   PGlite/PostgreSQL 18; schema check; production build; and HTTP verification
   on PGlite with embedded dispatch and PostgreSQL with a separate worker.
@@ -496,7 +493,7 @@ Verification commands and results:
   PostgreSQL 18: 36 unit tests, 14 database tests, lint, schema, build and both
   production HTTP profiles. A disposable PostgreSQL 18 container supplied the
   test database and was removed after verification.
-- `A2A_TEST_POSTGRES_URL=postgresql://postgres:postgres@127.0.0.1:55432/a2a_ops_test npm run check`:
+- `A2A_TEST_POSTGRES_URL=postgresql://postgres:postgres@127.0.0.1:55432/agent_taskbay_test npm run check`:
   passed lint without warnings; 13 unit files and 39 tests; 6 database files and
   16 tests against PGlite/PostgreSQL 18; schema check; production build; and
   production HTTP verification using both actual worker entry points.
@@ -593,7 +590,7 @@ Verification commands and results:
   PostgreSQL 18: 39 unit tests, 16 database tests, lint, schema check, production
   build and both production HTTP worker profiles. A disposable PostgreSQL 18
   container supplied the isolated test database.
-- `A2A_TEST_POSTGRES_URL=postgresql://postgres:postgres@127.0.0.1:55432/a2a_ops_test npm run check`:
+- `A2A_TEST_POSTGRES_URL=postgresql://postgres:postgres@127.0.0.1:55432/agent_taskbay_test npm run check`:
   passed lint; 16 unit files and 44 tests; 7 database files and 18 tests on
   PGlite/PostgreSQL 18; schema check; build; production HTTP in both profiles.
 - The shared push contract verifies atomic intent/rollback, no fake direct Task,
@@ -690,7 +687,7 @@ Verification commands and results:
   18 database tests on PGlite/PostgreSQL 18, schema check, production build and
   both production HTTP worker profiles. A disposable PostgreSQL 18 container
   supplied the isolated test database.
-- `A2A_TEST_POSTGRES_URL=postgresql://postgres:postgres@127.0.0.1:55432/a2a_ops_test npm run check`:
+- `A2A_TEST_POSTGRES_URL=postgresql://postgres:postgres@127.0.0.1:55432/agent_taskbay_test npm run check`:
   passed lint; 18 unit files/47 tests; 8 database files/20 tests on PGlite and
   PostgreSQL 18; schema drift check; build; production HTTP in both profiles.
 - The shared reconciliation contract verifies atomic intent/rollback, direct
@@ -788,7 +785,7 @@ Verification commands and results:
 - Before implementation, the complete Slice 2.4 gate passed: lint, 47 unit tests,
   20 database tests on PGlite/PostgreSQL 18, schema check, production build and
   both HTTP worker profiles. Existing work was committed/pushed as `bf7c806`.
-- `A2A_TEST_POSTGRES_URL=postgresql://postgres:postgres@127.0.0.1:55432/a2a_ops_test npm run check`:
+- `A2A_TEST_POSTGRES_URL=postgresql://postgres:postgres@127.0.0.1:55432/agent_taskbay_test npm run check`:
   passed lint; 19 unit files/52 tests; 9 database files/22 tests on PGlite and
   PostgreSQL 18; schema drift check; production build; HTTP in both profiles.
 - The shared rebuild contract verifies upgrade with retained original binary
@@ -886,7 +883,7 @@ Verification commands and results:
 - Before implementation, the complete Slice 2.5 quality gate passed: lint,
   52 unit tests, 22 database tests on PGlite/PostgreSQL 18, schema check, build
   and both production HTTP worker profiles.
-- `A2A_TEST_POSTGRES_URL=postgresql://postgres:postgres@127.0.0.1:55432/a2a_ops_test npm run check`:
+- `A2A_TEST_POSTGRES_URL=postgresql://postgres:postgres@127.0.0.1:55432/agent_taskbay_test npm run check`:
   passed lint; 22 unit files/58 tests; 10 database files/24 tests on both
   databases; schema drift check; production build; production HTTP with
   embedded PGlite and external PostgreSQL workers.
@@ -989,10 +986,10 @@ Verification commands and results:
   HTTP then exposed a test assumption that every no-op rebuild advances the
   ORM version. The assertion now verifies a non-regressing version and identical
   deterministic content; rebuild content tests exclude operational revision.
-- `A2A_TEST_POSTGRES_URL=postgresql://postgres:postgres@127.0.0.1:55432/a2a_ops_test A2A_HTTP_TEST_KEEP_SERVER=true npm run test:http`:
+- `A2A_TEST_POSTGRES_URL=postgresql://postgres:postgres@127.0.0.1:55432/agent_taskbay_test A2A_HTTP_TEST_KEEP_SERVER=true npm run test:http`:
   passed embedded PGlite production HTTP and remained available for browser QA;
   graceful SIGINT completed fixture cleanup with exit code zero.
-- `A2A_TEST_POSTGRES_URL=postgresql://postgres:postgres@127.0.0.1:55432/a2a_ops_test A2A_HTTP_TEST_PROFILE=postgresql npm run test:http`:
+- `A2A_TEST_POSTGRES_URL=postgresql://postgres:postgres@127.0.0.1:55432/agent_taskbay_test A2A_HTTP_TEST_PROFILE=postgresql npm run test:http`:
   passed external PostgreSQL production HTTP and cleaned up its temporary database.
 - Shared database contracts verify complete content pagination, direct Messages,
   scoped remote-ID/context collisions, foreign-organization exclusion, derived
@@ -1088,7 +1085,7 @@ Verification commands and results:
 
 - Verified Phase 2 prerequisites with the existing full quality gate before
   implementation. Existing uncommitted Phase 2 work remains preserved.
-- `A2A_DATABASE_PROFILE=postgresql A2A_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:55432/a2a_ops_test A2A_TEST_POSTGRES_URL=postgresql://postgres:postgres@127.0.0.1:55432/a2a_ops_test npm run check`:
+- `A2A_DATABASE_PROFILE=postgresql A2A_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:55432/agent_taskbay_test A2A_TEST_POSTGRES_URL=postgresql://postgres:postgres@127.0.0.1:55432/agent_taskbay_test npm run check`:
   passed lint, 26 unit files/73 tests, 11 database files/26 tests across PGlite
   and PostgreSQL 18, schema drift check, production build and both existing
   task-runtime and new identity HTTP suites on both profiles.
@@ -1180,7 +1177,7 @@ Verification commands and results:
 
 - Reverified all Phase 2/3.1 prerequisites before implementation using the full quality
   gate on a disposable PostgreSQL 18 server. Preserved existing uncommitted changes.
-- `A2A_DATABASE_PROFILE=postgresql A2A_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:55432/a2a_ops_test A2A_TEST_POSTGRES_URL=postgresql://postgres:postgres@127.0.0.1:55432/a2a_ops_test npm run check`:
+- `A2A_DATABASE_PROFILE=postgresql A2A_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:55432/agent_taskbay_test A2A_TEST_POSTGRES_URL=postgresql://postgres:postgres@127.0.0.1:55432/agent_taskbay_test npm run check`:
   passed lint, 28 unit files/81 tests, 12 database files/28 tests across PGlite and
   PostgreSQL, no schema drift, production build, TLS service agent fixtures and both
   task-runtime and OIDC/protected-agent HTTP suites on both database profiles.
@@ -1280,7 +1277,7 @@ Changes:
 Verification commands and results:
 
 - `npx tsc --noEmit` and `npm run lint`: passed.
-- `A2A_TEST_POSTGRES_URL=postgresql://postgres:postgres@127.0.0.1:5432/a2a_ops_test npm run check`
+- `A2A_TEST_POSTGRES_URL=postgresql://postgres:postgres@127.0.0.1:5432/agent_taskbay_test npm run check`
   passed lint, 28 unit files/81 tests and 13 database files/30 tests on PGlite and
   PostgreSQL. In this sandbox the gate's schema step needs a migrated local database,
   so it was run separately against a freshly migrated PGlite directory: no schema drift.
@@ -1729,7 +1726,7 @@ Remaining risks:
 **Slice 5.1 is verified. Phase 5 remains active.**
 
 Next executable slice: **5.2 — saved views, full-text search, advanced filters and bulk triage** on the inbox
-query. Deferred to [issue #5](https://github.com/shashikanth-gs/a2a-ops/issues/5) on 2026-10-05; the active
+query. Deferred to [issue #5](https://github.com/shashikanth-gs/agent-taskbay/issues/5) on 2026-10-05; the active
 slice moved to Phase 6 (6.1) by explicit decision.
 
 ## Slice 6.1 evidence (2026-10-05)
@@ -1891,7 +1888,7 @@ Remaining risks:
 
 - Forms on the approval review page (edit-before-approve of structured actions) are slice 6.5 and need an ADR 0015
   addendum because they change the proposed-action union and the exact-revision digest.
-- The committed browser suite is tracked in [#14](https://github.com/shashikanth-gs/a2a-ops/issues/14).
+- The committed browser suite is tracked in [#14](https://github.com/shashikanth-gs/agent-taskbay/issues/14).
 
 Next executable slice: **6.5 — structured actions on the approval review page**, then **6.6 safe A2UI renderer**,
 **6.7 agent-originated approvals**, **6.8 plugin contract**.
@@ -1935,13 +1932,13 @@ Migration tested from: not applicable (no schema change).
 
 Remaining risks and follow-ups (tracked):
 
-- Agents cannot open approval requests themselves ([#15](https://github.com/shashikanth-gs/a2a-ops/issues/15)); plain
+- Agents cannot open approval requests themselves ([#15](https://github.com/shashikanth-gs/agent-taskbay/issues/15)); plain
   replies can still bypass an open request and there is no approval-required policy
-  ([#16](https://github.com/shashikanth-gs/a2a-ops/issues/16)); the agent-side digest-echo contract
-  ([#17](https://github.com/shashikanth-gs/a2a-ops/issues/17)); ADK adapter after verification
-  ([#18](https://github.com/shashikanth-gs/a2a-ops/issues/18)); upstream extension proposals
-  ([#19](https://github.com/shashikanth-gs/a2a-ops/issues/19)); AG-UI approval interrupts
-  ([#20](https://github.com/shashikanth-gs/a2a-ops/issues/20)).
+  ([#16](https://github.com/shashikanth-gs/agent-taskbay/issues/16)); the agent-side digest-echo contract
+  ([#17](https://github.com/shashikanth-gs/agent-taskbay/issues/17)); ADK adapter after verification
+  ([#18](https://github.com/shashikanth-gs/agent-taskbay/issues/18)); upstream extension proposals
+  ([#19](https://github.com/shashikanth-gs/agent-taskbay/issues/19)); AG-UI approval interrupts
+  ([#20](https://github.com/shashikanth-gs/agent-taskbay/issues/20)).
 - A2UI proposals in the review page wait for the A2UI renderer; the browser run is not committed (#14).
 
 Next executable slice: **6.6 — safe A2UI renderer**, then **6.7 agent-originated approvals**, **6.8 plugin contract**.
@@ -1984,12 +1981,12 @@ Verification commands and results:
 
 Migration tested from: not applicable (no schema change).
 
-Remaining risks and follow-ups (tracked): remaining components [#22](https://github.com/shashikanth-gs/a2a-ops/issues/22),
-functions/checks/`openUrl`/`sendDataModel` [#23](https://github.com/shashikanth-gs/a2a-ops/issues/23), task and approval pages,
-AG-UI mapping and the edit-merge rule [#24](https://github.com/shashikanth-gs/a2a-ops/issues/24), real A2UI agent and official-schema
-verification [#25](https://github.com/shashikanth-gs/a2a-ops/issues/25). The browser run is not committed (#14).
+Remaining risks and follow-ups (tracked): remaining components [#22](https://github.com/shashikanth-gs/agent-taskbay/issues/22),
+functions/checks/`openUrl`/`sendDataModel` [#23](https://github.com/shashikanth-gs/agent-taskbay/issues/23), task and approval pages,
+AG-UI mapping and the edit-merge rule [#24](https://github.com/shashikanth-gs/agent-taskbay/issues/24), real A2UI agent and official-schema
+verification [#25](https://github.com/shashikanth-gs/agent-taskbay/issues/25). The browser run is not committed (#14).
 
-Next executable slice: **6.7 — agent-originated approval requests** ([#15](https://github.com/shashikanth-gs/a2a-ops/issues/15)),
+Next executable slice: **6.7 — agent-originated approval requests** ([#15](https://github.com/shashikanth-gs/agent-taskbay/issues/15)),
 then **6.8 plugin contract and Phase 6 exit verification**.
 
 ## Slice 6.7 evidence (2026-10-06)
@@ -1999,8 +1996,8 @@ Slice: 6.7 — agent-originated approval requests (ADR 0023, `HITL-006`)
 
 Changes:
 
-- Opt-in extension `https://a2a-ops.dev/extensions/approval-request/v1`; the agent sends a data part
-  (`application/vnd.a2a-ops.approval-request+json`) in its latest `INPUT_REQUIRED` message. After an observation is stored, in
+- Opt-in extension `https://extensions.allsrc.dev/agent-taskbay/approval-request/v1`; the agent sends a data part
+  (`application/vnd.agent-taskbay.approval-request+json`) in its latest `INPUT_REQUIRED` message. After an observation is stored, in
   the same transaction, an advertising agent's valid request opens a pending decision request
   (`runtime/agent-approvals.ts`, `services/agent-approval.ts`, `DecisionService.openFromAgent`). Content is validated with the
   same rules as a person's proposal before any write; invalid or conflicting content stays ordinary message content.
@@ -2030,10 +2027,10 @@ Verification commands and results:
 Migration tested from: not applicable (no schema change; request, revision and audit rows already allow a null human actor).
 
 Remaining risks and follow-ups (tracked): approval-required policy and bypassing replies
-[#16](https://github.com/shashikanth-gs/a2a-ops/issues/16), digest-echo contract
-[#17](https://github.com/shashikanth-gs/a2a-ops/issues/17), ADK pattern [#18](https://github.com/shashikanth-gs/a2a-ops/issues/18),
-upstream proposal [#19](https://github.com/shashikanth-gs/a2a-ops/issues/19), AG-UI interrupts
-[#20](https://github.com/shashikanth-gs/a2a-ops/issues/20). A single agent can open at most one live request per task; per-agent
+[#16](https://github.com/shashikanth-gs/agent-taskbay/issues/16), digest-echo contract
+[#17](https://github.com/shashikanth-gs/agent-taskbay/issues/17), ADK pattern [#18](https://github.com/shashikanth-gs/agent-taskbay/issues/18),
+upstream proposal [#19](https://github.com/shashikanth-gs/agent-taskbay/issues/19), AG-UI interrupts
+[#20](https://github.com/shashikanth-gs/agent-taskbay/issues/20). A single agent can open at most one live request per task; per-agent
 request budgets are not yet configurable.
 
 Next executable slice: **6.8 — extension plugin contract and Phase 6 exit verification**.
@@ -2041,7 +2038,7 @@ Next executable slice: **6.8 — extension plugin contract and Phase 6 exit veri
 ## Phase 6 exit verification (2026-10-06)
 
 Date: 2026-10-06
-Scope: the three Phase 6 exit criteria. The plugin contract was deferred by the user to [#26](https://github.com/shashikanth-gs/a2a-ops/issues/26).
+Scope: the three Phase 6 exit criteria. The plugin contract was deferred by the user to [#26](https://github.com/shashikanth-gs/agent-taskbay/issues/26).
 
 Evidence per criterion:
 
@@ -2072,42 +2069,7 @@ Verification commands and results:
 
 Migration tested from: not applicable (no schema change).
 
-**Phase 6 is complete.** Next: Phase 5 remainder ([#5](https://github.com/shashikanth-gs/a2a-ops/issues/5)) or Phase 7, by the user's choice; open Phase 6 follow-ups are tracked as issues.
-
-## Product rename evidence (2026-10-06)
-
-Date: 2026-10-06
-
-Slice: product rename to **Agent Taskbay** (ADR 0024). Naming only; no behavior, schema or API change.
-
-Changes:
-
-- Display name Agent Taskbay and slug `agent-taskbay` in the UI (page title, wordmark, sign-in heading, shell fallback label), README,
-  PRODUCT_SPEC, ARCHITECTURE, ROADMAP, THREAT_MODEL, NOTICE, `package.json` (name, repository URLs, search keywords) and the lockfile.
-- CI and HTTP-test database names renamed to `agent_taskbay_*`.
-- README gained an introduction aimed at the terms people search and a "Naming and affiliation" note (independent project; not
-  endorsed by the A2A project or the Linux Foundation).
-- ADR 0024 records the decision, the naming checks and the identifiers kept on purpose. Accepted ADRs 0001-0023 and historical evidence
-  in this file keep the old name.
-- Wire and persisted identifiers still use `a2a-ops` (extension URIs, media types, webhook headers, dev issuer, storage keys,
-  migrations table); a coordinated rename is tracked in [#27](https://github.com/shashikanth-gs/a2a-ops/issues/27).
-- Repository path links in docs still use `a2a-ops`; GitHub redirects them after the repository is renamed (done after merge).
-
-Verification commands and results:
-
-- Allowlist audit: every remaining `a2a-ops` outside ADRs 0001-0023, this file's history and issue links is a documented compatibility
-  identifier or a temporary-directory name in a test.
-- `npm run lint`, `npm test` (147 tests), `npm run test:db` (22 passed; 18 PostgreSQL-only cases skipped, no server available), `npm run
-  db:migrate` then `npm run db:schema:check` on a fresh PGlite directory, `npm run build`, and `npm run test:http` (all suites, including
-  the Phase 6 exit suite): passed. PostgreSQL cases were not run in this environment.
-- Browser check of the built app at 1280 px and 390 px: title and wordmark read "Agent Taskbay" and do not clip.
-
-Migration tested from: not applicable (no schema change).
-
-Remaining risks: trademark and domain registration for "Agent Taskbay" were not verifiable here (npm, PyPI, GitHub, web search and DNS were
-clean); the repository rename, GitHub description and topics, and npm name reservation are manual steps after merge.
-
-Next executable slice: unchanged (Phase 5 remainder #5 or Phase 7, as the user chooses).
+**Phase 6 is complete.** Next: Phase 5 remainder ([#5](https://github.com/shashikanth-gs/agent-taskbay/issues/5)) or Phase 7, by the user's choice; open Phase 6 follow-ups are tracked as issues.
 
 ## Phase 8 slices 8.1 and 8.2 verified evidence
 
@@ -2181,3 +2143,23 @@ Migration tested from:
 Remaining risks:
 Next executable slice:
 ```
+
+## Pre-publication documentation and identifier alignment (2026-10-06)
+
+Slice: prepare the repository for public release. No behavior change beyond identifier values.
+
+Changes:
+
+- Wire and persisted identifiers use the product slug (ADR 0024): extension URIs under `https://extensions.allsrc.dev/agent-taskbay/`,
+  `application/vnd.agent-taskbay.*` media types, `X-Agent-Taskbay-*` webhook headers, `agent-taskbay:` issuer and OIDC flow type,
+  `agent-taskbay.*` storage keys, the `agent_taskbay_migrations` table and the `agentTaskbayObject` metadata key.
+- Removed the browser-storage migration and retirement code and its tests; nothing was released that needs migrating.
+- README rewritten as a concise entry point. Operational and sign-in detail moved to `docs/guides/`; the three agent extensions are
+  specified in `docs/extensions/`.
+- Removed design-mockup and notes files from the repository root; trimmed this file's rename history.
+
+Verification: `npm run lint`, `npm test` (160 passed), `npm run test:db` (22 passed; 18 PostgreSQL-only cases skipped), `npm run db:migrate`
+then `npm run db:schema:check` on a fresh PGlite directory, `npm run build` and `npm run test:http` (all suites): passed. PostgreSQL cases
+were not run in this environment.
+
+Remaining: publish the `docs/extensions` specifications at `extensions.allsrc.dev` (maintainer step).

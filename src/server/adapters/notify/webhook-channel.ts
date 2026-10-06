@@ -18,7 +18,7 @@ export function loadNotifyConfig(environment: Readonly<Record<string, string | u
 
 /**
  * Posts a signed JSON message (Slack-compatible `text` included) to one configured URL for one organization. Delivery is
- * at least once: receivers deduplicate on `X-A2A-Ops-Delivery`. Only titles the console already shows are sent.
+ * at least once: receivers deduplicate on `X-Agent-Taskbay-Delivery`. Only titles the console already shows are sent.
  */
 export class WebhookChannel implements NotificationChannel {
   readonly name = "webhook";
@@ -37,8 +37,8 @@ export class WebhookChannel implements NotificationChannel {
     const fetcher = createSafeFetch({ auth: { type: "none" }, headers: {}, telemetry: [], timeoutMs: 10_000 });
     let response: Response;
     try {
-      response = await fetcher(this.config.url, { method: "POST", signal, body, headers: { "Content-Type": "application/json", "X-A2A-Ops-Delivery": notification.id,
-        "X-A2A-Ops-Timestamp": timestamp, "X-A2A-Ops-Signature": `v1=${signature}` } });
+      response = await fetcher(this.config.url, { method: "POST", signal, body, headers: { "Content-Type": "application/json", "X-Agent-Taskbay-Delivery": notification.id,
+        "X-Agent-Taskbay-Timestamp": timestamp, "X-Agent-Taskbay-Signature": `v1=${signature}` } });
     } catch { throw new Error("Webhook request failed."); }
     await response.body?.cancel().catch(() => undefined);
     if (!response.ok) throw new Error(`Webhook responded with ${response.status}.`);

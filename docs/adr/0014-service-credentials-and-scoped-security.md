@@ -15,7 +15,7 @@ server-selected skill identity; task follow-ups cannot change it. Grants govern
 new human requests; previously accepted commands remain system work after logout.
 
 An advertised A2A skill is descriptive, not an invocation boundary. Skill-only
-operations require the agent's reviewed `urn:a2a-ops:skill-routing:1` extension.
+operations require the agent's reviewed `https://extensions.allsrc.dev/agent-taskbay/skill-routing/v1` extension.
 The server sets SendMessage request metadata under this URI to `{ "skillId": ID }`
 and includes the URI in negotiated request extensions. The agent must enforce that
 route, reject unsupported skills and keep newly created contexts within it. A
@@ -40,7 +40,7 @@ user-token consent/refresh lifecycle; that conditional follow-up requires separa
 membership-bound bindings and durable worker subject selection. Plane A ID/access
 tokens are never reused as Plane B credentials (ADR 0005). It is not represented as
 implemented delegated authentication. The extension is pending for later review
-in [GitHub issue #1](https://github.com/shashikanth-gs/a2a-ops/issues/1).
+in [GitHub issue #1](https://github.com/shashikanth-gs/agent-taskbay/issues/1).
 
 Undici resolves and validates all DNS answers again inside the socket connector;
 `ipaddr.js` classifies IPv4, IPv6 and mapped IPv4. HTTPS and exact global origins

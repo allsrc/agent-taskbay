@@ -57,7 +57,7 @@ describe("PGlite database adapter", () => {
   let reopenedOrm: MikroORM | undefined;
 
   beforeAll(async () => {
-    dataDir = await mkdtemp(path.join(tmpdir(), "a2a-ops-pglite-"));
+    dataDir = await mkdtemp(path.join(tmpdir(), "agent-taskbay-pglite-"));
   });
 
   afterAll(async () => {
@@ -76,7 +76,7 @@ describe("PGlite database adapter", () => {
 
   it("upgrades the immediately previous push schema", async () => {
     const upgradeDataDir = await mkdtemp(
-      path.join(tmpdir(), "a2a-ops-pglite-upgrade-"),
+      path.join(tmpdir(), "agent-taskbay-pglite-upgrade-"),
     );
     const config = { profile: "pglite" as const, dataDir: upgradeDataDir };
     try {

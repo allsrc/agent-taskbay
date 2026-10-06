@@ -50,7 +50,7 @@ organization access. Revocation applies to subsequent reads and commands; durabl
 work already accepted continues under system identity.
 
 Skill-only sends need the agent to advertise and enforce
-`urn:a2a-ops:skill-routing:1`. The server selects `skillId` and sends it under this URI
+`https://extensions.allsrc.dev/agent-taskbay/skill-routing/v1`. The server selects `skillId` and sends it under this URI
 in request metadata with the extension URI. New restricted sends start a new context;
 follow-ups preserve the task's skill. Generic invocation is denied. Grants do not
 constrain a non-cooperating agent's internal behavior; only enable this extension

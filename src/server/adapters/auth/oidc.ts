@@ -17,13 +17,13 @@ export function safeReturnTo(value?: string | null) {
 /** Only encrypted nonce/PKCE material enters the database. The cookie is opaque. */
 export function sealFlow(flow: LoginFlow, key: Buffer) {
   return new CompactEncrypt(new TextEncoder().encode(JSON.stringify(flow)))
-    .setProtectedHeader({ alg: "dir", enc: "A256GCM", typ: "a2a-ops:oidc-flow:v1" }).encrypt(key);
+    .setProtectedHeader({ alg: "dir", enc: "A256GCM", typ: "agent-taskbay:oidc-flow:v1" }).encrypt(key);
 }
 export async function openFlow(value: string, key: Buffer): Promise<LoginFlow> {
   const { plaintext, protectedHeader } = await compactDecrypt(value, key, {
     keyManagementAlgorithms: ["dir"], contentEncryptionAlgorithms: ["A256GCM"],
   });
-  if (protectedHeader.typ !== "a2a-ops:oidc-flow:v1") throw new Error("Invalid login flow.");
+  if (protectedHeader.typ !== "agent-taskbay:oidc-flow:v1") throw new Error("Invalid login flow.");
   return JSON.parse(new TextDecoder().decode(plaintext));
 }
 

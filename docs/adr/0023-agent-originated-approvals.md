@@ -15,10 +15,10 @@ operation and check it at use. Other frameworks show the failure modes: a peer a
 
 ## Decision
 
-- **Opt-in extension.** The Agent Card advertises `https://a2a-ops.dev/extensions/approval-request/v1`. Without it the part is
+- **Opt-in extension.** The Agent Card advertises `https://extensions.allsrc.dev/agent-taskbay/approval-request/v1`. Without it the part is
   ignored and stays ordinary message content.
 - **Carrier.** In the agent's `INPUT_REQUIRED` status message, a data part of media type
-  `application/vnd.a2a-ops.approval-request+json`: `{title, summary?, risk?, expiresInSeconds?, action}` where `action` is a
+  `application/vnd.agent-taskbay.approval-request+json`: `{title, summary?, risk?, expiresInSeconds?, action}` where `action` is a
   `send_message` or `send_data` action exactly as in ADR 0015. Scope (agent, tenant, skill, task) comes from the task row; the
   part cannot name an assignee, a reviewer, a policy, a status or another task, and any such field is not read.
 - **Where it runs.** After an observation is stored, in the same transaction: if the task is `INPUT_REQUIRED` and its latest

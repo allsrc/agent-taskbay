@@ -242,9 +242,9 @@ async function contract(config: DatabaseConfig, directory: string) {
     expect(sent).toBeGreaterThanOrEqual(webhookRows.length);
     const one = received[0]!;
     const body = JSON.parse(one.body) as { id: string; kind: string; text: string; link: string; recipients: string[]; title: string; organization: string };
-    expect(one.headers["x-a2a-ops-delivery"]).toBe(body.id);
-    expect(one.headers["x-a2a-ops-signature"]).toBe(`v1=${createHmac("sha256", SECRET).update(`${one.headers["x-a2a-ops-timestamp"]}.${one.body}`).digest("hex")}`);
-    expect(Math.abs(Number(one.headers["x-a2a-ops-timestamp"]) - Date.now() / 1000)).toBeLessThan(120);
+    expect(one.headers["x-agent-taskbay-delivery"]).toBe(body.id);
+    expect(one.headers["x-agent-taskbay-signature"]).toBe(`v1=${createHmac("sha256", SECRET).update(`${one.headers["x-agent-taskbay-timestamp"]}.${one.body}`).digest("hex")}`);
+    expect(Math.abs(Number(one.headers["x-agent-taskbay-timestamp"]) - Date.now() / 1000)).toBeLessThan(120);
     expect(body).toMatchObject({ organization: "local", link: expect.stringMatching(/^https:\/\/console\.example\.test\//) });
     expect(body.text).toContain(body.title);
     expect(body.recipients.every((name) => ["admin", "op1", "op2"].includes(name))).toBe(true);
@@ -253,7 +253,7 @@ async function contract(config: DatabaseConfig, directory: string) {
       expect(message.headers.authorization).toBeUndefined();
       expect(message.headers.cookie).toBeUndefined();
     }
-    expect(new Set(received.map((message) => message.headers["x-a2a-ops-delivery"])).size).toBe(received.length); // One post per notification when healthy.
+    expect(new Set(received.map((message) => message.headers["x-agent-taskbay-delivery"])).size).toBe(received.length); // One post per notification when healthy.
     // Persistent failure ends in `failed` after bounded attempts, without touching the inbox.
     status = 503;
     await orm.em.fork().transactional((tx) => enqueueNotificationEvent(createPersistenceRepositories(tx).outbox, org.id, { kind: "test", toMembershipId: admin.membershipId }, new Date())); await drain();

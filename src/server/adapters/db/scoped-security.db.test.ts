@@ -53,7 +53,7 @@ async function contract(config: DatabaseConfig, directory: string) {
     expect(await withPrincipal(member, () => authorizedArtifact(org.id, publicDigest, orm))).toBe(true);
     expect(await withPrincipal(member, () => authorizedArtifact(org.id, privateDigest, orm))).toBe(false);
     // Forged local URLs/metadata do not grant access to stored bytes.
-    await observe("public")({task: {id: "forged", status: {state: "TASK_STATE_COMPLETED"}, artifacts: [{artifactId: "forged", parts: [{url: `/api/artifacts/${privateDigest}`, metadata: {a2aOpsObject: {digest: privateDigest}}}]}]}});
+    await observe("public")({task: {id: "forged", status: {state: "TASK_STATE_COMPLETED"}, artifacts: [{artifactId: "forged", parts: [{url: `/api/artifacts/${privateDigest}`, metadata: {agentTaskbayObject: {digest: privateDigest}}}]}]}});
     expect(await withPrincipal(member, () => authorizedArtifact(org.id, privateDigest, orm))).toBe(false);
     await expect(withPrincipal(member, () => acceptCommand(agent.id, {text: "generic"}, "generic", {orm, store}))).rejects.toMatchObject({status: 403});
     await expect(withPrincipal(member, () => acceptCommand(agent.id, {text: "bad", skillId: "private"}, "private", {orm, store}))).rejects.toMatchObject({status: 403});
