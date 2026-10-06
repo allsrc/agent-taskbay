@@ -97,8 +97,8 @@ export class DecisionService {
   constructor(private readonly work: DecisionUnitOfWork, private readonly clock: Clock = { now: () => new Date() }) {}
 
   /** Every state change is audited and announces itself to live views in the same transaction. */
-  private async record(ports: DecisionPorts, taskId: string, principal: Principal | null, organizationId: string, action: string, targetId: string, eventKey: string, event?: NotificationEvent) {
-    await ports.audit(principal, organizationId, action, targetId, eventKey);
+  private async record(ports: DecisionPorts, taskId: string, principal: Principal | null, organizationId: string, action: string, targetId: string, eventKey: string, event?: NotificationEvent, actorType?: "agent") {
+    await ports.audit(principal, organizationId, action, targetId, eventKey, actorType);
     await ports.freshen(organizationId, taskId);
     if (event) await ports.notify(organizationId, event);
   }
@@ -123,31 +123,59 @@ export class DecisionService {
       if (terminalTask(task)) throw new DecisionError("The task is already finished.", 409);
       if (input.assignedMembershipId && !await ports.canOperate(task.organizationId, input.assignedMembershipId, task.agentId, task.skillId ?? null))
         throw new DecisionError("The assignee cannot operate this agent.", 422);
-      const id = randomUUID();
-      const request: DecisionRequestRecord = {
-        id, organizationId: task.organizationId, taskId: task.id, agentId: task.agentId, tenant: task.tenant, skillId: task.skillId ?? null,
-        kind: action.kind, status: "pending", requestKey: input.requestKey, title: input.title.trim(), summary: input.summary, risk: input.risk,
-        policy, requesterUserId: input.principal.userId, assignedMembershipId: input.assignedMembershipId ?? null, currentRevision: 1,
-        expiresAt: input.expiresAt, createdAt: now, updatedAt: now, version: 1,
-      };
-      const revision: DecisionRevisionRecord = { id: randomUUID(), organizationId: task.organizationId, requestId: id, number: 1, action,
-        digest: actionDigest(action), authorType: "user", authorUserId: input.principal.userId, createdAt: now };
-      const result = await ports.decisions.insertRequest(request, revision);
-      if (!result.created) {
-        // A repeated open must describe the same intent; otherwise the key is being reused.
-        const [first] = await ports.decisions.revisions(task.organizationId, result.request.id);
-        if (result.request.taskId !== task.id || first?.digest !== revision.digest) throw new DecisionError("This request key already belongs to a different request.", 409);
-        return { request: result.request, created: false };
-      }
-      // Only one approval may be live per task: older open requests can no longer authorize anything.
-      for (const older of await ports.decisions.lockActiveForTask(task.organizationId, task.id)) {
-        if (older.id === id) continue;
-        await ports.decisions.updateRequest({ ...older, status: "superseded", updatedAt: now });
-        await this.record(ports, task.id, input.principal, task.organizationId, "decision.superseded", older.id, `decision-superseded:${older.id}`, { kind: "approval.superseded", taskId: task.id, subjectId: older.id, actorUserId: input.principal.userId });
-      }
-      await this.record(ports, task.id, input.principal, task.organizationId, "decision.requested", id, `decision-requested:${id}`, { kind: "approval.requested", taskId: task.id, subjectId: id, actorUserId: input.principal.userId });
-      return { request: result.request, created: true };
+      return this.persist(ports, task, { principal: input.principal, requestKey: input.requestKey, title: input.title.trim(), summary: input.summary, risk: input.risk,
+        action, policy, assignedMembershipId: input.assignedMembershipId ?? null, expiresAt: input.expiresAt, now });
     });
+  }
+
+  /**
+   * Opens a request the agent asked for (ADR 0023). There is no signed-in user: the request has no requester, the revision is
+   * authored by "agent", and the audit fact has no actor. The agent can only create a pending request; deciding stays with
+   * authenticated reviewers. Called inside the observation transaction, so every refusal happens before any write.
+   */
+  async openFromAgent(ports: DecisionPorts, input: { organizationId: string; taskId: string; requestKey: string; title: string; summary: string; risk: DecisionRisk;
+    action: ProposedAction; lifetimeMs: number }) {
+    if (!input.requestKey || input.requestKey.length > 255) throw new DecisionError("A request key of 1–255 characters is required.", 400);
+    if (!input.title.trim() || input.title.length > 300 || input.summary.length > 4000) throw new DecisionError("Invalid decision title or summary.", 400);
+    if (!["low", "medium", "high"].includes(input.risk)) throw new DecisionError("Invalid risk.", 400);
+    const action = validateAction(input.action);
+    const now = this.clock.now();
+    const task = await ports.tasks.findById(input.organizationId, input.taskId);
+    if (!task || task.kind !== "task" || !task.remoteTaskId) throw new DecisionError("Decisions apply only to A2A tasks.", 409);
+    if (terminalTask(task)) throw new DecisionError("The task is already finished.", 409);
+    return this.persist(ports, task, { principal: null, requestKey: input.requestKey, title: input.title.trim(), summary: input.summary, risk: input.risk, action,
+      policy: DEFAULT_POLICY, assignedMembershipId: null, expiresAt: new Date(now.getTime() + input.lifetimeMs), now });
+  }
+
+  /** Writes the request and its first revision, idempotent on the key, superseding older open requests on the task. */
+  private async persist(ports: DecisionPorts, task: NonNullable<Awaited<ReturnType<DecisionPorts["tasks"]["findById"]>>>, input: {
+    principal: Principal | null; requestKey: string; title: string; summary: string; risk: DecisionRisk; action: ProposedAction; policy: DecisionPolicy;
+    assignedMembershipId: string | null; expiresAt: Date; now: Date }) {
+    const { now, action, principal } = input;
+    const id = randomUUID();
+    const request: DecisionRequestRecord = {
+      id, organizationId: task.organizationId, taskId: task.id, agentId: task.agentId, tenant: task.tenant, skillId: task.skillId ?? null,
+      kind: action.kind, status: "pending", requestKey: input.requestKey, title: input.title, summary: input.summary, risk: input.risk,
+      policy: input.policy, requesterUserId: principal?.userId ?? null, assignedMembershipId: input.assignedMembershipId, currentRevision: 1,
+      expiresAt: input.expiresAt, createdAt: now, updatedAt: now, version: 1,
+    };
+    const revision: DecisionRevisionRecord = { id: randomUUID(), organizationId: task.organizationId, requestId: id, number: 1, action,
+      digest: actionDigest(action), authorType: principal ? "user" : "agent", authorUserId: principal?.userId ?? null, createdAt: now };
+    const result = await ports.decisions.insertRequest(request, revision);
+    if (!result.created) {
+      // A repeated open must describe the same intent; otherwise the key is being reused.
+      const [first] = await ports.decisions.revisions(task.organizationId, result.request.id);
+      if (result.request.taskId !== task.id || first?.digest !== revision.digest) throw new DecisionError("This request key already belongs to a different request.", 409);
+      return { request: result.request, created: false };
+    }
+    // Only one approval may be live per task: older open requests can no longer authorize anything.
+    for (const older of await ports.decisions.lockActiveForTask(task.organizationId, task.id)) {
+      if (older.id === id) continue;
+      await ports.decisions.updateRequest({ ...older, status: "superseded", updatedAt: now });
+      await this.record(ports, task.id, principal, task.organizationId, "decision.superseded", older.id, `decision-superseded:${older.id}`, { kind: "approval.superseded", taskId: task.id, subjectId: older.id, ...(principal ? { actorUserId: principal.userId } : {}) }, principal ? undefined : "agent");
+    }
+    await this.record(ports, task.id, principal, task.organizationId, "decision.requested", id, `decision-requested:${id}`, { kind: "approval.requested", taskId: task.id, subjectId: id, ...(principal ? { actorUserId: principal.userId } : {}) }, principal ? undefined : "agent");
+    return { request: result.request, created: true };
   }
 
   /** The proposer (or an operator) submits a new revision; any earlier review no longer applies. */

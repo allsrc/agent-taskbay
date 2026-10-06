@@ -14,7 +14,7 @@ import { withPrincipal } from "../auth/principal-context";
 import { FilesystemArtifactStore } from "../blob/filesystem-artifact-store";
 import { bootstrapDefaultLocalOrganization } from "../../application/services/bootstrap-default-organization";
 import { DecisionService } from "../../application/services/decisions";
-import { decisionUnitOfWork, listDecisions, readDecision } from "../../runtime/decisions";
+import { decisionPorts, decisionUnitOfWork, listDecisions, readDecision } from "../../runtime/decisions";
 import type { Principal } from "../../application/ports/identity";
 import type { ProposedAction } from "../../domain/decision-model";
 
@@ -323,6 +323,45 @@ async function contract(config: DatabaseConfig, directory: string) {
     // Text approvals now carry the same identity.
     const textPayload = JSON.parse(Buffer.from((await store.get(org.id, command.payloadObjectKey.split("/")[1]!))!).toString("utf8"));
     expect(textPayload.metadata.approval).toMatchObject({ requestId: r1.id, revision: 1, revisionDigest: rev1.digest });
+
+    // --- Agent-originated requests (ADR 0023): no requester, authored by the agent, validated before any write.
+    const fromAgent = (taskId: string, key: string, extra: Record<string, unknown> = {}) => orm.em.fork().transactional((tx) =>
+      service.openFromAgent(decisionPorts(tx, store), { organizationId: org.id, taskId, requestKey: key, title: "Agent asks", summary: "Needs a person", risk: "high",
+        action: action("Proceed with the deletion"), lifetimeMs: HOUR, ...extra }));
+    const w7 = await task();
+    const operatorRequest = (await open(admin, w7, "operator-first", "Operator proposal")).request;
+    const agentRequest = await fromAgent(w7, "agent:w7:m1");
+    expect(agentRequest.created).toBe(true);
+    expect(agentRequest.request).toMatchObject({ requesterUserId: null, kind: "send_message", status: "pending", assignedMembershipId: null, currentRevision: 1 });
+    expect(agentRequest.request.expiresAt.getTime()).toBe(now.getTime() + HOUR);
+    const agentDetail = (await as(admin, () => readDecision(agentRequest.request.id, { orm, store })))!;
+    expect(agentDetail.revisions[0]).toMatchObject({ authorType: "agent", authorUserId: null });
+    const requestedAudit = await orm.em.fork().findOneOrFail(SecurityAuditEntity, { eventKey: `decision-requested:${agentRequest.request.id}` });
+    expect(requestedAudit).toMatchObject({ action: "decision.requested", actorUserId: null, actorType: "agent" });
+    expect((await as(admin, () => readDecision(operatorRequest.id, { orm, store })))!.request.status).toBe("superseded"); // One live approval per task.
+    // Idempotent per key; the same key for different content is refused.
+    expect((await fromAgent(w7, "agent:w7:m1"))).toMatchObject({ created: false, request: { id: agentRequest.request.id } });
+    await expect(fromAgent(w7, "agent:w7:m1", { action: action("Something else") })).rejects.toMatchObject({ status: 409 });
+    // Refusals happen before any write: nothing is stored for invalid content, a finished or unknown task, or a bad key.
+    const before = await orm.em.fork().count(DecisionRevisionEntity, {});
+    await expect(fromAgent(w7, "k-risk", { risk: "extreme" })).rejects.toMatchObject({ status: 400 });
+    await expect(fromAgent(w7, "k-title", { title: "  " })).rejects.toMatchObject({ status: 400 });
+    await expect(fromAgent(w7, "", {})).rejects.toMatchObject({ status: 400 });
+    await expect(fromAgent(w7, "k-form", { action: dataAction({ environment: "staging" }, { schema: { type: "object", properties: { n: { type: "object" } } } }) })).rejects.toMatchObject({ status: 400 });
+    await expect(fromAgent(await task("TASK_STATE_COMPLETED"), "k-done")).rejects.toMatchObject({ status: 409 });
+    await expect(fromAgent(randomUUID(), "k-none")).rejects.toMatchObject({ status: 409 });
+    expect(await orm.em.fork().count(DecisionRevisionEntity, {})).toBe(before);
+    // A structured request from the agent works the same way and is approved by a person, never by the agent.
+    const w8 = await task();
+    const agentData = await fromAgent(w8, "agent:w8:m1", { action: dataAction({ environment: "production", replicas: 2 }) });
+    expect(agentData.request.kind).toBe("send_data");
+    const approved = await decide(admin, agentData.request.id, { key: "agent-approve", outcome: "approve", rationale: "ok" });
+    if (approved.kind !== "decided" || !approved.execution) throw new Error("expected execution");
+    expect(approved.decision.reviewerUserId).toBe(admin.userId);
+    const approvedCommand = await orm.em.fork().findOneOrFail(TaskCommandEntity, { id: approved.execution.commandId });
+    const approvedPayload = JSON.parse(Buffer.from((await store.get(org.id, approvedCommand.payloadObjectKey.split("/")[1]!))!).toString("utf8"));
+    expect(approvedPayload.parts).toEqual([{ data: { environment: "production", replicas: 2 }, mediaType: "application/json" }]);
+    expect(approvedPayload.metadata.approval).toMatchObject({ requestId: agentData.request.id, decisionId: approved.decision.id });
 
     // --- Everything survives a restart.
     await orm.close(true); orm = await createDatabaseOrm(config);

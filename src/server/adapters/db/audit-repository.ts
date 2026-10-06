@@ -12,7 +12,7 @@ const quoted = (values: string[]) => values.map((value) => `'${value}'`).join(",
  */
 const TIMELINE = `
   select r.created_at as at, 'req:' || r.id as key, 'decision.requested' as kind, r.requester_user_id as actor_user_id, r.task_id as task_id, r.id::text as subject_id,
-    jsonb_build_object('title', r.title, 'summary', r.summary, 'risk', r.risk, 'expiresAt', r.expires_at, 'assignedMembershipId', r.assigned_membership_id,
+    jsonb_build_object('title', r.title, 'actorType', case when r.requester_user_id is null then 'agent' else 'user' end, 'summary', r.summary, 'risk', r.risk, 'expiresAt', r.expires_at, 'assignedMembershipId', r.assigned_membership_id,
       'text', (select v.action_json->>'text' from decision_revisions v where v.request_id = r.id and v.number = 1), 'digest', (select v.digest from decision_revisions v where v.request_id = r.id and v.number = 1)) as data
   from decision_requests r where r.organization_id = :org
   union all
@@ -27,7 +27,7 @@ const TIMELINE = `
       'messageId', (select x.message_id from decision_executions x where x.decision_id = d.id))
   from decisions d join decision_requests r on r.id = d.request_id join decision_revisions v on v.id = d.revision_id where d.organization_id = :org
   union all
-  select a.created_at, 'aud:' || a.id, a.action, a.actor_user_id, r.task_id, r.id::text, jsonb_build_object('title', r.title)
+  select a.created_at, 'aud:' || a.id, a.action, a.actor_user_id, r.task_id, r.id::text, jsonb_build_object('title', r.title, 'actorType', a.actor_type)
   from security_audit_events a join decision_requests r on r.id::text = a.target_id
   where a.organization_id = :org and a.action in ('decision.expired', 'decision.superseded')
   union all

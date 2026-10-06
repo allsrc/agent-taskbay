@@ -29,7 +29,7 @@ export function humanizeAction(action: string) {
  * returned are used, so an entry the viewer may see never reveals more than its data holds.
  */
 export function describeEntry(entry: AuditEntryView, people: Record<string, string>, viewerUserId: string, viewerMembershipId: string): AuditDescription {
-  const actor = entry.actorUserId ? (entry.actorUserId === viewerUserId ? "You" : people[entry.actorUserId] ?? "A former member") : "The system";
+  const actor = entry.actorUserId ? (entry.actorUserId === viewerUserId ? "You" : people[entry.actorUserId] ?? "A former member") : entry.data.actorType === "agent" ? "The agent" : "The system";
   const member = (id: unknown) => typeof id === "string" ? (id === viewerMembershipId ? "you" : people[id] ?? "another reviewer") : "nobody";
   const title = text(entry.data.title);
   const quoted = title ? `“${title}”` : "an approval request";

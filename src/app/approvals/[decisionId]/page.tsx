@@ -102,7 +102,7 @@ function Review({ detail, refresh, error }: { detail: DecisionDetail; refresh: (
         <DecisionStatusChip status={request.status} />
       </div>
       <p className="text-muted-foreground mt-1 mb-4 font-mono text-xs">
-        {request.agentName ?? "Agent"} · requested by {person(request.requesterUserId)} · {when(request.createdAt)} ·{" "}
+        {request.agentName ?? "Agent"} · requested by {request.requesterUserId ? person(request.requesterUserId) : `${request.agentName ?? "the agent"} (agent)`} · {when(request.createdAt)} ·{" "}
         {isOpen(request.status) && <><span className={cn(expired && "text-brand")}>{expiryLabel(request.expiresAt)}</span> · </>}
         <Link href={`/tasks/${request.taskId}`} className="text-primary hover:underline">View task{request.taskState ? ` (${stateName(request.taskState)})` : ""}</Link>
       </p>
@@ -113,6 +113,7 @@ function Review({ detail, refresh, error }: { detail: DecisionDetail; refresh: (
         <InfoCard label={`Proposed action · revision ${current.number}`} className="md:col-span-2">
           <p className="text-muted-foreground mb-2 font-mono text-[11px]">{actionLabel(current.action)} · digest {shortDigest(current.digest)}</p>
           <ProposedActionView action={current.action} />
+          {!request.requesterUserId && <p className="text-muted-foreground mt-3 text-[12px]" data-testid="agent-origin">Opened by the agent through the approval-request extension. The agent cannot decide it; only reviewers can.</p>}
           {isOpen(request.status) && !expired && <p className="text-muted-foreground mt-3 text-[12px]">
             Approving sends exactly this content, once. {request.policy.separationOfDuties && "You cannot approve a request you made."}</p>}
         </InfoCard>
@@ -225,7 +226,7 @@ function Review({ detail, refresh, error }: { detail: DecisionDetail; refresh: (
             <div key={revision.id} className="border-border border-t py-2 first:border-t-0">
               <div className="flex items-center gap-2"><Chip>#{revision.number}</Chip>
                 {revision.id === current.id && <span className="text-primary font-mono text-[11px]">current</span>}
-                <span className="text-muted-foreground ml-auto font-mono text-[11px]">{person(revision.authorUserId)} · {when(revision.createdAt)}</span></div>
+                <span className="text-muted-foreground ml-auto font-mono text-[11px]">{revision.authorType === "agent" ? "the agent" : person(revision.authorUserId)} · {when(revision.createdAt)}</span></div>
               <p className="mt-1 line-clamp-3 text-[13px] whitespace-pre-wrap">{revision.action.kind === "send_data" ? Object.entries(revision.action.values).map(([key, value]) => `${key}: ${String(value)}`).join(" · ") : revision.action.text}</p>
             </div>
           ))}

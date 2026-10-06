@@ -1,4 +1,5 @@
 import { ArtifactAccessEntity } from "../adapters/db/entities";
+import { openAgentApprovalIfRequested } from "./agent-approvals";
 import { externalizeBinary } from "../application/services/protocol-archive";
 import { loadPushCredentials } from "./push-config";
 import { randomUUID } from "node:crypto";
@@ -84,6 +85,7 @@ export function createTaskObserver(session: ObservationSession, options: {
           {onConflictFields: ["taskId", "digest"], onConflictAction: "ignore"});
       }
       await options.onObserved?.(view, archived.event, transaction);
+      await openAgentApprovalIfRequested(transaction, organization.id, view, options.store ?? artifactStore);
       if (options.manageSubscription !== false) {
         const task = await ports.tasks.findById(organization.id, view.localId);
         if (task) await ports.subscriptions.sync(task, new Date());

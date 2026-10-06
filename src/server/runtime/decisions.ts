@@ -50,7 +50,7 @@ export function requirePrincipal(): Principal {
   return principal;
 }
 
-function ports(em: Parameters<Parameters<typeof withJobEntityManager>[0]>[0], store?: ArtifactStore): DecisionPorts {
+export function decisionPorts(em: Parameters<Parameters<typeof withJobEntityManager>[0]>[0], store?: ArtifactStore): DecisionPorts {
   const shared = sharedPorts(em);
   return {
     decisions: new MikroOrmDecisionRepository(em), tasks: shared.tasks, commands: shared.commands,
@@ -66,7 +66,7 @@ function ports(em: Parameters<Parameters<typeof withJobEntityManager>[0]>[0], st
 }
 
 export function decisionUnitOfWork(options: { orm?: MikroORM; store?: ArtifactStore } = {}): DecisionUnitOfWork {
-  return { run: (work) => withJobEntityManager((em) => em.transactional((transaction) => work(ports(transaction, options.store))), options.orm) };
+  return { run: (work) => withJobEntityManager((em) => em.transactional((transaction) => work(decisionPorts(transaction, options.store))), options.orm) };
 }
 export const createDecisionService = (options: { orm?: MikroORM; store?: ArtifactStore } = {}) => new DecisionService(decisionUnitOfWork(options));
 
@@ -160,7 +160,7 @@ export async function listEligibleReviewers(taskId: string, options: { orm?: Mik
   const principal = requirePrincipal();
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(taskId)) return undefined;
   return withJobEntityManager(async (em) => {
-    const p = ports(em);
+    const p = decisionPorts(em);
     const task = await p.tasks.findById(principal.organizationId, taskId);
     if (!task) return undefined;
     const members = await em.find(MembershipEntity, { organizationId: principal.organizationId, enabled: true, role: { $in: ["admin", "operator"] } }, { refresh: true });

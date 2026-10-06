@@ -6,8 +6,8 @@ Last updated: 2026-10-05
 
 - Last completed phase: **Phase 4 — approval-grade human intervention**
 - Active phase: **Phase 6 — rich interoperability** (started 2026-10-05 by explicit decision; Phase 5 is paused, not complete)
-- Last completed slice: **6.6 — safe A2UI renderer** (last Phase 5 slice: 5.1)
-- Next executable slice: **6.7 — agent-originated approval requests** (6.1–6.6 verified)
+- Last completed slice: **6.7 — agent-originated approval requests** (last Phase 5 slice: 5.1)
+- Next executable slice: **6.8 — extension plugin contract and Phase 6 exit verification** (6.1–6.7 verified)
 - Blocking decisions: none
 
 ## Pending follow-ups
@@ -1978,6 +1978,52 @@ verification [#25](https://github.com/shashikanth-gs/a2a-ops/issues/25). The bro
 
 Next executable slice: **6.7 — agent-originated approval requests** ([#15](https://github.com/shashikanth-gs/a2a-ops/issues/15)),
 then **6.8 plugin contract and Phase 6 exit verification**.
+
+## Slice 6.7 evidence (2026-10-06)
+
+Date: 2026-10-06
+Slice: 6.7 — agent-originated approval requests (ADR 0023, `HITL-006`)
+
+Changes:
+
+- Opt-in extension `https://a2a-ops.dev/extensions/approval-request/v1`; the agent sends a data part
+  (`application/vnd.a2a-ops.approval-request+json`) in its latest `INPUT_REQUIRED` message. After an observation is stored, in
+  the same transaction, an advertising agent's valid request opens a pending decision request
+  (`runtime/agent-approvals.ts`, `services/agent-approval.ts`, `DecisionService.openFromAgent`). Content is validated with the
+  same rules as a person's proposal before any write; invalid or conflicting content stays ordinary message content.
+- No requester, first revision authored by `agent`, audit actor type `agent`; only reviewers decide. Lifetime bounded to
+  5 minutes–7 days. The key includes the action digest, so a changed ask supersedes instead of mutating. Shared decision
+  `persist` path (operator and agent use the same code); `appendAgentAudit`; the audit timeline reports the agent as the actor.
+- UI: the review page says the agent opened the request and cannot decide it; "requested by <agent> (agent)"; revisions show
+  "the agent"; the audit trail says "The agent".
+- Fixture agent variants `approver` (advertises, asks, echoes the approved digest) and `rogue` (asks without advertising).
+
+Verification commands and results:
+
+- 3 unit tests (parsing, bounds, authority fields never read, latest-input-request rule), 1 audit wording test, and an extended
+  `decisions.db.test.ts` (PGlite and PostgreSQL): no requester, agent-authored revision, agent audit actor, supersedes an operator
+  request, idempotent per key, a reused key with different content refused, nothing written for invalid content, finished or
+  unknown tasks, a structured request approved by a person executes as one JSON part with the approval identity.
+- `verify-agent-approvals-http.mjs` (in `test:http`) on `next start`: only the advertising agent opens a request; nothing is sent
+  to the agent until a person approves; an unadvertised extension and a malformed request open nothing; a changed ask supersedes
+  the first (and the superseded one authorizes nothing, 409); the approved message reaches the agent exactly once with
+  `metadata.approval` equal to the request, decision and revision digest, and the agent echoes the digest; a structured request is
+  edited by a reviewer and sent as one JSON part; reviewers are notified; the audit trail names the agent.
+- Scripted Chromium run (not committed): the request appears in the inbox, the review page shows it as agent-originated and
+  decidable, a reviewer approves and the agent receives it once, the audit page says "The agent ...", no overflow at 375 px, no
+  console errors.
+- `npm run check` against PostgreSQL 16 (lint, 142 unit tests, 38 DB tests, schema check, build, all HTTP suites incl. agent approvals): passed.
+
+Migration tested from: not applicable (no schema change; request, revision and audit rows already allow a null human actor).
+
+Remaining risks and follow-ups (tracked): approval-required policy and bypassing replies
+[#16](https://github.com/shashikanth-gs/a2a-ops/issues/16), digest-echo contract
+[#17](https://github.com/shashikanth-gs/a2a-ops/issues/17), ADK pattern [#18](https://github.com/shashikanth-gs/a2a-ops/issues/18),
+upstream proposal [#19](https://github.com/shashikanth-gs/a2a-ops/issues/19), AG-UI interrupts
+[#20](https://github.com/shashikanth-gs/a2a-ops/issues/20). A single agent can open at most one live request per task; per-agent
+request budgets are not yet configurable.
+
+Next executable slice: **6.8 — extension plugin contract and Phase 6 exit verification**.
 
 ## Known repository-state issue
 

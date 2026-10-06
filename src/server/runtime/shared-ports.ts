@@ -67,8 +67,9 @@ export function sharedPorts(em: EntityManager) {
         agentName: agents.find((agent) => agent.id === task.agentId)?.displayName ?? agents.find((agent) => agent.id === task.agentId)?.cardUrl ?? "Agent" }]));
     },
     freshen: async (organizationId: string, taskId: string) => { await enqueueTaskFreshness(base.outbox, organizationId, taskId, new Date()); },
-    audit: async (principal: Principal | null, organizationId: string, action: string, targetId: string, eventKey: string) => {
+    audit: async (principal: Principal | null, organizationId: string, action: string, targetId: string, eventKey: string, actorType?: "agent") => {
       if (principal) await identity.appendAudit(principal, action, targetId, eventKey);
+      else if (actorType === "agent") await identity.appendAgentAudit(organizationId, action, targetId, eventKey);
       else await identity.appendSystemAudit(organizationId, action, targetId);
     },
   };

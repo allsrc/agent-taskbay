@@ -117,6 +117,9 @@ discovery, streaming, content-type rendering, and sideband decoding.
   `referenceTaskIds` links between them.
 - **Notifications** (`/notifications`) — input requests, finished tasks and
   ready artifacts derived from task streams, with read state and an unread badge.
+- **Agent-originated approvals** — an agent that advertises the approval-request extension can ask for an approval inside its
+  input request. The console opens a pending request with no requester and no authority; only a reviewer can decide it, and the
+  approved content reaches the agent once, bound to the approved revision (ADR 0023).
 - **A2UI interfaces** — an agent that advertises the A2UI v0.9 extension can describe forms and confirmations as declarative
   JSON; the console renders an allowlisted subset of the Basic Catalog as text-only components (no external URLs, no agent
   code) and sends the user's action back on the same task (ADR 0022).

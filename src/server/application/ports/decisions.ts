@@ -76,7 +76,8 @@ export interface DecisionPorts {
   freshen(organizationId: string, taskId: string): Promise<void>;
   /** Queues a notification event in the surrounding transaction; people and wording are decided by the fan-out worker. */
   notify(organizationId: string, event: NotificationEvent): Promise<void>;
-  audit(principal: Principal | null, organizationId: string, action: string, targetId: string, eventKey: string): Promise<void>;
+  /** Without a principal the fact is a system fact, or an agent fact when `actorType` says the agent caused it. */
+  audit(principal: Principal | null, organizationId: string, action: string, targetId: string, eventKey: string, actorType?: "agent"): Promise<void>;
 }
 
 export interface DecisionUnitOfWork {

@@ -13,6 +13,10 @@ describe("audit descriptions", () => {
     expect(description.facts).toEqual([["Revision", `2 · ${"a".repeat(12)}`], ["Exact content", "Yes, delete staging-old"], ["Rationale", "Backups confirmed"],
       ["Delivery", "succeeded · task COMPLETED"], ["Message ID", "decision-1"]]);
   });
+  it("names the agent when an agent opened the request", () => {
+    expect(describeAs(entry({ kind: "decision.requested", actorUserId: null, data: { title: "Delete staging", actorType: "agent" } })).summary).toMatch(/^The agent /);
+    expect(describeAs(entry({ kind: "decision.requested", actorUserId: null, data: { title: "Delete staging", actorType: "system" } })).summary).toMatch(/^The system /);
+  });
   it("calls the signed-in viewer 'You' and system actions 'The system'", () => {
     expect(describeAs(entry({ kind: "task.claimed", actorUserId: "u-bob" })).summary).toBe("You claimed the task");
     expect(describeAs(entry({ kind: "decision.expired", actorUserId: null, data: { title: "Rotate keys" } })).summary).toBe("“Rotate keys” expired without a decision");

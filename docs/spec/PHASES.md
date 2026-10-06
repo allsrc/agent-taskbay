@@ -338,8 +338,8 @@ Requirements: `INB-001..002`, `TSK-006`, `HITL-005`, `ADM-001`, `PERF-001`,
 - [~] Render structured and A2UI proposals inside the approval review page through the
   action-renderer registry, with edit-before-approve for structured actions. (Slice 6.5: structured `send_data`
   actions with edit-before-approve, ADR 0015 addendum; A2UI proposals follow with the A2UI renderer.)
-- [ ] Agent-originated approval requests through a reviewed extension or recognized
-  in-task pattern (`HITL-006`).
+- [x] Agent-originated approval requests through a reviewed extension or recognized
+  in-task pattern (`HITL-006`). (Slice 6.7, ADR 0023; an approval-required policy and the ADK pattern are tracked in #16 and #18.)
 - [x] Safe A2UI renderer with an explicit component allowlist. (Slice 6.6, ADR 0022: Basic Catalog subset in the chat view, opt-in by
   extension, actions through the ordinary send path; remaining components and surfaces tracked in #22–#25.)
 - [x] Optional AG-UI adapter where it adds richer user interaction. (Slice 6.3, ADR 0021: HTTP+SSE run endpoint over the durable command path, interrupts/resume; off by default.)
