@@ -34,8 +34,8 @@ optionally in a team channel, without putting delivery on the request path.
 - One external channel sits behind a `NotificationChannel` port: a signed JSON webhook (with a
   Slack-compatible `text`) for one organization, configured only by server environment. It uses
   the agent network policy (exact origin allowlist, HTTPS in production, per-socket address
-  checks, no redirects). Each notification is posted at least once with `X-A2A-Ops-Delivery`,
-  `X-A2A-Ops-Timestamp` and `X-A2A-Ops-Signature` (`v1=` HMAC-SHA256 of `timestamp.body`).
+  checks, no redirects). Each notification is posted at least once with `X-Agent-Taskbay-Delivery`,
+  `X-Agent-Taskbay-Timestamp` and `X-Agent-Taskbay-Signature` (`v1=` HMAC-SHA256 of `timestamp.body`).
   Delivery is an outbox row per notification with bounded exponential backoff, ending in a
   visible `failed` state; failures never affect the inbox, and stored errors are fixed strings
   that contain no URL, status text or secret.

@@ -122,7 +122,7 @@ async function registryContract(config: DatabaseConfig, legacyFilePath: string) 
 }
 
 async function inTemporaryDirectory(run: (directory: string) => Promise<void>) {
-  const directory = await mkdtemp(join(tmpdir(), "a2a-ops-registry-"));
+  const directory = await mkdtemp(join(tmpdir(), "agent-taskbay-registry-"));
   try { await run(directory); }
   finally { await rm(directory, { force: true, recursive: true }); }
 }

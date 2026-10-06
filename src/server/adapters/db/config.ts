@@ -92,7 +92,7 @@ const commonOptions = {
     path: "./src/server/adapters/db/migrations",
     pathTs: "./src/server/adapters/db/migrations",
     snapshot: false,
-    tableName: "a2a_ops_migrations",
+    tableName: "agent_taskbay_migrations",
     transactional: true,
   },
 };

@@ -12,9 +12,9 @@ task model, and without letting agent-supplied content run code or bypass author
 
 ## Decision
 
-- **Opt-in by extension URI.** An agent card advertises `https://a2a-ops.dev/extensions/structured-form/v1`
+- **Opt-in by extension URI.** An agent card advertises `https://extensions.allsrc.dev/agent-taskbay/structured-form/v1`
   under `capabilities.extensions`. The console renders a form only for agents that advertise it.
-- **Carrier.** The form is a data part with media type `application/vnd.a2a-ops.form+json` in the
+- **Carrier.** The form is a data part with media type `application/vnd.agent-taskbay.form+json` in the
   `INPUT_REQUIRED` status message: `{ title?, description?, submitLabel?, schema }`. No new storage, route or
   protocol operation is needed; the part is already persisted as message content.
 - **Schema subset, not full JSON Schema.** `schema` is a flat `type: "object"` with at most 30 properties of

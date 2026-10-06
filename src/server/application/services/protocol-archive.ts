@@ -44,7 +44,7 @@ export async function externalizeBinary(event: JsonValue, organizationId: string
       delete result.raw; delete result.file;
       result.url = `/api/artifacts/${saved.digest}`;
       result.mediaType = typeof value.mediaType === "string" ? value.mediaType : typeof legacyFile.mimeType === "string" ? legacyFile.mimeType : "application/octet-stream";
-      result.metadata = { ...object(value.metadata), a2aOpsObject: { objectKey: saved.objectKey, digest: saved.digest, sizeBytes: saved.sizeBytes } } as JsonValue;
+      result.metadata = { ...object(value.metadata), agentTaskbayObject: { objectKey: saved.objectKey, digest: saved.digest, sizeBytes: saved.sizeBytes } } as JsonValue;
       result.filename = typeof value.filename === "string" ? value.filename : typeof legacyFile.name === "string" ? legacyFile.name : "artifact";
       changed = true;
     }

@@ -7,7 +7,7 @@
 ## Context
 
 `INT-004` asks for an optional AG-UI adapter so richer agent-UI runtimes (for example CopilotKit) can drive
-A2A agents through A2A Ops without changing durable task semantics. Research on 2026-10-05 of the AG-UI 1.0
+A2A agents through Agent Taskbay without changing durable task semantics. Research on 2026-10-05 of the AG-UI 1.0
 specification (docs.ag-ui.com) found:
 
 - Transport: `POST` of one JSON `RunAgentInput` with `Accept: text/event-stream`; a `200` response whose SSE

@@ -7,13 +7,13 @@
 // action (`rogue` sends the same request without advertising it),  `a2ui` advertises the A2UI v0.9 extension and asks for confirmation with a surface. Tests import startFormAgent() to run one in-process.
 import { createServer } from "node:http";
 
-export const FORM_EXTENSION_URI = "https://a2a-ops.dev/extensions/structured-form/v1";
+export const FORM_EXTENSION_URI = "https://extensions.allsrc.dev/agent-taskbay/structured-form/v1";
 export const A2UI_EXTENSION_URI = "https://a2ui.org/a2a-extension/a2ui/v0.9";
-export const APPROVAL_EXTENSION_URI = "https://a2a-ops.dev/extensions/approval-request/v1";
-export const APPROVAL_MEDIA_TYPE = "application/vnd.a2a-ops.approval-request+json";
+export const APPROVAL_EXTENSION_URI = "https://extensions.allsrc.dev/agent-taskbay/approval-request/v1";
+export const APPROVAL_MEDIA_TYPE = "application/vnd.agent-taskbay.approval-request+json";
 export const A2UI_MEDIA_TYPE = "application/a2ui+json";
 const BASIC_CATALOG = "https://a2ui.org/specification/v0_9/catalogs/basic/catalog.json";
-export const FORM_MEDIA_TYPE = "application/vnd.a2a-ops.form+json";
+export const FORM_MEDIA_TYPE = "application/vnd.agent-taskbay.form+json";
 
 const deployForm = {
   title: "Deploy request",

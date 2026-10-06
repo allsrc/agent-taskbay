@@ -2,7 +2,7 @@ import type { Principal } from "../ports/identity";
 import type { AccessGrant, AgentPermission } from "../ports/security";
 import { AuthorizationError, authorize } from "./authorization";
 
-export const SKILL_ROUTING_EXTENSION = "urn:a2a-ops:skill-routing:1";
+export const SKILL_ROUTING_EXTENSION = "https://extensions.allsrc.dev/agent-taskbay/skill-routing/v1";
 
 /** Fail closed. A skill grant never authorizes an unrestricted generic send. */
 export class AccessPolicy {

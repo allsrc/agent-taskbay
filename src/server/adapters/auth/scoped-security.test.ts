@@ -22,7 +22,7 @@ describe("SEC-002..005 bounded policy and trust", () => {
     expect(new AccessPolicy({...principal, role: "viewer"}, [grant]).allows("agent", "operate", "public")).toBe(false);
     expect(new AccessPolicy(principal, [{...grant, organizationId: "foreign"}]).discovers("agent")).toBe(false);
     expect(new AccessPolicy(principal, [{...grant, enabled: false}]).discovers("agent")).toBe(false);
-    expect(SKILL_ROUTING_EXTENSION).toBe("urn:a2a-ops:skill-routing:1");
+    expect(SKILL_ROUTING_EXTENSION).toBe("https://extensions.allsrc.dev/agent-taskbay/skill-routing/v1");
   });
   it("rejects metadata, mapped IPv4, mixed DNS answers, insecure production targets and ambiguous allowlists", async () => {
     for (const address of ["169.254.169.254", "::ffff:169.254.169.254", "fe80::1", "224.0.0.1", "0.0.0.0"]) expect(addressAllowed(address, true)).toBe(false);

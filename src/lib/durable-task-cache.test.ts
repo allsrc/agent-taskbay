@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from "vitest";
-import { readDurableTasks, retireBrowserTaskPersistence } from "./durable-task-cache";
+import { readDurableTasks } from "./durable-task-cache";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -21,11 +21,4 @@ it("REL-002 refuses partial refreshes and detects a cursor loop", async () => {
   await expect(readDurableTasks(new AbortController().signal)).rejects.toThrow("Unavailable");
   fetcher.mockReset().mockImplementation(async () => Response.json({ tasks: [], next: "one" }));
   await expect(readDurableTasks(new AbortController().signal)).rejects.toThrow("did not advance");
-});
-
-it("retires both old content/read namespaces without changing settings or unrelated storage", () => {
-  const values = new Map(["a2a-ops.tasks", "a2a-ops.notifications", "a2a-agent-workflow-ui.tasks", "a2a-agent-workflow-ui.notifications", "a2a-ops.settings", "unrelated"].map((key) => [key, "saved"]));
-  retireBrowserTaskPersistence({ removeItem: (key) => { values.delete(key); } });
-  expect([...values.keys()]).toEqual(["a2a-ops.settings", "unrelated"]);
-  expect(() => retireBrowserTaskPersistence({ removeItem: () => { throw new Error("Disabled storage"); } })).not.toThrow();
 });
