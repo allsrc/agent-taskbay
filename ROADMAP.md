@@ -34,8 +34,8 @@ agent builder, generic workflow engine, or trace explorer.
 | 2. Durable task runtime | Complete | Browser-independent commands, stream workers, webhook ingestion, reconciliation, projections, outbox, and live fan-out. |
 | 3. Identity and security | Complete | OIDC sessions, encrypted service credentials, teams/agent/skill grants, connection-bound network policy, safe artifacts and card trust; all phase exit criteria verified. |
 | 4. Approval-grade HITL | Complete | Typed decisions with exact-revision execution, the approval review UI, task ownership/due times/escalation/notes, worker-enforced expiry, an append-only audit trail with an Audit view, and durable per-person notifications with a signed webhook channel; all exit criteria verified. |
-| 5. Operator experience | Paused after 5.1 (remainder: [#5](https://github.com/shashikanth-gs/agent-taskbay/issues/5)) | Shared queues, saved views, search, SLAs, notes, bulk triage, and agent health. |
-| 6. Rich interoperability | Complete | Structured input and start forms, edit-before-approve structured actions, agent-originated approvals, a safe A2UI renderer and an optional AG-UI adapter; all exit criteria verified. The extension plugin contract is deferred ([#26](https://github.com/shashikanth-gs/agent-taskbay/issues/26)). |
+| 5. Operator experience | Paused after 5.1 (remainder: [#5](https://github.com/allsrc/agent-taskbay/issues/5)) | Shared queues, saved views, search, SLAs, notes, bulk triage, and agent health. |
+| 6. Rich interoperability | Complete | Structured input and start forms, edit-before-approve structured actions, agent-originated approvals, a safe A2UI renderer and an optional AG-UI adapter; all exit criteria verified. The extension plugin contract is deferred ([#26](https://github.com/allsrc/agent-taskbay/issues/26)). |
 | 7. Enterprise hardening | Planned | HA, backup/restore, object lifecycle, KMS, load/recovery tests, retention, and administration. |
 | 8. Open-source distribution and developer experience | In progress | The `agent-taskbay` npm package and `npx` launcher, contributor setup, community files and release automation (ADR 0025). First publish is a maintainer step. |
 
@@ -73,7 +73,7 @@ Phase 3 combines Plane A membership-bound sessions and roles with encrypted API
 key/bearer/OAuth client/mTLS service bindings, explicit team/agent/skill grants,
 network/artifact controls, rate budgets and signed-card trust. All Phase 3 exit
 criteria are verified. User-delegated OAuth consent/refresh is pending for later
-review in [issue #1](https://github.com/shashikanth-gs/agent-taskbay/issues/1), after this
+review in [issue #1](https://github.com/allsrc/agent-taskbay/issues/1), after this
 service baseline; hardened gRPC also needs a future adapter.
 Phase 4 slice 4.1 adds typed, scoped, expiring decision requests with immutable revisions
 and decisions, and correlates the exact approved revision with its dispatched command and

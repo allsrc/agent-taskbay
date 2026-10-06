@@ -6,7 +6,7 @@ How Agent Taskbay runs, and how to operate it. For a first run see the [README](
 ## Running from source
 
 ```bash
-git clone https://github.com/shashikanth-gs/agent-taskbay.git
+git clone https://github.com/allsrc/agent-taskbay.git
 cd agent-taskbay
 npm ci
 npm run dev                  # http://localhost:3002

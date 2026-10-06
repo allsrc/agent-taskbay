@@ -40,7 +40,7 @@ user-token consent/refresh lifecycle; that conditional follow-up requires separa
 membership-bound bindings and durable worker subject selection. Plane A ID/access
 tokens are never reused as Plane B credentials (ADR 0005). It is not represented as
 implemented delegated authentication. The extension is pending for later review
-in [GitHub issue #1](https://github.com/shashikanth-gs/agent-taskbay/issues/1).
+in [GitHub issue #1](https://github.com/allsrc/agent-taskbay/issues/1).
 
 Undici resolves and validates all DNS answers again inside the socket connector;
 `ipaddr.js` classifies IPv4, IPv6 and mapped IPv4. HTTPS and exact global origins

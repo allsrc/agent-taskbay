@@ -3,7 +3,7 @@
 - Status: Proposed
 - Date: 2026-10-06
 - Requirements: none yet (would add a product surface and new requirement IDs when accepted)
-- Tracking: [#31](https://github.com/shashikanth-gs/agent-taskbay/issues/31)
+- Tracking: [#31](https://github.com/allsrc/agent-taskbay/issues/31)
 
 ## Context
 

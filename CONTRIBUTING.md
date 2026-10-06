@@ -8,7 +8,7 @@ issue threads. A change that fits the current phase and passes the checks below 
 You need Node.js 22.17 or newer (`.nvmrc` pins the version CI uses).
 
 ```bash
-git clone https://github.com/shashikanth-gs/agent-taskbay.git
+git clone https://github.com/allsrc/agent-taskbay.git
 cd agent-taskbay
 npm ci
 npm run dev        # http://localhost:3002
