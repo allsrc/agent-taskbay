@@ -1,13 +1,13 @@
 # Execution status
 
-Last updated: 2026-10-05
+Last updated: 2026-10-06
 
 ## Active position
 
-- Last completed phase: **Phase 4 — approval-grade human intervention**
-- Active phase: **Phase 6 — rich interoperability** (started 2026-10-05 by explicit decision; Phase 5 is paused, not complete)
-- Last completed slice: **6.7 — agent-originated approval requests** (last Phase 5 slice: 5.1)
-- Next executable slice: **6.8 — extension plugin contract and Phase 6 exit verification** (6.1–6.7 verified)
+- Last completed phase: **Phase 6 — rich interoperability** (Phase 4 complete; Phase 5 paused after 5.1)
+- Active phase: none. Phase 5 (operator experience) is paused after slice 5.1; Phase 7 (enterprise hardening) has not started.
+- Last completed slice: **6.7 — agent-originated approval requests**; Phase 6 exit verified 2026-10-06
+- Next executable slice: **5.2 — saved views, search, advanced filters and bulk triage** ([#5](https://github.com/shashikanth-gs/a2a-ops/issues/5)) or Phase 7, as the user chooses; the plugin contract is [#26](https://github.com/shashikanth-gs/a2a-ops/issues/26)
 - Blocking decisions: none
 
 ## Pending follow-ups
@@ -18,6 +18,7 @@ Last updated: 2026-10-05
   Deferred by agreement on 2026-10-03 for later review. This is separate from the
   verified Phase 3 service identity baseline and does not block Slice 4.1.
 
+- **Phase 6 plugin contract — deferred:** [#26](https://github.com/shashikanth-gs/a2a-ops/issues/26), by agreement on 2026-10-06; does not block the Phase 6 exit.
 - **Phase 6 A2UI follow-ups — tracked:** components [#22](https://github.com/shashikanth-gs/a2a-ops/issues/22), functions and
   `openUrl` [#23](https://github.com/shashikanth-gs/a2a-ops/issues/23), other surfaces [#24](https://github.com/shashikanth-gs/a2a-ops/issues/24),
   real-agent verification [#25](https://github.com/shashikanth-gs/a2a-ops/issues/25).
@@ -2024,6 +2025,42 @@ upstream proposal [#19](https://github.com/shashikanth-gs/a2a-ops/issues/19), AG
 request budgets are not yet configurable.
 
 Next executable slice: **6.8 — extension plugin contract and Phase 6 exit verification**.
+
+## Phase 6 exit verification (2026-10-06)
+
+Date: 2026-10-06
+Scope: the three Phase 6 exit criteria. The plugin contract was deferred by the user to [#26](https://github.com/shashikanth-gs/a2a-ops/issues/26).
+
+Evidence per criterion:
+
+1. **A reference agent renders a structured form and an A2UI surface.** The `showcase` variant of `scripts/fixture-form-agent.mjs` advertises the form, A2UI and
+   approval-request extensions and answers by message. `scripts/verify-phase6-exit-http.mjs` (in `test:http`) on `next start`: the form persists with the task, a plain
+   reply still reaches the agent while the form is pending, the form submission completes the task; the A2UI envelopes persist unmodified, the user's action returns on the
+   same task and the agent acts on it; an approval request opens a pending request with no requester and nothing is sent until a person decides. The scripted Chromium run
+   (not committed) did the same through the UI.
+2. **Unrecognized schemas and extensions fall back safely.** The `unknown` variant advertises only `https://example.com/extensions/unknown/v9` and sends an unknown widget part
+   plus form, A2UI and approval parts it never advertised. HTTP: every part is stored as received, no decision request opens, a plain reply works. Browser: no start form, no
+   form, no surface, the parts show as inspectable data and the composer stays enabled. Earlier slice suites cover the unadvertised, malformed, wrong-media-type and unknown-catalog cases.
+3. **Generated UI cannot execute code or bypass authorization.**
+   - Code: `src/components/phase6-security.test.tsx` renders a hostile corpus (script tags, event handlers, `javascript:` and `data:` URLs, markup in every text-bearing property
+     and component name, attribute-like properties, regular expressions, cycles, 60-deep and oversized trees, prototype-polluting pointers) through A2UI, structured forms and approval
+     content; the markup has no script, handler, link, source, frame, style or media element and no raw angle bracket outside tags. The production CSP (checked over HTTP) forbids
+     eval, plugins, framing, other origins for scripts and requests. The browser run saw no injected global and no request to an agent-named URL.
+   - Authorization: `phase6-exit.db.test.ts` (PGlite and PostgreSQL) sends a form submission, an A2UI action and a message claiming an approval as a viewer, an ungranted operator
+     and a skill-scoped operator sending agent-wide: all refused (403) with nothing stored; a granted operator's payload is stored exactly as sent with no routing scope smuggled in and
+     no decision created. An agent-originated request is invisible to an ungranted principal (404), refused to a viewer (403), never read scope fields from the agent (task, assignee), and
+     is decided only by a granted person.
+
+Defect found and fixed by the exit work: a form field named `toString` or `__proto__` was accepted and read inherited values; such names are now refused and values are read with own-property checks.
+Process note: killing a run mid-flight can leave a `next-server` process on the test port that later runs silently reuse; the scripts' port check does not detect it.
+
+Verification commands and results:
+
+- `npm run check` against PostgreSQL 16 (lint, 147 unit tests, 40 DB tests, schema check, build, all HTTP suites incl. the Phase 6 exit suite): passed.
+
+Migration tested from: not applicable (no schema change).
+
+**Phase 6 is complete.** Next: Phase 5 remainder ([#5](https://github.com/shashikanth-gs/a2a-ops/issues/5)) or Phase 7, by the user's choice; open Phase 6 follow-ups are tracked as issues.
 
 ## Known repository-state issue
 

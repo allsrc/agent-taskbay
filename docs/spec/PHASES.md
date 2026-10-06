@@ -330,27 +330,36 @@ Requirements: `INB-001..002`, `TSK-006`, `HITL-005`, `ADM-001`, `PERF-001`,
 
 ## Phase 6 — rich interoperability
 
-**Status:** In progress (started 2026-10-05).
+**Status:** Complete (exit criteria verified 2026-10-06). The extension plugin contract is deferred to
+[#26](https://github.com/shashikanth-gs/a2a-ops/issues/26) by agreement and does not block the exit.
 
 ### Deliverables
 
-- [~] Structured start/input forms through an advertised schema extension. (Slices 6.1–6.2 and 6.4: input and start-of-task forms in the chat view with a reference agent and browser verification, ADR 0020; forms on the approval page follow in 6.5.)
-- [~] Render structured and A2UI proposals inside the approval review page through the
-  action-renderer registry, with edit-before-approve for structured actions. (Slice 6.5: structured `send_data`
-  actions with edit-before-approve, ADR 0015 addendum; A2UI proposals follow with the A2UI renderer.)
-- [x] Agent-originated approval requests through a reviewed extension or recognized
-  in-task pattern (`HITL-006`). (Slice 6.7, ADR 0023; an approval-required policy and the ADK pattern are tracked in #16 and #18.)
-- [x] Safe A2UI renderer with an explicit component allowlist. (Slice 6.6, ADR 0022: Basic Catalog subset in the chat view, opt-in by
-  extension, actions through the ordinary send path; remaining components and surfaces tracked in #22–#25.)
-- [x] Optional AG-UI adapter where it adds richer user interaction. (Slice 6.3, ADR 0021: HTTP+SSE run endpoint over the durable command path, interrupts/resume; off by default.)
-- [ ] Extension plugin contract and compatibility fixtures.
-- [ ] Preserve the generic A2A composer and durable task model as fallbacks.
+- [x] Structured start/input forms through an advertised schema extension. (Slices 6.1, 6.2 and 6.4, ADR 0020: input and
+  start-of-task forms in the chat view, the reference agent and browser verification.)
+- [x] Render structured proposals inside the approval review page through the action-renderer registry, with edit-before-approve for
+  structured actions. (Slice 6.5, ADR 0015 addendum: `send_data` actions. A2UI proposals inside an approval are tracked in #24.)
+- [x] Agent-originated approval requests through a reviewed extension or recognized in-task pattern (`HITL-006`). (Slice 6.7, ADR 0023.)
+- [x] Safe A2UI renderer with an explicit component allowlist. (Slice 6.6, ADR 0022.)
+- [x] Optional AG-UI adapter where it adds richer user interaction. (Slice 6.3, ADR 0021; off by default.)
+- [x] Preserve the generic A2A composer and durable task model as fallbacks. (Verified in the exit run: plain replies work while a form is
+  pending, unrecognized extensions and parts stay ordinary data, every interaction is an ordinary command or decision.)
 
-### Exit criteria
+### Pending follow-ups (do not block exit)
 
-- At least one reference agent renders a structured form and one A2UI surface.
-- Unrecognized schemas/extensions fall back safely.
-- Generated UI cannot execute arbitrary code or bypass authorization.
+- Extension plugin contract and compatibility fixtures ([#26](https://github.com/shashikanth-gs/a2a-ops/issues/26)).
+- AG-UI limitations #8–#13, A2UI limitations #22–#25, approval follow-ups #15–#20 (`#15` is built by slice 6.7; the rest remain open),
+  and the committed browser suite for the Phase 6 flows (#14).
+
+### Exit criteria (verified 2026-10-06)
+
+- At least one reference agent renders a structured form and one A2UI surface. The `showcase` fixture agent presents a form, an A2UI surface and an
+  approval request; HTTP and browser runs complete each flow.
+- Unrecognized schemas/extensions fall back safely. The `unknown` fixture agent advertises an extension the console does not know and sends form,
+  A2UI and approval parts anyway; none is interpreted, no request is opened, the parts show as inspectable data and the composer works.
+- Generated UI cannot execute arbitrary code or bypass authorization. A hostile corpus renders only as text with no executable or loading markup; the
+  production CSP forbids eval, plugins, framing and other origins; every Phase 6 payload is refused by the same command and decision checks
+  as a plain message for viewers, ungranted and skill-scoped operators.
 
 Requirements: `ART-002`, `INT-002..004`, `HITL-006`, `ACC-001`.
 

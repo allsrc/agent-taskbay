@@ -1,7 +1,9 @@
 // Reference A2A agent for the structured-form extension (ADR 0020). It is a verification fixture, not product code:
 //   node scripts/fixture-form-agent.mjs [port]      serves http://127.0.0.1:<port>/<variant>/card.json
 // Variants: `form` advertises the extension, `plain` sends the same form without advertising it, `invalid` advertises it
-// but sends a schema outside the supported subset, `approver` advertises the approval-request extension and asks a person to approve an
+// but sends a schema outside the supported subset, `showcase` advertises the form, A2UI and approval-request extensions and answers by
+// message (form by default, "surface" for an A2UI surface, "approve" for an approval request), `unknown` advertises only an extension the
+// console does not know and sends form, A2UI and approval parts anyway, `approver` advertises the approval-request extension and asks a person to approve an
 // action (`rogue` sends the same request without advertising it),  `a2ui` advertises the A2UI v0.9 extension and asks for confirmation with a surface. Tests import startFormAgent() to run one in-process.
 import { createServer } from "node:http";
 
@@ -75,7 +77,9 @@ export async function startFormAgent(port = 0) {
       response.end(JSON.stringify({
         name: `Form fixture (${variant})`, description: "Asks for input with a structured form", version: "1.0.0",
         supportedInterfaces: [{ url: `${origin}/${variant}/a2a`, protocolBinding: "JSONRPC", protocolVersion: "1.0" }],
-        capabilities: { streaming: true, extensions: variant === "plain" || variant === "rogue" ? [] : variant === "approver" ? [{ uri: APPROVAL_EXTENSION_URI, required: false }] : variant === "a2ui" ? [{ uri: A2UI_EXTENSION_URI, required: false, params: { supportedCatalogIds: [BASIC_CATALOG] } }]
+        capabilities: { streaming: true, extensions: variant === "unknown" ? [{ uri: "https://example.com/extensions/unknown/v9", required: false, params: { anything: true } }]
+          : variant === "showcase" ? [{ uri: FORM_EXTENSION_URI, required: false, params: { startForm } }, { uri: A2UI_EXTENSION_URI, required: false }, { uri: APPROVAL_EXTENSION_URI, required: false }]
+          : variant === "plain" || variant === "rogue" ? [] : variant === "approver" ? [{ uri: APPROVAL_EXTENSION_URI, required: false }] : variant === "a2ui" ? [{ uri: A2UI_EXTENSION_URI, required: false, params: { supportedCatalogIds: [BASIC_CATALOG] } }]
           : [{ uri: FORM_EXTENSION_URI, required: false, params: variant === "form" ? { startForm } : {} }] },
         defaultInputModes: ["text/plain", "application/json"], defaultOutputModes: ["text/plain"], skills: [],
       }));
@@ -100,7 +104,12 @@ export async function startFormAgent(port = 0) {
     }
     received.push({ variant, message });
     contexts.set(taskId, contextId);
-    if (variant === "approver" || variant === "rogue") {
+    const spoken = message.parts?.find((part) => part.text)?.text ?? "";
+    // `showcase` picks a behavior per message; replies are recognized by what they carry.
+    const mode = variant !== "showcase" ? variant
+      : message.parts?.some((part) => part.mediaType === A2UI_MEDIA_TYPE) ? "a2ui" : message.metadata?.approval ? "approver"
+      : message.taskId ? "form" : spoken.includes("surface") ? "a2ui" : spoken.includes("approve") ? "approver" : "form";
+    if (mode === "approver" || mode === "rogue") {
       const approval = message.metadata?.approval;
       const asked = message.parts?.find((part) => part.text)?.text ?? "";
       const request = asked.includes("invalid") ? { title: "Bad request", risk: "extreme", action: { kind: "send_message", text: "x" } }
@@ -120,8 +129,22 @@ export async function startFormAgent(port = 0) {
       response.end(events.map((result) => `data: ${JSON.stringify({ jsonrpc: "2.0", id: rpc.id, result })}\n\n`).join(""));
       return;
     }
+    if (variant === "unknown") {
+      const events = [{ task: { id: taskId, contextId, status: { state: "TASK_STATE_WORKING", timestamp: new Date().toISOString() }, history: [message] } },
+        { statusUpdate: { ...status("TASK_STATE_INPUT_REQUIRED", undefined, [{ text: "Fill in the widget." },
+          { data: { widget: "unknown" }, mediaType: "application/vnd.example.widget+json" }, { data: deployForm, mediaType: FORM_MEDIA_TYPE },
+          { data: a2uiSurface, mediaType: A2UI_MEDIA_TYPE },
+          { data: { title: "Sneaky", risk: "high", action: { kind: "send_message", text: "Yes, delete everything" } }, mediaType: APPROVAL_MEDIA_TYPE }]), final: true } }];
+      if (rpc.method === "SendMessage") {
+        response.end(JSON.stringify({ jsonrpc: "2.0", id: rpc.id, result: { task: { id: taskId, contextId, status: events.at(-1).statusUpdate.status, history: [message] } } }));
+        return;
+      }
+      response.setHeader("Content-Type", "text/event-stream");
+      response.end(events.map((result) => `data: ${JSON.stringify({ jsonrpc: "2.0", id: rpc.id, result })}\n\n`).join(""));
+      return;
+    }
     const action = message.parts?.find((part) => part.mediaType === A2UI_MEDIA_TYPE && part.data?.action)?.data.action;
-    if (variant === "a2ui") {
+    if (mode === "a2ui") {
       const events = action
         ? [{ task: { id: taskId, contextId, status: { state: "TASK_STATE_WORKING", timestamp: new Date().toISOString() } } },
           { statusUpdate: { ...status("TASK_STATE_COMPLETED", `Deploy confirmed: ${action.context.reason ?? "no reason"} (${(action.context.env ?? []).join(",")}) notify=${action.context.notify}`), final: true } }]

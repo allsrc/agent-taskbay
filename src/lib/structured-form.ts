@@ -22,8 +22,11 @@ const KEY = /^[A-Za-z_][A-Za-z0-9_]{0,63}$/;
 const finite = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
 const text = (value: unknown, max: number): string | undefined => (typeof value === "string" && value.length > 0 ? value.slice(0, max) : undefined);
 
+/** Names that collide with Object.prototype members would read inherited values (`toString`) or reach the prototype (`__proto__`). */
+const RESERVED = new Set(["__proto__", "constructor", "prototype", "toString", "valueOf", "hasOwnProperty", "isPrototypeOf", "propertyIsEnumerable", "toLocaleString", "__defineGetter__", "__defineSetter__", "__lookupGetter__", "__lookupSetter__"]);
+
 function parseField(key: string, raw: unknown, required: boolean): FormField | undefined {
-  if (!KEY.test(key) || !isObject(raw)) return undefined;
+  if (!KEY.test(key) || RESERVED.has(key) || !isObject(raw)) return undefined;
   const base = { key, label: text(raw.title, FORM_LIMITS.label) ?? key, description: text(raw.description, FORM_LIMITS.text), required };
   if (Array.isArray(raw.enum)) {
     if (raw.enum.length === 0 || raw.enum.length > FORM_LIMITS.options || !raw.enum.every((item) => typeof item === "string")) return undefined;
@@ -112,7 +115,7 @@ export function validateForm(form: FormDefinition, values: FormValues): { submis
   const submission: FormSubmission = {};
   const errors: FormErrors = {};
   for (const field of form.fields) {
-    const raw = values[field.key];
+    const raw = Object.prototype.hasOwnProperty.call(values, field.key) ? values[field.key] : undefined;
     const empty = raw === undefined || raw === "" || (field.type === "number" || field.type === "integer" ? Number.isNaN(raw) : false);
     if (field.type === "boolean") { submission[field.key] = raw === true; continue; }
     if (empty) { if (field.required) errors[field.key] = "Required"; continue; }
