@@ -2109,6 +2109,59 @@ clean); the repository rename, GitHub description and topics, and npm name reser
 
 Next executable slice: unchanged (Phase 5 remainder #5 or Phase 7, as the user chooses).
 
+## Phase 8 slices 8.1 and 8.2 verified evidence
+
+Date: 2026-10-06
+
+Slices: **8.1 — npm package and local launcher**, **8.2 — community files and release automation** (ADR 0025)
+
+Changes:
+
+- Added the publishable `agent-taskbay` package: `bin/agent-taskbay.mjs` (I/O) and `bin/launcher.mjs` (pure logic). It runs `next start`
+  from the installed package, binds loopback, refuses development identity elsewhere, keeps state in one data directory
+  (`~/.agent-taskbay`), generates the vault key ring into `secrets.json` (0600, never overwritten or printed), guards a single owner with
+  a pid file, opens the browser, and offers `demo-agent` for the reference fixture agents.
+- Added `A2A_AUTO_MIGRATE` (default on for `next dev` with PGlite and for the launcher) and made the PGlite config create its parent
+  directory; before this, `npm run db:migrate` and `npm run dev` failed with ENOENT on a clean checkout.
+- Switched the production build to webpack. The Turbopack build rewrites externals to hashed names resolved through `.next/node_modules`,
+  which npm strips from tarballs; the first install check failed with `Cannot find package '@mikro-orm/core-<hash>'`.
+- Amended ADR 0014: explicit demo mode no longer requires an origin allowlist; a configured allowlist is still enforced.
+- Added `scripts/verify-package.mjs` (`npm run verify:package`) and a `package` CI job, the release workflow (provenance, tag must match
+  `package.json`), contributing, conduct and security files, issue and PR templates, Dependabot, changelog, `.nvmrc`, `.editorconfig`.
+- Captured the production topology (`docs/deployment/PRODUCTION_TOPOLOGY.md`) and the parked client-SDK proposal (ADR 0026, #31). Added
+  requirements `OPS-003`, `DX-001`, `OSS-001`.
+
+Verification commands and results:
+
+- `npm run verify:package` (Linux, Node 22.22): passed. Tarball 434 files, 1.9 MiB, with the required files and none of `.next/cache`,
+  `.env*`, tests, docs, archives; `npm install` of the tarball with `--omit=dev` (254 packages); `--help` and `--version`; refusal of
+  `--host 0.0.0.0`; refusal of a second instance on the same data directory; `secrets.json` mode 0600; sample agent registered through
+  `POST /api/agents` with no allowlist configured; a command accepted, dispatched by the embedded workers and a durable task created;
+  restart with the agent and task still present and the pid file released. This ran before the PGlite parent-directory fix below.
+- Clean checkout: after deleting `.data`, `npm run db:migrate` applied every migration, and `next dev` started, auto-migrated and returned
+  200 from `/api/agents` and the local operator from `/api/auth/session`.
+- `npm run check` (lint; 43 unit files and 163 tests; 18 database files with 22 passed and 18 PostgreSQL-only cases skipped because no
+  server was available; `db:schema:check`; webpack production build; every HTTP suite including the Phase 6 exit suite): passed.
+- New unit tests: launcher arguments, loopback guard, secrets and environment (`bin/launcher.test.mjs`), demo-mode allowlist
+  (`src/lib/url-safety.test.ts`), auto-migration policy and PGlite parent directory.
+- Workflow files and issue templates parse as YAML; they have not run on GitHub.
+
+Migration tested from: not applicable (no schema change).
+
+Remaining risks:
+
+- Only Linux was verified, from a local tarball. macOS and Windows, and `npx` from the npm registry, are unverified. The package check was not
+  re-run after the PGlite parent-directory fix, which does not touch the launcher path.
+- The first publish needs the maintainer's `NPM_TOKEN` and a tag; provenance is unobserved until then. The `package` CI job and the release
+  workflow have not run on GitHub.
+- The production build is now webpack. Turbopack is still used by `next dev`; a divergence between the two bundlers would show up in
+  development first.
+- Installs are not locked for end users (no `npm-shrinkwrap.json`), so a transitive dependency can change between releases.
+- PostgreSQL-only database cases were not run here; CI runs them.
+- `A2A client UI mockups.zip` and `a2a-details.rtf` remain tracked at the repository root.
+
+Next executable slice: the first publish and the remaining Phase 8 checklist items, then slice 5.2 or Phase 7 as the user chooses.
+
 ## Known repository-state issue
 
 The working application branch is ahead of the public default branch. Publishing
