@@ -1,11 +1,14 @@
-# A2A Ops
+# Agent Taskbay
 
 **The human operations console for A2A agent workflows.**
 
 Discover agents, operate durable tasks, handle human approvals, and audit work
-across an Agent2Agent (A2A) agent mesh. A2A Ops supports real-time task
+across an Agent2Agent (A2A) agent mesh. Agent Taskbay supports real-time task
 execution and full multi-modal message and artifact rendering (text, Markdown,
 JSON, files, images, audio, video, and PDF).
+
+Agent Taskbay is a human-in-the-loop console for AI agents: start work with an agent, track it after your browser
+closes, step in when an agent needs input or approval, and keep an audit record of who decided what.
 
 Built on the official [`@a2a-js/sdk`](https://www.npmjs.com/package/@a2a-js/sdk).
 
@@ -333,6 +336,13 @@ browser-direct, the two-plane auth design, and the v1→v2 reframe from
 `A2A_LITE_CHAT_UI_DESIGN.md` in the
 [SpanPlane](https://github.com/shashikanth-gs/spanplane) repository
 (`docs/a2a-lite-chat-ui-design` branch), §7 in particular.
+
+## Naming and affiliation
+
+Agent Taskbay is an independent open-source project. It is not affiliated with, endorsed by, or sponsored by the A2A
+project or the Linux Foundation. "A2A" and "Agent2Agent" refer to the open protocol and are used here only to describe
+compatibility. See [ADR 0024](./docs/adr/0024-product-name.md) for the naming decision and the compatibility
+identifiers that still use `a2a-ops`.
 
 ## License
 

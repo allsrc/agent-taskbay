@@ -1,4 +1,4 @@
-# A2A Ops threat model
+# Agent Taskbay threat model
 
 Last reviewed: 2026-10-03 (combined Phase 3 service identity/security baseline).
 

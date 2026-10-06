@@ -17,7 +17,7 @@ const fontMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "A2A Ops",
+  title: "Agent Taskbay",
   description:
     "The human operations console for A2A agent workflows. Discover agents, operate durable tasks, handle human approvals, and audit work across an A2A agent mesh.",
 };

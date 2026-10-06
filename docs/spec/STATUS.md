@@ -9,6 +9,7 @@ Last updated: 2026-10-06
 - Last completed slice: **6.7 — agent-originated approval requests**; Phase 6 exit verified 2026-10-06
 - Next executable slice: **5.2 — saved views, search, advanced filters and bulk triage** ([#5](https://github.com/shashikanth-gs/a2a-ops/issues/5)) or Phase 7, as the user chooses; the plugin contract is [#26](https://github.com/shashikanth-gs/a2a-ops/issues/26)
 - Blocking decisions: none
+- Product renamed to **Agent Taskbay** on 2026-10-06 (ADR 0024); see the rename section below. The GitHub repository is renamed after merge.
 
 ## Pending follow-ups
 
@@ -45,9 +46,9 @@ Last updated: 2026-10-06
 
 ## Accepted implementation choices
 
-- Product name: A2A Ops.
-- Formal name: A2A Operations Console.
-- Repository slug: `a2a-ops`.
+- Product name: Agent Taskbay (ADR 0024); previously A2A Ops.
+- Repository slug: `agent-taskbay` (rename of the GitHub repository from `a2a-ops` is done after this change merges).
+- Wire and persisted identifiers still use `a2a-ops` on purpose; one coordinated rename is tracked in [#27](https://github.com/shashikanth-gs/a2a-ops/issues/27).
 - Tagline: "The human operations console for A2A agent workflows."
 - ORM: MikroORM using Data Mapper/Unit of Work/Entity Repository patterns.
 - Local default database: file-backed PGlite.
@@ -2061,6 +2062,41 @@ Verification commands and results:
 Migration tested from: not applicable (no schema change).
 
 **Phase 6 is complete.** Next: Phase 5 remainder ([#5](https://github.com/shashikanth-gs/a2a-ops/issues/5)) or Phase 7, by the user's choice; open Phase 6 follow-ups are tracked as issues.
+
+## Product rename evidence (2026-10-06)
+
+Date: 2026-10-06
+
+Slice: product rename to **Agent Taskbay** (ADR 0024). Naming only; no behavior, schema or API change.
+
+Changes:
+
+- Display name Agent Taskbay and slug `agent-taskbay` in the UI (page title, wordmark, sign-in heading, shell fallback label), README,
+  PRODUCT_SPEC, ARCHITECTURE, ROADMAP, THREAT_MODEL, NOTICE, `package.json` (name, repository URLs, search keywords) and the lockfile.
+- CI and HTTP-test database names renamed to `agent_taskbay_*`.
+- README gained an introduction aimed at the terms people search and a "Naming and affiliation" note (independent project; not
+  endorsed by the A2A project or the Linux Foundation).
+- ADR 0024 records the decision, the naming checks and the identifiers kept on purpose. Accepted ADRs 0001-0023 and historical evidence
+  in this file keep the old name.
+- Wire and persisted identifiers still use `a2a-ops` (extension URIs, media types, webhook headers, dev issuer, storage keys,
+  migrations table); a coordinated rename is tracked in [#27](https://github.com/shashikanth-gs/a2a-ops/issues/27).
+- Repository path links in docs still use `a2a-ops`; GitHub redirects them after the repository is renamed (done after merge).
+
+Verification commands and results:
+
+- Allowlist audit: every remaining `a2a-ops` outside ADRs 0001-0023, this file's history and issue links is a documented compatibility
+  identifier or a temporary-directory name in a test.
+- `npm run lint`, `npm test` (147 tests), `npm run test:db` (22 passed; 18 PostgreSQL-only cases skipped, no server available), `npm run
+  db:migrate` then `npm run db:schema:check` on a fresh PGlite directory, `npm run build`, and `npm run test:http` (all suites, including
+  the Phase 6 exit suite): passed. PostgreSQL cases were not run in this environment.
+- Browser check of the built app at 1280 px and 390 px: title and wordmark read "Agent Taskbay" and do not clip.
+
+Migration tested from: not applicable (no schema change).
+
+Remaining risks: trademark and domain registration for "Agent Taskbay" were not verifiable here (npm, PyPI, GitHub, web search and DNS were
+clean); the repository rename, GitHub description and topics, and npm name reservation are manual steps after merge.
+
+Next executable slice: unchanged (Phase 5 remainder #5 or Phase 7, as the user chooses).
 
 ## Known repository-state issue
 

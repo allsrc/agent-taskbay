@@ -35,3 +35,4 @@ accepted ADR. Small implementation details do not require an ADR.
 - [0021 — AG-UI adapter](./0021-ag-ui-adapter.md)
 - [0022 — A2UI renderer](./0022-a2ui-renderer.md)
 - [0023 — Agent-originated approval requests](./0023-agent-originated-approvals.md)
+- [0024 — Product name: Agent Taskbay](./0024-product-name.md)

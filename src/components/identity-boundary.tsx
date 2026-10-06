@@ -19,7 +19,7 @@ export async function IdentityBoundary({ children }: { children: React.ReactNode
   if (principal) return <AppShell identity={{ displayName: principal.displayName, role: principal.role, development }}>{children}</AppShell>;
   return <main className="flex min-h-dvh items-center justify-center p-6">
     <div className="bg-card border-border w-full max-w-sm space-y-4 rounded-xl border p-6">
-      <h1 className="text-xl font-semibold">Sign in to A2A Ops</h1>
+      <h1 className="text-xl font-semibold">Sign in to Agent Taskbay</h1>
       <p className="text-muted-foreground text-sm">Use your organization account to access agents and tasks.</p>
       {/* Full navigation starts the cookie-based server login flow. */}
       <a href="/api/auth/login" className="bg-primary text-primary-foreground inline-block rounded-md px-4 py-2 text-sm font-medium">Sign in</a>
