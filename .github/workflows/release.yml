@@ -23,7 +23,7 @@ jobs:
           cache: npm
           registry-url: https://registry.npmjs.org
       - name: Use an npm that supports trusted publishing (11.5.1+)
-        run: npm install -g npm@latest
+        run: npm install -g npm@11
       - run: npm ci
       - name: Tag must match package.json
         run: |
