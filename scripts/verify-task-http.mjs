@@ -456,7 +456,9 @@ try {
   assert.ok(pollGets > 0, "GetTask polling did not run");
   assert.ok(pollGets > readsBeforeRestart || pollTokens.length > pagesBeforeRestart, "Reconciliation reads did not resume after worker restart");
   assert.equal(pollCompleted.messages.filter((message) => message.id === "poll-prompt").length, 1);
-  assert.ok(pollTokens.includes("page-two"), "ListTasks pagination did not advance");
+  // Page two is read on a later worker tick than the GetTask poll that completed the task; wait for it instead of racing it.
+  for (let attempt = 0; attempt < 300 && !pollTokens.includes("page-two"); attempt++) await new Promise((resolve) => setTimeout(resolve, 100));
+  assert.ok(pollTokens.includes("page-two"), `ListTasks pagination did not advance (page tokens requested: ${JSON.stringify(pollTokens)})`);
   assert.ok(!(await json("/api/tasks")).tasks.some((task) => task.taskId === "unrelated-poll-task"));
   // REL-003: exercise the operator CLI against the same production data and
   // original archives. PostgreSQL stays online; PGlite releases its sole owner.
