@@ -68,7 +68,7 @@
     "db:migration:list": "mikro-orm migration:list",
     "db:migration:pending": "mikro-orm migration:pending",
     "db:schema:check": "mikro-orm migration:check",
-    "check": "npm run lint && npm run test && npm run test:db && npm run db:schema:check && npm run build && npm run test:http",
+    "check": "npm run lint && npm run test && npm run test:db && npm run db:migrate && npm run db:schema:check && npm run build && npm run test:http",
     "db:projections:rebuild": "tsx scripts/rebuild-projections.ts",
     "worker:commands": "tsx scripts/command-worker.ts",
     "worker:tasks": "tsx scripts/command-worker.ts",
