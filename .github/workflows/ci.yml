@@ -33,7 +33,7 @@ jobs:
       A2A_DATABASE_PROFILE: postgresql
       A2A_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/agent_taskbay_test
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
         with:
           node-version: 22.17.0
@@ -45,7 +45,7 @@ jobs:
     # Packs the project, installs the tarball into an empty directory as `npx agent-taskbay` would, and drives it (ADR 0025).
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
         with:
           node-version: 22.17.0
