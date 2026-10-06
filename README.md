@@ -1,125 +1,129 @@
 # Agent Taskbay
 
 [![CI](https://github.com/allsrc/agent-taskbay/actions/workflows/ci.yml/badge.svg)](https://github.com/allsrc/agent-taskbay/actions/workflows/ci.yml)
-[![npm](https://img.shields.io/npm/v/agent-taskbay)](https://www.npmjs.com/package/agent-taskbay)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 
-**The human operations console for A2A agent workflows.**
+**The human operations console for A2A agent workflows.** Start work with an [A2A](https://a2a-protocol.org) agent, keep tracking it after
+your browser closes, and step in when the agent needs input or an approval, with a record of who decided what.
 
-Created and maintained by [Shashi Kanth G S](https://shashikanth.me) · Part of [Allsrc](https://allsrc.dev), open-source tools for AI agents, interoperability and developer infrastructure.
+Created and maintained by [Shashi Kanth G S](https://shashikanth.me), part of [Allsrc](https://allsrc.dev).
 
-Agent Taskbay is a human-in-the-loop console for AI agents. Start work with an agent, track it after your browser closes, step in
-when an agent needs input or approval, and keep an audit record of who decided what.
+> **Status: pre-1.0 (`0.1.0`), not yet published to npm.** Interfaces may change between minor versions. Run it from a git checkout today;
+> see [Status and roadmap](docs/project/status-and-roadmap.md) for what works, what is partial and what is planned.
 
-It is the human entry point into an organization's existing [Agent2Agent (A2A)](https://a2a-protocol.org) agent mesh, not a
-single-agent chat demo or a protocol testbench. A2A already handles agent-to-agent delegation; this is the missing human half: a place
-to start a process, get pulled back in exactly when an agent needs a decision, and see it through to done.
+## What problem it solves
 
-Built on the official [`@a2a-js/sdk`](https://www.npmjs.com/package/@a2a-js/sdk).
+A2A covers agent-to-agent delegation. It does not give a *person* a place to start a long-running task, be pulled back in when an agent
+asks for input or approval, and later show who approved what. Agent Taskbay is that place. It is an A2A **client** with a server-side
+runtime: it does not run agents and does not replace the orchestrator in your agent mesh.
 
-## Quick start
+## Try it
 
-```bash
-npx agent-taskbay
-```
-
-That downloads the console, starts it at <http://127.0.0.1:3002> and opens your browser. There is nothing else to install: it uses an
-embedded database, generates its own encryption key, and signs you in as a local administrator. Everything lives in `~/.agent-taskbay`
-(`--data-dir` to change it). Requires Node.js 22.19 or newer.
-
-To try it without an agent of your own, serve the sample agents in a second terminal and paste a card URL into **Connect agent**:
+Needs Node.js 22.19 or newer and git. No database server and no `.env` file.
 
 ```bash
-npx agent-taskbay demo-agent
+git clone https://github.com/allsrc/agent-taskbay.git && cd agent-taskbay && npm ci && npm run dev
 ```
 
-Local mode is for your own machine only: it has no login screen, so it refuses to listen on anything but loopback. To run it for other
-people, configure OIDC and a PostgreSQL database; see [Hosting](#hosting) and [`SECURITY.md`](./SECURITY.md).
-`npx agent-taskbay --help` lists the options.
-
-## What it does
-
-- **Agent catalog.** Connect agents by Agent Card URL, with live discovery of capabilities, interfaces, skills and security schemes.
-- **Durable tasks.** Commands are persisted before dispatch and observed by background workers, so work continues and is recorded after
-  the browser closes. Streams, push callbacks and polling reconciliation converge on one projection.
-- **Chat and orchestration.** One conversation, many tasks, in a single timeline with streaming artifacts, input and auth prompts, and
-  the context links between tasks.
-- **Approvals and ownership.** Approval-grade decisions that execute against the exact reviewed revision, task ownership and
-  escalation, and an append-only audit trail.
-- **Notifications.** A unified inbox, plus signed outbound webhooks for input requests, finished tasks and ready artifacts.
-- **Rich content.** Text, Markdown, JSON, CSV, images, audio, video, PDF and files, rendered deterministically. Agents can ask for
-  structured forms, approvals and a safe subset of A2UI (see the extension specs in [`docs/extensions`](./docs/extensions)), and an
-  optional AG-UI adapter streams a task to AG-UI clients.
-- **Security.** OIDC sign-in with organization roles, encrypted per-agent credentials with team, agent and skill grants, SSRF-safe
-  outbound requests with an origin allowlist, and an explicit [threat model](./docs/security/THREAT_MODEL.md).
-
-## Status
-
-Pre-1.0. Phases 0 to 4 and 6 are complete, and Phase 5 (operator experience) is partly done. Still to come: saved views, search and bulk
-triage ([#5](https://github.com/allsrc/agent-taskbay/issues/5)), user-delegated OAuth
-([#1](https://github.com/allsrc/agent-taskbay/issues/1)), container images and charts, and a client SDK. The current position
-and next step are in [`docs/spec/STATUS.md`](./docs/spec/STATUS.md); the plan is in [`ROADMAP.md`](./ROADMAP.md).
-
-## Architecture
-
-Server-mediated, not browser-direct: Next.js API routes proxy to agents, so agent credentials never reach the browser. The system is a
-modular monolith with ports and adapters, an event ledger with rebuildable projections, and workers that own agent subscriptions.
-
-```
-Browser UI (Next.js)  ──▶  API routes  ──▶  application services  ──▶  ports
-                                                                          ├─ database (PGlite / PostgreSQL)
-Workers (commands, subscriptions,                                         ├─ artifact store
-push, reconciliation, freshness)  ──────────────────────────────────────▶ ├─ A2A gateway (@a2a-js/sdk)
-                                                                          └─ identity, secrets, notifications
-```
-
-See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for boundaries and data flow, [`docs/adr`](./docs/adr) for the decisions behind them, and
-[`docs/spec/DATA_MODEL.md`](./docs/spec/DATA_MODEL.md) for the storage model. The gateway, content model and rendering stack are adapted
-from [SpanPlane](https://github.com/shashikanth-gs/spanplane) (Apache-2.0; see [`NOTICE`](./NOTICE)).
-
-## Develop from source
+In a second terminal, from the same checkout, serve a sample agent:
 
 ```bash
-git clone https://github.com/allsrc/agent-taskbay.git
-cd agent-taskbay
-npm ci
-npm run dev                  # http://localhost:3002
+node scripts/fixture-form-agent.mjs 4010
 ```
 
-PGlite (embedded PostgreSQL) is the zero-install default and `npm run dev` applies migrations on start, so no `.env` file is needed.
-Copy `.env.example` to `.env.local` to change settings. Run `npm run check` for the full quality gate; see
-[`CONTRIBUTING.md`](./CONTRIBUTING.md) for what to run before a pull request.
+Then in the console at <http://localhost:3002>:
+
+1. **Agents → Add agent**, paste `http://127.0.0.1:4010/showcase/card.json`, then **Fetch Agent Card → Continue → Connect**.
+2. Open the agent, **Start chat**, and send `please approve the deploy`.
+3. Open **Inbox**. The task is waiting on you with a pending approval ("Delete the staging cluster", risk High). **Approve** it.
+
+**What you should see:** the approval becomes `approved`, the exact reviewed content is sent to the agent once, and the task moves to
+completed. The decision and its delivery are in the audit trail. Close the browser mid-way and reopen it: state is in the database, not the tab.
+The [quickstart](docs/quickstart.md) shows each step in detail, including what to check when one fails.
+
+The sample agent is a test fixture, not a real agent.
+
+## What you get
+
+| Capability | In short |
+| --- | --- |
+| Agent catalog | Connect agents by Agent Card URL; discovery of skills, interfaces and security schemes. |
+| Durable tasks | Commands are saved before they are sent. Workers follow tasks by stream, push callback and polling, so work continues with no browser open. |
+| Human decisions | Approvals execute against the exact reviewed revision, once. Input requests, task ownership, due times and escalation. |
+| Audit trail | Append-only record of workflow and security-relevant actions. |
+| Notifications | In-app inbox and one optional signed webhook per organization. |
+| Rich content | Text, Markdown, JSON, CSV, images, audio, video, PDF and files are rendered by fixed code; agent-supplied code is never run. Optional structured forms, approval requests and a subset of A2UI. |
+| Access control | OIDC sign-in, organization roles, encrypted agent credentials, team/agent/skill grants, an outbound origin allowlist. |
+
+Each row is explained, with its limits, in [Concepts](docs/concepts/overview.md).
+
+## Why you might not want this
+
+- **Pre-1.0 and unpublished.** There is no `npx agent-taskbay` yet, and no stable API.
+- **No stable API or SDK.** The HTTP API needs a browser session cookie and a matching `Origin`; there are no service tokens and no `/api/v1`
+  ([#31](https://github.com/allsrc/agent-taskbay/issues/31)). Use it as a console, not as a backend for scripts.
+- **Local mode is not a security boundary.** It signs everyone in as an administrator and binds to loopback only. Anything shared needs OIDC.
+- **No hosting artifacts.** There are no container images, Compose file, Helm chart, health endpoint or backup tooling. A single organization
+  per deployment; the artifact store is the local filesystem. See [Production deployment](docs/guides/production-deployment.md).
+- **Service credentials only.** Agents are reached with credentials the administrator stores; per-user delegated OAuth is not built
+  ([#1](https://github.com/allsrc/agent-taskbay/issues/1)).
+- **No gRPC.** Agents that only offer gRPC are rejected.
+- **Plain replies can bypass an open approval** ([#16](https://github.com/allsrc/agent-taskbay/issues/16)).
+- **Not a protocol testbench, an agent framework or a workflow designer.** Saved views, search and bulk triage are not built
+  ([#5](https://github.com/allsrc/agent-taskbay/issues/5)).
+- **Tested versions are narrow:** Node.js 22.19 and PostgreSQL 18 are what CI runs. Browser support is not verified.
+
+The full table of supported and unsupported behavior is in [Compatibility and limitations](docs/reference/compatibility.md).
+
+## What your agents must provide
+
+Taskbay works with any A2A agent that publishes an Agent Card over HTTP(S). Richer behavior is opt-in, per agent, by advertising an
+extension in the card; otherwise content is shown as ordinary data.
+
+| You want | The agent must |
+| --- | --- |
+| Typed input instead of free text | Advertise the [structured form extension](docs/reference/extensions/structured-form.md) |
+| The agent to ask for approval | Advertise the [approval request extension](docs/reference/extensions/approval-request.md) |
+| Access limited to one skill | Advertise and enforce [skill routing](docs/reference/extensions/skill-routing.md); otherwise a whole-agent grant is needed |
+| Agent-driven UI | Send a [supported A2UI subset](docs/reference/a2ui.md) |
+
+How to build that side is in [Build an agent for Taskbay](docs/guides/build-an-agent-for-taskbay.md).
+
+## How it fits together
+
+```mermaid
+flowchart LR
+  B[Browser UI] --> W[Next.js web + API]
+  W --> DB[(PGlite / PostgreSQL)]
+  K[Workers: dispatch, subscriptions, push, reconciliation] --> DB
+  K --> A[A2A agents]
+  A -- push callbacks --> W
+```
+
+The browser never talks to agents and never sees their credentials. In local mode the workers run inside the web process; with PostgreSQL
+they can run separately. Details: [Overview](docs/concepts/overview.md) and [Durable tasks](docs/concepts/durable-tasks.md).
 
 ## Documentation
 
-| Topic | Where |
+Start at the [documentation index](docs/README.md). Short version:
+
+| Your question | Page |
 | --- | --- |
-| Running, workers, command API, push, projections | [`docs/guides/operations.md`](./docs/guides/operations.md) |
-| Sign-in, roles, agent credentials | [`docs/guides/authentication.md`](./docs/guides/authentication.md) |
-| Agent extensions (forms, approvals, skill routing) | [`docs/extensions`](./docs/extensions) |
-| Production topology | [`docs/deployment/PRODUCTION_TOPOLOGY.md`](./docs/deployment/PRODUCTION_TOPOLOGY.md) |
-| Security | [`SECURITY.md`](./SECURITY.md), [`docs/security`](./docs/security) |
-| Product spec, phases, status | [`docs/spec`](./docs/spec) and [`ROADMAP.md`](./ROADMAP.md) |
-| Architecture decisions | [`docs/adr`](./docs/adr) |
+| Can I make it work? | [Quickstart](docs/quickstart.md) |
+| How does it work, and why? | [Concepts](docs/concepts/overview.md) |
+| How do I do a task? | [Guides](docs/README.md#guides) |
+| What exactly is supported? | [Reference](docs/README.md#reference) |
+| What happens when it fails? | [Troubleshooting](docs/operations/troubleshooting.md) |
+| Is it secure? | [Threat model](docs/security/threat-model.md), [SECURITY.md](SECURITY.md) |
+| What will upgrading cost? | [Upgrading](docs/guides/upgrading-and-backups.md), [CHANGELOG](CHANGELOG.md) |
+| How do I contribute? | [CONTRIBUTING.md](CONTRIBUTING.md) |
 
-## Hosting
+The earlier planning documents (decision records, phase specs, evidence log) are kept in [`docs/archive/`](docs/archive/README.md).
 
-Production uses PostgreSQL, OIDC sign-in, an exact outbound origin allowlist and HTTPS, with web replicas and separate workers. The
-intended topology and artifact-storage options are in
-[`docs/deployment/PRODUCTION_TOPOLOGY.md`](./docs/deployment/PRODUCTION_TOPOLOGY.md); container images and charts are planned work.
-Configuration is in `.env.example`, and `A2A_AUTO_MIGRATE=true` applies migrations at server start if you run a single instance.
+## Acknowledgements and license
 
-## Community
+Built on the official [`@a2a-js/sdk`](https://www.npmjs.com/package/@a2a-js/sdk). The gateway, content model and rendering stack are adapted
+from [SpanPlane](https://github.com/shashikanth-gs/spanplane) (Apache-2.0; see [`NOTICE`](NOTICE)). MIT licensed ([`LICENSE`](LICENSE)).
 
-[`CONTRIBUTING.md`](./CONTRIBUTING.md) explains how to set up, test and propose a change. Please read [`SECURITY.md`](./SECURITY.md)
-before reporting a vulnerability and follow the [Code of Conduct](./CODE_OF_CONDUCT.md). Release notes are in
-[`CHANGELOG.md`](./CHANGELOG.md).
-
-Agent Taskbay is an independent open-source project. It is not affiliated with, endorsed by, or sponsored by the A2A project or the
-Linux Foundation. "A2A" and "Agent2Agent" refer to the open protocol and are used only to describe compatibility.
-
-## License
-
-MIT (see [`LICENSE`](./LICENSE)). Includes Apache-2.0 licensed code adapted from SpanPlane; see [`NOTICE`](./NOTICE).
-
-Agent Taskbay is created and maintained by [Shashi Kanth G S](https://shashikanth.me) as part of [Allsrc](https://allsrc.dev).
+Agent Taskbay is an independent open-source project. It is not affiliated with, endorsed by, or sponsored by the A2A project or the Linux
+Foundation. "A2A" and "Agent2Agent" refer to the open protocol and are used only to describe compatibility.

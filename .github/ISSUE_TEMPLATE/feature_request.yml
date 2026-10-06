@@ -19,7 +19,7 @@ body:
     attributes:
       label: Alternatives you considered
   - type: textarea
-    id: spec
+    id: docs
     attributes:
-      label: Where does it fit in the spec?
-      description: Optional. A requirement ID from docs/spec/PRODUCT_SPEC.md, a phase in docs/spec/PHASES.md, or a note that it is new scope.
+      label: Related docs
+      description: Optional. A page under docs/ that describes the current behavior, or docs/project/status-and-roadmap.md if this is already listed as planned.

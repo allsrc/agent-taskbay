@@ -8,37 +8,20 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 <!-- END:nextjs-agent-rules -->
 
-# Project specification and execution protocol
+# Working in this repository
 
-This repository uses spec-driven development. Chat history is never the source
-of truth for product scope, architecture, phase order, or completion.
+Start with these, in order:
 
-Before planning or implementing project work, read these files in order:
+1. `README.md` — what the project is and its limits.
+2. `docs/README.md` — index of the documentation by reader question.
+3. `docs/contributing/development.md` and `docs/contributing/documentation.md` — setup, test layers, boundaries, and which docs page to update.
 
-1. `docs/spec/README.md` — authority order and execution rules.
-2. `docs/spec/PRODUCT_SPEC.md` — product requirements and non-goals.
-3. `ARCHITECTURE.md` — target boundaries, data flow, and deployment profiles.
-4. `docs/spec/DATA_MODEL.md` — persistent identity and storage invariants.
-5. `ROADMAP.md` — phase order and summary status.
-6. `docs/spec/STATUS.md` — the current phase and next executable slice.
-7. `docs/spec/PHASES.md` — detailed deliverables and exit criteria.
-8. The accepted decisions in `docs/adr/` relevant to the work.
+Rules:
 
-When asked to “implement the next phase” or “continue”:
+- Read the relevant docs page before changing behavior. The code is the final authority; if a page is wrong, fix it.
+- Update that docs page in the same change.
+- Add or adjust tests in the same change.
+- Run `npm run check` before calling the work done.
+- Read the relevant Next.js guide in `node_modules/next/dist/docs/` before changing Next.js code, as required above.
 
-1. Resolve the active phase and next unchecked slice from
-   `docs/spec/STATUS.md`; do not infer it from chat history.
-2. Verify prerequisite phase exit criteria before writing code.
-3. Work on one vertical slice at a time and preserve the architectural ports
-   defined in `ARCHITECTURE.md`.
-4. Read the relevant Next.js guide from `node_modules/next/dist/docs/` before
-   changing Next.js code, as required above.
-5. Add or update tests in the same slice.
-6. Run the verification required by the phase specification.
-7. Update `docs/spec/STATUS.md`, add the dated verification to `docs/spec/EVIDENCE.md`, and update any completed
-   checklist in `docs/spec/PHASES.md` in the same change.
-8. Add an ADR when a change alters an accepted architectural decision. Do not
-   silently contradict an ADR.
-
-A phase is complete only when its exit criteria are verified. Code existing is
-not sufficient evidence by itself.
+`docs/archive/` holds the former specs, phase plans, decision records and evidence logs. It is historical: use it for background, never as current truth, and do not edit it.
