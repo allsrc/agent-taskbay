@@ -64,8 +64,8 @@ Rules that matter in review:
 
 - **One vertical slice per change**, with tests in the same change. Mention the requirement ID in a test name or nearby comment when the
   link is not obvious.
-- **Update `docs/spec/STATUS.md`** (and the checklist in `PHASES.md`) in the same change, with the verification you ran. Check a box only
-  after verifying it.
+- **Update `docs/spec/STATUS.md`** and the checklist in `PHASES.md` in the same change, and record the verification you ran in
+  `docs/spec/EVIDENCE.md`. Check a box only after verifying it.
 - **Add an ADR** when a change alters an accepted decision. Do not silently contradict one. Number it next in `docs/adr/` and add it to the index.
 - **Respect the boundaries** in `ARCHITECTURE.md`: domain and application code never import React, Next.js, MikroORM or a database driver.
   New persistence goes behind a port with an adapter; new migrations are additive.

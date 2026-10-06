@@ -35,8 +35,8 @@ When asked to “implement the next phase” or “continue”:
    changing Next.js code, as required above.
 5. Add or update tests in the same slice.
 6. Run the verification required by the phase specification.
-7. Update `docs/spec/STATUS.md` and any completed checklist in
-   `docs/spec/PHASES.md` in the same change.
+7. Update `docs/spec/STATUS.md`, add the dated verification to `docs/spec/EVIDENCE.md`, and update any completed
+   checklist in `docs/spec/PHASES.md` in the same change.
 8. Add an ADR when a change alters an accepted architectural decision. Do not
    silently contradict an ADR.
 

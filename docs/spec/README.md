@@ -11,7 +11,7 @@ When documents disagree, use this order:
 3. Accepted ADRs in `docs/adr/` — architectural decisions.
 4. `ARCHITECTURE.md` and `docs/spec/DATA_MODEL.md` — target design.
 5. `docs/spec/PHASES.md` — deliverables and exit criteria.
-6. `docs/spec/STATUS.md` — current execution position.
+6. `docs/spec/STATUS.md` — current execution position; `docs/spec/EVIDENCE.md` holds dated verification evidence.
 7. `ROADMAP.md` — phase-level summary.
 8. `README.md` — user-facing project description.
 
@@ -37,7 +37,7 @@ When the request is “start implementing the next phase”:
 3. Confirm prerequisites and relevant ADRs.
 4. Implement the smallest end-to-end slice that changes usable behavior.
 5. Add tests and run the checks named by the phase.
-6. Record evidence in `STATUS.md`; check phase items only after verification.
+6. Record evidence in `EVIDENCE.md` and update `STATUS.md`; check phase items only after verification.
 7. If all exit criteria pass, mark the phase complete and activate the next
    phase in the same documentation change.
 

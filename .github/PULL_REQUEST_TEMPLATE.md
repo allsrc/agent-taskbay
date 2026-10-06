@@ -10,6 +10,6 @@
 
 - [ ] One vertical slice, with tests in the same change
 - [ ] `npm run check` passes (or the part you could run is listed above)
-- [ ] `docs/spec/STATUS.md` and the `PHASES.md` checklist are updated
+- [ ] `docs/spec/STATUS.md`, `docs/spec/EVIDENCE.md` and the `PHASES.md` checklist are updated
 - [ ] An ADR is added or amended if an accepted decision changed
 - [ ] User-visible changes are in `CHANGELOG.md`
