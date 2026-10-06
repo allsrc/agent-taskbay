@@ -6,6 +6,8 @@
 
 **The human operations console for A2A agent workflows.**
 
+Created and maintained by [Shashi Kanth G S](https://shashikanth.me) · Part of [Allsrc](https://allsrc.dev), open-source tools for AI agents, interoperability and developer infrastructure.
+
 Agent Taskbay is a human-in-the-loop console for AI agents. Start work with an agent, track it after your browser closes, step in
 when an agent needs input or approval, and keep an audit record of who decided what.
 
@@ -119,3 +121,5 @@ Linux Foundation. "A2A" and "Agent2Agent" refer to the open protocol and are use
 ## License
 
 MIT (see [`LICENSE`](./LICENSE)). Includes Apache-2.0 licensed code adapted from SpanPlane; see [`NOTICE`](./NOTICE).
+
+Agent Taskbay is created and maintained by [Shashi Kanth G S](https://shashikanth.me) as part of [Allsrc](https://allsrc.dev).
