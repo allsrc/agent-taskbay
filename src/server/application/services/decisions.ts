@@ -10,6 +10,7 @@ import { authorize } from "./authorization";
 import { eventDigest } from "./event-identity";
 import type { JsonValue } from "../../domain/persistence-model";
 import type { NotificationEvent } from "../../domain/notification-model";
+import { parseFormDefinition, validateForm } from "../../../lib/structured-form";
 
 export class DecisionError extends Error {
   constructor(message: string, public readonly status: number) { super(message); }
@@ -25,12 +26,33 @@ const EXECUTION_WATCH_MS = 7 * 24 * 60 * 60 * 1000;
 export const EXPIRY_WARNING_MS = 15 * 60 * 1000;
 
 export function actionDigest(action: ProposedAction) {
+  if (action.kind === "send_data") return eventDigest({ kind: action.kind, form: action.form, values: action.values });
   return eventDigest({ kind: action.kind, text: action.text, data: (action.data ?? null) as JsonValue });
 }
 
+const MAX_FORM_BYTES = 64 * 1024;
+const formDigest = (action: Extract<ProposedAction, { kind: "send_data" }>) => eventDigest(action.form);
+
 export function validateAction(action: ProposedAction): ProposedAction {
+  if (action?.kind === "send_data") {
+    const form = action.form as unknown;
+    if (typeof form !== "object" || form === null || Array.isArray(form) || JSON.stringify(form).length > MAX_FORM_BYTES)
+      throw new DecisionError("A structured action needs a form definition of at most 64 KB.", 400);
+    const definition = parseFormDefinition(form);
+    if (!definition) throw new DecisionError("The form definition is not in the supported subset.", 400);
+    const values = action.values as unknown;
+    if (typeof values !== "object" || values === null || Array.isArray(values)) throw new DecisionError("A structured action needs a values object.", 400);
+    const declared = new Set(definition.fields.map((field) => field.key));
+    const extra = Object.keys(values).find((key) => !declared.has(key));
+    if (extra) throw new DecisionError(`The value "${extra}" is not a field of the form.`, 400);
+    const { submission, errors } = validateForm(definition, values as Record<string, string | number | boolean | undefined>);
+    const first = Object.entries(errors)[0];
+    if (first) throw new DecisionError(`Invalid value for "${first[0]}": ${first[1]}.`, 400);
+    // The validated, coerced submission is what is stored, digested and sent: declared keys only, declared types only.
+    return { kind: "send_data", form: action.form, values: submission };
+  }
   if (action?.kind !== "send_message" || typeof action.text !== "string" || !action.text.trim() || action.text.length > 20_000)
-    throw new DecisionError("A proposed action needs a send_message kind and 1–20000 characters of text.", 400);
+    throw new DecisionError("A proposed action needs a send_message or send_data kind with valid content.", 400);
   if (action.data !== undefined && (typeof action.data !== "object" || action.data === null || Array.isArray(action.data) ||
     JSON.stringify(action.data).length > MAX_ACTION_DATA_BYTES)) throw new DecisionError("Proposed action data is invalid or too large.", 400);
   return { kind: "send_message", text: action.text, ...(action.data ? { data: action.data } : {}) };
@@ -75,8 +97,8 @@ export class DecisionService {
   constructor(private readonly work: DecisionUnitOfWork, private readonly clock: Clock = { now: () => new Date() }) {}
 
   /** Every state change is audited and announces itself to live views in the same transaction. */
-  private async record(ports: DecisionPorts, taskId: string, principal: Principal | null, organizationId: string, action: string, targetId: string, eventKey: string, event?: NotificationEvent) {
-    await ports.audit(principal, organizationId, action, targetId, eventKey);
+  private async record(ports: DecisionPorts, taskId: string, principal: Principal | null, organizationId: string, action: string, targetId: string, eventKey: string, event?: NotificationEvent, actorType?: "agent") {
+    await ports.audit(principal, organizationId, action, targetId, eventKey, actorType);
     await ports.freshen(organizationId, taskId);
     if (event) await ports.notify(organizationId, event);
   }
@@ -101,31 +123,59 @@ export class DecisionService {
       if (terminalTask(task)) throw new DecisionError("The task is already finished.", 409);
       if (input.assignedMembershipId && !await ports.canOperate(task.organizationId, input.assignedMembershipId, task.agentId, task.skillId ?? null))
         throw new DecisionError("The assignee cannot operate this agent.", 422);
-      const id = randomUUID();
-      const request: DecisionRequestRecord = {
-        id, organizationId: task.organizationId, taskId: task.id, agentId: task.agentId, tenant: task.tenant, skillId: task.skillId ?? null,
-        kind: "send_message", status: "pending", requestKey: input.requestKey, title: input.title.trim(), summary: input.summary, risk: input.risk,
-        policy, requesterUserId: input.principal.userId, assignedMembershipId: input.assignedMembershipId ?? null, currentRevision: 1,
-        expiresAt: input.expiresAt, createdAt: now, updatedAt: now, version: 1,
-      };
-      const revision: DecisionRevisionRecord = { id: randomUUID(), organizationId: task.organizationId, requestId: id, number: 1, action,
-        digest: actionDigest(action), authorType: "user", authorUserId: input.principal.userId, createdAt: now };
-      const result = await ports.decisions.insertRequest(request, revision);
-      if (!result.created) {
-        // A repeated open must describe the same intent; otherwise the key is being reused.
-        const [first] = await ports.decisions.revisions(task.organizationId, result.request.id);
-        if (result.request.taskId !== task.id || first?.digest !== revision.digest) throw new DecisionError("This request key already belongs to a different request.", 409);
-        return { request: result.request, created: false };
-      }
-      // Only one approval may be live per task: older open requests can no longer authorize anything.
-      for (const older of await ports.decisions.lockActiveForTask(task.organizationId, task.id)) {
-        if (older.id === id) continue;
-        await ports.decisions.updateRequest({ ...older, status: "superseded", updatedAt: now });
-        await this.record(ports, task.id, input.principal, task.organizationId, "decision.superseded", older.id, `decision-superseded:${older.id}`, { kind: "approval.superseded", taskId: task.id, subjectId: older.id, actorUserId: input.principal.userId });
-      }
-      await this.record(ports, task.id, input.principal, task.organizationId, "decision.requested", id, `decision-requested:${id}`, { kind: "approval.requested", taskId: task.id, subjectId: id, actorUserId: input.principal.userId });
-      return { request: result.request, created: true };
+      return this.persist(ports, task, { principal: input.principal, requestKey: input.requestKey, title: input.title.trim(), summary: input.summary, risk: input.risk,
+        action, policy, assignedMembershipId: input.assignedMembershipId ?? null, expiresAt: input.expiresAt, now });
     });
+  }
+
+  /**
+   * Opens a request the agent asked for (ADR 0023). There is no signed-in user: the request has no requester, the revision is
+   * authored by "agent", and the audit fact has no actor. The agent can only create a pending request; deciding stays with
+   * authenticated reviewers. Called inside the observation transaction, so every refusal happens before any write.
+   */
+  async openFromAgent(ports: DecisionPorts, input: { organizationId: string; taskId: string; requestKey: string; title: string; summary: string; risk: DecisionRisk;
+    action: ProposedAction; lifetimeMs: number }) {
+    if (!input.requestKey || input.requestKey.length > 255) throw new DecisionError("A request key of 1–255 characters is required.", 400);
+    if (!input.title.trim() || input.title.length > 300 || input.summary.length > 4000) throw new DecisionError("Invalid decision title or summary.", 400);
+    if (!["low", "medium", "high"].includes(input.risk)) throw new DecisionError("Invalid risk.", 400);
+    const action = validateAction(input.action);
+    const now = this.clock.now();
+    const task = await ports.tasks.findById(input.organizationId, input.taskId);
+    if (!task || task.kind !== "task" || !task.remoteTaskId) throw new DecisionError("Decisions apply only to A2A tasks.", 409);
+    if (terminalTask(task)) throw new DecisionError("The task is already finished.", 409);
+    return this.persist(ports, task, { principal: null, requestKey: input.requestKey, title: input.title.trim(), summary: input.summary, risk: input.risk, action,
+      policy: DEFAULT_POLICY, assignedMembershipId: null, expiresAt: new Date(now.getTime() + input.lifetimeMs), now });
+  }
+
+  /** Writes the request and its first revision, idempotent on the key, superseding older open requests on the task. */
+  private async persist(ports: DecisionPorts, task: NonNullable<Awaited<ReturnType<DecisionPorts["tasks"]["findById"]>>>, input: {
+    principal: Principal | null; requestKey: string; title: string; summary: string; risk: DecisionRisk; action: ProposedAction; policy: DecisionPolicy;
+    assignedMembershipId: string | null; expiresAt: Date; now: Date }) {
+    const { now, action, principal } = input;
+    const id = randomUUID();
+    const request: DecisionRequestRecord = {
+      id, organizationId: task.organizationId, taskId: task.id, agentId: task.agentId, tenant: task.tenant, skillId: task.skillId ?? null,
+      kind: action.kind, status: "pending", requestKey: input.requestKey, title: input.title, summary: input.summary, risk: input.risk,
+      policy: input.policy, requesterUserId: principal?.userId ?? null, assignedMembershipId: input.assignedMembershipId, currentRevision: 1,
+      expiresAt: input.expiresAt, createdAt: now, updatedAt: now, version: 1,
+    };
+    const revision: DecisionRevisionRecord = { id: randomUUID(), organizationId: task.organizationId, requestId: id, number: 1, action,
+      digest: actionDigest(action), authorType: principal ? "user" : "agent", authorUserId: principal?.userId ?? null, createdAt: now };
+    const result = await ports.decisions.insertRequest(request, revision);
+    if (!result.created) {
+      // A repeated open must describe the same intent; otherwise the key is being reused.
+      const [first] = await ports.decisions.revisions(task.organizationId, result.request.id);
+      if (result.request.taskId !== task.id || first?.digest !== revision.digest) throw new DecisionError("This request key already belongs to a different request.", 409);
+      return { request: result.request, created: false };
+    }
+    // Only one approval may be live per task: older open requests can no longer authorize anything.
+    for (const older of await ports.decisions.lockActiveForTask(task.organizationId, task.id)) {
+      if (older.id === id) continue;
+      await ports.decisions.updateRequest({ ...older, status: "superseded", updatedAt: now });
+      await this.record(ports, task.id, principal, task.organizationId, "decision.superseded", older.id, `decision-superseded:${older.id}`, { kind: "approval.superseded", taskId: task.id, subjectId: older.id, ...(principal ? { actorUserId: principal.userId } : {}) }, principal ? undefined : "agent");
+    }
+    await this.record(ports, task.id, principal, task.organizationId, "decision.requested", id, `decision-requested:${id}`, { kind: "approval.requested", taskId: task.id, subjectId: id, ...(principal ? { actorUserId: principal.userId } : {}) }, principal ? undefined : "agent");
+    return { request: result.request, created: true };
   }
 
   /** The proposer (or an operator) submits a new revision; any earlier review no longer applies. */
@@ -142,6 +192,7 @@ export class DecisionService {
       if (!ACTIVE.includes(request.status)) throw new DecisionError("This request is closed.", 409);
       if (now >= request.expiresAt) throw new DecisionError("This request has expired.", 409);
       if (input.expectedRevision !== request.currentRevision) throw new DecisionError("The request changed; reload it.", 409);
+      if (action.kind !== request.kind) throw new DecisionError("A revision cannot change the kind of action.", 422);
       const revision: DecisionRevisionRecord = { id: randomUUID(), organizationId: request.organizationId, requestId: request.id,
         number: request.currentRevision + 1, action, digest: actionDigest(action), authorType: "user",
         authorUserId: input.principal.userId, createdAt: now };
@@ -209,6 +260,9 @@ export class DecisionService {
       if (input.outcome === "delegate" && (input.delegateMembershipId === input.principal.membershipId ||
         !await ports.canOperate(org, input.delegateMembershipId!, request.agentId, request.skillId)))
         throw new DecisionError("The delegate cannot operate this agent.", 422);
+      if (edit && edit.kind !== revision.action.kind) throw new DecisionError("An edit cannot change the kind of action.", 422);
+      if (edit && edit.kind === "send_data" && revision.action.kind === "send_data" && formDigest(edit) !== formDigest(revision.action))
+        throw new DecisionError("An edit can change the values but not the form they answer.", 422);
       if (edit && actionDigest(edit) === revision.digest) throw new DecisionError("The edit does not change the proposal.", 422);
 
       let nextStatus: DecisionRequestStatus = request.status;
@@ -239,7 +293,10 @@ export class DecisionService {
         const messageId = `decision-${decision.id}`;
         const command = await ports.acceptCommand({ organizationId: org, agentId: request.agentId, tenant: request.tenant, skillId: request.skillId,
           idempotencyKey: `decision:${decision.id}`, messageId, taskRemoteId: task.remoteTaskId, contextId: task.remoteContextId,
-          text: revision.action.text, data: revision.action.data });
+          approval: { requestId: request.id, decisionId: decision.id, revision: revision.number, revisionDigest: revision.digest },
+          ...(revision.action.kind === "send_data"
+            ? { text: "", parts: [{ data: revision.action.values, mediaType: "application/json" }] }
+            : { text: revision.action.text, data: revision.action.data }) });
         execution = await ports.decisions.insertExecution({ id: randomUUID(), organizationId: org, decisionId: decision.id, revisionId: revision.id,
           revisionDigest: revision.digest, commandId: command.id, messageId: command.messageId, status: "pending", observedTaskState: null,
           observedAt: null, lastError: null, createdAt: now, updatedAt: now });

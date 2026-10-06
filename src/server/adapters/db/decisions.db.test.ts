@@ -14,7 +14,7 @@ import { withPrincipal } from "../auth/principal-context";
 import { FilesystemArtifactStore } from "../blob/filesystem-artifact-store";
 import { bootstrapDefaultLocalOrganization } from "../../application/services/bootstrap-default-organization";
 import { DecisionService } from "../../application/services/decisions";
-import { decisionUnitOfWork, listDecisions, readDecision } from "../../runtime/decisions";
+import { decisionPorts, decisionUnitOfWork, listDecisions, readDecision } from "../../runtime/decisions";
 import type { Principal } from "../../application/ports/identity";
 import type { ProposedAction } from "../../domain/decision-model";
 
@@ -151,7 +151,7 @@ async function contract(config: DatabaseConfig, directory: string) {
     const edited = await decide(op1, r2.id, { key: "edit", outcome: "edit", rationale: "Keep the data volume", edit: action("Delete the cluster but keep the volume") });
     if (edited.kind !== "decided") throw new Error("expected decision");
     const editedDetail = (await as(op1, () => readDecision(r2.id, { orm, store })))!;
-    expect(editedDetail.revisions.map((r) => [r.number, r.action.text, r.authorType])).toEqual([
+    expect(editedDetail.revisions.map((r) => [r.number, r.action.kind === "send_message" ? r.action.text : "", r.authorType])).toEqual([
       [1, "Delete the staging cluster", "user"], [2, "Delete the cluster but keep the volume", "user"]]);
     expect(editedDetail.revisions[1]!.authorUserId).toBe(op1.userId);
     expect(editedDetail.decisions[0]).toMatchObject({ outcome: "edit", revisionId: editedDetail.revisions[1]!.id, revisionDigest: editedDetail.revisions[1]!.digest });
@@ -285,6 +285,83 @@ async function contract(config: DatabaseConfig, directory: string) {
     expect(await fresh()).toBe(settled);
     // The decision itself never changes because of what the agent later does.
     expect((await as(admin, () => readDecision(delivering.id, { orm, store })))!.request.status).toBe("approved");
+
+    // --- Structured replies (ADR 0015 addendum): validated values for a pinned form, sent as one JSON data part.
+    const form = { title: "Deploy request", order: ["environment", "replicas"], schema: { type: "object", required: ["environment", "replicas"], properties: {
+      environment: { type: "string", title: "Environment", enum: ["staging", "production"] }, replicas: { type: "integer", minimum: 1, maximum: 10 } } } };
+    const dataAction = (values: object, pinned: object = form) => ({ kind: "send_data", form: pinned, values }) as unknown as ProposedAction;
+    const openData = (principal: Principal, taskId: string, key: string, values: object, pinned?: object) =>
+      as(principal, () => service.open({ principal, taskId, requestKey: key, title: "Approve deploy", summary: "", risk: "high",
+        action: dataAction(values, pinned), expiresAt: new Date(now.getTime() + HOUR) }));
+    const w6 = await task();
+    await expect(openData(admin, w6, "bad-form", {}, { schema: { type: "object", properties: { n: { type: "object" } } } })).rejects.toMatchObject({ status: 400 });
+    await expect(openData(admin, w6, "extra", { environment: "staging", replicas: 2, sneaky: true })).rejects.toMatchObject({ status: 400 });
+    await expect(openData(admin, w6, "range", { environment: "staging", replicas: 99 })).rejects.toMatchObject({ status: 400 });
+    await expect(openData(admin, w6, "missing", { environment: "staging" })).rejects.toMatchObject({ status: 400 });
+    await expect(openData(admin, w6, "enum", { environment: "dev", replicas: 2 })).rejects.toMatchObject({ status: 400 });
+    const structured = await openData(admin, w6, "structured", { environment: "staging", replicas: "2" });
+    expect(structured.request.kind).toBe("send_data");
+    const sRev1 = (await as(admin, () => readDecision(structured.request.id, { orm, store })))!.revisions[0]!;
+    expect(sRev1.action).toMatchObject({ kind: "send_data", form, values: { environment: "staging", replicas: 2 } }); // Coerced to the declared type.
+    // A reviewer's edit may change values but never the form or the kind; a revision cannot change the kind either.
+    await expect(decide(op1, structured.request.id, { key: "form-edit", outcome: "edit", rationale: "x", edit: dataAction({ environment: "staging", replicas: 3 }, { ...form, title: "Other" }) })).rejects.toMatchObject({ status: 422 });
+    await expect(decide(op1, structured.request.id, { key: "kind-edit", outcome: "edit", rationale: "x", edit: action("text instead") })).rejects.toMatchObject({ status: 422 });
+    await expect(as(admin, () => service.revise({ principal: admin, requestId: structured.request.id, action: action("text"), expectedRevision: 1 }))).rejects.toMatchObject({ status: 422 });
+    await expect(decide(op1, structured.request.id, { key: "bad-edit", outcome: "edit", rationale: "x", edit: dataAction({ environment: "staging", replicas: 99 }) })).rejects.toMatchObject({ status: 400 });
+    const dataEdit = await decide(op1, structured.request.id, { key: "values-edit", outcome: "edit", rationale: "Smaller production rollout", edit: dataAction({ environment: "production", replicas: 3 }) });
+    if (dataEdit.kind !== "decided" || !dataEdit.execution) throw new Error("expected execution");
+    const sDetail = (await as(admin, () => readDecision(structured.request.id, { orm, store })))!;
+    expect(sDetail.revisions.map((r) => r.number)).toEqual([1, 2]);
+    expect(sDetail.revisions[1]!.digest).not.toBe(sRev1.digest);
+    expect(sDetail.executions[0]).toMatchObject({ revisionId: sDetail.revisions[1]!.id, revisionDigest: sDetail.revisions[1]!.digest });
+    // The dispatched command carries exactly one JSON data part (never flattened text) and the approved revision's identity.
+    const sCommand = await orm.em.fork().findOneOrFail(TaskCommandEntity, { id: dataEdit.execution.commandId });
+    const sPayload = JSON.parse(Buffer.from((await store.get(org.id, sCommand.payloadObjectKey.split("/")[1]!))!).toString("utf8"));
+    expect(sPayload.parts).toEqual([{ data: { environment: "production", replicas: 3 }, mediaType: "application/json" }]);
+    expect(sPayload.text).toBeUndefined();
+    expect(sPayload.metadata.approval).toEqual({ requestId: structured.request.id, decisionId: dataEdit.decision.id, revision: 2, revisionDigest: sDetail.revisions[1]!.digest });
+    // Text approvals now carry the same identity.
+    const textPayload = JSON.parse(Buffer.from((await store.get(org.id, command.payloadObjectKey.split("/")[1]!))!).toString("utf8"));
+    expect(textPayload.metadata.approval).toMatchObject({ requestId: r1.id, revision: 1, revisionDigest: rev1.digest });
+
+    // --- Agent-originated requests (ADR 0023): no requester, authored by the agent, validated before any write.
+    const fromAgent = (taskId: string, key: string, extra: Record<string, unknown> = {}) => orm.em.fork().transactional((tx) =>
+      service.openFromAgent(decisionPorts(tx, store), { organizationId: org.id, taskId, requestKey: key, title: "Agent asks", summary: "Needs a person", risk: "high",
+        action: action("Proceed with the deletion"), lifetimeMs: HOUR, ...extra }));
+    const w7 = await task();
+    const operatorRequest = (await open(admin, w7, "operator-first", "Operator proposal")).request;
+    const agentRequest = await fromAgent(w7, "agent:w7:m1");
+    expect(agentRequest.created).toBe(true);
+    expect(agentRequest.request).toMatchObject({ requesterUserId: null, kind: "send_message", status: "pending", assignedMembershipId: null, currentRevision: 1 });
+    expect(agentRequest.request.expiresAt.getTime()).toBe(now.getTime() + HOUR);
+    const agentDetail = (await as(admin, () => readDecision(agentRequest.request.id, { orm, store })))!;
+    expect(agentDetail.revisions[0]).toMatchObject({ authorType: "agent", authorUserId: null });
+    const requestedAudit = await orm.em.fork().findOneOrFail(SecurityAuditEntity, { eventKey: `decision-requested:${agentRequest.request.id}` });
+    expect(requestedAudit).toMatchObject({ action: "decision.requested", actorUserId: null, actorType: "agent" });
+    expect((await as(admin, () => readDecision(operatorRequest.id, { orm, store })))!.request.status).toBe("superseded"); // One live approval per task.
+    // Idempotent per key; the same key for different content is refused.
+    expect((await fromAgent(w7, "agent:w7:m1"))).toMatchObject({ created: false, request: { id: agentRequest.request.id } });
+    await expect(fromAgent(w7, "agent:w7:m1", { action: action("Something else") })).rejects.toMatchObject({ status: 409 });
+    // Refusals happen before any write: nothing is stored for invalid content, a finished or unknown task, or a bad key.
+    const before = await orm.em.fork().count(DecisionRevisionEntity, {});
+    await expect(fromAgent(w7, "k-risk", { risk: "extreme" })).rejects.toMatchObject({ status: 400 });
+    await expect(fromAgent(w7, "k-title", { title: "  " })).rejects.toMatchObject({ status: 400 });
+    await expect(fromAgent(w7, "", {})).rejects.toMatchObject({ status: 400 });
+    await expect(fromAgent(w7, "k-form", { action: dataAction({ environment: "staging" }, { schema: { type: "object", properties: { n: { type: "object" } } } }) })).rejects.toMatchObject({ status: 400 });
+    await expect(fromAgent(await task("TASK_STATE_COMPLETED"), "k-done")).rejects.toMatchObject({ status: 409 });
+    await expect(fromAgent(randomUUID(), "k-none")).rejects.toMatchObject({ status: 409 });
+    expect(await orm.em.fork().count(DecisionRevisionEntity, {})).toBe(before);
+    // A structured request from the agent works the same way and is approved by a person, never by the agent.
+    const w8 = await task();
+    const agentData = await fromAgent(w8, "agent:w8:m1", { action: dataAction({ environment: "production", replicas: 2 }) });
+    expect(agentData.request.kind).toBe("send_data");
+    const approved = await decide(admin, agentData.request.id, { key: "agent-approve", outcome: "approve", rationale: "ok" });
+    if (approved.kind !== "decided" || !approved.execution) throw new Error("expected execution");
+    expect(approved.decision.reviewerUserId).toBe(admin.userId);
+    const approvedCommand = await orm.em.fork().findOneOrFail(TaskCommandEntity, { id: approved.execution.commandId });
+    const approvedPayload = JSON.parse(Buffer.from((await store.get(org.id, approvedCommand.payloadObjectKey.split("/")[1]!))!).toString("utf8"));
+    expect(approvedPayload.parts).toEqual([{ data: { environment: "production", replicas: 2 }, mediaType: "application/json" }]);
+    expect(approvedPayload.metadata.approval).toMatchObject({ requestId: agentData.request.id, decisionId: approved.decision.id });
 
     // --- Everything survives a restart.
     await orm.close(true); orm = await createDatabaseOrm(config);

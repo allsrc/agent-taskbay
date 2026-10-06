@@ -67,13 +67,35 @@ and what then happened.
   for missed signals, as the Tasks views do.
 - A delivery is watched for seven days after approval, then left as last observed.
 
+## Addendum: structured actions and approval identity (Phase 6 slice 6.5)
+
+Prompted by research on how other A2A frameworks handle approvals (A2A spec §7.6.4: an interrupted state is a
+coordination signal, not an authorization grant; the implementation or extension must define the authorized operation and
+check it at use; published "loopjacking" attacks substituted the operation under an approval bound only to a task id).
+This ADR already binds approval to an exact digest, consumed once; the addendum extends that to structured content.
+
+- A second typed action, `send_data`, carries `form` (an ADR 0020 form definition, pinned) and `values`. The
+  domain service validates the form against the supported subset and the values against the form, rejects undeclared keys,
+  and stores the coerced submission, so what is stored, digested, reviewed and sent are the same declared keys and types.
+- The digest covers `{kind, form, values}`. A reviewer's `edit` may change values but never the form (422), and neither
+  an edit nor a revision may change the kind of action (422). Scope still comes from the request, never from the action.
+- Execution sends exactly one `application/json` data part with the approved values, never flattened text (another
+  framework's flattening of a structured answer stopped the remote agent from resuming).
+- Every approved message, of either kind, carries `metadata.approval = {requestId, decisionId, revision, revisionDigest}`,
+  so a cooperating agent can verify what it was approved to do and echo it. The console proves what was approved and
+  sent, not what the agent then executes; the echo contract is tracked as an issue.
+- The `kind` column already holds free text, so there is no migration. Existing `send_message` approvals are unchanged
+  apart from the added metadata.
+- Not decided here: agents opening requests themselves, and blocking plain replies that would bypass an open request
+  (both tracked as issues and covered by later ADRs).
+
 ## Consequences
 
 - Phase 4 assignment, escalation, notes, notification channels and audit views build
   on `assignedMembershipId`, `expiresAt` and the audit facts without changing this
   model. `delegate` is the only assignment action in this slice.
-- The only typed action is a reply message into the same task. New action kinds need
-  a new discriminated variant, a migration of the `kind` set and an execution adapter.
+- Typed actions are `send_message` and, since the Phase 6 addendum, `send_data`. New action kinds need
+  a new discriminated variant, a renderer and an execution adapter.
 - Agents cannot yet open requests themselves; operators open them on an agent's
   behalf. A reviewed agent extension would be a separate decision.
 - Triggers are part of the PostgreSQL schema declared on the entities, so

@@ -37,6 +37,10 @@ describe("structured form definitions", () => {
       expect(parseFormDefinition(bad)).toBeUndefined();
     }
   });
+  it("refuses field names that collide with Object.prototype members", () => {
+    for (const key of ["__proto__", "constructor", "toString", "hasOwnProperty"]) expect(parseFormDefinition({ schema: { type: "object", properties: { [key]: { type: "string" } } } }), key).toBeUndefined();
+    expect(parseFormDefinition({ schema: { type: "object", properties: { toStringy: { type: "string" } } } })).toBeDefined();
+  });
   it("does not treat markup or script in labels as anything but text", () => {
     const form = parseFormDefinition({ title: "<img src=x onerror=alert(1)>", schema: { type: "object", properties: { a: { type: "string", title: "<script>1</script>" } } } })!;
     expect(form.title).toBe("<img src=x onerror=alert(1)>");

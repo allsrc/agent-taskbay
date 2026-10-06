@@ -54,6 +54,11 @@ export class DatabaseIdentityRepository implements IdentityRepository {
       actorUserId: principal.userId, actorType: "user", action, targetId, eventKey, createdAt: new Date() },
     { onConflictFields: ["eventKey"], onConflictAction: "ignore" });
   }
+  /** A fact caused by an agent (for example the request it opened); deterministic key so a replay writes it once. */
+  async appendAgentAudit(organizationId: string, action: string, targetId: string, eventKey: string) {
+    await this.em.upsert(SecurityAuditEntity, { id: randomUUID(), organizationId, actorUserId: null, actorType: "agent", action, targetId, eventKey, createdAt: new Date() },
+      { onConflictFields: ["eventKey"], onConflictAction: "ignore" });
+  }
   async appendSystemAudit(organizationId: string, action: string, targetId: string) {
     this.em.create(SecurityAuditEntity, { id: randomUUID(), organizationId, actorUserId: null, actorType: "system",
       action, targetId, eventKey: randomUUID(), createdAt: new Date() });

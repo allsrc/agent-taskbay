@@ -1,13 +1,13 @@
 # Execution status
 
-Last updated: 2026-10-05
+Last updated: 2026-10-06
 
 ## Active position
 
-- Last completed phase: **Phase 4 — approval-grade human intervention**
-- Active phase: **Phase 6 — rich interoperability** (started 2026-10-05 by explicit decision; Phase 5 is paused, not complete)
-- Last completed slice: **6.4 — start-of-task forms** (last Phase 5 slice: 5.1)
-- Next executable slice: **6.5 — structured actions on the approval review page** (6.1–6.4 verified)
+- Last completed phase: **Phase 6 — rich interoperability** (Phase 4 complete; Phase 5 paused after 5.1)
+- Active phase: none. Phase 5 (operator experience) is paused after slice 5.1; Phase 7 (enterprise hardening) has not started.
+- Last completed slice: **6.7 — agent-originated approval requests**; Phase 6 exit verified 2026-10-06
+- Next executable slice: **5.2 — saved views, search, advanced filters and bulk triage** ([#5](https://github.com/shashikanth-gs/a2a-ops/issues/5)) or Phase 7, as the user chooses; the plugin contract is [#26](https://github.com/shashikanth-gs/a2a-ops/issues/26)
 - Blocking decisions: none
 
 ## Pending follow-ups
@@ -18,6 +18,15 @@ Last updated: 2026-10-05
   Deferred by agreement on 2026-10-03 for later review. This is separate from the
   verified Phase 3 service identity baseline and does not block Slice 4.1.
 
+- **Phase 6 plugin contract — deferred:** [#26](https://github.com/shashikanth-gs/a2a-ops/issues/26), by agreement on 2026-10-06; does not block the Phase 6 exit.
+- **Phase 6 A2UI follow-ups — tracked:** components [#22](https://github.com/shashikanth-gs/a2a-ops/issues/22), functions and
+  `openUrl` [#23](https://github.com/shashikanth-gs/a2a-ops/issues/23), other surfaces [#24](https://github.com/shashikanth-gs/a2a-ops/issues/24),
+  real-agent verification [#25](https://github.com/shashikanth-gs/a2a-ops/issues/25).
+- **Phase 6 approval follow-ups — tracked:** agent-originated requests [#15](https://github.com/shashikanth-gs/a2a-ops/issues/15),
+  bypass and approval-required policy [#16](https://github.com/shashikanth-gs/a2a-ops/issues/16), digest-echo contract
+  [#17](https://github.com/shashikanth-gs/a2a-ops/issues/17), ADK adapter [#18](https://github.com/shashikanth-gs/a2a-ops/issues/18),
+  upstream extension proposals [#19](https://github.com/shashikanth-gs/a2a-ops/issues/19), AG-UI approval interrupts
+  [#20](https://github.com/shashikanth-gs/a2a-ops/issues/20).
 - **Phase 5 remainder — deferred:** saved views, full-text search, advanced filters,
   bulk triage, SLA indicators, agent health administration, workflow links and
   notification preferences are tracked in
@@ -1874,6 +1883,184 @@ Remaining risks:
 
 Next executable slice: **6.5 — structured actions on the approval review page**, then **6.6 safe A2UI renderer**,
 **6.7 agent-originated approvals**, **6.8 plugin contract**.
+
+## Slice 6.5 evidence (2026-10-05)
+
+Date: 2026-10-05
+Slice: 6.5 — structured actions on the approval review page (ADR 0015 addendum)
+
+Research (2026-10-05, public sources) behind the design: A2A spec on interrupted states and §7.6.4; the open A2A
+input-schema and interactive-UI discussions (#1016, #1294); ADK, LangGraph, Strands and Microsoft Agent Framework
+approval handling; and the loopjacking research on approvals bound to a task id instead of the exact operation. Findings
+and the resulting proposals are tracked in issues #15–#20.
+
+Changes:
+
+- New typed action `send_data` (`form` pinned + validated `values`), digest over `{kind, form, values}`. The service
+  validates the form subset and the values, rejects undeclared keys, stores the coerced submission; a reviewer's edit can
+  change values but not the form or the kind (422); a revision cannot change the kind (422).
+- Execution sends exactly one `application/json` data part (no text) and every approved message of either kind now carries
+  `metadata.approval = {requestId, decisionId, revision, revisionDigest}`.
+- UI: the `send_data` renderer (labelled values; editor reuses the shared `FormFields` extracted from the chat form), the
+  request dialog offers "Fill in the agent's form" when the task's last input request carries a validated form from an
+  agent advertising the extension, and revision history summarizes values.
+- No migration (the `kind` column is free text).
+
+Verification commands and results:
+
+- `decisions.db.test.ts` extended on PGlite and PostgreSQL: invalid form/undeclared key/range/missing/enum refused,
+  coercion, form and kind pinned, edit creates revision 2 and approves it, the stored command payload is one JSON part
+  with the approved revision's identity, text approvals carry the same identity.
+- `verify-decisions-http.mjs` extended: validation, "reviewer cannot change the form" (422, nothing sent), the structured
+  approval reaches the fixture agent exactly once as one JSON part with matching `metadata.approval`.
+- Scripted Chromium run (not committed): request dialog offers and pins the agent's form (required values gate the
+  button), the review page shows labelled values, a reviewer edits a value and approves the edited revision (unchanged
+  content cannot be approved as an edit), the agent receives exactly the edited values, no horizontal overflow at 375 px,
+  no console errors.
+- `npm run check` against PostgreSQL 16 (lint, 123 unit tests, 38 DB tests, schema check, build, all HTTP suites): passed.
+
+Migration tested from: not applicable (no schema change).
+
+Remaining risks and follow-ups (tracked):
+
+- Agents cannot open approval requests themselves ([#15](https://github.com/shashikanth-gs/a2a-ops/issues/15)); plain
+  replies can still bypass an open request and there is no approval-required policy
+  ([#16](https://github.com/shashikanth-gs/a2a-ops/issues/16)); the agent-side digest-echo contract
+  ([#17](https://github.com/shashikanth-gs/a2a-ops/issues/17)); ADK adapter after verification
+  ([#18](https://github.com/shashikanth-gs/a2a-ops/issues/18)); upstream extension proposals
+  ([#19](https://github.com/shashikanth-gs/a2a-ops/issues/19)); AG-UI approval interrupts
+  ([#20](https://github.com/shashikanth-gs/a2a-ops/issues/20)).
+- A2UI proposals in the review page wait for the A2UI renderer; the browser run is not committed (#14).
+
+Next executable slice: **6.6 — safe A2UI renderer**, then **6.7 agent-originated approvals**, **6.8 plugin contract**.
+
+## Slice 6.6 evidence (2026-10-05)
+
+Date: 2026-10-05
+Slice: 6.6 — safe A2UI renderer (ADR 0022)
+
+Research (2026-10-05, public specs): A2UI v0.9 envelopes and Basic Catalog component schemas (a2ui.org and the
+a2ui-project repository's `server_to_client.json`, `common_types.json`, `client_to_server.json`, `catalogs/basic/catalog.json`),
+the A2A extension specification (URI, data-part media type, `a2uiClientCapabilities`), and the canonical v0.9 Basic Catalog id.
+
+Changes:
+
+- `src/lib/a2ui.ts`: envelope validation and a pure surface reducer (createSurface, updateComponents, updateDataModel,
+  deleteSurface) with limits, safe JSON Pointer get/set (prototype keys refused), viewer-edit overlay, literal/absolute-path
+  value resolution, `readEvent` (server events only, resolved context, size bound), `buildActionMessage`, client-capabilities metadata.
+- `src/components/a2ui/surface.tsx`: renders Text, Row, Column, Card, Divider, Button, TextField, CheckBox, ChoicePicker;
+  everything else is an inert placeholder; text only, no URL loaded or opened, no agent code or regular expressions run.
+- Chat: surfaces render per task for agents advertising the extension; the bubble notes the update instead of dumping JSON;
+  every message to such an agent activates the extension and declares `a2uiClientCapabilities`; a Button action is sent on the
+  same task as one `application/a2ui+json` data part; surfaces are read-only once the task finishes.
+- Fix found by the browser run: a message sent before the agent card loaded omitted the extension and capabilities, so the
+  composer now waits for discovery.
+- `scripts/fixture-form-agent.mjs`: new `a2ui` variant (bound inputs, an event button, plus an Image and an `openUrl` button
+  that must degrade, and a markup-looking string that must stay text); `scripts/verify-a2ui-http.mjs` added to `test:http`.
+
+Verification commands and results:
+
+- 15 new unit/SSR tests (pointers, reducer limits and rejection counts, bindings, action envelope; escaping, no external
+  markup, placeholders, disabled unsupported actions, read-only after completion, unknown catalog).
+- `verify-a2ui-http.mjs` against `next start`: the card advertises the extension; the envelopes persist unmodified; the user's
+  action reaches the agent exactly once as one A2UI part on the same task with the capabilities and extension; the task completes.
+- Scripted Chromium run (not committed), three consecutive passes: surface renders; agent strings stay text with no
+  injected element and no script run; the Image becomes a placeholder and `openUrl` is disabled; editing sends nothing; Confirm
+  sends exactly the entered context and the task completes; the surface turns read-only; no request to an agent-named URL;
+  no horizontal overflow at 375 px; no console errors. The earlier form and approval-form browser runs still pass.
+- `npm run check` against PostgreSQL 16 (lint, 138 unit tests, 38 DB tests, schema check, build, all HTTP suites incl. A2UI): passed.
+
+Migration tested from: not applicable (no schema change).
+
+Remaining risks and follow-ups (tracked): remaining components [#22](https://github.com/shashikanth-gs/a2a-ops/issues/22),
+functions/checks/`openUrl`/`sendDataModel` [#23](https://github.com/shashikanth-gs/a2a-ops/issues/23), task and approval pages,
+AG-UI mapping and the edit-merge rule [#24](https://github.com/shashikanth-gs/a2a-ops/issues/24), real A2UI agent and official-schema
+verification [#25](https://github.com/shashikanth-gs/a2a-ops/issues/25). The browser run is not committed (#14).
+
+Next executable slice: **6.7 — agent-originated approval requests** ([#15](https://github.com/shashikanth-gs/a2a-ops/issues/15)),
+then **6.8 plugin contract and Phase 6 exit verification**.
+
+## Slice 6.7 evidence (2026-10-06)
+
+Date: 2026-10-06
+Slice: 6.7 — agent-originated approval requests (ADR 0023, `HITL-006`)
+
+Changes:
+
+- Opt-in extension `https://a2a-ops.dev/extensions/approval-request/v1`; the agent sends a data part
+  (`application/vnd.a2a-ops.approval-request+json`) in its latest `INPUT_REQUIRED` message. After an observation is stored, in
+  the same transaction, an advertising agent's valid request opens a pending decision request
+  (`runtime/agent-approvals.ts`, `services/agent-approval.ts`, `DecisionService.openFromAgent`). Content is validated with the
+  same rules as a person's proposal before any write; invalid or conflicting content stays ordinary message content.
+- No requester, first revision authored by `agent`, audit actor type `agent`; only reviewers decide. Lifetime bounded to
+  5 minutes–7 days. The key includes the action digest, so a changed ask supersedes instead of mutating. Shared decision
+  `persist` path (operator and agent use the same code); `appendAgentAudit`; the audit timeline reports the agent as the actor.
+- UI: the review page says the agent opened the request and cannot decide it; "requested by <agent> (agent)"; revisions show
+  "the agent"; the audit trail says "The agent".
+- Fixture agent variants `approver` (advertises, asks, echoes the approved digest) and `rogue` (asks without advertising).
+
+Verification commands and results:
+
+- 3 unit tests (parsing, bounds, authority fields never read, latest-input-request rule), 1 audit wording test, and an extended
+  `decisions.db.test.ts` (PGlite and PostgreSQL): no requester, agent-authored revision, agent audit actor, supersedes an operator
+  request, idempotent per key, a reused key with different content refused, nothing written for invalid content, finished or
+  unknown tasks, a structured request approved by a person executes as one JSON part with the approval identity.
+- `verify-agent-approvals-http.mjs` (in `test:http`) on `next start`: only the advertising agent opens a request; nothing is sent
+  to the agent until a person approves; an unadvertised extension and a malformed request open nothing; a changed ask supersedes
+  the first (and the superseded one authorizes nothing, 409); the approved message reaches the agent exactly once with
+  `metadata.approval` equal to the request, decision and revision digest, and the agent echoes the digest; a structured request is
+  edited by a reviewer and sent as one JSON part; reviewers are notified; the audit trail names the agent.
+- Scripted Chromium run (not committed): the request appears in the inbox, the review page shows it as agent-originated and
+  decidable, a reviewer approves and the agent receives it once, the audit page says "The agent ...", no overflow at 375 px, no
+  console errors.
+- `npm run check` against PostgreSQL 16 (lint, 142 unit tests, 38 DB tests, schema check, build, all HTTP suites incl. agent approvals): passed.
+
+Migration tested from: not applicable (no schema change; request, revision and audit rows already allow a null human actor).
+
+Remaining risks and follow-ups (tracked): approval-required policy and bypassing replies
+[#16](https://github.com/shashikanth-gs/a2a-ops/issues/16), digest-echo contract
+[#17](https://github.com/shashikanth-gs/a2a-ops/issues/17), ADK pattern [#18](https://github.com/shashikanth-gs/a2a-ops/issues/18),
+upstream proposal [#19](https://github.com/shashikanth-gs/a2a-ops/issues/19), AG-UI interrupts
+[#20](https://github.com/shashikanth-gs/a2a-ops/issues/20). A single agent can open at most one live request per task; per-agent
+request budgets are not yet configurable.
+
+Next executable slice: **6.8 — extension plugin contract and Phase 6 exit verification**.
+
+## Phase 6 exit verification (2026-10-06)
+
+Date: 2026-10-06
+Scope: the three Phase 6 exit criteria. The plugin contract was deferred by the user to [#26](https://github.com/shashikanth-gs/a2a-ops/issues/26).
+
+Evidence per criterion:
+
+1. **A reference agent renders a structured form and an A2UI surface.** The `showcase` variant of `scripts/fixture-form-agent.mjs` advertises the form, A2UI and
+   approval-request extensions and answers by message. `scripts/verify-phase6-exit-http.mjs` (in `test:http`) on `next start`: the form persists with the task, a plain
+   reply still reaches the agent while the form is pending, the form submission completes the task; the A2UI envelopes persist unmodified, the user's action returns on the
+   same task and the agent acts on it; an approval request opens a pending request with no requester and nothing is sent until a person decides. The scripted Chromium run
+   (not committed) did the same through the UI.
+2. **Unrecognized schemas and extensions fall back safely.** The `unknown` variant advertises only `https://example.com/extensions/unknown/v9` and sends an unknown widget part
+   plus form, A2UI and approval parts it never advertised. HTTP: every part is stored as received, no decision request opens, a plain reply works. Browser: no start form, no
+   form, no surface, the parts show as inspectable data and the composer stays enabled. Earlier slice suites cover the unadvertised, malformed, wrong-media-type and unknown-catalog cases.
+3. **Generated UI cannot execute code or bypass authorization.**
+   - Code: `src/components/phase6-security.test.tsx` renders a hostile corpus (script tags, event handlers, `javascript:` and `data:` URLs, markup in every text-bearing property
+     and component name, attribute-like properties, regular expressions, cycles, 60-deep and oversized trees, prototype-polluting pointers) through A2UI, structured forms and approval
+     content; the markup has no script, handler, link, source, frame, style or media element and no raw angle bracket outside tags. The production CSP (checked over HTTP) forbids
+     eval, plugins, framing, other origins for scripts and requests. The browser run saw no injected global and no request to an agent-named URL.
+   - Authorization: `phase6-exit.db.test.ts` (PGlite and PostgreSQL) sends a form submission, an A2UI action and a message claiming an approval as a viewer, an ungranted operator
+     and a skill-scoped operator sending agent-wide: all refused (403) with nothing stored; a granted operator's payload is stored exactly as sent with no routing scope smuggled in and
+     no decision created. An agent-originated request is invisible to an ungranted principal (404), refused to a viewer (403), never read scope fields from the agent (task, assignee), and
+     is decided only by a granted person.
+
+Defect found and fixed by the exit work: a form field named `toString` or `__proto__` was accepted and read inherited values; such names are now refused and values are read with own-property checks.
+Process note: killing a run mid-flight can leave a `next-server` process on the test port that later runs silently reuse; the scripts' port check does not detect it.
+
+Verification commands and results:
+
+- `npm run check` against PostgreSQL 16 (lint, 147 unit tests, 40 DB tests, schema check, build, all HTTP suites incl. the Phase 6 exit suite): passed.
+
+Migration tested from: not applicable (no schema change).
+
+**Phase 6 is complete.** Next: Phase 5 remainder ([#5](https://github.com/shashikanth-gs/a2a-ops/issues/5)) or Phase 7, by the user's choice; open Phase 6 follow-ups are tracked as issues.
 
 ## Known repository-state issue
 

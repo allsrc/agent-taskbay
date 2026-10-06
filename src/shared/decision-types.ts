@@ -4,11 +4,13 @@ export type DecisionOutcome = "approve" | "reject" | "edit" | "request_changes" 
 export type DecisionRisk = "low" | "medium" | "high";
 export type ExecutionStatus = "pending" | "dispatching" | "succeeded" | "failed" | "uncertain";
 
-/** One typed action today; new kinds add a variant here and a renderer in the approvals component registry. */
-export interface ProposedAction { kind: "send_message"; text: string; data?: Record<string, unknown> }
+/** Typed actions; a new kind adds a variant here, a server variant and a renderer in the approvals component registry. */
+export type ProposedAction =
+  | { kind: "send_message"; text: string; data?: Record<string, unknown> }
+  | { kind: "send_data"; form: Record<string, unknown>; values: Record<string, string | number | boolean> };
 
 export interface DecisionRequestView {
-  id: string; taskId: string; agentId: string; tenant: string; skillId: string | null; kind: "send_message";
+  id: string; taskId: string; agentId: string; tenant: string; skillId: string | null; kind: ProposedAction["kind"];
   status: DecisionStatus; title: string; summary: string; risk: DecisionRisk;
   policy: { allowedOutcomes: DecisionOutcome[]; separationOfDuties: boolean };
   requesterUserId?: string | null; assignedMembershipId: string | null; currentRevision: number; expiresAt: string; createdAt: string; updatedAt: string;
