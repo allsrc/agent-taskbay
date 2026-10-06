@@ -2,7 +2,7 @@
 
 ## Product statement
 
-**A2A Ops** (formally, **A2A Operations Console**) is the open-source human
+**Agent Taskbay** is the open-source human
 operations console for an organization's A2A agent mesh. It lets authorized
 people discover agents, start and track long-running work, resolve human
 interventions, inspect and reuse artifacts, and understand who decided what.

@@ -9,6 +9,7 @@ Last updated: 2026-10-06
 - Last completed slice: **6.7 — agent-originated approval requests**; Phase 6 exit verified 2026-10-06
 - Next executable slice: **5.2 — saved views, search, advanced filters and bulk triage** ([#5](https://github.com/shashikanth-gs/a2a-ops/issues/5)) or Phase 7, as the user chooses; the plugin contract is [#26](https://github.com/shashikanth-gs/a2a-ops/issues/26)
 - Blocking decisions: none
+- Product renamed to **Agent Taskbay** on 2026-10-06 (ADR 0024); see the rename section below. The GitHub repository is renamed after merge.
 
 ## Pending follow-ups
 
@@ -45,9 +46,9 @@ Last updated: 2026-10-06
 
 ## Accepted implementation choices
 
-- Product name: A2A Ops.
-- Formal name: A2A Operations Console.
-- Repository slug: `a2a-ops`.
+- Product name: Agent Taskbay (ADR 0024); previously A2A Ops.
+- Repository slug: `agent-taskbay` (rename of the GitHub repository from `a2a-ops` is done after this change merges).
+- Wire and persisted identifiers still use `a2a-ops` on purpose; one coordinated rename is tracked in [#27](https://github.com/shashikanth-gs/a2a-ops/issues/27).
 - Tagline: "The human operations console for A2A agent workflows."
 - ORM: MikroORM using Data Mapper/Unit of Work/Entity Repository patterns.
 - Local default database: file-backed PGlite.

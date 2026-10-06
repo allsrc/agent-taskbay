@@ -3,7 +3,7 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* A2A Ops theme: light by default, dark via the `.dark` class. */
+/* Agent Taskbay theme: light by default, dark via the `.dark` class. */
 :root {
   --radius: 0.625rem;
 

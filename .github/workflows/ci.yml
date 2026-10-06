@@ -16,22 +16,22 @@ jobs:
       postgres:
         image: postgres:18-alpine
         env:
-          POSTGRES_DB: a2a_ops_test
+          POSTGRES_DB: agent_taskbay_test
           POSTGRES_PASSWORD: postgres
           POSTGRES_USER: postgres
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U postgres -d a2a_ops_test"
+          --health-cmd "pg_isready -U postgres -d agent_taskbay_test"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
     env:
-      A2A_TEST_POSTGRES_URL: postgresql://postgres:postgres@127.0.0.1:5432/a2a_ops_test
+      A2A_TEST_POSTGRES_URL: postgresql://postgres:postgres@127.0.0.1:5432/agent_taskbay_test
       # The schema-drift check and HTTP runs use the PostgreSQL service; without these they fall back to a
       # local PGlite directory that does not exist on a clean checkout.
       A2A_DATABASE_PROFILE: postgresql
-      A2A_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/a2a_ops_test
+      A2A_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/agent_taskbay_test
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6

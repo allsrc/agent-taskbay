@@ -1,14 +1,23 @@
 {
-  "name": "a2a-ops",
+  "name": "agent-taskbay",
   "version": "0.1.0",
   "description": "The human operations console for A2A agent workflows. Discover agents, operate durable tasks, handle human approvals, and audit work across an A2A agent mesh.",
-  "homepage": "https://github.com/shashikanth-gs/a2a-ops#readme",
+  "keywords": [
+    "a2a",
+    "agent2agent",
+    "ai-agents",
+    "human-in-the-loop",
+    "agent-approvals",
+    "agent-operations",
+    "nextjs"
+  ],
+  "homepage": "https://github.com/shashikanth-gs/agent-taskbay#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/shashikanth-gs/a2a-ops.git"
+    "url": "git+https://github.com/shashikanth-gs/agent-taskbay.git"
   },
   "bugs": {
-    "url": "https://github.com/shashikanth-gs/a2a-ops/issues"
+    "url": "https://github.com/shashikanth-gs/agent-taskbay/issues"
   },
   "license": "MIT",
   "private": true,

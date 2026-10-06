@@ -2,8 +2,8 @@
 
 ## Purpose
 
-This document defines the intended production architecture of **A2A Ops**
-(formally, **A2A Operations Console**). It is the architectural contract for
+This document defines the intended production architecture of **Agent Taskbay**,
+the human operations console for A2A agent workflows. It is the architectural contract for
 implementation; the current code is allowed to be behind this design but must
 converge on it phase by phase.
 

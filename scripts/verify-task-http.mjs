@@ -147,7 +147,7 @@ if (process.env.A2A_HTTP_TEST_PROFILE === "postgresql") {
   if (!decodeURIComponent(url.pathname).includes("test")) throw new Error("HTTP PostgreSQL verification requires a test database URL.");
   admin = new pg.Client({ connectionString: url.toString() });
   await admin.connect();
-  testDatabase = `a2a_ops_http_test_${randomUUID().replaceAll("-", "")}`;
+  testDatabase = `agent_taskbay_http_test_${randomUUID().replaceAll("-", "")}`;
   await admin.query(`create database "${testDatabase}"`);
   url.pathname = "/" + testDatabase;
   env.A2A_DATABASE_PROFILE = "postgresql";
