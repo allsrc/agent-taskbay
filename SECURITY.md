@@ -5,7 +5,7 @@
 Please do not open a public issue for a security problem.
 
 Report it privately through GitHub: open the repository's **Security** tab and choose **Report a vulnerability**
-(<https://github.com/shashikanth-gs/agent-taskbay/security/advisories/new>). Include what you found, how to reproduce it, the version
+(<https://github.com/allsrc/agent-taskbay/security/advisories/new>). Include what you found, how to reproduce it, the version
 or commit, and what an attacker could do with it.
 
 You can expect an acknowledgement within a few days. Fixes are developed in a private advisory, released, and then disclosed with credit

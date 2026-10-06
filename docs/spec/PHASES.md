@@ -220,7 +220,7 @@ limits and the delegated-authentication follow-up are explicit in ADR 0014.
 
 - [ ] Review and implement user-delegated OAuth consent, refresh/revocation and
   membership-bound worker credentials. Deferred by agreement on 2026-10-03 and
-  tracked in [GitHub issue #1](https://github.com/shashikanth-gs/agent-taskbay/issues/1).
+  tracked in [GitHub issue #1](https://github.com/allsrc/agent-taskbay/issues/1).
   This extension is separate from the completed service identity exit criteria.
 
 ### Exit criteria (verified 2026-10-03)
@@ -298,7 +298,7 @@ Requirements: `HITL-001..005`, `HITL-007..008`, `NTF-001..002`, `AUD-001..002`; 
 ## Phase 5 — operator experience
 
 **Status:** Paused after slice 5.1 (verified 2026-10-05). Remaining work is deferred to
-[issue #5](https://github.com/shashikanth-gs/agent-taskbay/issues/5); exit criteria are unverified.
+[issue #5](https://github.com/allsrc/agent-taskbay/issues/5); exit criteria are unverified.
 
 ### Deliverables
 
@@ -331,7 +331,7 @@ Requirements: `INB-001..002`, `TSK-006`, `HITL-005`, `ADM-001`, `PERF-001`,
 ## Phase 6 — rich interoperability
 
 **Status:** Complete (exit criteria verified 2026-10-06). The extension plugin contract is deferred to
-[#26](https://github.com/shashikanth-gs/agent-taskbay/issues/26) by agreement and does not block the exit.
+[#26](https://github.com/allsrc/agent-taskbay/issues/26) by agreement and does not block the exit.
 
 ### Deliverables
 
@@ -347,7 +347,7 @@ Requirements: `INB-001..002`, `TSK-006`, `HITL-005`, `ADM-001`, `PERF-001`,
 
 ### Pending follow-ups (do not block exit)
 
-- Extension plugin contract and compatibility fixtures ([#26](https://github.com/shashikanth-gs/agent-taskbay/issues/26)).
+- Extension plugin contract and compatibility fixtures ([#26](https://github.com/allsrc/agent-taskbay/issues/26)).
 - AG-UI limitations #8–#13, A2UI limitations #22–#25, approval follow-ups #15–#20 (`#15` is built by slice 6.7; the rest remain open),
   and the committed browser suite for the Phase 6 flows (#14).
 
@@ -411,7 +411,7 @@ Independent of Phases 5 and 7. ADR 0025 records the decisions; hosting is delibe
 - [x] Slice 8.2: community and governance files (contributing guide, code of conduct, security policy, issue and pull request templates,
   Dependabot, changelog, `.nvmrc`, `.editorconfig`) and a release workflow that publishes with npm provenance on a version tag.
 - [x] Capture the production topology, container count and artifact-storage options (`docs/deployment/PRODUCTION_TOPOLOGY.md`) and the
-  parked client-SDK proposal (ADR 0026, [#31](https://github.com/shashikanth-gs/agent-taskbay/issues/31)).
+  parked client-SDK proposal (ADR 0026, [#31](https://github.com/allsrc/agent-taskbay/issues/31)).
 - [ ] First publish: add the `NPM_TOKEN` secret, bump or confirm the version, push a `v*` tag, and confirm provenance on npmjs.com.
 - [ ] Verify `npx agent-taskbay` from the npm registry on Linux, macOS and Windows (only Linux was verified from a local tarball).
 - [ ] Observe the new `package` CI job and the release workflow run green on GitHub.

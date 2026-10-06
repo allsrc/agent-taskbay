@@ -23,7 +23,7 @@ Options for start:
       --open              Open a browser tab even when not attached to a terminal
 
 Local mode signs you in as a development administrator, so it only binds to a loopback address.
-To listen on another address, configure OIDC (see https://github.com/shashikanth-gs/agent-taskbay#user-identity-and-sign-in).
+To listen on another address, configure OIDC (see https://github.com/allsrc/agent-taskbay#user-identity-and-sign-in).
 Every A2A_* setting in .env.example may be supplied through the environment.
 `;
 

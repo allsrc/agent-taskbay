@@ -1,6 +1,6 @@
 # Agent Taskbay
 
-[![CI](https://github.com/shashikanth-gs/agent-taskbay/actions/workflows/ci.yml/badge.svg)](https://github.com/shashikanth-gs/agent-taskbay/actions/workflows/ci.yml)
+[![CI](https://github.com/allsrc/agent-taskbay/actions/workflows/ci.yml/badge.svg)](https://github.com/allsrc/agent-taskbay/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/agent-taskbay)](https://www.npmjs.com/package/agent-taskbay)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 
@@ -56,8 +56,8 @@ people, configure OIDC and a PostgreSQL database; see [Hosting](#hosting) and [`
 ## Status
 
 Pre-1.0. Phases 0 to 4 and 6 are complete, and Phase 5 (operator experience) is partly done. Still to come: saved views, search and bulk
-triage ([#5](https://github.com/shashikanth-gs/agent-taskbay/issues/5)), user-delegated OAuth
-([#1](https://github.com/shashikanth-gs/agent-taskbay/issues/1)), container images and charts, and a client SDK. The current position
+triage ([#5](https://github.com/allsrc/agent-taskbay/issues/5)), user-delegated OAuth
+([#1](https://github.com/allsrc/agent-taskbay/issues/1)), container images and charts, and a client SDK. The current position
 and next step are in [`docs/spec/STATUS.md`](./docs/spec/STATUS.md); the plan is in [`ROADMAP.md`](./ROADMAP.md).
 
 ## Architecture
@@ -80,7 +80,7 @@ from [SpanPlane](https://github.com/shashikanth-gs/spanplane) (Apache-2.0; see [
 ## Develop from source
 
 ```bash
-git clone https://github.com/shashikanth-gs/agent-taskbay.git
+git clone https://github.com/allsrc/agent-taskbay.git
 cd agent-taskbay
 npm ci
 npm run dev                  # http://localhost:3002

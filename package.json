@@ -15,13 +15,13 @@
     "generative-ui",
     "nextjs"
   ],
-  "homepage": "https://github.com/shashikanth-gs/agent-taskbay#readme",
+  "homepage": "https://github.com/allsrc/agent-taskbay#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/shashikanth-gs/agent-taskbay.git"
+    "url": "git+https://github.com/allsrc/agent-taskbay.git"
   },
   "bugs": {
-    "url": "https://github.com/shashikanth-gs/agent-taskbay/issues"
+    "url": "https://github.com/allsrc/agent-taskbay/issues"
   },
   "license": "MIT",
   "author": {

@@ -13,7 +13,7 @@ the project uses [semantic versioning](https://semver.org/) once it reaches 1.0;
 - Community files: contributing guide, code of conduct, security policy, issue and pull request templates, Dependabot, and a release
   workflow that publishes to npm with provenance.
 - `docs/deployment/PRODUCTION_TOPOLOGY.md`: the intended production topology and artifact-storage options.
-- ADR 0026 records the parked proposal for a Taskbay client SDK ([#31](https://github.com/shashikanth-gs/agent-taskbay/issues/31)).
+- ADR 0026 records the parked proposal for a Taskbay client SDK ([#31](https://github.com/allsrc/agent-taskbay/issues/31)).
 
 ### Changed
 

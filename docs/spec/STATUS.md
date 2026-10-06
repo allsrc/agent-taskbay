@@ -10,47 +10,47 @@ Last updated: 2026-10-06
 - Last completed slice: **8.2 — community files and release automation**, with **8.1 — npm package and local launcher** verified the same day
   (Linux, from a local tarball). Phase 6 exit was verified 2026-10-06.
 - Next executable slice: the **first publish** (a maintainer step: `NPM_TOKEN` secret and a `v*` tag; see Phase 8 in `PHASES.md`), then
-  **5.2 — saved views, search, advanced filters and bulk triage** ([#5](https://github.com/shashikanth-gs/agent-taskbay/issues/5)) or Phase 7, as the
-  user chooses; the plugin contract is [#26](https://github.com/shashikanth-gs/agent-taskbay/issues/26)
+  **5.2 — saved views, search, advanced filters and bulk triage** ([#5](https://github.com/allsrc/agent-taskbay/issues/5)) or Phase 7, as the
+  user chooses; the plugin contract is [#26](https://github.com/allsrc/agent-taskbay/issues/26)
 - Blocking decisions: none
 
 ## Pending follow-ups
 
-- **Client SDK for the Taskbay API — parked:** ADR 0026 (Proposed) and [#31](https://github.com/shashikanth-gs/agent-taskbay/issues/31).
+- **Client SDK for the Taskbay API — parked:** ADR 0026 (Proposed) and [#31](https://github.com/allsrc/agent-taskbay/issues/31).
   Service-token authentication and a stable `/api/v1` come first. Not scheduled; deferred by agreement on 2026-10-06.
 - **Hosting — to be discussed:** container images, Helm or compose, S3/Azure Blob and KMS adapters (Phase 7). The intended topology is
   recorded in `docs/deployment/PRODUCTION_TOPOLOGY.md`.
 
 - **User-delegated OAuth — pending:** consent, membership-bound encrypted tokens,
   refresh/revocation and durable worker subject selection are tracked in
-  [GitHub issue #1](https://github.com/shashikanth-gs/agent-taskbay/issues/1).
+  [GitHub issue #1](https://github.com/allsrc/agent-taskbay/issues/1).
   Deferred by agreement on 2026-10-03 for later review. This is separate from the
   verified Phase 3 service identity baseline and does not block Slice 4.1.
 
-- **Phase 6 plugin contract — deferred:** [#26](https://github.com/shashikanth-gs/agent-taskbay/issues/26), by agreement on 2026-10-06; does not block the Phase 6 exit.
-- **Phase 6 A2UI follow-ups — tracked:** components [#22](https://github.com/shashikanth-gs/agent-taskbay/issues/22), functions and
-  `openUrl` [#23](https://github.com/shashikanth-gs/agent-taskbay/issues/23), other surfaces [#24](https://github.com/shashikanth-gs/agent-taskbay/issues/24),
-  real-agent verification [#25](https://github.com/shashikanth-gs/agent-taskbay/issues/25).
-- **Phase 6 approval follow-ups — tracked:** agent-originated requests [#15](https://github.com/shashikanth-gs/agent-taskbay/issues/15),
-  bypass and approval-required policy [#16](https://github.com/shashikanth-gs/agent-taskbay/issues/16), digest-echo contract
-  [#17](https://github.com/shashikanth-gs/agent-taskbay/issues/17), ADK adapter [#18](https://github.com/shashikanth-gs/agent-taskbay/issues/18),
-  upstream extension proposals [#19](https://github.com/shashikanth-gs/agent-taskbay/issues/19), AG-UI approval interrupts
-  [#20](https://github.com/shashikanth-gs/agent-taskbay/issues/20).
+- **Phase 6 plugin contract — deferred:** [#26](https://github.com/allsrc/agent-taskbay/issues/26), by agreement on 2026-10-06; does not block the Phase 6 exit.
+- **Phase 6 A2UI follow-ups — tracked:** components [#22](https://github.com/allsrc/agent-taskbay/issues/22), functions and
+  `openUrl` [#23](https://github.com/allsrc/agent-taskbay/issues/23), other surfaces [#24](https://github.com/allsrc/agent-taskbay/issues/24),
+  real-agent verification [#25](https://github.com/allsrc/agent-taskbay/issues/25).
+- **Phase 6 approval follow-ups — tracked:** agent-originated requests [#15](https://github.com/allsrc/agent-taskbay/issues/15),
+  bypass and approval-required policy [#16](https://github.com/allsrc/agent-taskbay/issues/16), digest-echo contract
+  [#17](https://github.com/allsrc/agent-taskbay/issues/17), ADK adapter [#18](https://github.com/allsrc/agent-taskbay/issues/18),
+  upstream extension proposals [#19](https://github.com/allsrc/agent-taskbay/issues/19), AG-UI approval interrupts
+  [#20](https://github.com/allsrc/agent-taskbay/issues/20).
 - **Phase 5 remainder — deferred:** saved views, full-text search, advanced filters,
   bulk triage, SLA indicators, agent health administration, workflow links and
   notification preferences are tracked in
-  [GitHub issue #5](https://github.com/shashikanth-gs/agent-taskbay/issues/5). Deferred by
+  [GitHub issue #5](https://github.com/allsrc/agent-taskbay/issues/5). Deferred by
   agreement on 2026-10-05 so Phase 6 could start; Phase 5 exit criteria are still
   unverified and the phase is not complete. Resume at slice 5.2.
 
 - **Phase 6 limitations — tracked:** AG-UI thread-to-context mapping
-  ([#8](https://github.com/shashikanth-gs/agent-taskbay/issues/8)), skill-scoped principals
-  ([#9](https://github.com/shashikanth-gs/agent-taskbay/issues/9)), tools/context/state/non-text content
-  ([#10](https://github.com/shashikanth-gs/agent-taskbay/issues/10)), cross-origin browser clients
-  ([#11](https://github.com/shashikanth-gs/agent-taskbay/issues/11)), runs longer than 50 s
-  ([#12](https://github.com/shashikanth-gs/agent-taskbay/issues/12)), real-client and schema verification
-  ([#13](https://github.com/shashikanth-gs/agent-taskbay/issues/13)) and a committed browser E2E suite for forms
-  ([#14](https://github.com/shashikanth-gs/agent-taskbay/issues/14)). None blocks the next slice.
+  ([#8](https://github.com/allsrc/agent-taskbay/issues/8)), skill-scoped principals
+  ([#9](https://github.com/allsrc/agent-taskbay/issues/9)), tools/context/state/non-text content
+  ([#10](https://github.com/allsrc/agent-taskbay/issues/10)), cross-origin browser clients
+  ([#11](https://github.com/allsrc/agent-taskbay/issues/11)), runs longer than 50 s
+  ([#12](https://github.com/allsrc/agent-taskbay/issues/12)), real-client and schema verification
+  ([#13](https://github.com/allsrc/agent-taskbay/issues/13)) and a committed browser E2E suite for forms
+  ([#14](https://github.com/allsrc/agent-taskbay/issues/14)). None blocks the next slice.
 
 ## Accepted implementation choices
 
@@ -1726,7 +1726,7 @@ Remaining risks:
 **Slice 5.1 is verified. Phase 5 remains active.**
 
 Next executable slice: **5.2 — saved views, full-text search, advanced filters and bulk triage** on the inbox
-query. Deferred to [issue #5](https://github.com/shashikanth-gs/agent-taskbay/issues/5) on 2026-10-05; the active
+query. Deferred to [issue #5](https://github.com/allsrc/agent-taskbay/issues/5) on 2026-10-05; the active
 slice moved to Phase 6 (6.1) by explicit decision.
 
 ## Slice 6.1 evidence (2026-10-05)
@@ -1888,7 +1888,7 @@ Remaining risks:
 
 - Forms on the approval review page (edit-before-approve of structured actions) are slice 6.5 and need an ADR 0015
   addendum because they change the proposed-action union and the exact-revision digest.
-- The committed browser suite is tracked in [#14](https://github.com/shashikanth-gs/agent-taskbay/issues/14).
+- The committed browser suite is tracked in [#14](https://github.com/allsrc/agent-taskbay/issues/14).
 
 Next executable slice: **6.5 — structured actions on the approval review page**, then **6.6 safe A2UI renderer**,
 **6.7 agent-originated approvals**, **6.8 plugin contract**.
@@ -1932,13 +1932,13 @@ Migration tested from: not applicable (no schema change).
 
 Remaining risks and follow-ups (tracked):
 
-- Agents cannot open approval requests themselves ([#15](https://github.com/shashikanth-gs/agent-taskbay/issues/15)); plain
+- Agents cannot open approval requests themselves ([#15](https://github.com/allsrc/agent-taskbay/issues/15)); plain
   replies can still bypass an open request and there is no approval-required policy
-  ([#16](https://github.com/shashikanth-gs/agent-taskbay/issues/16)); the agent-side digest-echo contract
-  ([#17](https://github.com/shashikanth-gs/agent-taskbay/issues/17)); ADK adapter after verification
-  ([#18](https://github.com/shashikanth-gs/agent-taskbay/issues/18)); upstream extension proposals
-  ([#19](https://github.com/shashikanth-gs/agent-taskbay/issues/19)); AG-UI approval interrupts
-  ([#20](https://github.com/shashikanth-gs/agent-taskbay/issues/20)).
+  ([#16](https://github.com/allsrc/agent-taskbay/issues/16)); the agent-side digest-echo contract
+  ([#17](https://github.com/allsrc/agent-taskbay/issues/17)); ADK adapter after verification
+  ([#18](https://github.com/allsrc/agent-taskbay/issues/18)); upstream extension proposals
+  ([#19](https://github.com/allsrc/agent-taskbay/issues/19)); AG-UI approval interrupts
+  ([#20](https://github.com/allsrc/agent-taskbay/issues/20)).
 - A2UI proposals in the review page wait for the A2UI renderer; the browser run is not committed (#14).
 
 Next executable slice: **6.6 — safe A2UI renderer**, then **6.7 agent-originated approvals**, **6.8 plugin contract**.
@@ -1981,12 +1981,12 @@ Verification commands and results:
 
 Migration tested from: not applicable (no schema change).
 
-Remaining risks and follow-ups (tracked): remaining components [#22](https://github.com/shashikanth-gs/agent-taskbay/issues/22),
-functions/checks/`openUrl`/`sendDataModel` [#23](https://github.com/shashikanth-gs/agent-taskbay/issues/23), task and approval pages,
-AG-UI mapping and the edit-merge rule [#24](https://github.com/shashikanth-gs/agent-taskbay/issues/24), real A2UI agent and official-schema
-verification [#25](https://github.com/shashikanth-gs/agent-taskbay/issues/25). The browser run is not committed (#14).
+Remaining risks and follow-ups (tracked): remaining components [#22](https://github.com/allsrc/agent-taskbay/issues/22),
+functions/checks/`openUrl`/`sendDataModel` [#23](https://github.com/allsrc/agent-taskbay/issues/23), task and approval pages,
+AG-UI mapping and the edit-merge rule [#24](https://github.com/allsrc/agent-taskbay/issues/24), real A2UI agent and official-schema
+verification [#25](https://github.com/allsrc/agent-taskbay/issues/25). The browser run is not committed (#14).
 
-Next executable slice: **6.7 — agent-originated approval requests** ([#15](https://github.com/shashikanth-gs/agent-taskbay/issues/15)),
+Next executable slice: **6.7 — agent-originated approval requests** ([#15](https://github.com/allsrc/agent-taskbay/issues/15)),
 then **6.8 plugin contract and Phase 6 exit verification**.
 
 ## Slice 6.7 evidence (2026-10-06)
@@ -2027,10 +2027,10 @@ Verification commands and results:
 Migration tested from: not applicable (no schema change; request, revision and audit rows already allow a null human actor).
 
 Remaining risks and follow-ups (tracked): approval-required policy and bypassing replies
-[#16](https://github.com/shashikanth-gs/agent-taskbay/issues/16), digest-echo contract
-[#17](https://github.com/shashikanth-gs/agent-taskbay/issues/17), ADK pattern [#18](https://github.com/shashikanth-gs/agent-taskbay/issues/18),
-upstream proposal [#19](https://github.com/shashikanth-gs/agent-taskbay/issues/19), AG-UI interrupts
-[#20](https://github.com/shashikanth-gs/agent-taskbay/issues/20). A single agent can open at most one live request per task; per-agent
+[#16](https://github.com/allsrc/agent-taskbay/issues/16), digest-echo contract
+[#17](https://github.com/allsrc/agent-taskbay/issues/17), ADK pattern [#18](https://github.com/allsrc/agent-taskbay/issues/18),
+upstream proposal [#19](https://github.com/allsrc/agent-taskbay/issues/19), AG-UI interrupts
+[#20](https://github.com/allsrc/agent-taskbay/issues/20). A single agent can open at most one live request per task; per-agent
 request budgets are not yet configurable.
 
 Next executable slice: **6.8 — extension plugin contract and Phase 6 exit verification**.
@@ -2038,7 +2038,7 @@ Next executable slice: **6.8 — extension plugin contract and Phase 6 exit veri
 ## Phase 6 exit verification (2026-10-06)
 
 Date: 2026-10-06
-Scope: the three Phase 6 exit criteria. The plugin contract was deferred by the user to [#26](https://github.com/shashikanth-gs/agent-taskbay/issues/26).
+Scope: the three Phase 6 exit criteria. The plugin contract was deferred by the user to [#26](https://github.com/allsrc/agent-taskbay/issues/26).
 
 Evidence per criterion:
 
@@ -2069,7 +2069,7 @@ Verification commands and results:
 
 Migration tested from: not applicable (no schema change).
 
-**Phase 6 is complete.** Next: Phase 5 remainder ([#5](https://github.com/shashikanth-gs/agent-taskbay/issues/5)) or Phase 7, by the user's choice; open Phase 6 follow-ups are tracked as issues.
+**Phase 6 is complete.** Next: Phase 5 remainder ([#5](https://github.com/allsrc/agent-taskbay/issues/5)) or Phase 7, by the user's choice; open Phase 6 follow-ups are tracked as issues.
 
 ## Phase 8 slices 8.1 and 8.2 verified evidence
 
