@@ -2,7 +2,7 @@
 
 > Who this is for: someone deciding whether Agent Taskbay is mature enough for their use. You will have what works today and how to verify it, what is partial, what is planned, and what is parked.
 
-Agent Taskbay is **pre-1.0**. The package version is `0.1.0` and, at the time of writing, it has not been published to npm (see [CHANGELOG.md](../../CHANGELOG.md)). Interfaces, HTTP routes and stored data shapes may change between minor versions. There is no stable `/api/v1` yet. It has not been independently security-reviewed, and the only operating system the launcher package has been exercised on is Linux, from a local tarball.
+Agent Taskbay is **pre-1.0**. The package version is `0.1.0` and it is published to npm (see [CHANGELOG.md](../../CHANGELOG.md)). Interfaces, HTTP routes and stored data shapes may change between minor versions. There is no stable `/api/v1` yet. It has not been independently security-reviewed, and the only operating system the launcher package has been exercised on is Linux, from a local tarball.
 
 ## How to read "works"
 

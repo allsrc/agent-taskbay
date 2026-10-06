@@ -35,7 +35,7 @@ export A2A_VAULT_ACTIVE_KEY='key-2026-01'
 Every key must be exactly 64 hexadecimal characters. Share the same ring with the web and worker processes. Back it up separately from the database: a database backup without the keys cannot decrypt
 any binding, and a key backup alone contains no credentials.
 
-If you use `npx agent-taskbay` (after the first release) and set no `A2A_VAULT_KEYS`, the launcher generates a key ring once and keeps it in `secrets.json` in the data directory with mode 0600. It never
+If you use `npx agent-taskbay` and set no `A2A_VAULT_KEYS`, the launcher generates a key ring once and keeps it in `secrets.json` in the data directory with mode 0600. It never
 overwrites a file that exists. Deleting it makes stored credentials unreadable.
 
 ## Credential kinds

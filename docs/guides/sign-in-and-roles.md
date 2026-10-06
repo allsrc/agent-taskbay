@@ -5,7 +5,7 @@
 Agent Taskbay has two ways to identify a person: a local development administrator (no sign-in, loopback only), and OpenID Connect (OIDC) for everything else. This page covers both, the three roles,
 and how access to agents is granted. How agents authenticate to Taskbay's outbound calls is a separate subject: see [Agent credentials](./agent-credentials.md).
 
-The package is pre-1.0 (version 0.1.0). It is not on npm yet, so `npx agent-taskbay` applies once the first release is published; running from a source checkout works today. Settings described
+The package is pre-1.0 (version 0.1.0). It is on npm (`npx agent-taskbay`), and running from a source checkout also works. Settings described
 here may change between minor versions.
 
 ## Before you start
@@ -20,7 +20,7 @@ here may change between minor versions.
 | How you run it | Who you are |
 |---|---|
 | `npm run dev` | A development administrator named "Local operator" in the organization with slug `local`. No sign-in page. |
-| `npx agent-taskbay` (after the first release) | The same identity. The launcher refuses to bind to a non-loopback address unless OIDC is configured. |
+| `npx agent-taskbay` | The same identity. The launcher refuses to bind to a non-loopback address unless OIDC is configured. |
 | Production build (`npm run build` then `npm start`) | Fails closed unless you set **both** `A2A_AUTH_MODE=development` and `A2A_ALLOW_DEVELOPMENT_AUTH=true`, or configure OIDC. |
 
 Local mode means every request is an administrator. Use it only on a machine you alone control. Setting `A2A_AUTH_MODE=development` with `A2A_ALLOW_DEVELOPMENT_AUTH=true` on a network-reachable server

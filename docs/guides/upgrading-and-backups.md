@@ -162,7 +162,7 @@ There is no tool to move data from PGlite to PostgreSQL, or back. Start producti
 
 - No scripted backup, restore or retention. No online consistent snapshot across database and artifacts.
 - Artifacts are never deleted by Taskbay; the directory grows with use.
-- No version-to-version upgrade notes exist yet beyond the changelog, because 0.1.0 is the only version and it has not been published.
+- No version-to-version upgrade notes exist yet beyond the changelog, because 0.1.0 is the only published version.
 
 ## Related
 

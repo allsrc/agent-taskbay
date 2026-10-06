@@ -3,8 +3,8 @@
 > For anyone who needs the exact commands, flags and exit behavior: the `agent-taskbay` launcher, every `npm run` script, and the operational
 > scripts under `scripts/`.
 
-Agent Taskbay is pre-1.0 (package version `0.1.0`) and, at the time of writing, is not yet published to npm. In a git checkout run the launcher as
-`node bin/agent-taskbay.mjs` after `npm run build`; the `npx agent-taskbay` form below applies once a version is published. Flags and
+Agent Taskbay is pre-1.0 (package version `0.1.0`) and is published to npm. In a git checkout run the launcher as
+`node bin/agent-taskbay.mjs` after `npm run build`; the `npx agent-taskbay` form below runs the published package. Flags and
 script names may change between minor versions.
 
 Requirements: Node.js 22.19.0 or newer (see [Compatibility](compatibility.md#runtime-versions)).

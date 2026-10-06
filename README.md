@@ -8,8 +8,7 @@ your browser closes, and step in when the agent needs input or an approval, with
 
 Created and maintained by [Shashi Kanth G S](https://shashikanth.me), part of [Allsrc](https://allsrc.dev).
 
-> **Status: pre-1.0 (`0.1.0`), not yet published to npm.** Interfaces may change between minor versions. Run it from a git checkout today;
-> see [Status and roadmap](docs/project/status-and-roadmap.md) for what works, what is partial and what is planned.
+> **Status: pre-1.0 (`0.1.0`), published to npm.** Interfaces may change between minor versions. See [Status and roadmap](docs/project/status-and-roadmap.md) for what works, what is partial and what is planned.
 
 ## What problem it solves
 
@@ -19,19 +18,22 @@ runtime: it does not run agents and does not replace the orchestrator in your ag
 
 ## Try it
 
-Needs Node.js 22.19 or newer and git. No database server and no `.env` file.
+Needs Node.js 22.19 or newer. No database server and no `.env` file.
 
 ```bash
-git clone https://github.com/allsrc/agent-taskbay.git && cd agent-taskbay && npm ci && npm run dev
+npx agent-taskbay
 ```
 
-In a second terminal, from the same checkout, serve a sample agent:
+This starts the console at <http://127.0.0.1:3002> with an embedded database in `~/.agent-taskbay`, signed in as a local administrator. It binds
+to loopback only. In a second terminal, serve a sample agent (a test fixture, not a real agent):
 
 ```bash
-node scripts/fixture-form-agent.mjs 4010
+npx agent-taskbay demo-agent
 ```
 
-Then in the console at <http://localhost:3002>:
+To run from a git checkout instead, see the [quickstart](docs/quickstart.md#1-run-the-console-from-source).
+
+Then in the console:
 
 1. **Agents → Add agent**, paste `http://127.0.0.1:4010/showcase/card.json`, then **Fetch Agent Card → Continue → Connect**.
 2. Open the agent, **Start chat**, and send `please approve the deploy`.
@@ -40,8 +42,6 @@ Then in the console at <http://localhost:3002>:
 **What you should see:** the approval becomes `approved`, the exact reviewed content is sent to the agent once, and the task moves to
 completed. The decision and its delivery are in the audit trail. Close the browser mid-way and reopen it: state is in the database, not the tab.
 The [quickstart](docs/quickstart.md) shows each step in detail, including what to check when one fails.
-
-The sample agent is a test fixture, not a real agent.
 
 ## What you get
 
@@ -59,7 +59,7 @@ Each row is explained, with its limits, in [Concepts](docs/concepts/overview.md)
 
 ## Why you might not want this
 
-- **Pre-1.0 and unpublished.** There is no `npx agent-taskbay` yet, and no stable API.
+- **Pre-1.0.** `0.1.0` is the first release; interfaces may change between minor versions.
 - **No stable API or SDK.** The HTTP API needs a browser session cookie and a matching `Origin`; there are no service tokens and no `/api/v1`
   ([#31](https://github.com/allsrc/agent-taskbay/issues/31)). Use it as a console, not as a backend for scripts.
 - **Local mode is not a security boundary.** It signs everyone in as an administrator and binds to loopback only. Anything shared needs OIDC.

@@ -2,7 +2,7 @@
 
 > Who this is for: someone who wants to see Agent Taskbay work on their own machine. At the end you will have run the console, connected a sample A2A agent, sent it a task, approved an action as a reviewer, and seen the result recorded.
 
-Agent Taskbay is pre-1.0 (package version `0.1.0`). It has not been published to npm yet, so `npx agent-taskbay` does **not** work today. The first section runs it from a git checkout and is the path that works now. The second section describes the `npx` path that is intended to work once the first release is published.
+Agent Taskbay is pre-1.0 (package version `0.1.0`). It is published to npm, so `npx agent-taskbay` is the quickest way to run it (last section). The first sections run it from a git checkout, which is also how you develop it.
 
 ## Before you start
 
@@ -95,7 +95,7 @@ The full set of reviewer actions is in [Approvals and ownership](guides/approval
 
 Everything above is stored in the database, not in the browser. The state lives in `./.data/pglite` (database) and `./.data/artifacts` (binary content). Because the state is on disk rather than in the page, it should survive a restart. I did not restart the server for this page; the repository's HTTP checks (`npm run test:http`) include a restart test that I did not re-run.
 
-## Run it with `npx` (after the first release)
+## Run it with `npx`
 
 Once a release is published, the same experience should need no checkout:
 

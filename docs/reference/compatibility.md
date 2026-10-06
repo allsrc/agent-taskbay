@@ -3,7 +3,7 @@
 > For anyone deciding whether Agent Taskbay fits their environment and agents: supported runtime versions, which A2A versions, transports and authentication schemes the gateway
 > handles or refuses, what is experimental, and a table of known limitations with issue links.
 
-Agent Taskbay is **pre-1.0** (package version `0.1.0`) and, at the time of writing, not yet published to npm. Interfaces may change between minor versions. "Tested" in this page means what
+Agent Taskbay is **pre-1.0** (package version `0.1.0`) and published to npm. Interfaces may change between minor versions. "Tested" in this page means what
 the repository's own CI runs; nothing here is a claim about other versions or environments.
 
 ## Runtime versions
