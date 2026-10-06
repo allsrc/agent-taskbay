@@ -6,7 +6,7 @@ import { spawn, execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { A2UI_EXTENSION_URI, A2UI_MEDIA_TYPE, APPROVAL_EXTENSION_URI, APPROVAL_MEDIA_TYPE, FORM_EXTENSION_URI, FORM_MEDIA_TYPE, startFormAgent } from "./fixture-form-agent.mjs";
 
-// Phase 6 exit criteria (docs/spec/PHASES.md), exercised against real Next production HTTP:
+// Phase 6 exit criteria (docs/archive/spec/PHASES.md), exercised against real Next production HTTP:
 //  1. one reference agent presents a structured form, an A2UI surface and an approval request;
 //  2. an agent whose extensions the console does not know, or does not recognize in a part, falls back safely;
 //  3. generated UI cannot run code or bypass authorization (CSP here; authorization in phase6-exit.db.test.ts, rendering in phase6-security.test.tsx).

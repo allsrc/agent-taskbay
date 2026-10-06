@@ -1,7 +1,7 @@
 # Detailed implementation phases
 
 Checkboxes describe repository state, not intent. Update them only with
-verification evidence in `STATUS.md`.
+verification evidence in `EVIDENCE.md`.
 
 ## Phase 0 — specification baseline
 
@@ -28,7 +28,7 @@ Requirements: all, as planning coverage.
 
 ## Phase 1 — persistence foundation
 
-**Status:** Complete; exit criteria verified on 2026-10-03 in `STATUS.md`.
+**Status:** Complete; exit criteria verified on 2026-10-03 in `EVIDENCE.md`.
 
 ### Slice 1.1: database bootstrap
 
@@ -77,7 +77,7 @@ Requirements: `AGT-001..003`, `TSK-002`, `REL-001`, `PERF-001`, `OPS-001`,
 
 ## Phase 2 — durable task runtime
 
-**Status:** Complete; Slices 2.1–2.7 and all exit criteria verified on 2026-10-03 in `STATUS.md`.
+**Status:** Complete; Slices 2.1–2.7 and all exit criteria verified on 2026-10-03 in `EVIDENCE.md`.
 
 ### Slice 2.1: durable command dispatch
 
@@ -173,7 +173,7 @@ Requirements: `TSK-001..007`, `HITL-001..002`, `REL-001..003`, `SCL-001`,
 ## Phase 3 — identity and security
 
 **Status:** Complete; combined Slices 3.1 and 3.2 and all exit criteria verified
-on 2026-10-03 in `STATUS.md`.
+on 2026-10-03 in `EVIDENCE.md`.
 
 ### Combined Slice 3.1: Plane A identity and organization access
 

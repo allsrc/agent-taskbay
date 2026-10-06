@@ -22,10 +22,10 @@ Agent Taskbay is a server that holds credentials for your agents and can send wo
 - **Local mode is not a security boundary.** `npx agent-taskbay` signs everyone in as a development administrator and binds only to
   loopback. Do not expose it to a network, a tunnel or a shared machine. The launcher refuses non-loopback addresses unless OIDC is configured.
 - **Production requires OIDC**, an exact outbound origin allowlist (`A2A_ALLOWED_AGENT_ORIGINS`), HTTPS, and server-only secrets. Production
-  fails closed without them. See the README sections on identity and sign-in and `docs/security/SERVICE_IDENTITY.md`.
+  fails closed without them. See [sign-in and roles](docs/guides/sign-in-and-roles.md) and [how credentials are protected](docs/security/service-identity.md).
 - Credentials for agents are stored encrypted in the database and never sent to the browser. Keep the vault keys and the push signing key
   out of version control, logs and backups that are not themselves protected.
-- The threat model is in [`docs/security/THREAT_MODEL.md`](docs/security/THREAT_MODEL.md). Findings that contradict it are especially welcome.
+- The threat model is in [`docs/security/threat-model.md`](docs/security/threat-model.md). Findings that contradict it are especially welcome.
 
 In scope: authentication and session handling, authorization and tenant isolation, credential storage, outbound request controls (SSRF,
 DNS rebinding, redirects), webhook authentication and replay, artifact handling, rendering of agent-supplied content, and the audit trail.

@@ -1,6 +1,6 @@
 ## What changed and why
 
-<!-- Link the requirement ID (for example HITL-003), phase or issue this belongs to. -->
+<!-- Link the issue this belongs to. -->
 
 ## How it was verified
 
@@ -8,8 +8,8 @@
 
 ## Checklist
 
-- [ ] One vertical slice, with tests in the same change
+- [ ] Focused change, with tests in the same change
 - [ ] `npm run check` passes (or the part you could run is listed above)
-- [ ] `docs/spec/STATUS.md` and the `PHASES.md` checklist are updated
-- [ ] An ADR is added or amended if an accepted decision changed
+- [ ] Docs updated for the behavior you changed, per `docs/contributing/documentation.md` (or say why none apply)
+- [ ] Security-relevant changes update `docs/security/threat-model.md`
 - [ ] User-visible changes are in `CHANGELOG.md`

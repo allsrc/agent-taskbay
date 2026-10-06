@@ -1,6 +1,6 @@
 {
   "name": "agent-taskbay",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "The human operations console for A2A agent workflows. Discover agents, operate durable tasks, handle human approvals, and audit work across an A2A agent mesh.",
   "keywords": [
     "a2a",
