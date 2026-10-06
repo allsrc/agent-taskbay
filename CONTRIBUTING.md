@@ -5,7 +5,7 @@ issue threads. A change that fits the current phase and passes the checks below 
 
 ## Set up
 
-You need Node.js 22.17 or newer (`.nvmrc` pins the version CI uses).
+You need Node.js 22.19 or newer (`.nvmrc` pins the version CI uses).
 
 ```bash
 git clone https://github.com/allsrc/agent-taskbay.git

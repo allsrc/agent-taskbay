@@ -62,5 +62,5 @@ Constraints found while designing it:
 - A user can try the product with one command and no clone. The package is large because Next.js and its dependencies are installed.
 - `scripts/verify-package.mjs` is the exit check: it packs the project, installs the tarball into an empty directory, launches it and
   drives the HTTP API through registration, command dispatch and a restart. It runs in CI as its own job.
-- The build in the tarball is made with the maintainer's Node version; `engines` is `>=22.17.0`.
+- The build in the tarball is made with the maintainer's Node version; `engines` is `>=22.19.0`.
 - Provenance and the first publish require an npm token and a version tag, which only the maintainer can supply.

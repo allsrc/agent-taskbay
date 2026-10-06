@@ -25,7 +25,7 @@ npx agent-taskbay
 
 That downloads the console, starts it at <http://127.0.0.1:3002> and opens your browser. There is nothing else to install: it uses an
 embedded database, generates its own encryption key, and signs you in as a local administrator. Everything lives in `~/.agent-taskbay`
-(`--data-dir` to change it). Requires Node.js 22.17 or newer.
+(`--data-dir` to change it). Requires Node.js 22.19 or newer.
 
 To try it without an agent of your own, serve the sample agents in a second terminal and paste a card URL into **Connect agent**:
 
