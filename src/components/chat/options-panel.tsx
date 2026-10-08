@@ -2,6 +2,7 @@
 
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { shortTaskId } from "@/lib/task-view";
 import { cn } from "@/lib/utils";
 
 const OUTPUT_CHOICES = ["text/plain", "text/markdown", "application/json", "application/pdf"];
@@ -74,7 +75,7 @@ export function OptionsPanel(props: OptionsPanelProps) {
                   onClick={() => props.onRefIds(on ? props.refIds.filter((id) => id !== task.taskId) : [...props.refIds, task.taskId])}
                   className={chip(on)}
                 >
-                  {task.taskId.slice(0, 8)}
+                  {shortTaskId(task.taskId)}
                 </button>
               );
             })}

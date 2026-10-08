@@ -35,7 +35,7 @@ function AuditPage() {
     );
   }
   return (
-    <div className="min-h-0 flex-1 overflow-auto p-4 md:p-6">
+    <div className="min-h-0 flex-1 overflow-auto p-4 pb-24 md:p-6">
       <div className="mb-3 flex flex-wrap items-center gap-2.5">
         <h1 className="min-w-40 flex-1 font-mono text-lg font-bold tracking-tight">{taskId ? "Task audit trail" : "Audit trail"}</h1>
         {taskId && <Button variant="outline" size="sm" asChild><Link href={`/tasks/${taskId}`}>Back to task</Link></Button>}

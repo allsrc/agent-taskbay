@@ -34,7 +34,7 @@ Choose one outcome under **Your decision**:
 
 | Outcome | Rationale | What happens |
 | --- | --- | --- |
-| **Approve** | Optional | Sends exactly the shown content to the agent, once. A browser confirmation prompt appears first. |
+| **Approve** | Optional | Sends exactly the shown content to the agent, once. A confirmation dialog appears first. |
 | **Edit…** | Required | Change the text, or the form values (but never the form itself), then **Approve edited version**. This records a new revision and approves it in one step. The edit must differ from the current content. |
 | **Request changes** | Required | Returns it to the proposer. Nothing is sent. A revised proposal puts it back in the queue. |
 | **Delegate…** | Required | Hands it to another eligible reviewer. You do not decide it. |

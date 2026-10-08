@@ -18,7 +18,7 @@ import { conversationKey, findConversation, groupConversations, isOpenTask } fro
 import type { OutgoingPart } from "@/lib/message-parts";
 import type { WireEntry } from "@/lib/wire-sequence";
 import { runSend, userThreadMessage } from "@/lib/run-message";
-import { stateName } from "@/lib/task-view";
+import { shortTaskId, stateName } from "@/lib/task-view";
 import { useAgentStore } from "@/store/agent-store";
 import { useSettingsStore } from "@/store/settings-store";
 import { useTaskStore, type SendConfig, type ThreadMessage, type TrackedTask } from "@/store/task-store";
@@ -248,9 +248,9 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
                 message.role === "user" ? (
                   <UserBubble key={message.id} message={message} />
                 ) : (
-                  <AgentBubble key={message.id} message={message} taskState={task.kind === "message" ? undefined : task.state} onReply={(text) => void send([{ text, mediaType: "text/plain" }])}
+                  <AgentBubble key={message.id} message={message} taskState={task.kind === "message" ? undefined : task.state} onReply={(text) => void send([{ text, mediaType: "text/plain" }], task)}
                     extensions={view?.extensions} a2ui={a2uiOn} answered={sending || index !== task.messages.length - 1}
-                    onSubmitForm={(submission) => send([{ data: submission, mediaType: "application/json" }])} />
+                    onSubmitForm={(submission) => send([{ data: submission, mediaType: "application/json" }], task)} />
                 ),
                 ...(index === cardAt ? [<TaskCard key={`card-${task.taskId}`} task={task} canceling={cancelingId === task.taskId} onCancel={() => void cancelTask(task)} />] : []),
               ]);
@@ -295,7 +295,7 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
                         target === task.taskId ? "border-primary bg-primary/15 text-primary" : attention ? "border-warning/60 text-warning" : "border-border text-muted-foreground hover:text-foreground",
                       )}
                     >
-                      {task.taskId.slice(0, 8)} · {stateName(task.state).toLowerCase().replaceAll("_", " ")}
+                      {shortTaskId(task.taskId)} · {stateName(task.state).toLowerCase().replaceAll("_", " ")}
                     </button>
                   );
                 })}
@@ -319,7 +319,7 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
           </select>
         </label>}
         {startForm && target === NEW_TASK && (
-          <details open={empty} className="border-border bg-card mb-2 rounded-xl border px-3 py-2" data-testid="start-form">
+          <details open={empty && desktop} className="border-border bg-card mb-2 max-h-[35vh] overflow-y-auto rounded-xl border px-3 py-2" data-testid="start-form">
             <summary className="cursor-pointer text-sm font-medium">Start with a form: {startForm.title}</summary>
             <div className="pt-3 pb-1">
               <StructuredForm form={startForm} disabled={sending} onSubmit={(submission) => send([{ data: submission, mediaType: "application/json" }])} />

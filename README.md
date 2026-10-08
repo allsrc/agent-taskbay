@@ -24,7 +24,7 @@ Needs Node.js 22.19 or newer. No database server and no `.env` file.
 npx agent-taskbay
 ```
 
-This starts the console at <http://127.0.0.1:3002> with an embedded database in `~/.agent-taskbay`, signed in as a local administrator. It binds
+This starts the console at <http://localhost:3002> with an embedded database in `~/.agent-taskbay`, signed in as a local administrator. It binds
 to loopback only. In a second terminal, serve a sample agent (a test fixture, not a real agent):
 
 ```bash

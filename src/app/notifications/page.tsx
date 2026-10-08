@@ -55,7 +55,7 @@ function Inbox({ unreadOnly, onFilter }: { unreadOnly: boolean; onFilter: (unrea
   }
 
   return (
-    <div className="min-h-0 flex-1 overflow-auto p-4 md:p-6">
+    <div className="min-h-0 flex-1 overflow-auto p-4 pb-24 md:p-6">
       <div className="flex flex-wrap items-center gap-2.5">
         <h1 className="min-w-32 flex-1 font-mono text-lg font-bold tracking-tight">Notifications</h1>
         <div className="flex gap-1.5" role="tablist" aria-label="Filter notifications">

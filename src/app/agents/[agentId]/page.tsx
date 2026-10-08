@@ -54,7 +54,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ agentId:
   }
 
   return (
-    <div className="min-h-0 flex-1 overflow-auto p-4 md:p-6">
+    <div className="min-h-0 flex-1 overflow-auto p-4 pb-24 md:p-6">
       <BackLink href="/agents">Agents</BackLink>
       <div className="flex flex-wrap items-center gap-3.5">
         <AgentAvatar name={view?.name ?? "Agent"} id={agent.id} size="lg" />
@@ -84,7 +84,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ agentId:
       </div>
 
       {view ? (
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(250px,1fr))] gap-3">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(250px,1fr))] items-start gap-3">
           <InfoCard label="Capabilities">
             {[
               ["Streaming", view.streaming],

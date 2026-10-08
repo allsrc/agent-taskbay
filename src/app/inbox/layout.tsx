@@ -3,8 +3,10 @@
 import { Suspense, useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
+import { RotateCw } from "lucide-react";
 import { SplitPane, StateChip } from "@/components/a2a/primitives";
 import { DecisionStatusChip, RiskChip } from "@/components/approvals/badges";
+import { Button } from "@/components/ui/button";
 import { expiryLabel } from "@/lib/approvals";
 import { inboxHref, inboxQuery, type InboxFilters } from "@/lib/inbox-view";
 import { isActiveState, relativeTime } from "@/lib/task-view";
@@ -104,9 +106,30 @@ function InboxShell({ children }: { children: React.ReactNode }) {
                 </div>
               </Link>
             ))}
-            {cursor && <button onClick={loadMore} disabled={more} className="text-primary px-3 py-2 text-left text-sm disabled:opacity-50">{more ? "Loading…" : "Load more"}</button>}
+            {cursor && (
+              <div className="p-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={loadMore}
+                  disabled={more}
+                  className="w-full text-xs"
+                >
+                  {more ? "Loading…" : "Load more"}
+                </Button>
+              </div>
+            )}
           </div>
-          <div className="flex items-center justify-end px-4 pb-3 text-sm"><button onClick={first.refresh} className="text-primary">Refresh</button></div>
+          <div className="border-border flex items-center justify-end border-t px-3 pt-2 pb-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={first.refresh}
+              className="h-8 gap-1 px-2.5 text-xs"
+            >
+              <RotateCw className="size-3.5" /> Refresh
+            </Button>
+          </div>
         </>
       }
     >

@@ -8,6 +8,7 @@ import { BackLink, Chip, EmptyState, InfoCard } from "@/components/a2a/primitive
 import { DecisionStatusChip, RiskChip } from "@/components/approvals/badges";
 import { actionLabel, isActionValid, ProposedActionEditor, ProposedActionView } from "@/components/approvals/proposed-action";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { IdempotencyKeys, OUTCOME_LABEL, canDecide, executionSummary, expiryLabel, isExpired, isOpen, shortDigest } from "@/lib/approvals";
@@ -45,6 +46,7 @@ function Review({ detail, refresh, error }: { detail: DecisionDetail; refresh: (
   const [delegate, setDelegate] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
+  const [confirmApproveOpen, setConfirmApproveOpen] = useState(false);
   const keys = useRef(new IdempotencyKeys());
 
   const ownRequest = request.policy.separationOfDuties && request.requesterUserId === viewer.userId;
@@ -75,7 +77,6 @@ function Review({ detail, refresh, error }: { detail: DecisionDetail; refresh: (
   }
 
   async function decide(outcome: DecisionOutcome) {
-    if (outcome === "approve" && !window.confirm("Approve this action? It will be sent to the agent once and cannot be undone.")) return;
     const result = await send(`/api/decisions/${request.id}/decisions`, {
       outcome, rationale: rationale.trim(), expectedRevision: request.currentRevision,
       ...(outcome === "edit" ? { edit: draft } : {}), ...(outcome === "delegate" ? { delegateMembershipId: delegate } : {}) }, outcome, true);
@@ -94,7 +95,7 @@ function Review({ detail, refresh, error }: { detail: DecisionDetail; refresh: (
   const approvedExecution = executions[0];
 
   return (
-    <div className="min-h-0 flex-1 overflow-auto p-4 md:p-6">
+    <div className="min-h-0 flex-1 overflow-auto p-4 pb-24 md:p-6">
       <BackLink href="/approvals">Approvals</BackLink>
       <div className="flex flex-wrap items-center gap-2.5">
         <h2 className="min-w-40 flex-1 font-mono text-[22px] font-bold tracking-tight">{request.title}</h2>
@@ -127,7 +128,7 @@ function Review({ detail, refresh, error }: { detail: DecisionDetail; refresh: (
                 <Label htmlFor="edited-action" className="mb-1.5">Edited action</Label>
                 <ProposedActionEditor id="edited-action" action={draft} onChange={setDraft} disabled={busy !== null} />
                 <div className="mt-2 flex gap-2">
-                  <Button variant="brand" disabled={busy !== null || !reason || !changed || !isActionValid(draft) || !allowed("edit")} onClick={() => decide("edit")}>
+                  <Button variant="default" disabled={busy !== null || !reason || !changed || !isActionValid(draft) || !allowed("edit")} onClick={() => decide("edit")}>
                     {busy === "edit" && <Loader2 className="animate-spin" />} Approve edited version</Button>
                   <Button variant="outline" onClick={() => { setMode("none"); setDraft(current.action); }}>Cancel edit</Button>
                 </div>
@@ -144,7 +145,7 @@ function Review({ detail, refresh, error }: { detail: DecisionDetail; refresh: (
                     <option key={candidate.membershipId} value={candidate.membershipId}>{candidate.displayName} · {candidate.role}</option>)}
                 </select>
                 <div className="mt-2 flex gap-2">
-                  <Button variant="brand" disabled={busy !== null || !reason || !delegate} onClick={() => decide("delegate")}>
+                  <Button variant="default" disabled={busy !== null || !reason || !delegate} onClick={() => decide("delegate")}>
                     {busy === "delegate" && <Loader2 className="animate-spin" />} Delegate</Button>
                   <Button variant="outline" onClick={() => setMode("none")}>Cancel</Button>
                 </div>
@@ -152,7 +153,7 @@ function Review({ detail, refresh, error }: { detail: DecisionDetail; refresh: (
             )}
             {mode === "none" && (
               <div className="mt-3 flex flex-wrap gap-2">
-                <Button variant="brand" disabled={busy !== null || !allowed("approve")} onClick={() => decide("approve")}>
+                <Button variant="default" disabled={busy !== null || !allowed("approve")} onClick={() => setConfirmApproveOpen(true)}>
                   {busy === "approve" && <Loader2 className="animate-spin" />} Approve</Button>
                 <Button variant="outline" disabled={busy !== null || !allowed("edit")} onClick={() => { setDraft(current.action); setMode("edit"); }}>Edit…</Button>
                 <Button variant="outline" disabled={busy !== null || !reason || !allowed("request_changes")} onClick={() => decide("request_changes")}>
@@ -173,7 +174,7 @@ function Review({ detail, refresh, error }: { detail: DecisionDetail; refresh: (
           <InfoCard label="Revise the proposal" className="md:col-span-2">
             <p className="text-muted-foreground mb-2 text-[13px]">A reviewer asked for changes. Submit a revised proposal to put it back in the queue.</p>
             <ProposedActionEditor id="revision" action={draft} onChange={setDraft} disabled={busy !== null} />
-            <Button className="mt-2" variant="brand" disabled={busy !== null || !changed || !isActionValid(draft)} onClick={revise}>
+            <Button className="mt-2" variant="default" disabled={busy !== null || !changed || !isActionValid(draft)} onClick={revise}>
               {busy === "revise" && <Loader2 className="animate-spin" />} Submit revised proposal</Button>
           </InfoCard>
         )}
@@ -232,6 +233,32 @@ function Review({ detail, refresh, error }: { detail: DecisionDetail; refresh: (
           ))}
         </InfoCard>
       </div>
+
+      <Dialog open={confirmApproveOpen} onOpenChange={setConfirmApproveOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Approve this action?</DialogTitle>
+            <DialogDescription>
+              This action will be approved and sent to the agent once. It cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-4 flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setConfirmApproveOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="default"
+              disabled={busy !== null}
+              onClick={() => {
+                setConfirmApproveOpen(false);
+                void decide("approve");
+              }}
+            >
+              {busy === "approve" && <Loader2 className="animate-spin" />} Confirm approval
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

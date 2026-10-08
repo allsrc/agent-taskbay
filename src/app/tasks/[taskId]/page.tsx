@@ -11,7 +11,7 @@ import { TaskNotes, TaskOwnership } from "@/components/workflow/task-ownership";
 import { Button } from "@/components/ui/button";
 import { conversationKey } from "@/lib/conversations";
 import { runResubscribe } from "@/lib/run-message";
-import { isActiveState, referencesOf, STATE_DOT, stateName, taskTitle } from "@/lib/task-view";
+import { isActiveState, referencesOf, shortTaskId, STATE_DOT, stateName, taskTitle } from "@/lib/task-view";
 import { useServerResource } from "@/lib/use-server-resource";
 import type { DurableTaskView } from "@/shared/task-types";
 import { useTaskStore } from "@/store/task-store";
@@ -77,7 +77,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ taskId: s
   }
 
   return (
-    <div className="min-h-0 flex-1 overflow-auto p-4 md:p-6">
+    <div className="min-h-0 flex-1 overflow-auto p-4 pb-24 md:p-6">
       <BackLink href="/tasks">Tasks</BackLink>
       <div className="flex flex-wrap items-center gap-2.5">
         <h2 className="min-w-40 flex-1 font-mono text-[22px] font-bold tracking-tight">{taskTitle(task, 80)}</h2>
@@ -94,10 +94,10 @@ export default function TaskDetailPage({ params }: { params: Promise<{ taskId: s
           <Link href={`/chat/${conversationKey(task)}`} onClick={() => upsertTask(task)}>Open in chat</Link>
         </Button>
         <Button variant="outline" onClick={subscribe} disabled={!active || busy !== null} className="font-mono text-xs">
-          {busy === "subscribe" && <Loader2 className="animate-spin" />} SubscribeToTask
+          {busy === "subscribe" && <Loader2 className="animate-spin" />} Subscribe to task
         </Button>
         <Button variant="outline" onClick={cancel} disabled={!active || busy !== null} className="font-mono text-xs">
-          {busy === "cancel" && <Loader2 className="animate-spin" />} CancelTask
+          {busy === "cancel" && <Loader2 className="animate-spin" />} Cancel task
         </Button>
       </div>
 
@@ -165,8 +165,8 @@ export default function TaskDetailPage({ params }: { params: Promise<{ taskId: s
               <div className="flex flex-wrap gap-1.5">
                 {references.map((id) => (
                   task.referenceLinks[id] ? <Link key={id} href={`/tasks/${task.referenceLinks[id]}`}>
-                    <Chip>{id.slice(0, 8)}</Chip>
-                  </Link> : <Chip key={id}>{id.slice(0, 8)}</Chip>
+                    <Chip>{shortTaskId(id)}</Chip>
+                  </Link> : <Chip key={id}>{shortTaskId(id)}</Chip>
                 ))}
               </div>
             </>

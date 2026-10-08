@@ -60,3 +60,10 @@ export const needsYou = (state: string) => ["INPUT_REQUIRED", "AUTH_REQUIRED"].i
 export function referencesOf(task: TrackedTask): string[] {
   return [...new Set(task.messages.flatMap((message) => message.referenceTaskIds ?? []))];
 }
+
+/** Formats a task ID for display: preserves short IDs (e.g. form-task-0) and truncates long UUIDs. */
+export function shortTaskId(id: string, max = 16): string {
+  if (!id) return "";
+  if (id.length <= max) return id;
+  return `${id.slice(0, 8)}…`;
+}

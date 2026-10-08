@@ -13,7 +13,7 @@ describe("buildSequence", () => {
     ]);
     expect(turns).toHaveLength(1);
     expect(turns[0].rows.map((row) => row.label)).toEqual(["SendMessage", "task", "statusUpdate"]);
-    expect(turns[0].rows[0].detail).toBe("Review it → task-842");
+    expect(turns[0].rows[0].detail).toBe("Review it → task-8421-abc");
     expect(turns[0].rows[2]).toMatchObject({ state: "TASK_STATE_INPUT_REQUIRED", detail: "Which env?", offset: 900 });
   });
 

@@ -17,7 +17,7 @@ function ToggleRow({ title, desc, checked, onChange, disabled }: { title: string
     <label className="flex cursor-pointer items-center gap-2.5 py-2">
       <span className="flex-1">
         <span className="block">{title}</span>
-        <span className="text-muted-foreground block font-mono text-[11px] break-all">{desc}</span>
+        <span className="text-muted-foreground block font-mono text-[11px] break-words">{desc}</span>
       </span>
       <Switch checked={checked} onCheckedChange={onChange} disabled={disabled} aria-label={title} />
     </label>
@@ -29,7 +29,7 @@ export default function SettingsPage() {
   const [extension, setExtension] = useState("");
 
   return (
-    <div className="min-h-0 flex-1 overflow-auto p-4 md:p-6">
+    <div className="min-h-0 flex-1 overflow-auto p-4 pb-24 md:p-6">
       <h1 className="mb-3.5 font-mono text-lg font-bold tracking-tight">Settings</h1>
       <div className="grid max-w-[900px] grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-3">
         <InfoCard label="Request defaults">

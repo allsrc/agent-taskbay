@@ -7,7 +7,7 @@ import { motion } from "motion/react";
 import { useShallow } from "zustand/react/shallow";
 import { Chip, EmptyState, StateChip } from "@/components/a2a/primitives";
 import { groupConversations } from "@/lib/conversations";
-import { referencesOf, taskTitle } from "@/lib/task-view";
+import { referencesOf, shortTaskId, taskTitle } from "@/lib/task-view";
 import { useTaskStore, type TrackedTask } from "@/store/task-store";
 import { cn } from "@/lib/utils";
 
@@ -26,14 +26,14 @@ function TaskNode({ task, accent, refs }: { task: TrackedTask; accent?: "brand";
           <StateChip state={task.state} />
         </div>
         <span className="text-muted-foreground font-mono text-[11px]">
-          {task.taskId.slice(0, 8)} · {task.agentName}
+          {shortTaskId(task.taskId)} · {task.agentName}
         </span>
         {refs && refs.length > 0 && (
           <>
             <span className="label-mono mt-2">referenceTaskIds</span>
             <div className="flex flex-wrap gap-1.5">
               {refs.map((id) => (
-                <Chip key={id}>{id.slice(0, 8)}</Chip>
+                <Chip key={id}>{shortTaskId(id)}</Chip>
               ))}
             </div>
           </>
@@ -70,7 +70,7 @@ export default function FlowsPage() {
   const sources = real.filter((task) => !dependents.includes(task));
 
   return (
-    <div className="min-h-0 flex-1 overflow-auto p-4 md:p-6">
+    <div className="min-h-0 flex-1 overflow-auto p-4 pb-24 md:p-6">
       <h1 className="font-mono text-lg font-bold tracking-tight">Orchestration</h1>
       <p className="text-muted-foreground mt-0.5 mb-4">One context, several tasks. Later tasks point at earlier ones through referenceTaskIds.</p>
 

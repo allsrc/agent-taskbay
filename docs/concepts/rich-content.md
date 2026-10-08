@@ -18,6 +18,7 @@ Agents send messages and artifacts made of parts: text, structured data, files, 
 | --- | --- |
 | `text/plain` | Plain text, whitespace kept |
 | `text/markdown`, or text that looks like Markdown | Markdown (GFM tables, lists, code). Remote images omitted |
+| `application/vnd.agent-taskbay.approval-request+json` | An approval request card with title, risk badge, proposed action summary, and a link to review in Inbox |
 | `application/json` and other JSON | Table when it is a list of objects, otherwise a collapsible tree. A "Structured" toggle is available |
 | CSV | Table |
 | Images, audio, video, PDF | Shown inline only when the bytes were archived by the server. Remote media URLs are not loaded |

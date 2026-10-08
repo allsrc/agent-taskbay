@@ -1,3 +1,5 @@
+import { shortTaskId } from "./task-view";
+
 /** One captured message on the wire: what the client sent (`out`) or an A2A event that came back (`in`). */
 export interface WireEntry {
   id: number;
@@ -105,6 +107,6 @@ function summarizeSend(body: Obj): string | undefined {
   const params = isObj(body.params) ? body.params : {};
   const message = isObj(params.message) ? params.message : {};
   const text = firstText(message.parts);
-  const taskId = typeof message.taskId === "string" && message.taskId ? ` → ${message.taskId.slice(0, 8)}` : "";
+  const taskId = typeof message.taskId === "string" && message.taskId ? ` → ${shortTaskId(message.taskId)}` : "";
   return text ? `${text}${taskId}` : taskId.trim() || undefined;
 }

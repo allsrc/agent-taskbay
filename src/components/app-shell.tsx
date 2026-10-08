@@ -15,7 +15,7 @@ import { useAgentStore } from "@/store/agent-store";
 import { useServerResource } from "@/lib/use-server-resource";
 import type { DecisionRequestView } from "@/shared/decision-types";
 import { cn } from "@/lib/utils";
-import { IdentityMenu } from "./identity-menu";
+import { IdentityMenu, MobileIdentityMenu } from "./identity-menu";
 
 interface NavItem {
   href: string;
@@ -118,17 +118,17 @@ export function AppShell({ children, identity }: { children: React.ReactNode;
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <header className="border-border flex h-[52px] shrink-0 items-center gap-2.5 border-b px-4 md:hidden">
           <LogoMark size={26} />
-          <span className="flex-1 font-mono text-[15px] font-bold">{active?.label ?? "Agent Taskbay"}</span>
-          <ThemeToggle className="w-24" />
+          <span className="flex-1 truncate font-mono text-[15px] font-bold">{active?.label ?? "Agent Taskbay"}</span>
+          <ThemeToggle className="w-20 shrink-0" />
+          <MobileIdentityMenu identity={identity} />
         </header>
-        <div className="px-4 pt-2 md:hidden"><IdentityMenu identity={identity} /></div>
 
         <main className="flex min-h-0 min-w-0 flex-1 flex-col">
           {taskError && <p role="alert" className="text-destructive border-b p-3 text-sm">{taskError} Retrying server sync…</p>}
           {children}
         </main>
 
-        <nav className="bg-sidebar border-border flex shrink-0 border-t px-1 pt-1.5 pb-3.5 md:hidden" aria-label="Primary">
+        <nav className="bg-sidebar border-border flex shrink-0 overflow-x-auto border-t px-1 pt-1 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:hidden" aria-label="Primary">
           {nav.map((item) => {
             const on = active?.href === item.href;
             return (
@@ -136,15 +136,15 @@ export function AppShell({ children, identity }: { children: React.ReactNode;
                 key={item.href}
                 href={item.href}
                 aria-current={on ? "page" : undefined}
-                className={cn("flex flex-1 flex-col items-center gap-0.5 py-1.5", on ? "text-primary" : "text-muted-foreground")}
+                className={cn("flex min-w-[42px] flex-1 flex-col items-center justify-center gap-0.5 py-1", on ? "text-primary" : "text-muted-foreground")}
               >
                 <span className="relative">
-                  <item.icon className="size-[22px]" strokeWidth={1.8} />
+                  <item.icon className="size-5" strokeWidth={1.8} />
                   {((item.href === "/notifications" && unread > 0) || (item.href === "/inbox" && pending > 0)) && (
-                    <span className="bg-brand absolute -top-0.5 -right-1.5 size-[9px] rounded-full" />
+                    <span className="bg-brand absolute -top-0.5 -right-1.5 size-[8px] rounded-full" />
                   )}
                 </span>
-                <span className="font-mono text-[10px] font-medium">{item.short}</span>
+                <span className="max-w-[46px] truncate font-mono text-[9.5px] font-medium">{item.short}</span>
               </Link>
             );
           })}

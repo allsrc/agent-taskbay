@@ -3,8 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { ChevronLeft, ChevronRight, RotateCw } from "lucide-react";
 import { SplitPane, StateChip } from "@/components/a2a/primitives";
-import { isActiveState, needsYou, relativeTime, taskTitle } from "@/lib/task-view";
+import { Button } from "@/components/ui/button";
+import { isActiveState, needsYou, relativeTime, shortTaskId, taskTitle } from "@/lib/task-view";
 import { dueLabel, isOverdue } from "@/lib/workflow";
 import { useServerResource } from "@/lib/use-server-resource";
 import type { DurableTaskView } from "@/shared/task-types";
@@ -67,7 +69,7 @@ export default function TasksLayout({ children }: { children: React.ReactNode })
                   <StateChip state={task.state} />
                 </div>
                 <div className="text-muted-foreground truncate font-mono text-[11px]">
-                  {task.taskId.slice(0, 8)} · {task.agentName} · {relativeTime(task.updatedAt)}
+                  {shortTaskId(task.taskId)} · {task.agentName} · {relativeTime(task.updatedAt)}
                 </div>
                 {task.workflow && (task.workflow.assigneeName || task.workflow.dueAt) && (
                   <div className="flex flex-wrap items-center gap-1.5 font-mono text-[11px]">
@@ -80,10 +82,33 @@ export default function TasksLayout({ children }: { children: React.ReactNode })
               </Link>
             ))}
           </div>
-          <div className="flex items-center justify-between px-4 pb-3 text-sm">
-            <button disabled={!offset} onClick={() => setOffset(Math.max(0, offset - 50))} className="disabled:opacity-40">Previous</button>
-            <button onClick={resource.refresh} className="text-primary">Refresh</button>
-            <button disabled={rows.length < 50} onClick={() => setOffset(offset + 50)} className="disabled:opacity-40">Next</button>
+          <div className="border-border flex items-center justify-between border-t px-3 pt-2 pb-3">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!offset}
+              onClick={() => setOffset(Math.max(0, offset - 50))}
+              className="h-8 gap-1 px-2.5 text-xs"
+            >
+              <ChevronLeft className="size-3.5" /> Previous
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={resource.refresh}
+              className="h-8 gap-1 px-2.5 text-xs"
+            >
+              <RotateCw className="size-3.5" /> Refresh
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={rows.length < 50}
+              onClick={() => setOffset(offset + 50)}
+              className="h-8 gap-1 px-2.5 text-xs"
+            >
+              Next <ChevronRight className="size-3.5" />
+            </Button>
           </div>
         </>
       }
