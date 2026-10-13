@@ -5,7 +5,7 @@
 Taskbay keeps three kinds of state that must stay consistent with each other: the database, the artifact directory, and the vault keys. Backups, upgrades and restores are all about treating those three
 as one unit. Backup and restore tooling is not provided; this page tells you what to copy and what to check.
 
-The project is pre-1.0 (0.1.0). Interfaces and migrations may change in any minor version. Read [`CHANGELOG.md`](../../CHANGELOG.md) before each upgrade.
+The project is pre-1.0 (0.1.1). Interfaces and migrations may change in any minor version. Read [`CHANGELOG.md`](../../CHANGELOG.md) before each upgrade.
 
 ## Before you start
 
@@ -156,13 +156,13 @@ There is no tool to move data from PGlite to PostgreSQL, or back. Start producti
 | `npm run db:schema:check` fails | Schema drift: the database does not match the code | Check which migrations are pending; do not edit the schema by hand |
 | Credentials fail with `Credential vault unavailable.` after restore | Wrong or missing vault key | Restore the key ring that was active when the binding was stored |
 | Artifact downloads fail or a rebuild reports `Protocol archive missing or corrupt.` | Artifact directory older than the database, or lost | Restore a newer artifact copy |
-| Push callbacks answer 401 after restore | Different `A2A_PUSH_SIGNING_KEY` | Restore the original key, or follow the rotation steps in [Troubleshooting](../operations/troubleshooting.md) |
+| Push callbacks answer 401 after restore | Different `A2A_PUSH_SIGNING_KEY` | Restore the original key, or follow the rotation steps in [Troubleshooting](../operations/troubleshooting.md). See [Receive push callbacks from agents](agent-push-callbacks.md#limits). |
 
 ## Limits
 
 - No scripted backup, restore or retention. No online consistent snapshot across database and artifacts.
 - Artifacts are never deleted by Taskbay; the directory grows with use.
-- No version-to-version upgrade notes exist yet beyond the changelog, because 0.1.0 is the only published version.
+- No version-to-version upgrade notes exist yet beyond the changelog. The published versions are 0.1.0 and 0.1.1, and 0.1.1 changed no runtime behavior (documentation and release process only), so there is nothing to migrate between them.
 
 ## Related
 

@@ -2,9 +2,9 @@
 
 > For readers who want the mental model before they install anything: what the project does, what it leaves to other systems, and how the pieces fit together.
 
-Agent Taskbay is a console for people who work with [A2A](https://a2a-protocol.org) agents. An agent does the work. Taskbay is the place where a human starts that work, finds it again later, answers the agent when it asks for something, approves risky steps, and can later show who did what.
+Agent Taskbay is the human operations console for [A2A](https://a2a-protocol.org) agent workflows. An agent does the work. Taskbay is the place where a human starts that work, finds it again later, answers the agent when it asks for something, approves risky steps, and can later show who did what. An optional, experimental AG-UI adapter lets AG-UI clients drive the same durable tasks ([AG-UI adapter](../reference/ag-ui.md)).
 
-The project is pre-1.0 (package version 0.1.0). Interfaces and data shapes can change between minor versions.
+The project is pre-1.0 (package version 0.1.1). Interfaces and data shapes can change between minor versions.
 
 ## The problem it addresses
 
@@ -54,22 +54,24 @@ Taskbay is an A2A client. It reads an agent's Agent Card, picks one of the inter
 An agent needs nothing special to be usable: any A2A agent can be registered, given a task and watched. Three optional extensions let an agent do more:
 
 - a structured form for input,
-- an approval request the console shows to a reviewer,
+- an approval request the console shows to a reviewer (an operator or admin),
 - skill routing, so a person can be granted one skill of an agent rather than the whole agent.
 
 Extensions are opt-in by URI in the Agent Card. See [Build an agent for Taskbay](../guides/build-an-agent-for-taskbay.md).
 
 ## Who does what
 
-| Person | Typical use |
-| --- | --- |
-| Operator | Starts tasks, answers input requests, claims and works assigned tasks. |
-| Reviewer | Approves, rejects, edits or sends back proposed actions. |
-| Administrator | Registers agents, manages credentials, teams and grants, reads the organization audit trail. |
-| Viewer | Reads what grants allow. Cannot change anything. |
-| Platform operator | Deploys, upgrades and backs up the console. |
+The console has three roles: `admin`, `operator` and `viewer`. Reviewing an approval is a task, not a role. An operator or admin with `operate` access to the agent does it.
 
-Roles are explained in [Identity and access](identity-and-access.md).
+| Who | Role | Typical use |
+| --- | --- | --- |
+| Operator | `operator` | Starts tasks, answers input requests, claims and works assigned tasks. |
+| Reviewer | `operator` or `admin` | Approves, rejects, edits or sends back proposed actions. |
+| Administrator | `admin` | Registers agents, manages credentials, teams and grants, reads the organization audit trail. |
+| Viewer | `viewer` | Reads what grants allow. Cannot change anything. |
+| Platform operator | Not a console role | Deploys, upgrades and backs up the console from the server. |
+
+[Identity and access](identity-and-access.md) is the canonical page for roles and grants.
 
 ## Limits to know up front
 
@@ -80,7 +82,7 @@ Roles are explained in [Identity and access](identity-and-access.md).
 
 ## Further reading
 
-- [Decision records for the architecture](../archive/ARCHITECTURE.md) (archived design document)
+- [Design decisions](design-decisions.md): why it is built this way, and what each choice costs
 
 ## Related
 

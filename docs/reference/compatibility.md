@@ -3,7 +3,7 @@
 > For anyone deciding whether Agent Taskbay fits their environment and agents: supported runtime versions, which A2A versions, transports and authentication schemes the gateway
 > handles or refuses, what is experimental, and a table of known limitations with issue links.
 
-Agent Taskbay is **pre-1.0** (package version `0.1.0`) and published to npm. Interfaces may change between minor versions. "Tested" in this page means what
+Agent Taskbay is **pre-1.0** (package version `0.1.1`) and published to npm. Interfaces may change between minor versions. "Tested" in this page means what
 the repository's own CI runs; nothing here is a claim about other versions or environments.
 
 ## Runtime versions
@@ -40,7 +40,7 @@ The gateway uses the official `@a2a-js/sdk` for protocol handling.
 | Streaming (`SendStreamingMessage`, `SubscribeToTask`) | Yes, when `capabilities.streaming` is true | Workers own the stream. If the card does not advertise streaming the task is not streamed (`STREAMING_UNSUPPORTED` internally) and Agent Taskbay relies on polling. |
 | Polling (`GetTask`, `ListTasks`) | Yes | Reconciliation polls open tasks. An agent that cannot list tasks falls back to `GetTask` only. |
 | `SendMessage`, `CancelTask` | Yes | Always sent as "return immediately"; progress is observed separately. |
-| Push notifications | Optional | Worker-managed registration with create, get, list and delete of configs. Needs `A2A_PUSH_CALLBACK_ORIGIN` and a callback reachable by the agent. Off by default. |
+| Push notifications | Optional | Worker-managed registration. Only for agents whose card sets `capabilities.pushNotifications`. The worker calls get (to check for an existing config), create and delete of task push configs; it never lists them. Needs `A2A_PUSH_CALLBACK_ORIGIN` and a callback reachable by the agent. Off by default. See [Agent push callbacks](../guides/agent-push-callbacks.md). |
 | Extended Agent Card | Display only | The agent page shows whether the card advertises it. No route fetches the extended card in this version. |
 | Multi-tenancy | Yes | The `tenant` field is part of task identity. |
 | Parts | `text`, `raw`, `url`, `data` | Binary parts are stored in the artifact store; remote URLs are shown as provenance and are not loaded by the console. |

@@ -5,7 +5,7 @@
 Agent Taskbay has two ways to identify a person: a local development administrator (no sign-in, loopback only), and OpenID Connect (OIDC) for everything else. This page covers both, the three roles,
 and how access to agents is granted. How agents authenticate to Taskbay's outbound calls is a separate subject: see [Agent credentials](./agent-credentials.md).
 
-The package is pre-1.0 (version 0.1.0). It is on npm (`npx agent-taskbay`), and running from a source checkout also works. Settings described
+The package is pre-1.0 (version 0.1.1). It is on npm (`npx agent-taskbay`), and running from a source checkout also works. Settings described
 here may change between minor versions.
 
 ## Before you start
@@ -101,6 +101,8 @@ To find a person's `sub`, read it from your provider's user record or from the I
 
 ## Roles
 
+This page is the procedure. For how roles, teams and grants work and why, see [Identity and access](../concepts/identity-and-access.md).
+
 | Role | Can do | Cannot do |
 |---|---|---|
 | `admin` | Everything in the organization: register and remove agents, manage teams and grants, see and operate every agent, view the audit log. | |
@@ -113,15 +115,11 @@ Request budgets apply per membership per minute: 900 reads, 120 operations, 60 a
 
 ## Teams and grants
 
-Open **Settings**, section **Teams and access** (administrators only).
+A new operator or viewer sees nothing until an administrator grants access. Administrators give grants in **Settings**, section **Teams and access**, or through `POST /api/admin/security`. There is no CLI for teams or grants.
 
-1. Create a team and add members.
-2. Choose a recipient: everyone in the organization, one person, or a team.
-3. Choose an agent and a scope: the whole agent, or a single skill.
-4. Choose `Read` or `Read and operate`, then **Grant access**.
+A grant names a recipient (everyone in the organization, one person, or a team), an agent, optionally one skill, and `Read` or `Read and operate`. Revoking a grant applies to the person's next request. Accepted work already in the worker continues. A skill-only grant works only for agents that advertise the skill-routing extension.
 
-Revoking a grant applies to the next read or command. Accepted work already in the worker continues. A skill-only grant lets a person see a reduced view of the agent (its restricted skills) and is only
-enforceable for agents that advertise the skill-routing extension; see [Agent credentials](./agent-credentials.md#skill-grants) and the [skill routing reference](../reference/extensions/skill-routing.md).
+The full how-to, with an example, the API bodies, revocation and a failure table, is in [Give people access to agents and skills](teams-and-grants.md).
 
 ## When it fails
 
@@ -154,7 +152,8 @@ enforceable for agents that advertise the skill-routing extension; see [Agent cr
 
 ## Related
 
-- [Agent credentials](./agent-credentials.md)
+- [Give people access to agents and skills](teams-and-grants.md)
 - [Identity and access concepts](../concepts/identity-and-access.md)
+- [Agent credentials](./agent-credentials.md)
 - [Production deployment](./production-deployment.md)
 - [Configuration reference](../reference/configuration.md)

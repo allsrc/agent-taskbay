@@ -125,7 +125,7 @@ Do not treat an A2UI surface or a form as an approval: they only collect input. 
 
 If the card advertises `https://a2ui.org/a2a-extension/a2ui/v0.9`, an `INPUT_REQUIRED` message may carry a data part with media type `application/a2ui+json` whose `data` is an array of A2UI v0.9 envelopes (`createSurface`, `updateComponents`, `updateDataModel`). The console renders a closed set of components (Text, Row, Column, Card, Divider, Button, TextField, CheckBox, ChoicePicker) as inert React elements; other components appear as labelled placeholders. It loads no URLs and runs no functions: images, videos and `openUrl` are not rendered or run, and agent strings are shown as text, not HTML or Markdown. A button with an `action.event` sends back one data part of media type `application/a2ui+json` containing an `action` object (the fixture reads `data.action.context`).
 
-The `showcase` and `a2ui` fixture variants include a surface with hostile content (HTML in text, a phishing link, an external image) to show what is not rendered. Limits and exact behavior: [A2UI reference](../reference/a2ui.md). The A2UI decision record describes the renderer as chat-only when it was written; I did not re-check the task and approval pages. Open issues are linked from [Compatibility](../reference/compatibility.md).
+The `showcase` and `a2ui` fixture variants include a surface with hostile content (HTML in text, a phishing link, an external image) to show what is not rendered. Limits and exact behavior: [A2UI reference](../reference/a2ui.md). The A2UI decision record describes the renderer as chat-only when it was written; whether the task and approval pages render A2UI has not been re-checked. Open issues are linked from [Compatibility](../reference/compatibility.md).
 
 ## Skill routing
 
@@ -182,7 +182,7 @@ Two practical notes from reading it:
 - The extension URIs are identifiers with `/v1` fixed. An incompatible change would be published under a new version, not by editing `/v1`.
 - Pre-1.0: the extension definitions may still change between minor versions.
 - Agents cannot assign reviewers, set policy, or approve anything themselves.
-- I did not test third-party A2A agents. The fixture is the only agent I exercised.
+- Third-party A2A agents are not tested. The fixture in this repository is the only agent the tests exercise.
 
 ## Further reading
 
@@ -194,3 +194,4 @@ Two practical notes from reading it:
 - [Connect an agent](connect-an-agent.md): register it and give people access.
 - [Extension reference](../reference/extensions/README.md)
 - [A2UI reference](../reference/a2ui.md)
+- [Receive push callbacks from agents](agent-push-callbacks.md): what your agent must support to push task updates.

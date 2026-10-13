@@ -2,7 +2,7 @@
 
 > Who this is for: someone deciding whether Agent Taskbay is mature enough for their use. You will have what works today and how to verify it, what is partial, what is planned, and what is parked.
 
-Agent Taskbay is **pre-1.0**. The package version is `0.1.0` and it is published to npm (see [CHANGELOG.md](../../CHANGELOG.md)). Interfaces, HTTP routes and stored data shapes may change between minor versions. There is no stable `/api/v1` yet. It has not been independently security-reviewed, and the only operating system the launcher package has been exercised on is Linux, from a local tarball.
+Agent Taskbay is **pre-1.0**. The package version is `0.1.1` and it is published to npm (see [CHANGELOG.md](../../CHANGELOG.md)). Interfaces, HTTP routes and stored data shapes may change between minor versions. There is no stable `/api/v1` yet. It has not been independently security-reviewed, and the only operating system the launcher package has been exercised on is Linux.
 
 ## How to read "works"
 
@@ -26,7 +26,7 @@ Agent Taskbay is **pre-1.0**. The package version is `0.1.0` and it is published
 | Agent-originated approval requests through an advertised extension | `npm run test:http` (`verify-agent-approvals-http.mjs`) |
 | A2UI rendering from an allowlisted component set; unknown parts shown as inert data | `npm run test:http` (`verify-a2ui-http.mjs`, `verify-phase6-exit-http.mjs`), `npm test` |
 | Optional AG-UI adapter (off by default) | `npm run test:http` (`verify-agui-http.mjs`) |
-| `npx agent-taskbay` launcher package: install from a tarball, launch, register an agent, restart | `npm run verify:package` |
+| `npx agent-taskbay` launcher: install, launch, register an agent, restart | `npm run verify:package` |
 
 Databases: embedded PGlite for local use and PostgreSQL for real deployments. CI runs the database contract tests against PostgreSQL 18 (`.github/workflows/ci.yml`); local `npm run test:db` uses PGlite unless `A2A_TEST_POSTGRES_URL` is set.
 
@@ -39,7 +39,7 @@ Databases: embedded PGlite for local use and PostgreSQL for real deployments. CI
 | A2UI | A subset of components | More components ([#22](https://github.com/allsrc/agent-taskbay/issues/22)), functions and `openUrl` ([#23](https://github.com/allsrc/agent-taskbay/issues/23)), other surfaces ([#24](https://github.com/allsrc/agent-taskbay/issues/24)), verification against a real A2UI agent ([#25](https://github.com/allsrc/agent-taskbay/issues/25)) |
 | AG-UI adapter | Basic runs, interrupts and resume | Thread-to-context mapping ([#8](https://github.com/allsrc/agent-taskbay/issues/8)), skill-scoped principals ([#9](https://github.com/allsrc/agent-taskbay/issues/9)), tools, context and state ([#10](https://github.com/allsrc/agent-taskbay/issues/10)), cross-origin browsers ([#11](https://github.com/allsrc/agent-taskbay/issues/11)), runs over 50 seconds ([#12](https://github.com/allsrc/agent-taskbay/issues/12)), real-client verification ([#13](https://github.com/allsrc/agent-taskbay/issues/13)), approval interrupts ([#20](https://github.com/allsrc/agent-taskbay/issues/20)) |
 | Browser tests | HTTP-level suites and fixture agents | A committed browser end-to-end suite ([#14](https://github.com/allsrc/agent-taskbay/issues/14)); UI behavior was checked by hand, not in CI |
-| Distribution | Package builds and launches from a tarball on Linux | First npm publish, and verification on macOS and Windows |
+| Distribution | Published to npm from GitHub Actions with trusted publishing and provenance; the package installs and launches on Linux | Verification on macOS and Windows |
 | Agent authentication | Service credentials | User-delegated OAuth ([#1](https://github.com/allsrc/agent-taskbay/issues/1)) |
 | Identifier naming | Some persisted and wire identifiers use the older `a2a-ops` slug in places | Rename ([#27](https://github.com/allsrc/agent-taskbay/issues/27)) |
 

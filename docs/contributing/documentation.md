@@ -25,13 +25,18 @@ Start with `docs/README.md`, which indexes the pages by question.
 
 | You changed | Update |
 | --- | --- |
-| An environment variable or default | `docs/reference/configuration.md` |
+| An environment variable or default | `docs/reference/configuration.md`, and `docs/guides/configuration-recipes.md` if a recipe uses it |
 | A CLI, npm script or flag | `docs/reference/cli.md` |
 | An API route, request or error | `docs/reference/http-api.md` |
 | An extension or media type | the matching page under `docs/reference/extensions/` |
 | A table, column or invariant | `docs/reference/data-model.md` |
-| Sign-in, roles, grants | `docs/guides/sign-in-and-roles.md`, `docs/concepts/identity-and-access.md` |
+| Sign-in, roles | `docs/guides/sign-in-and-roles.md`, `docs/concepts/identity-and-access.md` |
+| Teams, grants | `docs/guides/teams-and-grants.md`, `docs/concepts/identity-and-access.md` |
 | Credentials, outbound network rules | `docs/guides/agent-credentials.md`, `docs/security/service-identity.md`, `docs/security/threat-model.md` |
+| Agent push notifications (registration, the webhook receiver, push variables) | `docs/guides/agent-push-callbacks.md` |
+| The AG-UI adapter | `docs/guides/enable-ag-ui.md`, `docs/reference/ag-ui.md` |
+| Console screens, labels or navigation | `docs/guides/use-the-console.md` |
+| A new term readers need to know | `docs/reference/glossary.md` |
 | Something maturity-related (a limit lifted, a feature added) | `docs/project/status-and-roadmap.md`, `docs/reference/compatibility.md` |
 | User-visible behavior | `CHANGELOG.md` |
 
@@ -51,6 +56,7 @@ A pull request that changes behavior and no page should say why in its descripti
 10. Code blocks are fenced and tagged (`bash`, `json`, `ts`, `text`, `mermaid`). Commands are copy-pasteable, one per block, without a `$` prompt. Include only commands you have verified exist, and expected output only if you ran it.
 11. End each page with 2 to 5 "Related" links.
 12. Use relative links, and make sure each resolves.
+13. Reference pages longer than about 150 lines start with an "On this page" list of links to their H2 sections, placed right after the intro.
 
 Guides and concept pages follow this shape: title, one-line audience, short intro, "Before you start", steps, "When it fails", "Limits", "Related".
 

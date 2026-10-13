@@ -52,7 +52,7 @@ Roles are only the baseline. Access to a particular agent comes from grants:
 - A user without a read grant gets a 404, not a 403, so the existence of a task or approval is not disclosed.
 - Task filters apply in the database before pagination, so a page never contains rows the user cannot see.
 
-A new non-admin membership starts with no agent access at all. An administrator grants it explicitly.
+A new non-admin membership starts with no agent access at all. An administrator grants it explicitly, in **Settings** or through `POST /api/admin/security`. The steps are in [Give people access to agents and skills](../guides/teams-and-grants.md).
 
 ### Skills
 
@@ -83,23 +83,22 @@ These are task states set by the agent. They put the task in a person's queue. T
 
 ## Webhooks
 
-Push callbacks from agents do not use sessions. They carry a per-registration bearer credential derived from a server-only key, and are checked against the task they claim to be about.
+Push callbacks from agents do not use sessions. They carry a per-registration bearer credential derived from a server-only key, and are checked against the task they claim to be about. Setup is in [Receive push callbacks from agents](../guides/agent-push-callbacks.md).
 
 ## When it fails
 
 | Symptom | Cause | Fix |
 | --- | --- | --- |
 | 401 "Sign in to continue." | No valid session | Sign in |
-| 403 "This action is not permitted." | Role too low for the action | Ask an administrator |
+| 403 "This action is not permitted." | Role too low for the action, a missing `operate` grant, or a mutating request whose `Origin` does not match `A2A_AUTH_ORIGIN`. The origin failure uses the same message. | Ask an administrator for a role or grant. For an origin failure, fix the external origin setting or the proxy. |
 | 404 on a task or approval you expect to exist | No read grant for that agent or skill | Ask an administrator for a grant |
-| 403 "Cross-origin request rejected." | `Origin` does not match `A2A_AUTH_ORIGIN` | Fix the external origin setting or the proxy |
-| 429 "Too many requests." | Per-membership rate limit (per minute: 900 reads, 120 operations, 60 admin) | Wait for the minute to pass |
-| 503 "Authentication is not configured correctly." | Missing or invalid OIDC or auth env vars | See [Configuration](../reference/configuration.md) |
+| 429 "Too many requests. Try again shortly." | Per-membership rate limit (per minute: 900 reads, 120 operations, 60 admin) | Wait for the minute to pass |
+| 503 "Identity service unavailable." | Missing or invalid OIDC or auth environment variables, or the database is unreachable. The detail is not shown to the browser. | Check the server log and the [Configuration](../reference/configuration.md) reference |
 
 ## Limits
 
 - One organization per deployment in practice. The data model carries an organization ID everywhere, but there is no organization switcher.
-- Teams cannot be escalation targets. Team and grant management is through the admin settings page and CLI, and there is no external identity-provider group sync.
+- Teams cannot be escalation targets. You manage teams and grants in **Settings** or through `POST /api/admin/security`. There is no CLI for them, and no sync from identity-provider groups.
 - No API tokens ([#31](https://github.com/allsrc/agent-taskbay/issues/31) discusses them).
 
 ## Further reading
@@ -109,6 +108,7 @@ Push callbacks from agents do not use sessions. They carry a per-registration be
 ## Related
 
 - [Sign in and roles](../guides/sign-in-and-roles.md)
+- [Give people access to agents and skills](../guides/teams-and-grants.md)
 - [Agent credentials](../guides/agent-credentials.md)
 - [Threat model](../security/threat-model.md)
 - [Human in the loop](human-in-the-loop.md)

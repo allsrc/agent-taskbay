@@ -10,7 +10,7 @@ Connecting an agent is three separate things: registering its Agent Card URL, gi
 - The agent publishes an A2A Agent Card over HTTP(S). The console speaks JSON-RPC and HTTP+JSON (REST) through the A2A JavaScript SDK (`@a2a-js/sdk`, `^1.3.0` in `package.json`). gRPC interfaces are ignored: the hardened network policy rejects them because the SDK gRPC factory cannot be bound to the console's address checks.
 - In production builds, the allowlist and network rules in [Restrictions on where agents may live](#restrictions-on-where-agents-may-live) are satisfied.
 
-## Steps
+## Register an agent from its Agent Card
 
 ### 1. Find the Agent Card URL
 
@@ -109,7 +109,7 @@ Card trust: a card is "unsigned" or "verified". Verification uses public keys yo
 - Credentials are service-level: the console calls the agent as itself. Per-user delegated OAuth is not implemented ([#1](https://github.com/allsrc/agent-taskbay/issues/1)).
 - Removing an agent disables it and keeps its history; it does not delete tasks.
 - gRPC is not supported.
-- The gateway enables the SDK's legacy-compatibility mode for both transports, and the repository's fixtures use protocol version 1.0 cards. I did not test third-party agents. See [Compatibility](../reference/compatibility.md) for what is verified.
+- The gateway enables the SDK's legacy-compatibility mode for both transports, and the repository's fixtures use protocol version 1.0 cards. Third-party agents are not tested. See [Compatibility](../reference/compatibility.md) for what is verified.
 
 ## Related
 

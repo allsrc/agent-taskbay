@@ -4,6 +4,8 @@
 
 Agents stop and ask. Some questions are routine ("which region?"). Some are risky ("send this email to 4,000 customers"). Taskbay treats these differently and records both.
 
+This page explains the model. To do the work in the console (find items in the inbox, decide an approval, claim a task, set up escalation), follow [Approvals and ownership](../guides/approvals-and-ownership.md). For a map of every screen, see [Use the console](../guides/use-the-console.md). "Reviewer" on this page means an operator or admin who decides an approval. It is not a separate role ([Identity and access](identity-and-access.md)).
+
 ## Three kinds of "an agent needs a person"
 
 | Situation | What it is | How a person resolves it |
@@ -18,7 +20,7 @@ Input and auth requests land in the inbox. An approval is a separate object with
 
 The inbox is one authorized list across agents, combining tasks and approval requests, newest first, paged by cursor. It is a read-only query over indexed columns, with no separate table to keep in sync. Grants, views and filters are applied in SQL before paging, so a user sees only agents and skills they can read. An administrator sees the whole organization, and a member with no grants sees nothing.
 
-Views: all, active, needs input, assigned, overdue, done. Filters: kind, agent, skill, risk, status, updated after. Pages are at most 100 rows. Saved views, free-text search, arbitrary-assignee filters and bulk actions do not exist yet ([#5](https://github.com/allsrc/agent-taskbay/issues/5)).
+The console shows six views: **Needs you** (the default), **Mine**, **Overdue**, **Active**, **Done** and **All**. In `GET /api/inbox` they are `needs-input`, `assigned`, `overdue`, `active`, `done` and `all`. The console offers two filters, **Show** (Everything, Tasks, Approvals) and **Risk** (Any, High, Medium, Low), and loads 30 rows at a time. The API also filters by `agentId`, `skillId`, `status` and `updatedAfter`, and returns at most 100 rows per page. Saved views, free-text search, arbitrary-assignee filters and bulk actions do not exist yet ([#5](https://github.com/allsrc/agent-taskbay/issues/5)).
 
 ## Approvals
 
@@ -97,7 +99,9 @@ The audit view is a read-only, newest-first timeline built from the sources of t
 
 ## Notifications
 
-People are told through a durable in-app inbox, and optionally through one signed webhook.
+People are told through a durable in-app inbox, and optionally through one signed outgoing webhook.
+
+Two different things are called "webhook" in Taskbay. The outgoing notification webhook is Taskbay telling your systems that a person needs to act ([Notifications](../guides/notifications.md)). Incoming A2A push callbacks are agents telling Taskbay that a task changed ([Receive push callbacks from agents](../guides/agent-push-callbacks.md)). This section is about the outgoing one.
 
 - Events are raised in the transaction that causes them: approval opened, revised, assigned, decided, expiring (within 15 minutes of expiry), expired, superseded; task assigned, escalated, needing input or auth, finished, failed.
 - A fan-out worker decides who is told from current state and writes one notification and one recipient row per person, using the event's ID so reprocessing writes nothing. It stops retrying an event after 5 attempts.
@@ -108,11 +112,25 @@ People are told through a durable in-app inbox, and optionally through one signe
 
 Not yet: per-person subscriptions and preferences, email, per-user channels, and notices for ready artifacts.
 
+## When it fails
+
+The full table of messages is in [Approvals and ownership](../guides/approvals-and-ownership.md#when-it-fails). The most common ones:
+
+| Message or symptom | Cause | Fix |
+| --- | --- | --- |
+| "A newer revision exists; review it before deciding." | The proposal changed after you opened it (`409`). | Reload and review the new revision. |
+| "The requester cannot decide their own request." | Separation of duties. | Ask another operator or admin to decide it. |
+| A task or approval you expect returns `404`, or the inbox is empty | You have no read grant for that agent or skill. | Ask an administrator for a grant ([Give people access to agents and skills](../guides/teams-and-grants.md)). |
+
+Webhook delivery failures are covered in [Notifications](../guides/notifications.md#when-it-fails).
+
 ## Limits
 
 - Notification and audit retention is not limited yet.
 - No saved views or text search in the inbox ([#5](https://github.com/allsrc/agent-taskbay/issues/5)).
 - Agents cannot decide anything. The console records approvals, and the agent must honor them.
+- Plain replies are not blocked while an approval is open, and no policy forces risky actions through review ([#16](https://github.com/allsrc/agent-taskbay/issues/16)).
+- One outgoing notification webhook per deployment.
 
 ## Further reading
 
@@ -120,7 +138,8 @@ Not yet: per-person subscriptions and preferences, email, per-user channels, and
 
 ## Related
 
-- [Approvals and ownership guide](../guides/approvals-and-ownership.md)
+- [Approvals and ownership guide](../guides/approvals-and-ownership.md): the how-to for the inbox, approvals and ownership
+- [Use the console](../guides/use-the-console.md)
 - [Notifications guide](../guides/notifications.md)
 - [Identity and access](identity-and-access.md)
 - [approval-request extension](../reference/extensions/approval-request.md)

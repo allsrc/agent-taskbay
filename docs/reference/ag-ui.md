@@ -6,6 +6,8 @@
 The adapter is **optional, off by default and experimental**. It has been exercised with the repository's own verification script (`scripts/verify-agui-http.mjs`) and by hand
 against the fixture agent. It has **not** been verified against a real AG-UI client library or the official schema ([#13](https://github.com/allsrc/agent-taskbay/issues/13)).
 
+For a step-by-step first run, see [Try the AG-UI adapter](../guides/enable-ag-ui.md).
+
 AG-UI is a protocol for agent-to-UI event streams. Here it is a thin view over the durable task path: one AG-UI run is one durable A2A command, and the events are translated from
 what has been committed to the database. The browser connection never owns the work.
 

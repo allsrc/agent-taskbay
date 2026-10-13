@@ -128,3 +128,4 @@ The embedded worker does these sweeps in the same process as the console. With a
 - [Build an agent for Taskbay](build-an-agent-for-taskbay.md): how agents open approvals.
 - [Sign in and roles](sign-in-and-roles.md): roles, teams, grants.
 - [Human-in-the-loop concepts](../concepts/human-in-the-loop.md)
+- [Use the console](use-the-console.md): the other screens, from chat to settings.

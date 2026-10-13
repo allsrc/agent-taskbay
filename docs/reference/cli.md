@@ -3,11 +3,16 @@
 > For anyone who needs the exact commands, flags and exit behavior: the `agent-taskbay` launcher, every `npm run` script, and the operational
 > scripts under `scripts/`.
 
-Agent Taskbay is pre-1.0 (package version `0.1.0`) and is published to npm. In a git checkout run the launcher as
+Agent Taskbay is pre-1.0 (package version `0.1.1`) and is published to npm. In a git checkout run the launcher as
 `node bin/agent-taskbay.mjs` after `npm run build`; the `npx agent-taskbay` form below runs the published package. Flags and
 script names may change between minor versions.
 
 Requirements: Node.js 22.19.0 or newer (see [Compatibility](compatibility.md#runtime-versions)).
+
+**On this page:** [`agent-taskbay`](#agent-taskbay) · [npm scripts](#npm-scripts) · [`worker:tasks`](#npm-run-workertasks) ·
+[`db:projections:rebuild`](#npm-run-dbprojectionsrebuild) · [`auth:provision`](#npm-run-authprovision) ·
+[`security:credentials`](#npm-run-securitycredentials) · [Fixture agent script](#fixture-agent-script) ·
+[HTTP verification scripts](#http-verification-scripts) · [Limits](#limits)
 
 ## `agent-taskbay`
 
@@ -36,7 +41,7 @@ agent-taskbay --version | --help
 | `--no-open` | | Do not open a browser tab. |
 | `--open` | | Open a browser tab even when not attached to a terminal. |
 | `-h`, `--help` | | Print usage and exit 0. |
-| `-v`, `--version` | | Print the package version (currently `0.1.0`) and exit 0. |
+| `-v`, `--version` | | Print the package version (currently `0.1.1`) and exit 0. |
 
 By default a browser tab opens when standard output is a terminal and the `CI` variable is not set.
 
@@ -216,7 +221,7 @@ it: [Build an agent for Taskbay](../guides/build-an-agent-for-taskbay.md).
 ## HTTP verification scripts
 
 `npm run test:http` runs these in order. Each starts a real production server on a private port (overridable; see
-[Configuration](configuration.md#variables-used-only-by-tests-and-scripts)) with a temporary database and fixture agents, then asserts behavior over
+[Development setup](../contributing/development.md#test-and-verification-variables)) with a temporary database and fixture agents, then asserts behavior over
 HTTP: `verify-service-security`, `verify-task-http`, `verify-identity-http`, `verify-decisions-http`, `verify-workflow-http`,
 `verify-notifications-http`, `verify-forms-http`, `verify-agui-http`, `verify-a2ui-http`, `verify-agent-approvals-http` and `verify-phase6-exit-http`.
 They need a completed `npm run build` and, for the PostgreSQL variants, `A2A_TEST_POSTGRES_URL`. A non-zero exit means an assertion failed.
