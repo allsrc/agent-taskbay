@@ -6,6 +6,15 @@
 Agent Taskbay is configured only through environment variables. There is no configuration file and no settings API. Variable names keep the
 `A2A_*` prefix (the project's earlier name); see [#27](https://github.com/allsrc/agent-taskbay/issues/27) for the planned rename.
 
+For ready-made sets of variables (local, PostgreSQL with OIDC, separate workers, push, AG-UI), see [Configuration recipes](../guides/configuration-recipes.md).
+
+**On this page:** [How values are loaded](#how-values-are-loaded) · [Minimal production example](#minimal-production-example) ·
+[Database and storage](#database-and-storage) · [Authentication (people)](#authentication-people) ·
+[Outbound network policy](#outbound-network-policy) · [Agent credentials and card trust](#agent-credentials-and-card-trust) ·
+[Workers](#workers) · [Notifications](#notifications) · [Catalog and extensions](#catalog-and-extensions) ·
+[Process variables](#process-variables) · [Launcher defaults](#launcher-defaults) ·
+[Variables used only by tests and scripts](#variables-used-only-by-tests-and-scripts) · [When it fails](#when-it-fails) · [Limits](#limits)
+
 ## How values are loaded
 
 | Process | How it gets its environment |
@@ -112,9 +121,11 @@ Format of a credential binding and the rotation procedure: [Agent credentials](.
 | --- | --- | --- | --- |
 | `A2A_COMMAND_WORKER_MODE` | `embedded` | `embedded`, `external` | `embedded` runs the background loops inside the web server process. `external` starts none of them there; run `npm run worker:tasks` yourself. `external` with the `pglite` profile throws `External command workers require PostgreSQL.`; any other value throws `Invalid A2A_COMMAND_WORKER_MODE.` Both checks run at server start. |
 | `A2A_DECISION_SWEEP_MS` | `15000` | Number of milliseconds, `100` or more | Interval for the approval and escalation sweep: expire overdue approvals, supersede approvals whose task finished, refresh in-flight approved deliveries, and escalate overdue owned tasks. Values below 100 or non-numeric values fall back to `15000`. |
-| `A2A_PUSH_CALLBACK_ORIGIN` | unset (push disabled) | An `https://` origin with path `/` and no credentials, query or fragment | Enables worker-managed A2A push notifications. The callback URL registered with agents is `<origin>/api/webhooks/a2a/<registration id>`, so the origin must be reachable by the agents. Invalid values throw `A2A_PUSH_CALLBACK_ORIGIN requires an HTTPS origin (or explicitly enabled loopback HTTP).` when the worker starts. |
+| `A2A_PUSH_CALLBACK_ORIGIN` | unset (push disabled) | An `https://` origin with path `/` and no credentials, query or fragment | Enables worker-managed A2A push notifications. The callback URL registered with agents is `<origin>/api/webhooks/a2a/<registration id>`, so the origin must be reachable by the agents. A value that is not a URL throws `Invalid A2A_PUSH_CALLBACK_ORIGIN.`; any other invalid value throws `A2A_PUSH_CALLBACK_ORIGIN requires an HTTPS origin (or explicitly enabled loopback HTTP).` Both happen when the worker loops start (at server start in embedded mode). See [Agent push callbacks](../guides/agent-push-callbacks.md). |
 | `A2A_PUSH_SIGNING_KEY` | none | Exactly 64 hex characters | Required when the callback origin is set (`A2A_PUSH_SIGNING_KEY must contain 64 hexadecimal characters.`). Per-registration bearer tokens are derived from it with HMAC-SHA-256 and are not stored. Web and workers must share the same value. |
 | `A2A_PUSH_ALLOW_LOOPBACK_HTTP` | `false` | `true` | Allows a plain `http://` callback origin, but only for `localhost`, `127.0.0.1` or `[::1]`. For local testing only. |
+
+Setting up push end to end, including what the agent must send and how to check it: [Agent push callbacks](../guides/agent-push-callbacks.md).
 
 Other worker timings (leases, polling intervals, retry backoff) are constants in the source and are not configurable. See
 [Running and workers](../operations/running-and-workers.md) for what each loop does.
@@ -136,7 +147,7 @@ When `A2A_AUTH_ORIGIN` is set, links in webhook messages are absolute URLs on th
 | --- | --- | --- | --- |
 | `A2A_REGISTERED_AGENTS` | empty | Comma-separated Agent Card URLs | Agents the catalog seeds itself with, for the `local` organization only. They are re-seeded on every access and cannot be removed from the UI or API (`409 This agent comes from A2A_REGISTERED_AGENTS and can't be removed from the UI.`). Remove the entry and restart to drop one. A legacy `<A2A_DATA_DIR>/agents.json` is imported once into the same organization and left unchanged. |
 | `A2A_SIDEBAND_EXTENSION_URIS` | empty | Comma-separated extension URIs | Extra extension URIs to negotiate with agents, in addition to the built-in `urn:agent-observability:sideband-events:v1` and `urn:x-a2a:trace:v1`. Events delivered under negotiated URIs appear as sideband events on the task stream. The singular name `A2A_SIDEBAND_EXTENSION_URI` is accepted as an alias when the plural is unset. See [Extensions](extensions/README.md). |
-| `A2A_AGUI_ENABLED` | `false` | exactly `true` | Enables `POST /api/agents/{agentId}/ag-ui`. Any other value, including `1` or `TRUE`, leaves it off and the route answers `404 The AG-UI adapter is not enabled.` Read per request. See [AG-UI adapter](ag-ui.md). |
+| `A2A_AGUI_ENABLED` | `false` | exactly `true` | Enables `POST /api/agents/{agentId}/ag-ui`. Any other value, including `1` or `TRUE`, leaves it off and the route answers `404 The AG-UI adapter is not enabled.` Read per request. See [AG-UI adapter](ag-ui.md) and the [Enable AG-UI](../guides/enable-ag-ui.md) guide. |
 
 The structured-form, approval-request and A2UI extensions need no variable; they activate when an agent advertises them.
 
@@ -170,15 +181,7 @@ development identity makes every caller an administrator, the launcher refuses n
 
 ## Variables used only by tests and scripts
 
-These are read by the repository's verification scripts, not by the application. They are listed so you do not mistake them for settings.
-
-| Variable | Used by |
-| --- | --- |
-| `A2A_TEST_POSTGRES_URL` | Database tests (`npm run test:db`) and HTTP verification scripts; a PostgreSQL URL for a disposable test database. |
-| `A2A_HTTP_TEST_PROFILE`, `A2A_IDENTITY_HTTP_TEST_PROFILE`, `A2A_HTTP_TEST_KEEP_SERVER` | `scripts/verify-*-http.mjs` |
-| `A2A_*_HTTP_TEST_PORT` (`A2A_HTTP_TEST_PORT`, `A2A_AGUI_HTTP_TEST_PORT`, `A2A_A2UI_HTTP_TEST_PORT`, `A2A_FORMS_HTTP_TEST_PORT`, `A2A_DECISIONS_HTTP_TEST_PORT`, `A2A_IDENTITY_HTTP_TEST_PORT`, `A2A_WORKFLOW_HTTP_TEST_PORT`, `A2A_NOTIFICATIONS_HTTP_TEST_PORT`, `A2A_AGENT_APPROVALS_HTTP_TEST_PORT`, `A2A_PHASE6_EXIT_HTTP_TEST_PORT`) | Port overrides for the matching script. |
-| `A2A_SERVICE_FIXTURE_DIR` | `scripts/verify-service-security.mjs` |
-| `A2A_PACKAGE_TARBALL` | `scripts/verify-package.mjs`: reuse an existing tarball. |
+Variables read only by the repository's test and verification scripts, not by the application, are listed in [Development setup](../contributing/development.md#test-and-verification-variables).
 
 ## When it fails
 

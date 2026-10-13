@@ -4,6 +4,8 @@
 
 Agent Taskbay creates a notification when something needs a person: an approval to review, a task waiting for input, a task assigned or escalated to you. Everyone gets them in the app. One optional external channel, a signed JSON webhook for one organization, receives a copy of each. There is no email, SMS or push channel, and the webhook is not a per-user subscription.
 
+This page covers Taskbay's outgoing webhook; for agents pushing task updates into Taskbay, see [Receive push callbacks from agents](agent-push-callbacks.md).
+
 ## Before you start
 
 - To read notifications: any signed-in role. Notifications are personal, and read marks follow you across browsers.
@@ -60,7 +62,7 @@ A2A_ALLOWED_AGENT_ORIGINS=https://hooks.example.com
 4. Sign in as an administrator, open **Settings**, and find **Notification channel**. It shows the webhook state ("Not configured", "On → host", or "Configured for another organization"), delivered, waiting/retrying and gave-up counts, and the last failure. The URL and secret are never shown.
 5. Choose **Send test notification**. A "Test notification" appears in your inbox and is posted to the webhook.
 
-I ran this against a local build with a throwaway receiver on `127.0.0.1`: the channel card's API reported `delivered: 1` and the receiver got the payload below. I did not test Slack or any other real service.
+Against a local build with a throwaway receiver on `127.0.0.1`, the channel card's API reports `delivered: 1` and the receiver gets the payload below. Delivery to a local receiver is covered by `npm run test:http` (`verify-notifications-http.mjs`). Slack and other real services are not tested.
 
 ## The request
 

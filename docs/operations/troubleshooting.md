@@ -5,12 +5,12 @@
 The messages below are quoted from the code. Some are shown in the browser or an API response, some only in a process log or terminal. Many are intentionally vague, because they must not leak
 secrets, tokens or provider responses; for those the table lists the causes to check in order.
 
-API errors have the shape `{"error":{"message":"..."}}`, sometimes with a `name` field, and an HTTP status. If a message is not here, search the source for the exact text.
+API errors have the shape `{"error":{"message":"..."}}`, sometimes with a `name` field, and an HTTP status. The agent push webhook (`/api/webhooks/a2a/...`) is the exception: it answers `{"error":"..."}`. If a message is not here, search the source for the exact text.
 
 ## Before you start
 
 - Know which process printed the message: the web server, the worker (`npm run worker:tasks`), or a CLI you ran.
-- Check configuration against the [configuration reference](../reference/configuration.md) first. Most startup and sign-in failures are one wrong variable.
+- Check configuration against the [configuration reference](../reference/configuration.md) first. Most startup and sign-in failures are one wrong variable. Known-good variable sets are in [Configuration recipes](../guides/configuration-recipes.md).
 
 ## Starting the server
 
@@ -27,10 +27,10 @@ API errors have the shape `{"error":{"message":"..."}}`, sometimes with a `name`
 | `Invalid database configuration: A2A_DATABASE_URL: A2A_DATABASE_URL is required for the postgresql profile` | Any | Profile is `postgresql`, URL missing. | Set `A2A_DATABASE_URL`. |
 | `... A2A_DATABASE_URL must use the postgres or postgresql protocol` / `... must be a valid PostgreSQL URL` | Any | Malformed URL. | Use `postgresql://user:password@host:5432/db`. |
 | `A2A_PUSH_SIGNING_KEY must contain 64 hexadecimal characters.` | Web or worker, at start | Push origin set, key missing or wrong length. | Generate with `openssl rand -hex 32`. |
-| `Invalid A2A_PUSH_CALLBACK_ORIGIN.` / `A2A_PUSH_CALLBACK_ORIGIN requires an HTTPS origin (or explicitly enabled loopback HTTP).` | Web or worker, at start | Not a URL, not HTTPS, or has a path, query or credentials. | Use `https://host` only. For local tests set `A2A_PUSH_ALLOW_LOOPBACK_HTTP=true` with a loopback host. |
+| `Invalid A2A_PUSH_CALLBACK_ORIGIN.` / `A2A_PUSH_CALLBACK_ORIGIN requires an HTTPS origin (or explicitly enabled loopback HTTP).` | Web or worker, at start | Not a URL, not HTTPS, or has a path, query or credentials. | Use `https://host` only. For local tests set `A2A_PUSH_ALLOW_LOOPBACK_HTTP=true` with a loopback host. See [Receive push callbacks from agents](../guides/agent-push-callbacks.md). |
 | `A2A_NOTIFY_WEBHOOK_SECRET must be at least 32 characters when A2A_NOTIFY_WEBHOOK_URL is set.` | Worker log | Short secret. The notification loop keeps running without external delivery. | Use a secret of 32 or more characters. |
 | `Agent allowlist entries must be exact origins.` | Any outbound call | An `A2A_ALLOWED_AGENT_ORIGINS` entry has a path. | Use `https://host[:port]` only. |
-| 404 from `/api/agents/<id>/ag-ui` | Web | The AG-UI adapter is off. | Set `A2A_AGUI_ENABLED=true` exactly. See the [AG-UI reference](../reference/ag-ui.md). |
+| 404 from `/api/agents/<id>/ag-ui` | Web | The AG-UI adapter is off. | Set `A2A_AGUI_ENABLED=true` exactly. See [Try the AG-UI adapter](../guides/enable-ag-ui.md#when-it-fails). |
 | Page loads, then every call returns 503 | Web | See next section. | |
 
 ## Signing in
@@ -42,7 +42,7 @@ API errors have the shape `{"error":{"message":"..."}}`, sometimes with a `name`
 | `401` `Sign-in failed. Start a new sign-in attempt.` | Callback failed: attempt expired (10 min) or already used, state or nonce mismatch, token invalid, or no enabled membership for that provider subject in the configured organization. Server-side reasons are not exposed. | Retry from the start. Then verify provisioning: same issuer string, exact `sub`, same organization slug. |
 | `429` `Too many sign-in requests.` | 240 login or callback calls per minute for the deployment. | Wait. |
 | `401` `Sign in to continue.` | No valid session. | Sign in. |
-| `403` `This action is not permitted.` | Role too low, no grant for that agent, or a mutating request whose `Origin` header differs from `A2A_AUTH_ORIGIN` (same message). | Check role and grants; send the right `Origin` when scripting. |
+| `403` `This action is not permitted.` | Role too low, no grant for that agent, or a mutating request whose `Origin` header differs from `A2A_AUTH_ORIGIN` (same message). | Check role and grants ([Teams and grants](../guides/teams-and-grants.md)); send the right `Origin` when scripting. |
 | `429` `Too many requests. Try again shortly.` | 900 reads, 120 operations or 60 administrative calls per minute per membership. | Slow down. |
 | Sign-in appears to work but you are signed out immediately | Session cookie is `Secure` and `__Host-` prefixed; plain HTTP drops it. | Use the HTTPS origin. |
 
@@ -88,13 +88,13 @@ Send responses use HTTP 202 and a local command ID; poll `GET /api/commands/<id>
 | Command `failed`: `Command could not dispatch: unavailable agent or input archive.` | The agent is gone or the saved command input is missing from the artifact directory. | Check the agent and that the artifact directory is the same one the web process wrote to. |
 | Command `uncertain`: `Remote outcome is uncertain. Automatic resend is disabled; check the task before submitting new work.` or `A previous dispatch lease expired. Remote outcome requires reconciliation.` | The request may have reached the agent, but the result was not recorded (crash, timeout). Taskbay will not guess. | Look at the agent's side or the task list. Send again only if the work did not happen. |
 | `Task not found.` / `Referenced task not found.` / `Task context mismatch.` | The task ID is not one this organization has seen for that agent. | Use the task ID Taskbay returned. |
-| `A skill-scoped send must start a new context.` / `Task skill cannot be changed.` / `This agent does not support bounded skill routing.` / `Agent response crossed a task skill boundary.` | Skill grants and the skill-routing extension. | See [Agent credentials: skill grants](../guides/agent-credentials.md#skill-grants). |
+| `A skill-scoped send must start a new context.` / `Task skill cannot be changed.` / `This agent does not support bounded skill routing.` / `Agent response crossed a task skill boundary.` | Skill grants and the skill-routing extension. | See [Teams and grants](../guides/teams-and-grants.md#when-it-fails) and [Agent credentials: skill grants](../guides/agent-credentials.md#skill-grants). |
 | `Request body exceeds the 16 MB limit.` / `Invalid request JSON.` / `Request body is required.` | Request body problems. | Fix the body. |
-| A task shows stale state | Stream or push is not reaching Taskbay. Reconciliation corrects it within about a minute. | Check the worker; for push, see below. |
+| A task shows stale state | Stream or push is not reaching Taskbay. Reconciliation corrects it within about a minute. | Check the worker; for push, see below and [Receive push callbacks from agents](../guides/agent-push-callbacks.md#check-that-it-works). |
 
 ## Push and webhooks
 
-Agents call `POST /api/webhooks/a2a/<registration id>` with a bearer credential Taskbay generated.
+Agents call `POST /api/webhooks/a2a/<registration id>` with a bearer credential Taskbay generated. Setup and the full list of push errors are in [Receive push callbacks from agents](../guides/agent-push-callbacks.md#when-it-fails).
 
 | Status and message | Cause | Fix |
 |---|---|---|
@@ -123,7 +123,7 @@ See [Notifications](../guides/notifications.md).
 
 | Message | Command | Fix |
 |---|---|---|
-| `Credential update failed. Check the organization/agent, vault key configuration and stdin binding format. No secret values are printed.` | `security:credentials` | Work through [the checklist](../guides/agent-credentials.md#when-the-cli-fails). |
+| `Credential update failed. Check the organization/agent, vault key configuration and stdin binding format. No secret values are printed.` | `security:credentials` | Work through [the checklist](../guides/agent-credentials.md#the-credential-cli). |
 | `Stop the local web server and pass --offline-pglite before opening its PGlite directory.` | `security:credentials` | Stop web, add the flag. |
 | `Stop web first and explicitly use --offline-pglite for single-owner PGlite.` | `auth:provision` | Same. |
 | `An HTTPS issuer without credentials is required.` / `Usage: auth:provision --issuer HTTPS_ISSUER ...` | `auth:provision` | Check flags. |
@@ -158,3 +158,4 @@ Collect: the message, which process printed it, the Taskbay version (`agent-task
 - [Sign in and roles](../guides/sign-in-and-roles.md)
 - [Agent credentials](../guides/agent-credentials.md)
 - [Production deployment](../guides/production-deployment.md)
+- [Glossary](../reference/glossary.md)

@@ -5,6 +5,13 @@
 Taskbay has a web server and a set of background loops (the "worker"). The browser never drives agent work: a send is saved first, then the worker delivers it, watches the task and records what
 comes back. That is why you can close the browser and the task keeps being tracked. The mechanism is explained in [Durable tasks](../concepts/durable-tasks.md); this page is the operator's view.
 
+## Before you start
+
+- A source checkout with `npm ci` and `npm run build` done. Keep the development dependencies: the worker runs under `tsx`.
+- For a separate worker: a PostgreSQL database, `A2A_DATABASE_PROFILE=postgresql` and `A2A_DATABASE_URL` set, and migrations applied with `npm run db:migrate`. Workers never migrate.
+- One environment shared by the web server and every worker. The full procedure is in [Production deployment](../guides/production-deployment.md); ready-made variable sets are in [Configuration recipes](../guides/configuration-recipes.md).
+- A process supervisor that restarts both processes.
+
 ## Two ways to run
 
 | Mode | Setting | How it runs | When to use |
@@ -23,6 +30,36 @@ Details:
 - `worker:commands` is an alias for `worker:tasks`; both run `scripts/command-worker.ts`.
 
 Stop a worker with SIGTERM or SIGINT. It stops each loop, waits for the current step, closes the database connection and exits.
+
+## Start the web server and a separate worker
+
+Export the shared environment in the shell or the service definition of both processes. Both also read `.env.production.local`, `.env.local`, `.env.production` and `.env` from the working directory;
+values already in the environment win. Set at least:
+
+```bash
+export NODE_ENV=production A2A_COMMAND_WORKER_MODE=external A2A_DATABASE_PROFILE=postgresql
+```
+
+```bash
+export A2A_DATABASE_URL=postgresql://taskbay:PASSWORD@db.internal:5432/taskbay
+```
+
+Start the web server (`next start -p 3002`):
+
+```bash
+npm start
+```
+
+In a second terminal or service, start the worker (`worker:commands` runs the same script):
+
+```bash
+npm run worker:tasks
+```
+
+Add more workers by starting the same command again, on the same or another host.
+
+A worker that started correctly prints nothing: the script has no startup message, and it writes to the log only when something fails. To confirm it is working, send a message and follow the
+command (see [Health signals](#health-signals)). If the worker exits immediately, read the first line of its error output and look it up in [When it fails](#when-it-fails).
 
 ## What each loop does
 
@@ -46,7 +83,8 @@ shows up without a message broker.
 
 Any number of workers can share a database. Each unit of work (a command, a subscription, a push registration, a reconciliation cursor) is claimed with a time-limited lease and renewed in the background
 about three times per lease. If a worker dies, its leases expire and another worker takes the work over: streams after 15 seconds, command dispatch after 60 seconds. A worker that loses a lease stops
-and discards its result rather than writing it (you may see `Dispatch lease lost before completion.` or `Read lease lost.` in logs from an error path; this is the fence working).
+and discards its result rather than writing it. The lease errors are not printed as such; the loop logs its generic `... could not access durable state; will retry.` line. For a command whose
+dispatch lease expired, the worker that takes it over marks it `uncertain` with `A previous dispatch lease expired. Remote outcome requires reconciliation.` instead of sending it again.
 
 The 8-stream cap is per process. If you track many simultaneously active tasks, add worker processes. Nothing in this repository measures throughput, so there are no capacity numbers.
 
@@ -90,6 +128,24 @@ A single line is noise. The same line repeating means the process cannot reach P
 
 The complete list is in the [configuration reference](../reference/configuration.md).
 
+## When it fails
+
+| Message or symptom | Where | Cause | Fix |
+|---|---|---|---|
+| `The separate worker requires PostgreSQL; PGlite uses embedded dispatch.` | Worker exits at start | `A2A_DATABASE_PROFILE` is not exactly `postgresql` in the worker's environment. | Set the profile and `A2A_DATABASE_URL`, or use embedded mode with PGlite. |
+| `External command workers require PostgreSQL.` | Web server at start | `A2A_COMMAND_WORKER_MODE=external` with PGlite. | Use PostgreSQL, or unset the mode. |
+| `Invalid A2A_COMMAND_WORKER_MODE.` | Web server at start | A value other than `embedded` or `external`. | Fix the value. |
+| `A2A_PUSH_SIGNING_KEY must contain 64 hexadecimal characters.`, `Invalid A2A_PUSH_CALLBACK_ORIGIN.` or `A2A_PUSH_CALLBACK_ORIGIN requires an HTTPS origin (or explicitly enabled loopback HTTP).` | Worker (or embedded web server) at start | Push is turned on with an invalid key or origin. | Fix the values ([Agent push callbacks](../guides/agent-push-callbacks.md)), or unset `A2A_PUSH_CALLBACK_ORIGIN`. |
+| The same `... could not access durable state; will retry.` line repeating | Worker log | The database is unreachable, or the schema is missing or behind. | Check `A2A_DATABASE_URL` from the worker host; run `npm run db:migration:pending`, then `npm run db:migrate`. |
+| `A2A_NOTIFY_WEBHOOK_SECRET must be at least 32 characters when A2A_NOTIFY_WEBHOOK_URL is set.` (or another webhook message) | Worker log, once at start | The notification webhook is misconfigured. | Fix the webhook variables ([Notifications](../guides/notifications.md)). In-app notifications keep working meanwhile. |
+| Sends stay `pending` | `GET /api/commands/<id>` | External mode and no worker running, or the worker cannot reach the database. | Start `npm run worker:tasks`; check its log. |
+| `uncertain` with `A previous dispatch lease expired. Remote outcome requires reconciliation.` | `GET /api/commands/<id>` | The worker delivering the command died or stalled past the 60-second lease. | Check the task on the agent before sending again. Taskbay will not resend it. |
+| `uncertain` with `Remote outcome is uncertain. Automatic resend is disabled; check the task before submitting new work.` | `GET /api/commands/<id>` | Delivery failed after the request may have reached the agent. | Same as above. |
+| `failed` with `Agent discovery failed before dispatch after three attempts.` | `GET /api/commands/<id>` | The agent could not be reached before sending. | Check the agent and the network rules in [Agent credentials](../guides/agent-credentials.md#network-policy-for-outbound-calls). |
+| Outbound calls follow development rules (private addresses allowed, no allowlist required) | Worker | `NODE_ENV=production` is missing from the worker's environment. | Export it for the worker. |
+
+More symptoms: [Troubleshooting](./troubleshooting.md).
+
 ## Limits
 
 - Workers have no human identity; they act as the system, which is why accepted work continues after a person signs out or loses access.
@@ -105,5 +161,6 @@ The complete list is in the [configuration reference](../reference/configuration
 
 - [Troubleshooting](./troubleshooting.md)
 - [Production deployment](../guides/production-deployment.md)
+- [Configuration recipes](../guides/configuration-recipes.md)
 - [Durable tasks](../concepts/durable-tasks.md)
 - [Configuration reference](../reference/configuration.md)

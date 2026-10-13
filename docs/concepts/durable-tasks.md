@@ -71,7 +71,7 @@ Known gap: if an agent sends identical append chunks of an artifact with no deli
 | Mechanism | Behavior |
 | --- | --- |
 | Subscription (stream) | One per active task. Workers hold up to 8 concurrent streams each. Reconnect uses `SubscribeToTask`, so it observes and never resends. Backoff is exponential, capped at 30 s. Stops at a terminal, input-required or auth-required state, and is re-armed when a new command makes the task active again. Needs the agent to advertise streaming. |
-| Push webhook | Opt-in. Needs `A2A_PUSH_CALLBACK_ORIGIN` and `A2A_PUSH_SIGNING_KEY`. Each task gets a registration ID and a derived bearer credential. Callbacks are authenticated, rate-limited per registration, and checked against the expected task. Without these settings, push is simply not used. |
+| Push webhook | Opt-in. Needs `A2A_PUSH_CALLBACK_ORIGIN` and `A2A_PUSH_SIGNING_KEY`. Each task gets a registration ID and a derived bearer credential. Callbacks are authenticated, rate-limited per registration, and checked against the expected task. Without these settings, push is simply not used. How to turn it on: [Receive push callbacks from agents](../guides/agent-push-callbacks.md). |
 | Reconciliation | `GetTask` for each open known task every 15 s, including tasks waiting for input. `ListTasks` sweeps per agent and tenant, repeating 60 s after a sweep finishes. It only updates tasks the console already knows. Agents without `ListTasks` fall back to `GetTask`. |
 
 If every stream and webhook fails, reconciliation still converges the state. A reconciliation read that arrives after a concurrent update loses to it, and a terminal task is never reopened by a late response.
@@ -118,3 +118,4 @@ More in [Troubleshooting](../operations/troubleshooting.md).
 - [Human in the loop](human-in-the-loop.md)
 - [Running and workers](../operations/running-and-workers.md)
 - [Data model](../reference/data-model.md)
+- [Glossary](../reference/glossary.md)

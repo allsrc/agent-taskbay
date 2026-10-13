@@ -29,7 +29,7 @@ Inline binary parts are archived by the server when the event is ingested, and t
 
 ## Composing messages
 
-The composer sends `text/plain`, `text/markdown` or `application/json` parts, and file attachments. Your input is checked against the input modes the agent advertises. The generic composer is always available, and none of the richer features below replace it.
+The composer sends `text/plain`, `text/markdown` or `application/json` parts, and file attachments. Your input is checked against the input modes the agent advertises. The generic composer is always available, and none of the richer features below replace it. Where the composer, forms and A2UI surfaces appear on screen is in [Use the console](../guides/use-the-console.md#chat).
 
 ## Structured forms
 
@@ -63,7 +63,7 @@ A2UI renders in the chat view only. See [A2UI reference](../reference/a2ui.md) a
 
 ## AG-UI adapter
 
-[AG-UI](https://docs.ag-ui.com) is a protocol that agent UI runtimes such as CopilotKit speak. Taskbay can expose an A2A agent to such a client at `POST /api/agents/{agentId}/ag-ui`. It is off by default (`A2A_AGUI_ENABLED=true` turns it on, otherwise the route answers 404).
+[AG-UI](https://docs.ag-ui.com) is a protocol spoken by AG-UI client runtimes. Taskbay can expose an A2A agent to such a client at `POST /api/agents/{agentId}/ag-ui`. It is off by default (`A2A_AGUI_ENABLED=true` turns it on, otherwise the route answers 404).
 
 The point of the adapter is that nothing about durability changes. A run is one durable command, accepted the same way as the command API, with the same grants, rate limit and same-origin check. The stream is translated from committed task state. A dropped client leaves the task running, and repeating a `runId` is idempotent. Mapping in short:
 
@@ -74,7 +74,7 @@ The point of the adapter is that nothing about durability changes. A run is one 
 - A run streams for at most about 50 seconds. If the task is still working, the run ends with `RUN_ERROR` code `run_timeout`. The task continues, and its ID is in the last snapshot.
 - An AG-UI interrupt answer is a reply, not an approval decision.
 
-Frontend `tools`, `context`, `state` and `forwardedProps` are ignored. Non-text content is rejected. Cross-origin browser clients are refused. Skill-scoped users cannot use it for existing contexts. Details and issue links: [AG-UI reference](../reference/ag-ui.md).
+Frontend `tools`, `context`, `state` and `forwardedProps` are ignored. Non-text content is rejected. Cross-origin browser clients are refused. Skill-scoped users cannot use it for existing contexts. Details and issue links: [AG-UI reference](../reference/ag-ui.md). To turn it on and stream a first run, see [Try the AG-UI adapter](../guides/enable-ag-ui.md).
 
 ## What is never executed or loaded
 

@@ -4,11 +4,16 @@
 > returns. Examples marked "Observed" were run against a local development server.
 
 **There is no stable API yet.** The routes exist to serve the console. They are not versioned (no `/api/v1`), have no deprecation policy, and may change in
-any minor release while the project is pre-1.0 (package version `0.1.0`). A versioned, token-authenticated client API is proposed in
+any minor release while the project is pre-1.0 (package version `0.1.1`). A versioned, token-authenticated client API is proposed in
 [#31](https://github.com/allsrc/agent-taskbay/issues/31). Until then, pin a version if you depend on a route.
 
 The "Use" column in the route index is a reading aid, not a promise: **Integration** routes are the ones a script is most likely to want and that the
 console uses as plain request/response APIs; **Console** routes are UI plumbing (sign-in, live updates, access management) and are the most likely to change.
+
+**On this page:** [Authentication and roles](#authentication-and-roles) · [Conventions](#conventions) · [Route index](#route-index) ·
+[Sign-in routes](#sign-in-routes) · [Agents](#agents) · [Sending messages and commands](#sending-messages-and-commands) · [Tasks](#tasks) ·
+[Task workflow](#task-workflow) · [Inbox](#inbox) · [Approvals](#approvals) · [Notifications](#notifications) · [Audit](#audit) ·
+[Access management](#access-management) · [Artifacts](#artifacts) · [Push webhook](#push-webhook-agents-only) · [Limits](#limits)
 
 ## Authentication and roles
 

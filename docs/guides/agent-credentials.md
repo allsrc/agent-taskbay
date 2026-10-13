@@ -7,6 +7,11 @@ There is no browser form for secrets. Settings shows only each binding's status.
 
 This is separate from people signing in, which is covered in [Sign in and roles](./sign-in-and-roles.md).
 
+**On this page:** [Before you start](#before-you-start) · [How credentials are stored](#how-credentials-are-stored) ·
+[Credential kinds](#credential-kinds) · [Add or replace a binding](#add-or-replace-a-binding) · [Revoke a binding](#revoke-a-binding) ·
+[Rotate the vault key](#rotate-the-vault-key) · [Network policy for outbound calls](#network-policy-for-outbound-calls) ·
+[Agent Card trust pins](#agent-card-trust-pins) · [Skill grants](#skill-grants) · [When it fails](#when-it-fails) · [Limits](#limits)
+
 ## Before you start
 
 - The agent is already registered by an administrator (see [Connect an agent](./connect-an-agent.md)). You need its local UUID: the `id` field of `GET /api/agents`.
@@ -110,25 +115,6 @@ Store a new binding to enable the agent again.
 
 There is no command that lists which key each binding uses. The `key_id` column of `agent_credentials` records it, if you have database access.
 
-## When the CLI fails
-
-The CLI prints one fixed message for every error, on purpose, so that no input is echoed:
-
-```text
-Credential update failed. Check the organization/agent, vault key configuration and stdin binding format. No secret values are printed.
-```
-
-The exit code is 1. Work through the causes in this order:
-
-| Check | How |
-|---|---|
-| Pending migrations | `npm run db:migration:pending`, then `npm run db:migrate`. |
-| Organization slug | `--organization` must be an existing slug (the one in `A2A_AUTH_ORGANIZATION_SLUG`, or `local` in development). |
-| Agent | `--agent` must be a UUID of an enabled agent in that organization. |
-| Vault keys | `A2A_VAULT_KEYS` is valid JSON, every value is 64 hex characters, and `A2A_VAULT_ACTIVE_KEY` names a key in it. |
-| Binding JSON | Valid JSON that matches the table above: no extra fields, HTTPS origins with no path, secrets of at least 8 characters, under 256,000 bytes. |
-| PGlite | `Stop the local web server and pass --offline-pglite before opening its PGlite directory.` |
-
 ## Network policy for outbound calls
 
 These rules apply to every call from the web or worker process to an agent, to an OAuth token endpoint and to the notification webhook.
@@ -182,7 +168,30 @@ sending it to the agent under the extension `https://extensions.allsrc.dev/agent
 `This agent does not support bounded skill routing.` A grant does not constrain what a non-cooperating agent does internally, so turn this on only for agents you have reviewed. Details are in the
 [skill routing reference](../reference/extensions/skill-routing.md).
 
-## Other error messages
+## When it fails
+
+### The credential CLI
+
+The CLI prints one fixed message for every error, on purpose, so that no input is echoed:
+
+```text
+Credential update failed. Check the organization/agent, vault key configuration and stdin binding format. No secret values are printed.
+```
+
+The exit code is 1. Work through the causes in this order:
+
+| Check | How |
+|---|---|
+| Pending migrations | `npm run db:migration:pending`, then `npm run db:migrate`. |
+| Organization slug | `--organization` must be an existing slug (the one in `A2A_AUTH_ORGANIZATION_SLUG`, or `local` in development). |
+| Agent | `--agent` must be a UUID of an enabled agent in that organization. |
+| Vault keys | `A2A_VAULT_KEYS` is valid JSON, every value is 64 hex characters, and `A2A_VAULT_ACTIVE_KEY` names a key in it. |
+| Binding JSON | Valid JSON that matches the table above: no extra fields, HTTPS origins with no path, secrets of at least 8 characters, under 256,000 bytes. |
+| PGlite | `Stop the local web server and pass --offline-pglite before opening its PGlite directory.` |
+
+### Calls to the agent
+
+The messages in the network policy and trust pin tables above also apply. These are the others:
 
 | Message | Meaning |
 |---|---|
