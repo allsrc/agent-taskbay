@@ -12,7 +12,7 @@ import { startFormFromCard } from "@/lib/structured-form";
 import { A2uiSurfaces } from "@/components/a2ui/surface";
 import { A2UI_EXTENSION_URI, a2uiClientMetadata, surfacesFromParts } from "@/lib/a2ui";
 import { isActivityArtifact, isReasoningOnly, repeatsArtifact, settleArtifacts } from "@/lib/chat-activity";
-import { ActivityLog, AgentBubble, ArtifactCard, ProgressLog, TaskCard, UserBubble } from "@/components/chat/timeline";
+import { ActivityLog, AgentBubble, ArtifactCard, ProgressLog, SenderLabel, TaskCard, UserBubble } from "@/components/chat/timeline";
 import { SideRail, useIsDesktop, type RailTab } from "@/components/chat/side-rail";
 import { Button } from "@/components/ui/button";
 import { NativeSelect } from "@/components/ui/native-select";
@@ -190,6 +190,13 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
   const a2uiOn = (view?.extensions ?? []).includes(A2UI_EXTENSION_URI);
 
   const messageColumn = "mx-auto w-full max-w-[760px]";
+  // A name label goes above the first message of each run from one side, so "you" and "the agent" are easy to tell apart.
+  const spoke: { last: "you" | "agent" | null } = { last: null };
+  const sender = (who: "you" | "agent", key: string) => {
+    if (spoke.last === who) return [];
+    spoke.last = who;
+    return [<SenderLabel key={`who-${key}`} who={who} name={name} id={agentId} />];
+  };
 
   return (
     <div className="flex flex-1 md:min-h-0">
@@ -266,6 +273,7 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
               });
               const rows = task.messages.flatMap((message, index) => [
                 ...(isUpdate(message, index) || (repeated && index === lastIndex) ? [] : [
+                  ...sender(message.role === "user" ? "you" : "agent", message.id),
                   message.role === "user" ? (
                     <UserBubble key={message.id} message={message} />
                   ) : (
@@ -275,7 +283,7 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
                   ),
                 ]),
                 ...(index === cardAt ? [<TaskCard key={`card-${task.taskId}`} task={task} canceling={cancelingId === task.taskId} onCancel={() => void cancelTask(task)} />] : []),
-                ...(runs.has(index) ? [<ProgressLog key={`log-${message.id}`} messages={runs.get(index)!} active={isOpenTask(task)} />] : []),
+                ...(runs.has(index) ? [...sender("agent", `log-${message.id}`), <ProgressLog key={`log-${message.id}`} messages={runs.get(index)!} active={isOpenTask(task)} />] : []),
               ]);
               return (
                 <div key={task.taskId} className="flex flex-col gap-3.5">
@@ -287,14 +295,12 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
                   {task.kind !== "message" && task.messages.length === 0 && (
                     <TaskCard task={task} canceling={cancelingId === task.taskId} onCancel={() => void cancelTask(task)} />
                   )}
-                  {activity.length > 0 && <ActivityLog artifacts={activity} active={isOpenTask(task)} />}
-                  {results.map((artifact) => (
-                    <ArtifactCard key={artifact.artifactId} artifact={artifact} />
-                  ))}
+                  {activity.length > 0 && [...sender("agent", `act-${task.taskId}`), <ActivityLog key="activity" artifacts={activity} active={isOpenTask(task)} />]}
+                  {results.flatMap((artifact) => [...sender("agent", artifact.artifactId), <ArtifactCard key={artifact.artifactId} artifact={artifact} />])}
                 </div>
               );
             })}
-            {pending && !tasks.some((task) => task.messages.some((message) => message.id === pending.id)) && <UserBubble message={pending} />}
+            {pending && !tasks.some((task) => task.messages.some((message) => message.id === pending.id)) && [...sender("you", pending.id), <UserBubble key={pending.id} message={pending} />]}
             {error && <p className="border-danger/40 bg-danger/10 text-danger rounded-lg border px-3.5 py-2.5 font-mono text-xs">{error}</p>}
             <div ref={bottom} />
           </div>

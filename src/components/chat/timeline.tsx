@@ -3,7 +3,7 @@
 import { Ban, Check, ChevronDown, Circle, Loader2, Wrench, X } from "lucide-react";
 import { motion } from "motion/react";
 import { BubblePart } from "@/components/chat/part-content";
-import { StateChip } from "@/components/a2a/primitives";
+import { AgentAvatar, StateChip } from "@/components/a2a/primitives";
 import { Pill } from "@/components/patterns/status";
 import { stateName, taskTitle, isActiveState } from "@/lib/task-view";
 import type { AssembledArtifact } from "@/lib/types";
@@ -18,6 +18,18 @@ import { isA2uiPart } from "@/lib/a2ui";
 import { activityLabel, isReasoningOnly, isReasoningPart } from "@/lib/chat-activity";
 
 const enter = { initial: { opacity: 0, y: 8 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.2, ease: "easeOut" as const } };
+
+/** Says who is speaking. Shown when the sender changes, so a run of messages from one side carries one label. */
+export function SenderLabel({ who, name, id }: { who: "you" | "agent"; name: string; id: string }) {
+  return who === "you" ? (
+    <span className="-mb-2 self-end pr-1 text-xs font-medium text-muted-foreground">You</span>
+  ) : (
+    <span className="-mb-2 flex items-center gap-1.5 self-start pl-0.5 text-xs font-medium text-muted-foreground">
+      <AgentAvatar name={name} id={id} size="xs" />
+      {name}
+    </span>
+  );
+}
 
 export function UserBubble({ message }: { message: ThreadMessage }) {
   return (
