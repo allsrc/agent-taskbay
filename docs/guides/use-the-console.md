@@ -118,7 +118,7 @@ When the agent stops working, to ask you something or because the task ended, it
 
 Text can be viewed another way without changing it. Ordinary sentences carry no controls. When text has another useful view, small controls appear under it:
 
-- **Format as Markdown** (or JSON, CSV) when the text looks like that format, and **Plain text** to go back. An agent's Markdown is formatted from the start, even when it was sent as `text/plain`; your own messages are shown the way you sent them.
+- **Format as Markdown** (or JSON, CSV) when the text looks like that format, and **Plain text** to go back. An agent's Markdown and JSON are formatted from the start, even when the agent labelled them wrongly (for example JSON sent as `text/plain` or `text/html`); your own messages are shown the way you sent them.
 - **Preview HTML** for HTML that was declared or detected. HTML is never rendered by default: the text view shows its source in a contained code block.
 - **⋯** opens a menu with the type the sender declared ("Sent as text/plain") and every view: Auto, Text, Markdown, JSON (when valid), CSV (when applicable) and **Sanitized HTML**.
 

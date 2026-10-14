@@ -36,10 +36,10 @@ describe("detectContentKind", () => {
 
 describe("profileContent", () => {
   it("formats an agent's Markdown sent as text/plain only when asked to infer it", () => {
-    const agent = profileContent("Result: **done**", "text/plain", { inferMarkdown: true });
+    const agent = profileContent("Result: **done**", "text/plain", { infer: true });
     expect(agent.defaultView).toBe("markdown");
     expect(formattedView(agent)).toBe("markdown");
-    expect(profileContent("Just a sentence.", "text/plain", { inferMarkdown: true }).defaultView).toBe("text");
+    expect(profileContent("Just a sentence.", "text/plain", { infer: true }).defaultView).toBe("text");
   });
 
   it("shows what was declared and only suggests what it detected", () => {
@@ -57,7 +57,7 @@ describe("profileContent", () => {
     expect(declared.options).toContain("html");
     expect(declared.html).toBe(true);
     expect(formattedView(declared)).toBeNull();
-    expect(profileContent("<p>x</p>", "text/html", { inferMarkdown: true }).defaultView).toBe("text");
+    expect(profileContent("<p>x</p>", "text/html", { infer: true }).defaultView).toBe("text");
   });
 
   it("offers JSON only when the text parses", () => {

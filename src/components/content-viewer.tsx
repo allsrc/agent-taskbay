@@ -84,7 +84,7 @@ export function ContentViewer({
   streaming = false,
   controls = true,
   align = "start",
-  inferMarkdown = true,
+  infer = true,
 }: {
   text: string;
   mediaType?: string;
@@ -94,12 +94,12 @@ export function ContentViewer({
   controls?: boolean;
   /** Which side the controls sit on; a sent message aligns them with its bubble. */
   align?: "start" | "end";
-  /** Format plain text that reads as Markdown. Off for a person's own messages, which follow the type they chose. */
-  inferMarkdown?: boolean;
+  /** Let the content decide when it does not fit its declared type. Off for a person's own messages. */
+  infer?: boolean;
 }) {
   const [mode, setMode] = useState<ViewMode>(initialMode);
   const [previewOpen, setPreviewOpen] = useState(false);
-  const profile = profileContent(text, mediaType, { inferMarkdown });
+  const profile = profileContent(text, mediaType, { infer });
   const view = resolveView(profile, mode);
   const selectedMode = mode === "auto" || profile.options.includes(mode) ? mode : "text";
   const formatted = formattedView(profile);

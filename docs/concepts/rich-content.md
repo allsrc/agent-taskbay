@@ -6,7 +6,8 @@ Agents send messages and artifacts made of parts: text, structured data, files, 
 
 ## The rule
 
-- Agent text is shown as text through React unless its declared type selects Markdown, JSON or CSV, it reads as Markdown, or you choose another viewing mode. Detection never rewrites content and never selects HTML. Your own messages follow the type you sent them as; detection only suggests a view for them.
+- Agent text is shown as text through React unless its declared type selects Markdown, JSON or CSV, the content reads as Markdown or JSON, or you choose another viewing mode. Detection never rewrites content and never selects HTML. Your own messages follow the type you sent them as; detection only suggests a view for them.
+- Agents often declare the wrong type. A declared type is used only when the content fits it: JSON must parse, CSV must have at least two rows of the same two or more columns, and Markdown must not be a JSON value or a whole HTML page. When it does not fit, an agent's content decides between JSON and Markdown, else it is shown as text. A label of `text/html` never renders HTML: markup is shown as contained source with **Preview HTML**, and HTML-labelled text without markup is plain text.
 - Markdown is rendered with GitHub-flavored Markdown. Markdown images are not loaded (a placeholder is shown instead).
 - HTML has two opt-in views: **Sanitized HTML** inline strips styles, active elements and URL attributes; **Rich HTML preview** opens a sanitized document in a modal iframe with an empty sandbox. The rich view retains inline CSS, but its CSP blocks scripts, network access, remote assets, nested frames and form submissions. Links, forms, SVG and active elements are removed from both views. Agent JavaScript is never executed.
 - Remote URLs in parts are not loaded, followed or opened automatically. The renderer only loads local artifact URLs of the form `/api/artifacts/<64 hex digest>`.
@@ -16,9 +17,10 @@ Agents send messages and artifacts made of parts: text, structured data, files, 
 
 | Part | Rendering |
 | --- | --- |
-| `text/plain` | Plain text, whitespace kept. An agent's text that reads as Markdown is formatted as Markdown |
+| `text/plain` | Plain text, whitespace kept. An agent's text that reads as Markdown or JSON is shown that way |
 | `text/markdown` | Markdown (GFM tables, lists, code). Remote images omitted |
-| Text that looks like JSON, CSV or HTML | A suggested view; the declared type still controls Auto. HTML always starts as source text |
+| Text that looks like CSV or HTML, or anything in your own messages | A suggested view; Auto does not change. HTML always starts as contained source text |
+| Text whose content does not fit its declared type (for example JSON labelled `text/html`) | The view that fits the content, as described above |
 | `application/json` and other JSON | Table when it is a list of objects, otherwise a collapsible tree. A "Structured" toggle is available |
 | CSV | Table |
 | Images, audio, video, PDF | Shown inline only when the bytes were archived by the server. Remote media URLs are not loaded |
