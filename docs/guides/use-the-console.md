@@ -32,6 +32,8 @@ Opening the console root (`/`) takes you to **Chat**.
 
 **Agents** lists the agents you can see. A success-coloured dot means the Agent Card was fetched ("Reachable" on hover). A different dot means it failed ("Discovery failed" on hover), and the row shows the error. Use **Search agents or skills…** to filter by name, description, skill name or card URL.
 
+![The sample agents, with the showcase card open](../images/agents.png)
+
 Select an agent to see its card:
 
 - **Capabilities**: streaming, push notifications, extended card, and the advertised extension URIs.
@@ -90,6 +92,8 @@ When a task is waiting, the agent's message has a coloured border and a label:
 
 If the agent advertises the structured-form extension and sends a form, the bubble shows the form. Fill in the fields (required fields have a star) and choose the agent's submit button. The console checks the values first and shows an error under each invalid field. The values go to the agent as one JSON data part. A form that was already answered, or no longer applies, shows as plain data. If the agent's card defines a start form, a **Start with a form:** section appears above the box while **new task** is selected.
 
+![A chat waiting on the sample agent's deploy form](../images/chat.png)
+
 Agents that advertise A2UI can draw a small interface under their messages. Pressing one of its buttons sends your input to the agent. What is and is not rendered is in [Rich content](../concepts/rich-content.md).
 
 An approval is not answered in chat. It appears in **Inbox**. See [Approvals and ownership](approvals-and-ownership.md).
@@ -139,6 +143,8 @@ The cards are:
 
 The remote IDs come from the agent and are for diagnosis. The console uses `localId` for links and permission checks. See [Durable tasks](../concepts/durable-tasks.md#identity-of-remote-ids).
 
+![A completed task, with its timeline, history and the approval that released it](../images/tasks.png)
+
 ## Orchestration (Flows)
 
 **Orchestration** (the **Flows** item on small screens, URL `/flows`) is a read-only picture of one conversation. It does not define, run or schedule workflows.
@@ -151,9 +157,13 @@ It shows conversations that contain at least one task. With several, a row of ta
 
 The arrows are only a layout. They show references the agent or you set, not an execution order the console enforces. References to tasks outside the conversation are not drawn. Each card links to its task. The console has no link between tasks of different agents yet.
 
+![One conversation in Orchestration, with later tasks pointing at earlier ones](../images/flows.png)
+
 ## Inbox and Notifications
 
 **Inbox** gathers tasks waiting for a person and open approvals in one list. Approving, claiming, assigning and escalation are covered in [Approvals and ownership](approvals-and-ownership.md).
+
+![Inbox open on a pending high-risk approval](../images/approval.png)
 
 **Notifications** lists your own notifications, newest first, 30 at a time, with **All** and **Unread** tabs, **Mark all read** and **Show older notifications**. Unread items have a dot. Items that need you, such as a new approval or a task waiting for input, carry an "ACTION" tag until read. Opening one marks it read and goes to the task or approval. Read marks are stored on the server, so they follow you across browsers. What triggers a notification, and the optional webhook, are in [Notifications](notifications.md).
 
@@ -162,6 +172,8 @@ The arrows are only a layout. They show references the agent or you set, not an 
 **Audit** is the organization-wide audit trail. Only administrators see it in the sidebar. A non-admin who opens `/audit` sees "Administrators only".
 
 The trail is read-only and newest first, 25 entries at a time with **Show older entries**. Each entry is one sentence ("You approved …", "The agent requested approval: …"), a time, and a link to the task. **Details** expands the exact facts: revision and digest, proposed or sent content, rationale, risk, expiry and delivery result. Note text is never shown, only that a note was added.
+
+![The audit trail after an approval was requested and approved](../images/audit.png)
 
 Filters:
 
