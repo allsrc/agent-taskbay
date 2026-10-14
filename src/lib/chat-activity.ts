@@ -1,6 +1,8 @@
 import { isA2uiPart } from "@/lib/a2ui";
+import { describeData, taggedKind } from "@/lib/data-part";
 import type { AssembledArtifact, NormalizedPart } from "@/lib/types";
-import type { ThreadMessage } from "@/store/task-store";
+import { isActiveState, stateName } from "@/lib/task-view";
+import type { ThreadMessage, TrackedTask } from "@/store/task-store";
 
 const isJsonPart = (part: NormalizedPart) => part.kind === "data" || /json/i.test(part.mediaType);
 
@@ -15,18 +17,24 @@ export function isReasoningPart(part: NormalizedPart): boolean {
   return ["adk_type", "type", "kind"].some((key) => typeof meta[key] === "string" && REASONING_TYPES.has(meta[key] as string));
 }
 
-/** True when every part of a message is reasoning, so there is nothing to show as a reply. */
-export const isReasoningOnly = (message: Pick<ThreadMessage, "parts">) => message.parts.length > 0 && message.parts.every(isReasoningPart);
+/**
+ * A tool call or result, code or its output: tagged by the agent framework, or shaped like one (see `describeData`).
+ * Taskbay's own media types and A2UI surfaces are never tool traffic.
+ */
+export function isToolPart(part: NormalizedPart): boolean {
+  if (taggedKind(part)) return true;
+  if (!isJsonPart(part) || part.mediaType.startsWith("application/vnd.agent-taskbay") || isA2uiPart(part)) return false;
+  return ["tool-call", "tool-result", "code", "code-result"].includes(describeData(part).kind);
+}
 
-/** Agent frameworks tag tool traffic on the part: Google ADK uses `type` (or `adk_type`) of function_call / function_response. */
-const TOOL_TYPES = new Set(["function_call", "function_response", "tool_call", "tool_result", "tool_use", "code_execution_result", "executable_code"]);
-const toolType = (part: NormalizedPart): string | undefined => {
-  for (const key of ["adk_type", "type", "kind"]) {
-    const value = part.metadata?.[key];
-    if (typeof value === "string" && TOOL_TYPES.has(value)) return value;
-  }
-  return undefined;
-};
+/** Reasoning sent as structured data (Anthropic `thinking`, Vercel `reasoning`). */
+const isReasoningData = (part: NormalizedPart) => isJsonPart(part) && !isA2uiPart(part) && describeData(part).kind === "reasoning";
+
+const isActivityPart = (part: NormalizedPart) => isToolPart(part) || isReasoningPart(part) || isReasoningData(part);
+
+export function isActivityMessage(message: Pick<ThreadMessage, "parts">): boolean {
+  return message.parts.length > 0 && message.parts.every(isActivityPart);
+}
 
 /**
  * An artifact that is only structured data, such as a tool call or its result. It is background activity, not an
@@ -34,31 +42,17 @@ const toolType = (part: NormalizedPart): string | undefined => {
  * Taskbay's own media types and stay as they are.
  */
 export function isActivityArtifact(artifact: AssembledArtifact): boolean {
-  return (
-    artifact.parts.length > 0 &&
-    artifact.parts.every((part) => (isJsonPart(part) && !part.mediaType.startsWith("application/vnd.agent-taskbay") && !isA2uiPart(part)) || toolType(part) !== undefined || isReasoningPart(part))
-  );
+  return artifact.parts.length > 0 && artifact.parts.every(isActivityPart);
 }
 
-const SUFFIX: Record<string, string> = { function_call: "call", tool_call: "call", tool_use: "call", executable_code: "code", function_response: "result", tool_result: "result", code_execution_result: "result" };
-
-/** A short label for an activity artifact: the tool or function name when the JSON carries one, else the artifact name. */
-export function activityLabel(artifact: AssembledArtifact): string {
-  if (artifact.parts.length > 0 && artifact.parts.every(isReasoningPart)) return "Reasoning";
-  for (const part of artifact.parts) {
-    const kind = toolType(part);
-    const suffix = kind ? ` · ${SUFFIX[kind]}` : "";
-    const value = part.value;
-    if (value && typeof value === "object" && !Array.isArray(value)) {
-      const record = value as Record<string, unknown>;
-      for (const key of ["tool", "toolName", "tool_name", "name", "function", "action", "type"]) {
-        const candidate = record[key];
-        if (typeof candidate === "string" && candidate.trim()) return candidate.trim() + suffix;
-        if (candidate && typeof candidate === "object" && typeof (candidate as { name?: unknown }).name === "string") return (candidate as { name: string }).name + suffix;
-      }
-    }
-  }
-  return artifact.name?.trim() || "Tool result";
+/**
+ * The sub-agent that wrote a status update (Google ADK sets `adk_author`), or null when it is the agent itself or
+ * unknown, so the log only names an author when it adds something.
+ */
+export function statusAuthor(message: Pick<ThreadMessage, "metadata">, agentName: string): string | null {
+  const author = message.metadata?.adk_author;
+  if (typeof author !== "string" || !author.trim()) return null;
+  return author.trim().toLowerCase() === agentName.trim().toLowerCase() ? null : author.trim();
 }
 
 const squash = (text: string) => text.replace(/\s+/g, " ").trim().toLowerCase();
@@ -90,3 +84,34 @@ export function repeatsArtifact(message: Pick<ThreadMessage, "parts">, artifacts
  */
 export const settleArtifacts = (artifacts: AssembledArtifact[], taskFinished: boolean): AssembledArtifact[] =>
   taskFinished ? artifacts.map((artifact) => (artifact.complete ? artifact : { ...artifact, complete: true })) : artifacts;
+
+/**
+ * Decides where each message of a task goes. Tool-only agent messages fold into the activity log. An update (status
+ * text the agent sends while it works, or an agent message followed straight away by another agent message) folds
+ * into the progress log. Once the task stops working, to ask you something or because it ended, its last message is
+ * the agent speaking to you and stays in the conversation, unless it is only tool traffic, repeats a finished result,
+ * or was a working update followed by results.
+ */
+export function planMessages(task: Pick<TrackedTask, "kind" | "state" | "messages">, results: AssembledArtifact[]) {
+  const { messages } = task;
+  const lastIndex = messages.length - 1;
+  const isTask = task.kind !== "message";
+  const activityMessages = messages.filter((message) => message.role === "agent" && !message.fromStatus && isActivityMessage(message));
+  const activityIds = new Set(activityMessages.map((message) => message.id));
+  const isWorking = (state: string) => ["SUBMITTED", "WORKING"].includes(stateName(state));
+  // A status message the agent sent while still working ("Summarizing…") is progress even when nothing followed it,
+  // unless the task produced no result, in which case it is all the agent said.
+  const speaks = (index: number) => {
+    const message = messages[index];
+    if (index !== lastIndex || isWorking(task.state) || isActivityMessage(message)) return false;
+    return !(message.fromStatus && message.statusState && isWorking(message.statusState) && results.length > 0);
+  };
+  const isUpdate = (index: number) => {
+    const message = messages[index];
+    return isTask && message?.role === "agent" && !activityIds.has(message.id) && !speaks(index) &&
+      (Boolean(message.fromStatus) || (index !== lastIndex && messages[index + 1]?.role === "agent"));
+  };
+  // The last message is dropped when it only repeats a finished result, so the answer appears once.
+  const repeated = isTask && !isActiveState(task.state) && lastIndex >= 0 && messages[lastIndex].role === "agent" && repeatsArtifact(messages[lastIndex], results);
+  return { activityMessages, isUpdate, repeated };
+}

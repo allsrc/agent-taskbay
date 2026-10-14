@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findConversation, groupConversations, isOpenTask } from "./conversations";
+import { findConversation, groupConversations, isOpenTask, shouldAdoptConversationKey } from "./conversations";
 import type { TrackedTask } from "../store/task-store";
 
 const make = (over: Partial<TrackedTask>): TrackedTask => ({
@@ -64,5 +64,13 @@ describe("scoped context identity", () => {
   it("resolves an old context-only link when it is unambiguous", () => {
     const conversations = groupConversations([make({ contextId: "legacy" })]);
     expect(findConversation(conversations, "legacy")).toBe(conversations[0]);
+  });
+});
+
+describe("streamed conversation key adoption", () => {
+  it("adopts the first key once and leaves an already selected conversation alone", () => {
+    expect(shouldAdoptConversationKey(undefined, "c-new", undefined)).toBe(true);
+    expect(shouldAdoptConversationKey(undefined, "c-new", "c-new")).toBe(false);
+    expect(shouldAdoptConversationKey("c-existing", "c-existing", undefined)).toBe(false);
   });
 });

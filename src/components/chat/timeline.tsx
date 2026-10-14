@@ -1,21 +1,25 @@
 "use client";
 
-import { Ban, Check, ChevronDown, Circle, Loader2, Wrench, X } from "lucide-react";
+import { useState } from "react";
+import { Ban, Braces, Brain, Check, ChevronDown, ChevronRight, Circle, CornerDownRight, Loader2, SquareCode, SquareTerminal, TriangleAlert, Wrench, X } from "lucide-react";
 import { motion } from "motion/react";
 import { BubblePart } from "@/components/chat/part-content";
 import { AgentAvatar, StateChip } from "@/components/a2a/primitives";
 import { Pill } from "@/components/patterns/status";
 import { stateName, taskTitle, isActiveState } from "@/lib/task-view";
-import type { AssembledArtifact } from "@/lib/types";
+import type { AssembledArtifact, NormalizedPart } from "@/lib/types";
 import type { ThreadMessage, TrackedTask } from "@/store/task-store";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { PartRenderer } from "@/components/PartRenderer";
+import { ContentViewer } from "@/components/content-viewer";
+import { Clamp } from "@/components/long-content";
 import { cn } from "@/lib/utils";
 import { StructuredForm } from "@/components/chat/structured-form";
 import { formFromPart, type FormSubmission } from "@/lib/structured-form";
 import { isA2uiPart } from "@/lib/a2ui";
-import { activityLabel, isReasoningOnly, isReasoningPart } from "@/lib/chat-activity";
+import { isReasoningPart, isToolPart, statusAuthor } from "@/lib/chat-activity";
+import { callNames, describeData, type DataKind, type DataSummary } from "@/lib/data-part";
 
 const enter = { initial: { opacity: 0, y: 8 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.2, ease: "easeOut" as const } };
 
@@ -33,10 +37,12 @@ export function SenderLabel({ who, name, id }: { who: "you" | "agent"; name: str
 
 export function UserBubble({ message }: { message: ThreadMessage }) {
   return (
-    <motion.div {...enter} className="bg-primary text-primary-foreground max-w-[92%] sm:max-w-[82%] self-end rounded-2xl rounded-br-sm px-3.5 py-2.5">
-      {message.parts.map((part, index) => (
-        <BubblePart key={index} part={part} onUser />
-      ))}
+    <motion.div {...enter} className="bg-brand-soft text-foreground border-brand/15 min-w-0 max-w-[92%] sm:max-w-[82%] self-end rounded-2xl rounded-br-sm border px-3.5 py-2.5">
+      <div className="flex flex-col gap-3">
+        {message.parts.map((part, index) => (
+          <BubblePart key={index} part={part} onUser />
+        ))}
+      </div>
     </motion.div>
   );
 }
@@ -92,10 +98,10 @@ export function AgentBubble({
       {message.parts.some(isReasoningPart) && (
         <details className="text-xs text-muted-foreground">
           <summary className="cursor-pointer font-medium">Reasoning</summary>
-          <p className="mt-1 break-words whitespace-pre-wrap">{message.parts.filter(isReasoningPart).map((part) => String(part.value)).join("\n")}</p>
+          <div className="mt-1"><ReasoningText text={message.parts.filter(isReasoningPart).map((part) => String(part.value)).join("\n")} /></div>
         </details>
       )}
-      <div>
+      <div className="flex flex-col gap-3">
         {message.parts
           .filter((part) => !isReasoningPart(part))
           // The options list is shown as buttons below; don't echo it as raw JSON too.
@@ -152,77 +158,139 @@ function stepsFor(task: TrackedTask): Array<{ label: string; status: "done" | "a
   });
 }
 
-/** Short text for one in-between update; non-text parts show their kind. */
-function updateText(message: ThreadMessage): string {
-  const text = message.parts.map((part) => (part.kind === "text" ? String(part.value) : `[${part.kind}]`)).join(" ").trim();
-  if (isReasoningOnly(message)) return `Reasoning · ${text}`;
-  return text || "Update";
+function useActiveDisclosure(active: boolean) {
+  const [manualState, setManualState] = useState<{ active: boolean; open: boolean } | null>(null);
+  const open = manualState?.active === active ? manualState.open : active;
+  const onOpenChange = (nextOpen: boolean) => setManualState({ active, open: nextOpen });
+  return { open, onOpenChange };
+}
+
+const DATA_ICON: Record<DataKind, typeof Wrench> = {
+  "tool-call": Wrench, "tool-result": CornerDownRight, code: SquareCode, "code-result": SquareTerminal, reasoning: Brain, error: TriangleAlert, data: Braces,
+};
+const DATA_KIND_LABEL: Partial<Record<DataKind, string>> = { "tool-call": "call", "tool-result": "result" };
+
+/** Long generated ids keep their start and end, which is what people compare. */
+const shortId = (id: string) => (id.length > 14 ? `${id.slice(0, 8)}…${id.slice(-4)}` : id);
+
+/** A collapsed row that opens to show its payload: what it is, its name, its id and a short preview. */
+function StepDisclosure({ summary, busy = false, children }: { summary: DataSummary; busy?: boolean; children: React.ReactNode }) {
+  const Icon = DATA_ICON[summary.kind];
+  const named = summary.kind !== "data" && summary.kind !== "reasoning";
+  const kindLabel = DATA_KIND_LABEL[summary.kind];
+  return (
+    <details className="group/step min-w-0">
+      <summary className={cn(
+        "flex cursor-pointer list-none items-center gap-1.5 rounded-md py-0.5 text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 [&::-webkit-details-marker]:hidden",
+        summary.failed && "text-danger hover:text-danger",
+      )}>
+        <Icon className="size-3.5 shrink-0" aria-hidden />
+        <span className={cn("max-w-[45%] shrink-0 truncate font-medium text-foreground/80", named && "font-mono", summary.failed && "text-danger")}>{summary.title}</span>
+        {kindLabel && !summary.title.toLowerCase().endsWith(kindLabel) && <span className="shrink-0">{kindLabel}</span>}
+        {summary.id && <span className="shrink-0 rounded bg-muted px-1 font-mono text-[10.5px]" title={summary.id}>{shortId(summary.id)}</span>}
+        {summary.preview && <span className="min-w-0 flex-1 truncate font-mono text-[11px] opacity-80" title={summary.preview}>{summary.preview}</span>}
+        {busy && <Loader2 className="size-3 shrink-0 animate-spin" />}
+        <ChevronRight className="ml-auto size-3.5 shrink-0 transition-transform group-open/step:rotate-90" />
+      </summary>
+      <div className="mt-1.5 mb-1 min-w-0">{children}</div>
+    </details>
+  );
+}
+
+function ReasoningText({ text }: { text: string }) {
+  return <Clamp text={text} size="compact"><p className="border-l-2 pl-2.5 text-[13px] break-words whitespace-pre-wrap text-muted-foreground italic">{text}</p></Clamp>;
 }
 
 /**
- * The agent's in-between status updates, folded into one quiet log so the final answer and the result stand out.
- * Open while the task is running, folded once it has finished.
+ * One part of a background step. Text reads inline; reasoning stays folded; structured parts (tool calls, results,
+ * code, errors or any other JSON) show a one-line summary that opens to the full payload, with a raw view.
  */
-export function ProgressLog({ messages, active }: { messages: ThreadMessage[]; active: boolean }) {
+function StepPart({ part, busy = false, names }: { part: NormalizedPart; busy?: boolean; names?: ReadonlyMap<string, string> }) {
+  if (isReasoningPart(part)) {
+    const text = String(part.value);
+    return <StepDisclosure summary={{ kind: "reasoning", title: "Reasoning", preview: text.length > 80 ? `${text.slice(0, 79)}…` : text }}><ReasoningText text={text} /></StepDisclosure>;
+  }
+  const structured = part.kind === "data" || isToolPart(part);
+  // Text reads inline whatever it was labelled; the content viewer decides how (an agent's JSON or Markdown is formatted).
+  if (!structured && part.kind === "text" && typeof part.value === "string") {
+    return <div className="text-[13px] leading-relaxed text-foreground/80"><ContentViewer text={part.value} mediaType={part.mediaType} controls={false} clamp="compact" /></div>;
+  }
+  if (!structured) return <StepDisclosure summary={{ kind: "data", title: part.filename ?? "File", preview: part.mediaType }}><PartRenderer part={part} allowRaw /></StepDisclosure>;
+  const summary = describeData(part, names);
   return (
-    <Collapsible defaultOpen={active} className="w-full max-w-[560px] rounded-xl border bg-sunken/60">
-      <CollapsibleTrigger className="group/log flex w-full items-center gap-2 px-3.5 py-2.5 text-left text-xs text-muted-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50 rounded-xl">
-        {active ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />}
-        <span className="flex-1 font-medium">
-          {active ? "Working" : "Progress"} · {messages.length} update{messages.length === 1 ? "" : "s"}
-        </span>
+    <StepDisclosure summary={summary} busy={busy}>
+      {summary.kind === "reasoning" && summary.text ? <ReasoningText text={summary.text} /> : <PartRenderer part={part} allowRaw />}
+    </StepDisclosure>
+  );
+}
+
+/** A quiet, collapsible list of background steps under one heading. Open while the task runs, folded once it ends. */
+function StepLog({ icon, title, active, children }: { icon: React.ReactNode; title: string; active: boolean; children: React.ReactNode }) {
+  const disclosure = useActiveDisclosure(active);
+  return (
+    <Collapsible open={disclosure.open} onOpenChange={disclosure.onOpenChange} className="w-full max-w-[560px] rounded-xl border bg-sunken/60">
+      <CollapsibleTrigger className="group/log flex w-full items-center gap-2 rounded-xl px-3.5 py-2.5 text-left text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50">
+        {icon}
+        <span className="flex-1 font-medium">{title}</span>
         <ChevronDown className="size-4 transition-transform group-data-panel-open/log:rotate-180" />
       </CollapsibleTrigger>
       <CollapsibleContent>
-        <ol className="space-y-2 border-t px-3.5 py-3">
-          {messages.map((message) => (
-            <li key={message.id} className="flex gap-2.5 text-[13px] text-muted-foreground">
-              <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-border-strong" aria-hidden />
-              <span className="min-w-0 break-words whitespace-pre-wrap">{updateText(message)}</span>
-            </li>
-          ))}
-        </ol>
+        <ol className="relative flex flex-col gap-2.5 border-t px-3.5 py-3">{children}</ol>
       </CollapsibleContent>
     </Collapsible>
   );
 }
 
-/**
- * Tool calls and results the agent returned as structured data. They are background work, so they fold into one
- * quiet log, newest last, and each entry opens to show its JSON. Open while the task runs, folded once it finishes.
- */
-export function ActivityLog({ artifacts, active }: { artifacts: AssembledArtifact[]; active: boolean }) {
+function Step({ author, children }: { author?: string | null; children: React.ReactNode }) {
   return (
-    <Collapsible defaultOpen={active} className="w-full max-w-[560px] rounded-xl border bg-sunken/60">
-      <CollapsibleTrigger className="group/log flex w-full items-center gap-2 rounded-xl px-3.5 py-2.5 text-left text-xs text-muted-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
-        <Wrench className="size-3.5" />
-        <span className="flex-1 font-medium">
-          Activity · {artifacts.length} tool {artifacts.length === 1 ? "result" : "results"}
-        </span>
-        <ChevronDown className="size-4 transition-transform group-data-panel-open/log:rotate-180" />
-      </CollapsibleTrigger>
-      <CollapsibleContent>
-        <ul className="divide-y border-t">
-          {artifacts.map((artifact) => (
-            <li key={artifact.artifactId}>
-              <details className="group/entry px-3.5 py-2">
-                <summary className="flex cursor-pointer list-none items-center gap-2 text-[13px] text-muted-foreground">
-                  <span className="size-1.5 shrink-0 rounded-full bg-border-strong" aria-hidden />
-                  <span className="min-w-0 flex-1 truncate font-mono text-xs">{activityLabel(artifact)}</span>
-                  {!artifact.complete && <Loader2 className="size-3 animate-spin" />}
-                  <ChevronDown className="size-3.5 transition-transform group-open/entry:rotate-180" />
-                </summary>
-                <div className="mt-2 space-y-2">
-                  {artifact.parts.map((part, index) => (
-                    <PartRenderer key={`${artifact.artifactId}-${index}`} part={part} />
-                  ))}
-                </div>
-              </details>
-            </li>
-          ))}
-        </ul>
-      </CollapsibleContent>
-    </Collapsible>
+    <li className="flex min-w-0 gap-2.5">
+      <span className="mt-[7px] size-1.5 shrink-0 rounded-full bg-border-strong" aria-hidden />
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        {author && <span className="font-mono text-[11px] text-muted-foreground">{author}</span>}
+        {children}
+      </div>
+    </li>
+  );
+}
+
+/**
+ * The agent's in-between status updates, folded into one quiet log so the reply, questions and results stand out.
+ * Text updates read inline; tool calls, reasoning and other structured parts open to their content.
+ */
+export function ProgressLog({ messages, active, agentName = "Agent" }: { messages: ThreadMessage[]; active: boolean; agentName?: string }) {
+  const count = `${messages.length} ${messages.length === 1 ? "update" : "updates"}`;
+  const names = callNames(messages.flatMap((message) => message.parts));
+  return (
+    <StepLog active={active} title={`${active ? "Working" : "Progress"} · ${count}`}
+      icon={active ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />}>
+      {messages.map((message) => (
+        <Step key={message.id} author={statusAuthor(message, agentName)}>
+          {message.parts.length === 0 ? <span className="text-[13px] text-muted-foreground">Update</span>
+            : message.parts.map((part, index) => <StepPart key={part.id ?? index} part={part} names={names} />)}
+        </Step>
+      ))}
+    </StepLog>
+  );
+}
+
+/**
+ * Tool calls, results and reasoning the agent returned outside status updates. They are background work, so they fold
+ * into one quiet log, newest last, and each entry opens to show its content.
+ */
+export function ActivityLog({ artifacts, messages = [], active }: { artifacts: AssembledArtifact[]; messages?: ThreadMessage[]; active: boolean }) {
+  const entries = [
+    ...messages.map((message) => ({ id: `message:${message.id}`, parts: message.parts, complete: true })),
+    ...artifacts.map((artifact) => ({ id: `artifact:${artifact.artifactId}`, parts: artifact.parts, complete: artifact.complete })),
+  ];
+  const names = callNames(entries.flatMap((entry) => entry.parts));
+  return (
+    <StepLog active={active} title={`Activity · ${entries.length} step${entries.length === 1 ? "" : "s"}`} icon={<Wrench className="size-3.5" />}>
+      {entries.map((entry) => (
+        <Step key={entry.id}>
+          {entry.parts.map((part, index) => <StepPart key={`${entry.id}-${index}`} part={part} busy={!entry.complete} names={names} />)}
+        </Step>
+      ))}
+    </StepLog>
   );
 }
 
@@ -272,39 +340,30 @@ export function TaskCard({ task, canceling, onCancel }: { task: TrackedTask; can
   );
 }
 
+/**
+ * The outcome of a task, set apart from the conversation. A text result reads like prose (formatted when it is Markdown);
+ * other parts render as tables, trees, media or downloads.
+ */
 export function ArtifactCard({ artifact }: { artifact: AssembledArtifact }) {
   const textParts = artifact.parts.filter((part) => part.kind === "text");
   const otherParts = artifact.parts.filter((part) => part.kind !== "text");
-  // A text-only artifact is the agent's answer, so it reads like a chat reply rather than a data card.
-  if (textParts.length > 0 && otherParts.length === 0) {
-    const caption = artifact.name && artifact.name !== artifact.artifactId ? artifact.name : null;
-    return (
-      <motion.section {...enter} aria-label="Result" className="flex max-w-[92%] flex-col gap-1.5 self-start rounded-2xl rounded-bl-sm border bg-popover px-3.5 py-2.5 sm:max-w-[82%]">
-        {caption && <span className="text-xs font-medium text-muted-foreground">{caption}</span>}
-        <div>
-          {textParts.map((part) => <BubblePart key={part.id} part={part} />)}
-          {!artifact.complete && <span className="text-brand-text animate-caret">▌</span>}
-        </div>
-      </motion.section>
-    );
-  }
+  const title = artifact.name && artifact.name !== artifact.artifactId ? artifact.name : null;
   return (
-    <motion.section {...enter} className="flex w-full flex-col gap-3 rounded-2xl border border-brand/40 bg-card p-4 shadow-elevated">
+    <motion.section {...enter} aria-label="Result" className="flex w-full flex-col gap-3 rounded-2xl border border-brand/30 bg-card p-4 shadow-elevated">
       <div className="flex flex-wrap items-center gap-2">
         <Pill tone="brand">Result</Pill>
-        <h3 className="min-w-0 flex-1 truncate font-heading text-base font-semibold">{artifact.name ?? artifact.artifactId}</h3>
+        {title ? <h3 className="min-w-0 flex-1 truncate font-heading text-[15px] font-semibold">{title}</h3> : <span className="flex-1" />}
         <StateChip state={artifact.complete ? "COMPLETED" : "WORKING"} />
       </div>
-      {artifact.description && <p className="text-muted-foreground text-xs">{artifact.description}</p>}
+      {artifact.description && <p className="text-muted-foreground -mt-1 text-xs">{artifact.description}</p>}
       {textParts.length > 0 && (
-        <div className="bg-background min-h-20 rounded-lg border p-4 font-mono text-[13px] leading-relaxed break-words whitespace-pre-wrap">
-          {textParts.map((part) => String(part.value)).join("")}
-          {!artifact.complete && <span className="text-brand-text animate-caret">▌</span>}
+        <div className="flex flex-col gap-3 text-sm leading-relaxed">
+          {textParts.map((part, index) => <ContentViewer key={part.id ?? index} text={String(part.value)} mediaType={part.mediaType} streaming={!artifact.complete && index === textParts.length - 1} />)}
         </div>
       )}
       {!artifact.complete && textParts.length === 0 && (
-        <div className="text-muted-foreground flex items-center gap-2 font-mono text-xs">
-          <Loader2 className="size-3.5 animate-spin" /> streaming…
+        <div className="text-muted-foreground flex items-center gap-2 text-xs">
+          <Loader2 className="size-3.5 animate-spin" /> Streaming…
         </div>
       )}
       {otherParts.map((part, index) => (

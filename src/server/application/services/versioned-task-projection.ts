@@ -60,7 +60,13 @@ export function reduceTaskLedger(task: TaskRecord, agentName: string, ledger: Ta
       view = projectTaskEvent(view, json({ message }), row.receivedAt.toISOString(), message.messageId, false);
       if (fromStatus) {
         const projected = view.messages.find((item) => item.id === message.messageId);
-        if (projected) projected.fromStatus = true;
+        if (projected) {
+          projected.fromStatus = true;
+          if (state) projected.statusState = state;
+          // A status update can carry metadata about its message on the event (Google ADK puts `adk_author` there).
+          const eventMetadata = ["statusUpdate", "taskStatusUpdate"].includes(kind) ? object(subject.metadata) : {};
+          if (Object.keys(eventMetadata).length) projected.metadata = { ...eventMetadata, ...projected.metadata };
+        }
       }
     }
     const cleanSubject = { ...subject };

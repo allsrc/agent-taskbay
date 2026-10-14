@@ -6,9 +6,10 @@ Agents send messages and artifacts made of parts: text, structured data, files, 
 
 ## The rule
 
-- Agent text is shown as text through React. It is not interpreted as HTML.
+- Agent text is shown as text through React unless its declared type selects Markdown, JSON or CSV, the content reads as Markdown or JSON, or you choose another viewing mode. Detection never rewrites content and never selects HTML. Your own messages follow the type you sent them as; detection only suggests a view for them.
+- Agents often declare the wrong type. A declared type is used only when the content fits it: JSON must parse, CSV must have at least two rows of the same two or more columns, and Markdown must not be a JSON value or a whole HTML page. When it does not fit, an agent's content decides between JSON and Markdown, else it is shown as text. A label of `text/html` never renders HTML: markup is shown as contained source with **Preview HTML**, and HTML-labelled text without markup is plain text.
 - Markdown is rendered with GitHub-flavored Markdown. Markdown images are not loaded (a placeholder is shown instead).
-- No script, HTML document or SVG from an agent is evaluated or embedded.
+- HTML has two opt-in views: **Sanitized HTML** inline strips styles, active elements and URL attributes; **Rich HTML preview** opens a sanitized document in a modal iframe with an empty sandbox. The rich view retains inline CSS, but its CSP blocks scripts, network access, remote assets, nested frames and form submissions. Links, forms, SVG and active elements are removed from both views. Agent JavaScript is never executed.
 - Remote URLs in parts are not loaded, followed or opened automatically. The renderer only loads local artifact URLs of the form `/api/artifacts/<64 hex digest>`.
 - Files are stored by the server and served as attachments (`Content-Disposition: attachment`, `application/octet-stream`, `nosniff`, `no-store`, and a `default-src 'none'; sandbox` CSP). A user can download one only if they can currently read a task that references that digest. Agent-supplied URLs or metadata cannot grant access to a file.
 
@@ -16,14 +17,21 @@ Agents send messages and artifacts made of parts: text, structured data, files, 
 
 | Part | Rendering |
 | --- | --- |
-| `text/plain` | Plain text, whitespace kept |
-| `text/markdown`, or text that looks like Markdown | Markdown (GFM tables, lists, code). Remote images omitted |
+| `text/plain` | Plain text, whitespace kept. An agent's text that reads as Markdown or JSON is shown that way |
+| `text/markdown` | Markdown (GFM tables, lists, code). Remote images omitted |
+| Text that looks like CSV or HTML, or anything in your own messages | A suggested view; Auto does not change. HTML always starts as contained source text |
+| Text whose content does not fit its declared type (for example JSON labelled `text/html`) | The view that fits the content, as described above |
 | `application/json` and other JSON | Table when it is a list of objects, otherwise a collapsible tree. A "Structured" toggle is available |
+| JSON in progress and activity logs | A one-line summary (kind, name or title, id, preview) that opens to the table or tree. See `src/lib/data-part.ts` for the recognized tool-call, result and reasoning shapes |
+
+Long content is folded, never cut. Text over about 20 lines or 2,400 characters (6 lines or 600 characters in progress steps, reasoning and JSON values) shows to a fixed height with a fade and a **Show all N lines** toggle. A multi-line string inside JSON keeps its line breaks. JSON trees and tables show the first 100 entries or rows with **Show more**, and an expanded data card scrolls inside a capped height. The full content stays in the page.
 | CSV | Table |
 | Images, audio, video, PDF | Shown inline only when the bytes were archived by the server. Remote media URLs are not loaded |
 | Anything else | A download card |
 
 Each part shows its media type and a view switcher. A "Raw" view appears only where the screen enables it. An "Experimental" rich-JSON view exists in the component code, but no current screen switches it on, so you will not see it.
+
+The shared text viewer appears in sent and received messages, progress and activity steps, and results. Ordinary text shows no controls. When another view is useful, small controls appear under the text: a one-click **Format as …** / **Plain text** toggle, **Preview HTML** for declared or detected HTML, and a **⋯** menu naming the declared type and listing Auto, Text, Markdown, JSON (when valid), CSV (when applicable) and Sanitized HTML. Controls are hidden while text streams in and in progress steps. **Preview HTML** uses a dialog on desktop and a sheet on phones. Choices live only in component state and reset when the viewer is remounted; they do not change outgoing messages, stored parts or database content. Invalid or incomplete JSON falls back to Text.
 
 Inline binary parts are archived by the server when the event is ingested, and the rendered part points to that local copy. The server does not fetch remote URLs that an agent names, and your browser does not either. The original protocol JSON is archived by digest.
 
@@ -78,7 +86,7 @@ Frontend `tools`, `context`, `state` and `forwardedProps` are ignored. Non-text 
 
 ## What is never executed or loaded
 
-- Agent HTML, JavaScript or SVG.
+- Agent JavaScript or SVG. HTML previews are sanitized and opt-in; rich-preview CSS is confined to the iframe and cannot load resources.
 - Regular expressions from agents (form `pattern`, A2UI `validationRegexp`).
 - Remote images, audio, video, iframes and downloads.
 - Function calls and `openUrl` in A2UI.

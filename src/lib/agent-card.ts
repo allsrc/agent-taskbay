@@ -38,6 +38,8 @@ const SCHEME_LABELS: Record<string, string> = {
   mutualtls: "mutual TLS",
 };
 
+export const defaultReturnImmediately = (savedDefault: boolean, supportsStreaming: boolean) => savedDefault || supportsStreaming;
+
 function schemeLabel(scheme: unknown, fallback: string): string {
   if (!isObj(scheme)) return fallback;
   // v1.0 wraps the scheme in a oneof-style field (`oauth2SecurityScheme`, ...); v0.3 uses `type`.

@@ -29,7 +29,7 @@ export function OptionsPanel(props: OptionsPanelProps) {
         <Switch checked={props.returnImmediately} onCheckedChange={props.onReturnImmediately} aria-label="returnImmediately" className="mt-0.5" />
         <span>
           <span className="block font-mono text-xs font-semibold">returnImmediately</span>
-          <span className="text-muted-foreground block text-xs">Get the Task back as soon as it&apos;s created instead of waiting for it to finish or need input.</span>
+          <span className="text-muted-foreground block text-xs">Get the Task as soon as it&apos;s created. For streaming agents, Taskbay then follows live task updates.</span>
         </span>
       </label>
 

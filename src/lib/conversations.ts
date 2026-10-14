@@ -7,6 +7,9 @@ export const conversationKey = (task: TrackedTask) => {
   return `c-${encoded.replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "")}`;
 };
 
+export const shouldAdoptConversationKey = (currentKey: string | undefined, nextKey: string, previouslyLandedKey: string | undefined) =>
+  nextKey !== currentKey && nextKey !== previouslyLandedKey;
+
 export interface Conversation {
   key: string;
   agentId: string;

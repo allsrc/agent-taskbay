@@ -12,6 +12,7 @@ Agent Taskbay is **pre-1.0**. The package version is `0.2.0` and it is published
 
 | Capability | Proved by |
 | --- | --- |
+| Frontend-only content-view overrides and opt-in sanitized/styled HTML previews; no script execution or remote assets | `npm test` (`content-view.test.ts`, `html-preview.test.ts`, `content-viewer.test.tsx`); cross-browser verification remains open |
 | Register agents from an Agent Card; A2A 1.0 over JSON-RPC and HTTP+JSON through the official SDK | `npm test`, `npm run test:http` (`verify-task-http.mjs`) |
 | Send a task, stream it, cancel it, and see it again after the browser closes and the server restarts | `npm run test:db` and `npm run test:http` (`verify-task-http.mjs`) |
 | Webhook (push) and polling reconciliation feeding the same idempotent ingestion path | `npm run test:db` (`push.db.test.ts`, `reconciliation.db.test.ts`) |
