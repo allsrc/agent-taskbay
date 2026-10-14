@@ -128,7 +128,8 @@ export const settleArtifacts = (artifacts: AssembledArtifact[], taskFinished: bo
  * Decides where each message of a task goes. Tool-only agent messages fold into the activity log. An update (status
  * text the agent sends while it works, or an agent message followed straight away by another agent message) folds
  * into the progress log. Once the task stops working, to ask you something or because it ended, its last message is
- * the agent speaking to you and stays in the conversation, unless it is only tool traffic or repeats a finished result.
+ * the agent speaking to you and stays in the conversation, unless it is only tool traffic, repeats a finished result,
+ * or was a working update followed by results.
  */
 export function planMessages(task: Pick<TrackedTask, "kind" | "state" | "messages">, results: AssembledArtifact[]) {
   const { messages } = task;
@@ -136,8 +137,14 @@ export function planMessages(task: Pick<TrackedTask, "kind" | "state" | "message
   const isTask = task.kind !== "message";
   const activityMessages = messages.filter((message) => message.role === "agent" && !message.fromStatus && isActivityMessage(message));
   const activityIds = new Set(activityMessages.map((message) => message.id));
-  const working = ["SUBMITTED", "WORKING"].includes(stateName(task.state));
-  const speaks = (index: number) => index === lastIndex && !working && !isActivityMessage(messages[index]);
+  const isWorking = (state: string) => ["SUBMITTED", "WORKING"].includes(stateName(state));
+  // A status message the agent sent while still working ("Summarizing…") is progress even when nothing followed it,
+  // unless the task produced no result, in which case it is all the agent said.
+  const speaks = (index: number) => {
+    const message = messages[index];
+    if (index !== lastIndex || isWorking(task.state) || isActivityMessage(message)) return false;
+    return !(message.fromStatus && message.statusState && isWorking(message.statusState) && results.length > 0);
+  };
   const isUpdate = (index: number) => {
     const message = messages[index];
     return isTask && message?.role === "agent" && !activityIds.has(message.id) && !speaks(index) &&

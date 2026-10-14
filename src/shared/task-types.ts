@@ -11,8 +11,10 @@ export interface ThreadMessage {
   metadata?: Record<string, unknown>;
   /** Tasks this message referenced via `referenceTaskIds`. */
   referenceTaskIds?: string[];
-  /** True when this message is the agent's question/prompt attached to an INPUT_REQUIRED / AUTH_REQUIRED status. */
+  /** True when the message arrived as a task status message (`status.message`), whatever the state. */
   fromStatus?: boolean;
+  /** The task state of the status that carried this message, when it came from one. */
+  statusState?: string;
 }
 
 export interface StatusTransition {

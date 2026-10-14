@@ -36,9 +36,11 @@ export function SenderLabel({ who, name, id }: { who: "you" | "agent"; name: str
 export function UserBubble({ message }: { message: ThreadMessage }) {
   return (
     <motion.div {...enter} className="bg-brand-soft text-foreground border-brand/15 min-w-0 max-w-[92%] sm:max-w-[82%] self-end rounded-2xl rounded-br-sm border px-3.5 py-2.5">
-      {message.parts.map((part, index) => (
-        <BubblePart key={index} part={part} onUser />
-      ))}
+      <div className="flex flex-col gap-3">
+        {message.parts.map((part, index) => (
+          <BubblePart key={index} part={part} onUser />
+        ))}
+      </div>
     </motion.div>
   );
 }
@@ -97,7 +99,7 @@ export function AgentBubble({
           <p className="mt-1 break-words whitespace-pre-wrap">{message.parts.filter(isReasoningPart).map((part) => String(part.value)).join("\n")}</p>
         </details>
       )}
-      <div>
+      <div className="flex flex-col gap-3">
         {message.parts
           .filter((part) => !isReasoningPart(part))
           // The options list is shown as buttons below; don't echo it as raw JSON too.
@@ -192,7 +194,8 @@ function StepPart({ part, busy = false }: { part: NormalizedPart; busy?: boolean
       </StepDisclosure>
     );
   }
-  if (part.kind === "text" && typeof part.value === "string" && !/json/i.test(part.mediaType)) {
+  // Text reads inline whatever it was labelled; the content viewer decides how (an agent's JSON or Markdown is formatted).
+  if (part.kind === "text" && typeof part.value === "string") {
     return <div className="text-[13px] leading-relaxed text-foreground/80"><ContentViewer text={part.value} mediaType={part.mediaType} controls={false} /></div>;
   }
   return (

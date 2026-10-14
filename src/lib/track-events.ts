@@ -97,11 +97,12 @@ export function applyEvents(events: unknown[], base: TrackedTask, localReplyId: 
 
   const status = isObject(task.status) ? task.status : {};
   const history = (Array.isArray(task.history) ? task.history : []).filter(isObject).map((item) => toThreadMessage(item));
-  const statusMessage = isObject(status.message) ? toThreadMessage(status.message, true) : undefined;
+  const statusState = typeof status.state === "string" ? status.state : undefined;
+  const statusMessage = isObject(status.message) ? { ...toThreadMessage(status.message, true), statusState } : undefined;
   const incoming = [...history];
   if (statusMessage) {
     const at = incoming.findIndex((message) => message.id === statusMessage.id);
-    if (at >= 0) incoming[at] = { ...incoming[at], fromStatus: true };
+    if (at >= 0) incoming[at] = { ...incoming[at], fromStatus: true, statusState };
     else incoming.push(statusMessage);
   }
   // Task-scoped messages that arrived standalone (not in history yet).

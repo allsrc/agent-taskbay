@@ -39,6 +39,7 @@ export function projectTaskEvent(base: DurableTaskView, event: JsonValue, receiv
       metadata: Object.keys(metadata).length ? metadata : undefined,
       referenceTaskIds: Array.isArray(raw.referenceTaskIds) ? raw.referenceTaskIds.map(String) : undefined,
       fromStatus,
+      statusState: statusMessageId !== undefined && statusMessageId === raw.messageId && typeof status.state === "string" ? status.state : known?.statusState,
     };
     messages.set(id, message);
   }

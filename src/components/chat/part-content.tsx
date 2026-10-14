@@ -14,13 +14,13 @@ export function BubblePart({ part, onUser = false }: { part: NormalizedPart; onU
     const kind = part.kind === "raw" ? "FILE" : part.kind === "url" ? "URL" : "DATA";
     const name = part.filename ?? (part.kind === "url" ? String(part.value) : "file");
     return (
-      <div className="border-border bg-background mt-2 rounded-lg border px-2 py-1.5 font-mono text-[11.5px] font-medium">
+      <div className="border-border bg-background rounded-lg border px-2 py-1.5 font-mono text-[11.5px] font-medium">
         {kind} · {name}
       </div>
     );
   }
   return (
-    <div className="mt-1 w-full">
+    <div className="w-full">
       <PartRenderer part={part} />
     </div>
   );

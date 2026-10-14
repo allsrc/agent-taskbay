@@ -22,6 +22,7 @@ the project uses [semantic versioning](https://semver.org/) once it reaches 1.0;
 ### Fixed
 
 - In chat, a question the agent asks (input or authorization required) and its final reply stay in the conversation instead of being folded into the Progress log, so quick replies and forms show again.
+- A status update's event metadata (such as Google ADK's `adk_author`) now reaches its message in stored task projections; before, only a direct projection kept it. Stored status messages also record the state they arrived with, so a working update followed by a result is not shown as the reply. Run `npm run db:projections:rebuild` to refresh tasks recorded earlier; they also refresh on their next event.
 
 ## [0.2.0] - 2026-10-14
 
