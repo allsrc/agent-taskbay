@@ -93,6 +93,7 @@ Credentials are bound to origins: a credential is sent only to the origins liste
 
 | Feature | Status | Evidence in the repository |
 | --- | --- | --- |
+| Local content-view overrides, sanitized inline HTML and isolated styled HTML preview | Implemented; no cross-browser verification | `content-view.test.ts`, `html-preview.test.ts`, `content-viewer.test.tsx`; [Rich content](../concepts/rich-content.md) |
 | Agent catalog, discovery, compliance report | Implemented | `src/lib/compliance.ts`, `verify-task-http` |
 | Durable commands, dispatch, idempotency, uncertain outcomes | Implemented | `commands.db.test.ts`, `verify-task-http` |
 | Streaming observation, push, polling reconciliation, projections, rebuild | Implemented | `*.db.test.ts`, `verify-task-http` |

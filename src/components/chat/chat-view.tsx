@@ -11,14 +11,15 @@ import { StructuredForm } from "@/components/chat/structured-form";
 import { startFormFromCard } from "@/lib/structured-form";
 import { A2uiSurfaces } from "@/components/a2ui/surface";
 import { A2UI_EXTENSION_URI, a2uiClientMetadata, surfacesFromParts } from "@/lib/a2ui";
-import { isActivityArtifact, isReasoningOnly, repeatsArtifact, settleArtifacts } from "@/lib/chat-activity";
+import { isActivityArtifact, isActivityMessage, repeatsArtifact, settleArtifacts } from "@/lib/chat-activity";
 import { ActivityLog, AgentBubble, ArtifactCard, ProgressLog, SenderLabel, TaskCard, UserBubble } from "@/components/chat/timeline";
 import { SideRail, useIsDesktop, type RailTab } from "@/components/chat/side-rail";
 import { Button } from "@/components/ui/button";
 import { NativeSelect } from "@/components/ui/native-select";
-import { conversationKey, findConversation, groupConversations, isOpenTask } from "@/lib/conversations";
+import { conversationKey, findConversation, groupConversations, isOpenTask, shouldAdoptConversationKey } from "@/lib/conversations";
 import type { OutgoingPart } from "@/lib/message-parts";
 import type { WireEntry } from "@/lib/wire-sequence";
+import { defaultReturnImmediately } from "@/lib/agent-card";
 import { runSend, userThreadMessage } from "@/lib/run-message";
 import { isActiveState, stateName } from "@/lib/task-view";
 import { useAgentStore } from "@/store/agent-store";
@@ -48,7 +49,8 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
   const [railOpen, setRailOpen] = useState(true);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [railTab, setRailTab] = useState<RailTab>("sequence");
-  const [returnImmediately, setReturnImmediately] = useState(settings.returnImmediately);
+  const [returnImmediatelyOverride, setReturnImmediatelyOverride] = useState<boolean | null>(null);
+  const returnImmediately = returnImmediatelyOverride ?? defaultReturnImmediately(settings.returnImmediately, Boolean(view?.streaming));
   const [historyLength, setHistoryLength] = useState(settings.historyLength);
   const [outOverride, setOutOverride] = useState<string[] | null>(null);
   const [refIds, setRefIds] = useState<string[]>([]);
@@ -156,9 +158,12 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
         { skillId, agentId, agentName: view?.name ?? conversation?.agentName ?? "Agent", parts, taskId: effectiveTarget?.taskId, contextId, tenant: tasks[0]?.tenant, config, userMessage, base },
         {
           onUpdate: (next) => {
-            landed = conversationKey(next);
+            const nextKey = conversationKey(next);
+            const adoptConversation = shouldAdoptConversationKey(key, nextKey, landed);
+            landed = nextKey;
             if (next.messages.some((message) => message.id === userMessage.id)) setPending(null);
             upsertTask(next);
+            if (adoptConversation) setKey(nextKey);
           },
           onError: setError,
           onRawEvent: (event) => {
@@ -175,7 +180,6 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
       setSending(false);
       setPending(null);
       if (landed && landed !== key) {
-        setKey(landed);
         // Reflect the new conversation in the URL without remounting (keeps wire log and options).
         window.history.replaceState(null, "", `/chat/${landed}`);
       }
@@ -257,12 +261,15 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
               const lastIndex = task.messages.length - 1;
               const settled = settleArtifacts(task.artifacts, task.kind !== "message" && !isActiveState(task.state));
               const activity = settled.filter(isActivityArtifact);
+              const activityMessages = task.messages.filter((message) => message.role === "agent" && !message.fromStatus && isActivityMessage(message));
+              const activityMessageIds = new Set(activityMessages.map((message) => message.id));
               const results = settled.filter((artifact) => !isActivityArtifact(artifact));
               // The last message is dropped when it only repeats a finished result, so the answer appears once.
               const repeated = task.kind !== "message" && !isOpenTask(task) && lastIndex >= 0 && task.messages[lastIndex].role === "agent" && repeatsArtifact(task.messages[lastIndex], results);
               // An update is a status message, or an agent message followed straight away by another agent message (it was not the reply).
               const isUpdate = (message: ThreadMessage, index: number) =>
-                task.kind !== "message" && message.role === "agent" && (isReasoningOnly(message) || (index !== lastIndex && (Boolean(message.fromStatus) || task.messages[index + 1]?.role === "agent")));
+                task.kind !== "message" && message.role === "agent" && !activityMessageIds.has(message.id) &&
+                (Boolean(message.fromStatus) || (index !== lastIndex && task.messages[index + 1]?.role === "agent"));
               // Each run of consecutive updates becomes its own log, so the conversation keeps its order.
               const runs = new Map<number, ThreadMessage[]>();
               task.messages.forEach((message, index) => {
@@ -272,7 +279,7 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
                 else for (const [start, list] of runs) if (start + list.length === index) list.push(message);
               });
               const rows = task.messages.flatMap((message, index) => [
-                ...(isUpdate(message, index) || (repeated && index === lastIndex) ? [] : [
+                ...(activityMessageIds.has(message.id) || isUpdate(message, index) || (repeated && index === lastIndex) ? [] : [
                   ...sender(message.role === "user" ? "you" : "agent", message.id),
                   message.role === "user" ? (
                     <UserBubble key={message.id} message={message} />
@@ -283,7 +290,7 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
                   ),
                 ]),
                 ...(index === cardAt ? [<TaskCard key={`card-${task.taskId}`} task={task} canceling={cancelingId === task.taskId} onCancel={() => void cancelTask(task)} />] : []),
-                ...(runs.has(index) ? [...sender("agent", `log-${message.id}`), <ProgressLog key={`log-${message.id}`} messages={runs.get(index)!} active={isOpenTask(task)} />] : []),
+                ...(runs.has(index) ? [...sender("agent", `log-${message.id}`), <ProgressLog key={`log-${message.id}`} messages={runs.get(index)!} active={isOpenTask(task)} agentName={name} />] : []),
               ]);
               return (
                 <div key={task.taskId} className="flex flex-col gap-3.5">
@@ -295,7 +302,7 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
                   {task.kind !== "message" && task.messages.length === 0 && (
                     <TaskCard task={task} canceling={cancelingId === task.taskId} onCancel={() => void cancelTask(task)} />
                   )}
-                  {activity.length > 0 && [...sender("agent", `act-${task.taskId}`), <ActivityLog key="activity" artifacts={activity} active={isOpenTask(task)} />]}
+                  {(activity.length > 0 || activityMessages.length > 0) && [...sender("agent", `act-${task.taskId}`), <ActivityLog key="activity" artifacts={activity} messages={activityMessages} active={isOpenTask(task)} />]}
                   {results.flatMap((artifact) => [...sender("agent", artifact.artifactId), <ArtifactCard key={artifact.artifactId} artifact={artifact} />])}
                 </div>
               );
@@ -377,7 +384,7 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
         agentName={name}
         options={{
           returnImmediately,
-          onReturnImmediately: setReturnImmediately,
+          onReturnImmediately: setReturnImmediatelyOverride,
           historyLength,
           onHistoryLength: setHistoryLength,
           outputModes,

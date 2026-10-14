@@ -6,9 +6,9 @@ Agents send messages and artifacts made of parts: text, structured data, files, 
 
 ## The rule
 
-- Agent text is shown as text through React. It is not interpreted as HTML.
+- Agent text is shown as text through React unless its declared type selects Markdown, JSON or CSV, or you choose another viewing mode. Detection only suggests a view; it never rewrites content or selects HTML automatically.
 - Markdown is rendered with GitHub-flavored Markdown. Markdown images are not loaded (a placeholder is shown instead).
-- No script, HTML document or SVG from an agent is evaluated or embedded.
+- HTML has two opt-in views: **Sanitized HTML** inline strips styles, active elements and URL attributes; **Rich HTML preview** opens a sanitized document in a modal iframe with an empty sandbox. The rich view retains inline CSS, but its CSP blocks scripts, network access, remote assets, nested frames and form submissions. Links, forms, SVG and active elements are removed from both views. Agent JavaScript is never executed.
 - Remote URLs in parts are not loaded, followed or opened automatically. The renderer only loads local artifact URLs of the form `/api/artifacts/<64 hex digest>`.
 - Files are stored by the server and served as attachments (`Content-Disposition: attachment`, `application/octet-stream`, `nosniff`, `no-store`, and a `default-src 'none'; sandbox` CSP). A user can download one only if they can currently read a task that references that digest. Agent-supplied URLs or metadata cannot grant access to a file.
 
@@ -17,13 +17,16 @@ Agents send messages and artifacts made of parts: text, structured data, files, 
 | Part | Rendering |
 | --- | --- |
 | `text/plain` | Plain text, whitespace kept |
-| `text/markdown`, or text that looks like Markdown | Markdown (GFM tables, lists, code). Remote images omitted |
+| `text/markdown` | Markdown (GFM tables, lists, code). Remote images omitted |
+| Text that looks like Markdown, JSON, CSV or HTML | A suggested view; the declared type still controls Auto. HTML always starts as text |
 | `application/json` and other JSON | Table when it is a list of objects, otherwise a collapsible tree. A "Structured" toggle is available |
 | CSV | Table |
 | Images, audio, video, PDF | Shown inline only when the bytes were archived by the server. Remote media URLs are not loaded |
 | Anything else | A download card |
 
 Each part shows its media type and a view switcher. A "Raw" view appears only where the screen enables it. An "Experimental" rich-JSON view exists in the component code, but no current screen switches it on, so you will not see it.
+
+The shared text viewer appears in sent and received messages, status/activity details and results. A compact footer shows the original MIME type, an optional suggested format (confidence on hover), and a **Content view** selector for Auto, Text, Markdown, JSON (when valid), CSV (when applicable), or Sanitized HTML. Auto names its effective format in the selector. The expand icon appears for declared, detected or explicitly selected HTML and opens **Rich HTML preview**, using a dialog on desktop and a sheet on phones. Result-card text starts in Text mode. Choices live only in component state and reset when the viewer is remounted; they do not change outgoing messages, stored parts or database content. Invalid or incomplete JSON falls back to Text.
 
 Inline binary parts are archived by the server when the event is ingested, and the rendered part points to that local copy. The server does not fetch remote URLs that an agent names, and your browser does not either. The original protocol JSON is archived by digest.
 
@@ -78,7 +81,7 @@ Frontend `tools`, `context`, `state` and `forwardedProps` are ignored. Non-text 
 
 ## What is never executed or loaded
 
-- Agent HTML, JavaScript or SVG.
+- Agent JavaScript or SVG. HTML previews are sanitized and opt-in; rich-preview CSS is confined to the iframe and cannot load resources.
 - Regular expressions from agents (form `pattern`, A2UI `validationRegexp`).
 - Remote images, audio, video, iframes and downloads.
 - Function calls and `openUrl` in A2UI.

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Ban, Check, ChevronDown, Circle, Loader2, Wrench, X } from "lucide-react";
 import { motion } from "motion/react";
 import { BubblePart } from "@/components/chat/part-content";
@@ -11,11 +12,12 @@ import type { ThreadMessage, TrackedTask } from "@/store/task-store";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { PartRenderer } from "@/components/PartRenderer";
+import { ContentViewer } from "@/components/content-viewer";
 import { cn } from "@/lib/utils";
 import { StructuredForm } from "@/components/chat/structured-form";
 import { formFromPart, type FormSubmission } from "@/lib/structured-form";
 import { isA2uiPart } from "@/lib/a2ui";
-import { activityLabel, isReasoningOnly, isReasoningPart } from "@/lib/chat-activity";
+import { activityLabel, activityMessageLabel, isReasoningOnly, isReasoningPart, statusAuthorLabel } from "@/lib/chat-activity";
 
 const enter = { initial: { opacity: 0, y: 8 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.2, ease: "easeOut" as const } };
 
@@ -33,7 +35,7 @@ export function SenderLabel({ who, name, id }: { who: "you" | "agent"; name: str
 
 export function UserBubble({ message }: { message: ThreadMessage }) {
   return (
-    <motion.div {...enter} className="bg-primary text-primary-foreground max-w-[92%] sm:max-w-[82%] self-end rounded-2xl rounded-br-sm px-3.5 py-2.5">
+    <motion.div {...enter} className="bg-secondary text-secondary-foreground border-border min-w-0 max-w-[92%] sm:max-w-[82%] self-end rounded-2xl rounded-br-sm border px-3.5 py-2.5">
       {message.parts.map((part, index) => (
         <BubblePart key={index} part={part} onUser />
       ))}
@@ -154,18 +156,28 @@ function stepsFor(task: TrackedTask): Array<{ label: string; status: "done" | "a
 
 /** Short text for one in-between update; non-text parts show their kind. */
 function updateText(message: ThreadMessage): string {
-  const text = message.parts.map((part) => (part.kind === "text" ? String(part.value) : `[${part.kind}]`)).join(" ").trim();
-  if (isReasoningOnly(message)) return `Reasoning · ${text}`;
-  return text || "Update";
+  const text = message.parts
+    .filter((part) => part.kind === "text" && !/json/i.test(part.mediaType) && !isReasoningPart(part))
+    .map((part) => String(part.value)).join(" ").trim();
+  if (isReasoningOnly(message)) return `Reasoning · ${message.parts.map((part) => String(part.value)).join(" ").trim()}`;
+  return text || (message.parts.length === 0 ? "Update" : "");
+}
+
+function useActiveDisclosure(active: boolean) {
+  const [manualState, setManualState] = useState<{ active: boolean; open: boolean } | null>(null);
+  const open = manualState?.active === active ? manualState.open : active;
+  const onOpenChange = (nextOpen: boolean) => setManualState({ active, open: nextOpen });
+  return { open, onOpenChange };
 }
 
 /**
  * The agent's in-between status updates, folded into one quiet log so the final answer and the result stand out.
  * Open while the task is running, folded once it has finished.
  */
-export function ProgressLog({ messages, active }: { messages: ThreadMessage[]; active: boolean }) {
+export function ProgressLog({ messages, active, agentName = "Agent" }: { messages: ThreadMessage[]; active: boolean; agentName?: string }) {
+  const disclosure = useActiveDisclosure(active);
   return (
-    <Collapsible defaultOpen={active} className="w-full max-w-[560px] rounded-xl border bg-sunken/60">
+    <Collapsible open={disclosure.open} onOpenChange={disclosure.onOpenChange} className="w-full max-w-[560px] rounded-xl border bg-sunken/60">
       <CollapsibleTrigger className="group/log flex w-full items-center gap-2 px-3.5 py-2.5 text-left text-xs text-muted-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50 rounded-xl">
         {active ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />}
         <span className="flex-1 font-medium">
@@ -178,7 +190,16 @@ export function ProgressLog({ messages, active }: { messages: ThreadMessage[]; a
           {messages.map((message) => (
             <li key={message.id} className="flex gap-2.5 text-[13px] text-muted-foreground">
               <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-border-strong" aria-hidden />
-              <span className="min-w-0 break-words whitespace-pre-wrap">{updateText(message)}</span>
+              <div className="min-w-0 flex-1 space-y-1.5">
+                {message.fromStatus && <span className="block text-xs font-medium">{statusAuthorLabel(message, agentName)}</span>}
+                {updateText(message) && <span className="block break-words whitespace-pre-wrap">{updateText(message)}</span>}
+                {message.parts.map((part, index) => (
+                  <details key={`${message.id}-${index}`} className="rounded-md border bg-background/60 px-2.5 py-1.5">
+                    <summary className="cursor-pointer text-xs font-medium">{part.mediaType || part.kind} · Details</summary>
+                    <div className="mt-2"><PartRenderer part={part} allowRaw /></div>
+                  </details>
+                ))}
+              </div>
             </li>
           ))}
         </ol>
@@ -191,30 +212,35 @@ export function ProgressLog({ messages, active }: { messages: ThreadMessage[]; a
  * Tool calls and results the agent returned as structured data. They are background work, so they fold into one
  * quiet log, newest last, and each entry opens to show its JSON. Open while the task runs, folded once it finishes.
  */
-export function ActivityLog({ artifacts, active }: { artifacts: AssembledArtifact[]; active: boolean }) {
+export function ActivityLog({ artifacts, messages = [], active }: { artifacts: AssembledArtifact[]; messages?: ThreadMessage[]; active: boolean }) {
+  const disclosure = useActiveDisclosure(active);
+  const entries = [
+    ...messages.map((message) => ({ id: `message:${message.id}`, label: activityMessageLabel(message), parts: message.parts, complete: true })),
+    ...artifacts.map((artifact) => ({ id: `artifact:${artifact.artifactId}`, label: activityLabel(artifact), parts: artifact.parts, complete: artifact.complete })),
+  ];
   return (
-    <Collapsible defaultOpen={active} className="w-full max-w-[560px] rounded-xl border bg-sunken/60">
+    <Collapsible open={disclosure.open} onOpenChange={disclosure.onOpenChange} className="w-full max-w-[560px] rounded-xl border bg-sunken/60">
       <CollapsibleTrigger className="group/log flex w-full items-center gap-2 rounded-xl px-3.5 py-2.5 text-left text-xs text-muted-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
         <Wrench className="size-3.5" />
         <span className="flex-1 font-medium">
-          Activity · {artifacts.length} tool {artifacts.length === 1 ? "result" : "results"}
+          Activity · {entries.length} step{entries.length === 1 ? "" : "s"}
         </span>
         <ChevronDown className="size-4 transition-transform group-data-panel-open/log:rotate-180" />
       </CollapsibleTrigger>
       <CollapsibleContent>
         <ul className="divide-y border-t">
-          {artifacts.map((artifact) => (
-            <li key={artifact.artifactId}>
+          {entries.map((entry) => (
+            <li key={entry.id}>
               <details className="group/entry px-3.5 py-2">
                 <summary className="flex cursor-pointer list-none items-center gap-2 text-[13px] text-muted-foreground">
                   <span className="size-1.5 shrink-0 rounded-full bg-border-strong" aria-hidden />
-                  <span className="min-w-0 flex-1 truncate font-mono text-xs">{activityLabel(artifact)}</span>
-                  {!artifact.complete && <Loader2 className="size-3 animate-spin" />}
+                  <span className="min-w-0 flex-1 truncate font-mono text-xs">{entry.label}</span>
+                  {!entry.complete && <Loader2 className="size-3 animate-spin" />}
                   <ChevronDown className="size-3.5 transition-transform group-open/entry:rotate-180" />
                 </summary>
                 <div className="mt-2 space-y-2">
-                  {artifact.parts.map((part, index) => (
-                    <PartRenderer key={`${artifact.artifactId}-${index}`} part={part} />
+                  {entry.parts.map((part, index) => (
+                    <PartRenderer key={`${entry.id}-${index}`} part={part} allowRaw />
                   ))}
                 </div>
               </details>
@@ -275,19 +301,6 @@ export function TaskCard({ task, canceling, onCancel }: { task: TrackedTask; can
 export function ArtifactCard({ artifact }: { artifact: AssembledArtifact }) {
   const textParts = artifact.parts.filter((part) => part.kind === "text");
   const otherParts = artifact.parts.filter((part) => part.kind !== "text");
-  // A text-only artifact is the agent's answer, so it reads like a chat reply rather than a data card.
-  if (textParts.length > 0 && otherParts.length === 0) {
-    const caption = artifact.name && artifact.name !== artifact.artifactId ? artifact.name : null;
-    return (
-      <motion.section {...enter} aria-label="Result" className="flex max-w-[92%] flex-col gap-1.5 self-start rounded-2xl rounded-bl-sm border bg-popover px-3.5 py-2.5 sm:max-w-[82%]">
-        {caption && <span className="text-xs font-medium text-muted-foreground">{caption}</span>}
-        <div>
-          {textParts.map((part) => <BubblePart key={part.id} part={part} />)}
-          {!artifact.complete && <span className="text-brand-text animate-caret">▌</span>}
-        </div>
-      </motion.section>
-    );
-  }
   return (
     <motion.section {...enter} className="flex w-full flex-col gap-3 rounded-2xl border border-brand/40 bg-card p-4 shadow-elevated">
       <div className="flex flex-wrap items-center gap-2">
@@ -297,9 +310,8 @@ export function ArtifactCard({ artifact }: { artifact: AssembledArtifact }) {
       </div>
       {artifact.description && <p className="text-muted-foreground text-xs">{artifact.description}</p>}
       {textParts.length > 0 && (
-        <div className="bg-background min-h-20 rounded-lg border p-4 font-mono text-[13px] leading-relaxed break-words whitespace-pre-wrap">
-          {textParts.map((part) => String(part.value)).join("")}
-          {!artifact.complete && <span className="text-brand-text animate-caret">▌</span>}
+        <div className="min-h-20">
+          {textParts.map((part, index) => <ContentViewer key={part.id ?? index} text={String(part.value)} mediaType={part.mediaType} initialMode="text" streaming={!artifact.complete && index === textParts.length - 1} />)}
         </div>
       )}
       {!artifact.complete && textParts.length === 0 && (

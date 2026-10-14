@@ -108,7 +108,13 @@ An approval is not answered in chat. It appears in **Inbox**. See [Approvals and
 
 Your messages sit on the right in a dark bubble under a **You** label. The agent's messages, progress, activity and results sit on the left under the agent's name and avatar. The label appears when the speaker changes, so a run of messages from one side shares one label.
 
-Each task has a task card with its title, state, the start of its task ID and context ID, and a step list (for example submitted, working, input required, completed). The agent's in-between status updates are folded into one **Progress** log under the task card. It is open while the task runs and folded once it finishes; open it to read each update. The agent's last message, any question it asks you, and its artifacts stay in the main conversation. Tool calls and results an agent returns as structured data (JSON) fold into an **Activity** log, along with reasoning ("thought") parts the agent marks, with each entry opening to its JSON. If the agent's last message only repeats a finished text result, it is shown once. A text result reads like a reply from the agent, and other artifacts appear as a highlighted **Result** card below the task, so the outcome stands out from the progress. Text artifacts stream in. Other parts render as tables, trees, media or download cards, following the rules in [Rich content](../concepts/rich-content.md).
+Each task has a task card with its title, state, the start of its task ID and context ID, and a step list (for example submitted, working, input required, completed). A new chat becomes its conversation as soon as Taskbay receives the first saved task snapshot, so progress and activity stay visible while a streaming agent works. Status updates stay in the **Progress** log even when their message contains JSON or other structured parts. Each update shows its author (when supplied by the agent) and structured parts open to their rendered data, with a raw JSON view available. Standalone tool calls and results, plus reasoning ("thought") parts the agent marks, fold into an **Activity** log. The agent's last message, any question it asks you, and its artifacts stay in the main conversation. Other JSON artifacts remain visible as **Result** cards like other non-text results. If the agent's last message only repeats a finished text result, it is shown once. A text result starts as raw text in the **Result** card with its original content type. Other result parts render as tables, trees, media or download cards, following the rules in [Rich content](../concepts/rich-content.md).
+
+### Change the content view
+
+Messages you send and receive, result text, and expanded status/activity details share a compact footer with the unchanged sender MIME type and a **Content view** selector. A suggested format appears when content looks like another format; hover it for confidence. Choose Text, Markdown, valid JSON, CSV where offered, or **Sanitized HTML**. Auto names the default format and follows the declared type, except HTML always starts as text. Result text starts in Text mode. Sent messages use a soft, theme-aware surface rather than the primary action color.
+
+For declared, detected or explicitly selected HTML, the expand icon (**Rich HTML preview**) opens an isolated iframe in a dialog on desktop or a sheet on phones. Inline HTML strips styles; the rich preview retains CSS inside the iframe. Neither view runs scripts or loads remote resources; links, forms and embedded active content are removed. All viewing choices are local to this viewer and reset when it is remounted. They never edit the stored content, its MIME type, or anything sent to an agent.
 
 **Cancel** on the task card appears while the task is active. It asks "Cancel this task?" and then asks the agent to cancel. A toast says "Task canceled" on success. The agent decides whether it can cancel.
 
@@ -118,7 +124,7 @@ Each task has a task card with its title, state, the start of its task ID and co
 
 | Option | Effect |
 | --- | --- |
-| **returnImmediately** | Ask the agent to return the task as soon as it exists instead of waiting. Starts from your **Settings** value. |
+| **returnImmediately** | Ask the agent to return the task as soon as it exists instead of waiting. Starts on for agents whose card advertises streaming; otherwise starts from your **Settings** value. Taskbay then follows active tasks over the agent's stream. |
 | **historyLength** | How many history messages the agent returns. Empty means no limit. Starts from your **Settings** value. |
 | **acceptedOutputModes** | Media types you accept. Starts from the agent card's output modes, or your **Settings** defaults if the card declares none. A star marks modes the card declares. |
 | **referenceTaskIds** | Earlier tasks in this conversation that the next message builds on. Cleared after each send. |
@@ -203,7 +209,7 @@ Anyone who can read a task can see that task's trail through **View the full tra
 | Card | Setting | Effect |
 | --- | --- | --- |
 | **Request defaults** | **Plain text**, **Markdown**, **Structured data**, **PDF files** | The `acceptedOutputModes` used when an agent card declares none. The first three are on by default. |
-| | **Return immediately** | Default for the chat option of the same name. Off by default. |
+| | **Return immediately** | Default for agents that do not advertise streaming. Streaming-capable agents start with the option on; the per-chat switch overrides it. Off by default. |
 | | **Push notifications** | Always off and disabled. It does nothing. Push from agents into Taskbay is set on the server; see [Receive push callbacks from agents](agent-push-callbacks.md). |
 | | **historyLength** | Default for the chat option. Empty means unset. |
 | **Extensions** | Extension URIs, **Add**, toggle, **Remove extension** | URIs you activate on every message you send, in addition to the extensions the console activates itself |

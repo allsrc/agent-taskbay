@@ -1,79 +1,17 @@
 "use client";
 
 import { buttonVariants } from "@/components/ui/button";
-import { useMemo, useState } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { useState } from "react";
+import { ContentViewer, CsvTable, DataTable } from "@/components/content-viewer";
 import { Code2, Download, Eye, FileText, Sparkles, Table2 } from "lucide-react";
 import type { NormalizedPart } from "@/lib/types";
-import { isTabular, parseCsv, safeContentUrl } from "@/lib/content";
+import { isTabular, safeContentUrl } from "@/lib/content";
 import { canUseRichJsonView } from "@/lib/rich-json";
 import { cn } from "@/lib/utils";
 import { JsonTree } from "./JsonTree";
 import { RichJsonView } from "./RichJsonView";
 
 type View = "rendered" | "structured" | "experimental" | "raw";
-
-function DataTable({ rows }: { rows: Record<string, unknown>[] }) {
-  const columns = [...new Set(rows.flatMap(Object.keys))];
-  return (
-    <div className="overflow-auto">
-      <table className="w-full border-collapse text-xs">
-        <thead>
-          <tr>
-            {columns.map((column) => (
-              <th key={column} className="border-border text-muted-foreground border-b px-2 py-1.5 text-left font-medium">
-                {column}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, index) => (
-            <tr key={index}>
-              {columns.map((column) => (
-                <td key={column} className="border-border border-b px-2 py-1.5 align-top">
-                  {typeof row[column] === "object" ? JSON.stringify(row[column]) : String(row[column] ?? "")}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function CsvTable({ text }: { text: string }) {
-  const rows = useMemo(() => parseCsv(text), [text]);
-  if (!rows.length) return null;
-  return (
-    <div className="overflow-auto">
-      <table className="w-full border-collapse text-xs">
-        <thead>
-          <tr>
-            {rows[0].map((cell, i) => (
-              <th key={i} className="border-border text-muted-foreground border-b px-2 py-1.5 text-left font-medium">
-                {cell}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.slice(1).map((row, i) => (
-            <tr key={i}>
-              {row.map((cell, j) => (
-                <td key={j} className="border-border border-b px-2 py-1.5 align-top">
-                  {cell}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
 
 function ViewButton({
   active,
@@ -108,7 +46,7 @@ export function PartRenderer({ part, allowRaw = false, richJson = false }: { par
   const [view, setView] = useState<View>("rendered");
   const url = typeof window === "undefined" ? undefined : safeContentUrl(part);
   const mime = part.mediaType || "application/octet-stream";
-  const text = typeof part.value === "string" ? part.value : JSON.stringify(part.value, null, 2);
+  const text = typeof part.value === "string" ? part.value : JSON.stringify(part.value, null, 2) ?? "";
   const isJson = part.kind === "data" || mime.includes("json");
   const canStructure = isJson || (part.kind === "text" && mime.includes("csv"));
   const canUseExperimentalView = canUseRichJsonView(part, richJson);
@@ -152,6 +90,8 @@ export function PartRenderer({ part, allowRaw = false, richJson = false }: { par
           isTabular(part.value) ? <DataTable rows={part.value} /> : <JsonTree value={part.value} />
         ) : activeView === "structured" && typeof part.value === "string" ? (
           <CsvTable text={part.value} />
+        ) : part.kind === "text" || part.kind === "data" ? (
+          <ContentViewer text={text} mediaType={mime} />
         ) : mime.startsWith("image/") && url ? (
           <a href={url} target="_blank" rel="noreferrer">
             {/* Agent URLs and data URIs are intentionally not passed through Next's image proxy. */}
@@ -174,12 +114,6 @@ export function PartRenderer({ part, allowRaw = false, richJson = false }: { par
           isTabular(part.value) ? <DataTable rows={part.value} /> : <JsonTree value={part.value} />
         ) : mime.includes("csv") && typeof part.value === "string" ? (
           <CsvTable text={part.value} />
-        ) : mime.includes("markdown") || (part.kind === "text" && /^\s*(#|[-*] |```|\|.+\|)/m.test(text)) ? (
-          <div className="markdown-content">
-            <ReactMarkdown remarkPlugins={[remarkGfm]} components={{img: ({alt}) => <span>{alt ? `Image: ${alt}` : "Remote image omitted"}</span>}}>{text}</ReactMarkdown>
-          </div>
-        ) : part.kind === "text" ? (
-          <div className="text-sm leading-relaxed break-words whitespace-pre-wrap">{text}</div>
         ) : url ? (
           <a className="hover:bg-accent flex items-center gap-2.5 rounded-lg p-2 no-underline" href={url} download={part.filename}>
             <FileText className="text-muted-foreground size-5 shrink-0" />

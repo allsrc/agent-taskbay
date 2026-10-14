@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activityLabel, isActivityArtifact, isReasoningOnly, isReasoningPart, repeatsArtifact, settleArtifacts } from "@/lib/chat-activity";
+import { activityLabel, activityMessageLabel, isActivityArtifact, isActivityMessage, isReasoningOnly, isReasoningPart, repeatsArtifact, settleArtifacts } from "@/lib/chat-activity";
 import type { AssembledArtifact } from "@/lib/types";
 
 const artifact = (parts: AssembledArtifact["parts"], extra: Partial<AssembledArtifact> = {}): AssembledArtifact => ({ artifactId: "a", parts, complete: true, updateCount: 1, ...extra });
@@ -7,8 +7,11 @@ const json = (value: unknown, mediaType = "application/json") => ({ id: "p", kin
 const text = (value: string) => ({ id: "t", kind: "text" as const, value, mediaType: "text/plain" });
 
 describe("activity artifacts", () => {
-  it("treats JSON-only artifacts as activity and text as an answer", () => {
+  it("keeps generic JSON artifacts visible and recognizes tool-shaped JSON", () => {
+    expect(isActivityArtifact(artifact([json({ rows: [{ id: 1, name: "example" }] })]))).toBe(false);
     expect(isActivityArtifact(artifact([json({ tool: "search", args: { q: "x" } })]))).toBe(true);
+    expect(isActivityArtifact(artifact([json({ id: "call-1", name: "list_directory", args: { path: "/kb" } })]))).toBe(true);
+    expect(isActivityArtifact(artifact([json({ id: "call-1", name: "list_directory", response: { content: [] }, isError: false })]))).toBe(true);
     expect(isActivityArtifact(artifact([text("The answer is 42")]))).toBe(false);
     expect(isActivityArtifact(artifact([text("a"), json({})]))).toBe(false);
   });
@@ -30,6 +33,18 @@ describe("activity artifacts", () => {
     expect(activityLabel(artifact([json({ function: { name: "lookup" } })]))).toBe("lookup");
     expect(activityLabel(artifact([json({ rows: 3 })], { name: "Query result" }))).toBe("Query result");
     expect(activityLabel(artifact([json({ rows: 3 })]))).toBe("Tool result");
+  });
+});
+
+describe("activity messages", () => {
+  it("recognizes tool-shaped JSON messages without classifying generic JSON replies", () => {
+    const call = { parts: [json({ id: "call-1", name: "list_directory", args: { path: "/kb" } })] };
+    const result = { parts: [json({ id: "call-1", name: "list_directory", response: { content: [] } })] };
+    expect(isActivityMessage(call)).toBe(true);
+    expect(activityMessageLabel(call)).toBe("list_directory");
+    expect(isActivityMessage(result)).toBe(true);
+    expect(isActivityMessage({ parts: [json({ rows: [{ id: 1 }] })] })).toBe(false);
+    expect(isActivityMessage({ parts: [text("The answer is 42")] })).toBe(false);
   });
 });
 

@@ -21,17 +21,24 @@ export function projectTaskEvent(base: DurableTaskView, event: JsonValue, receiv
   const status = object(subject.status);
   const messages = new Map(base.messages.map((message) => [message.id, message]));
   const statusMessageId = object(status.message).messageId;
+  const statusMetadata = ["statusUpdate", "taskStatusUpdate"].includes(kind) ? object(subject.metadata) : object(status.metadata);
   for (const [index, raw] of extractMessages(event).entries()) {
     const id = String(raw.messageId || `${eventKey}:message:${index}`);
     const known = messages.get(id);
+    const fromStatus = known?.fromStatus || (statusMessageId !== undefined && statusMessageId === raw.messageId);
+    const metadata = {
+      ...object(known?.metadata),
+      ...(fromStatus ? statusMetadata : {}),
+      ...object(raw.metadata),
+    };
     const message: ThreadMessage = {
       id, role: ["ROLE_USER", "user"].includes(String(raw.role)) ? "user" : "agent",
       parts: normalizeParts(raw.parts), timestamp: known?.timestamp ?? receivedAt,
       contextId: typeof raw.contextId === "string" ? raw.contextId : base.contextId,
       taskId: base.taskId,
-      metadata: raw.metadata ? object(raw.metadata) : undefined,
+      metadata: Object.keys(metadata).length ? metadata : undefined,
       referenceTaskIds: Array.isArray(raw.referenceTaskIds) ? raw.referenceTaskIds.map(String) : undefined,
-      fromStatus: known?.fromStatus || (statusMessageId !== undefined && statusMessageId === raw.messageId),
+      fromStatus,
     };
     messages.set(id, message);
   }

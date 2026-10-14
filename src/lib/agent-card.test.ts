@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { agentBadge, viewAgentCard } from "./agent-card";
+import { agentBadge, defaultReturnImmediately, viewAgentCard } from "./agent-card";
+
+describe("defaultReturnImmediately", () => {
+  it("defaults on for streaming agents and otherwise honors the saved preference", () => {
+    expect(defaultReturnImmediately(false, true)).toBe(true);
+    expect(defaultReturnImmediately(false, false)).toBe(false);
+    expect(defaultReturnImmediately(true, false)).toBe(true);
+  });
+});
 
 describe("viewAgentCard", () => {
   it("reads a v1.0 card", () => {

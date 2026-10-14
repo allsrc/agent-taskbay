@@ -28,24 +28,44 @@ const toolType = (part: NormalizedPart): string | undefined => {
   return undefined;
 };
 
+function hasToolEnvelope(part: NormalizedPart): boolean {
+  if (toolType(part)) return true;
+  if (!isJsonPart(part) || part.mediaType.startsWith("application/vnd.agent-taskbay") || isA2uiPart(part)) return false;
+  let value = part.value;
+  if (typeof value === "string") {
+    try {
+      value = JSON.parse(value);
+    } catch {
+      return false;
+    }
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const record = value as Record<string, unknown>;
+  const hasName = [record.name, record.toolName, record.tool_name, record.tool].some((candidate) => typeof candidate === "string" && candidate.trim());
+  const hasId = typeof record.id === "string" && Boolean(record.id);
+  const hasOperation = "args" in record || "response" in record;
+  return hasName && hasOperation && (hasId || typeof record.tool === "string");
+}
+
+const isActivityPart = (part: NormalizedPart) => hasToolEnvelope(part) || isReasoningPart(part);
+
+export function isActivityMessage(message: Pick<ThreadMessage, "parts">): boolean {
+  return message.parts.length > 0 && message.parts.every(isActivityPart);
+}
+
 /**
  * An artifact that is only structured data, such as a tool call or its result. It is background activity, not an
  * answer: it folds into the activity log instead of getting a card. Forms, approval requests and A2UI surfaces are
  * Taskbay's own media types and stay as they are.
  */
 export function isActivityArtifact(artifact: AssembledArtifact): boolean {
-  return (
-    artifact.parts.length > 0 &&
-    artifact.parts.every((part) => (isJsonPart(part) && !part.mediaType.startsWith("application/vnd.agent-taskbay") && !isA2uiPart(part)) || toolType(part) !== undefined || isReasoningPart(part))
-  );
+  return artifact.parts.length > 0 && artifact.parts.every(isActivityPart);
 }
 
 const SUFFIX: Record<string, string> = { function_call: "call", tool_call: "call", tool_use: "call", executable_code: "code", function_response: "result", tool_result: "result", code_execution_result: "result" };
 
-/** A short label for an activity artifact: the tool or function name when the JSON carries one, else the artifact name. */
-export function activityLabel(artifact: AssembledArtifact): string {
-  if (artifact.parts.length > 0 && artifact.parts.every(isReasoningPart)) return "Reasoning";
-  for (const part of artifact.parts) {
+function activityName(parts: NormalizedPart[]): string | undefined {
+  for (const part of parts) {
     const kind = toolType(part);
     const suffix = kind ? ` · ${SUFFIX[kind]}` : "";
     const value = part.value;
@@ -58,7 +78,23 @@ export function activityLabel(artifact: AssembledArtifact): string {
       }
     }
   }
-  return artifact.name?.trim() || "Tool result";
+  return undefined;
+}
+
+/** A short label for a structured activity, using the tool name when the payload carries one. */
+export function activityLabel(artifact: AssembledArtifact): string {
+  if (artifact.parts.length > 0 && artifact.parts.every(isReasoningPart)) return "Reasoning";
+  return activityName(artifact.parts) ?? (artifact.name?.trim() || "Tool result");
+}
+
+export function activityMessageLabel(message: Pick<ThreadMessage, "parts">): string {
+  if (message.parts.length > 0 && message.parts.every(isReasoningPart)) return "Reasoning";
+  return activityName(message.parts) ?? "Tool activity";
+}
+
+export function statusAuthorLabel(message: Pick<ThreadMessage, "metadata">, agentName: string): string {
+  const author = message.metadata?.adk_author;
+  return `${typeof author === "string" && author.trim() ? author.trim() : agentName} → You`;
 }
 
 const squash = (text: string) => text.replace(/\s+/g, " ").trim().toLowerCase();
