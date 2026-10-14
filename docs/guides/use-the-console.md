@@ -24,7 +24,7 @@ The console is the web app you open in the browser. The sidebar lists its screen
 
 On a medium screen the sidebar shrinks to an icon rail; from a large screen it shows labels. The sidebar items are **Agents**, **Chat**, **Inbox**, **Tasks**, **Orchestration**, **Audit**, **Notifications** and **Settings**. **Audit** only appears for administrators. On a phone the bottom bar shows **Chat**, **Inbox**, **Tasks** and **Agents**, plus a **More** tab that opens a sheet with the rest (**Orchestration**, **Audit** for administrators, **Notifications** and **Settings**), your identity menu and the theme switch. A count of pending approvals or unread notifications sits in the top bar.
 
-**Inbox** shows a badge with the number of pending approvals. **Notifications** shows your unread count (shown as "99+" above 99). The bottom of the sidebar shows your identity menu, a **Light** / **System** / **Dark** theme switch, and the tenant of the first agent that reports one.
+**Inbox** shows a badge with the number of pending approvals. **Notifications** shows your unread count (shown as "99+" above 99). The bottom of the sidebar shows your identity menu, a **Light** / **System** / **Dark** theme switch, the tenant of the first agent that reports one, and the version of Agent Taskbay that is running (the package version, for example `v0.1.1`).
 
 Opening the console root (`/`) takes you to **Chat**.
 

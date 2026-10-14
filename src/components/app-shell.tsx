@@ -150,7 +150,7 @@ export function AppShell({ children, identity }: { children: React.ReactNode;
             <span className="label-mono">Tenant</span>
             <span className="truncate font-mono text-[13px] font-medium">{tenant}</span>
             <span className="text-success mt-0.5 inline-flex items-center gap-1.5 font-mono text-[11px]">
-              <StatusDot tone="success" live /> A2A v1.0
+              <StatusDot tone="success" live /> v{process.env.NEXT_PUBLIC_APP_VERSION}
             </span>
           </div>
         </div>

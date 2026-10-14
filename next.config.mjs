@@ -1,5 +1,12 @@
+import { readFileSync } from "node:fs";
+
+// The console shows the running package version; it is read from package.json,
+// so it is the same whether started from source or through `npx agent-taskbay`.
+const { version } = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8"));
+
 /** @type {import("next").NextConfig} */
 const nextConfig = {
+  env: { NEXT_PUBLIC_APP_VERSION: version },
   poweredByHeader: false,
   // Keep Node-only database drivers (including PGlite's WASM assets) outside
   // the Server Components/Route Handler bundle. All database entry points run
