@@ -2,7 +2,7 @@
 
 > Who this is for: someone who wants to see Agent Taskbay work on their own machine. At the end you will have run the console, connected a sample A2A agent, sent it a task, approved an action as a reviewer, and seen the result recorded.
 
-Agent Taskbay is pre-1.0 (package version `0.1.1`). It is published to npm, so there are two ways to run it: `npx agent-taskbay`, which needs no checkout, or from a git checkout, which is also how you develop it. Steps 1 and 2 show both paths; from step 3 on they are the same.
+Agent Taskbay is pre-1.0 (package version `0.2.0`). It is published to npm, so there are two ways to run it: `npx agent-taskbay`, which needs no checkout, or from a git checkout, which is also how you develop it. Steps 1 and 2 show both paths; from step 3 on they are the same.
 
 ## Before you start
 
@@ -23,7 +23,7 @@ npx agent-taskbay
 The launcher starts the console at `http://127.0.0.1:3002` and opens a browser tab when it is attached to a terminal (`--no-open` turns that off). It prints the Next.js start banner and the migrations as they apply, then a summary. This is the summary from a run with `--data-dir ./scratch-data --no-open -p 3055`:
 
 ```text
-  Agent Taskbay 0.1.1 is running at http://127.0.0.1:3055
+  Agent Taskbay 0.2.0 is running at http://127.0.0.1:3055
   Data: <your data dir>
   Local mode: you are signed in as a development administrator. Only this machine can connect.
   Try it with sample agents: npx agent-taskbay demo-agent

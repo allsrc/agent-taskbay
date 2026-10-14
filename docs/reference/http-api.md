@@ -4,7 +4,7 @@
 > returns. Examples marked "Observed" were run against a local development server.
 
 **There is no stable API yet.** The routes exist to serve the console. They are not versioned (no `/api/v1`), have no deprecation policy, and may change in
-any minor release while the project is pre-1.0 (package version `0.1.1`). A versioned, token-authenticated client API is proposed in
+any minor release while the project is pre-1.0 (package version `0.2.0`). A versioned, token-authenticated client API is proposed in
 [#31](https://github.com/allsrc/agent-taskbay/issues/31). Until then, pin a version if you depend on a route.
 
 The "Use" column in the route index is a reading aid, not a promise: **Integration** routes are the ones a script is most likely to want and that the

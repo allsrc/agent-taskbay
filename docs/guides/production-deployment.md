@@ -2,7 +2,7 @@
 
 > For operators putting Agent Taskbay on a shared server. At the end you will have a web process, a worker process and a PostgreSQL database running behind HTTPS, with people signing in through OIDC.
 
-Agent Taskbay is pre-1.0 (version 0.1.1). There is no packaged deployment: no container image, no Helm chart, no Compose file. You deploy it from a source checkout with a process supervisor. This page
+Agent Taskbay is pre-1.0 (version 0.2.0). There is no packaged deployment: no container image, no Helm chart, no Compose file. You deploy it from a source checkout with a process supervisor. This page
 says exactly what that involves and what is missing. If you only want to try it on your own machine, use the [quickstart](../quickstart.md) instead.
 
 ## What you are deploying
