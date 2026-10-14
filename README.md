@@ -13,6 +13,8 @@ forms, approval requests, skill-scoped access) through advertised extensions, an
 same durable tasks. Taskbay does not run your agents. It is the place where people start their work, answer them, approve what they
 propose, and later show what happened.
 
+![The console's home: what needs you, recent conversations and the connected agents](docs/images/home.png)
+
 Created and maintained by [Shashi Kanth G S](https://shashikanth.me), part of [Allsrc](https://allsrc.dev).
 
 > **Status: pre-1.0 (`0.1.1`), published on npm as `agent-taskbay`.** Interfaces, HTTP routes and stored data shapes may change between
@@ -71,7 +73,7 @@ Choose **Fetch Agent Card**, then **Continue**, then **Connect**. The agent page
 please approve the deploy
 ```
 
-**5. Make the decision.** Open **Inbox**. Under **Needs you** there is a pending approval, "Delete the staging cluster", marked **HIGH RISK**.
+**5. Make the decision.** Open **Inbox**. Under **Needs you** there is a pending approval, "Delete the staging cluster", marked **High risk**.
 Open it, review the proposed action, choose **Approve**, and confirm.
 
 ![Pending approval for Delete the staging cluster, marked high risk, with the exact action under review](docs/images/approval.png)
