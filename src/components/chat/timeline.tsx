@@ -1,14 +1,15 @@
 "use client";
 
-import { Ban, Check, Circle, Loader2, X } from "lucide-react";
+import { Ban, Check, ChevronDown, Circle, Loader2, X } from "lucide-react";
 import { motion } from "motion/react";
 import { BubblePart } from "@/components/chat/part-content";
 import { StateChip } from "@/components/a2a/primitives";
-import { Pill, Tag } from "@/components/patterns/status";
+import { Pill } from "@/components/patterns/status";
 import { stateName, taskTitle, isActiveState } from "@/lib/task-view";
 import type { AssembledArtifact } from "@/lib/types";
 import type { ThreadMessage, TrackedTask } from "@/store/task-store";
 import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { PartRenderer } from "@/components/PartRenderer";
 import { cn } from "@/lib/utils";
 import { StructuredForm } from "@/components/chat/structured-form";
@@ -131,6 +132,40 @@ function stepsFor(task: TrackedTask): Array<{ label: string; status: "done" | "a
   });
 }
 
+/** Short text for one in-between update; non-text parts show their kind. */
+function updateText(message: ThreadMessage): string {
+  const text = message.parts.map((part) => (part.kind === "text" ? String(part.value) : `[${part.kind}]`)).join(" ").trim();
+  return text || "Update";
+}
+
+/**
+ * The agent's in-between status updates, folded into one quiet log so the final answer and the result stand out.
+ * Open while the task is running, folded once it has finished.
+ */
+export function ProgressLog({ messages, active }: { messages: ThreadMessage[]; active: boolean }) {
+  return (
+    <Collapsible defaultOpen={active} className="w-full max-w-[560px] rounded-xl border bg-sunken/60">
+      <CollapsibleTrigger className="group/log flex w-full items-center gap-2 px-3.5 py-2.5 text-left text-xs text-muted-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50 rounded-xl">
+        {active ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />}
+        <span className="flex-1 font-medium">
+          {active ? "Working" : "Progress"} · {messages.length} update{messages.length === 1 ? "" : "s"}
+        </span>
+        <ChevronDown className="size-4 transition-transform group-data-panel-open/log:rotate-180" />
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <ol className="space-y-2 border-t px-3.5 py-3">
+          {messages.map((message) => (
+            <li key={message.id} className="flex gap-2.5 text-[13px] text-muted-foreground">
+              <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-border-strong" aria-hidden />
+              <span className="min-w-0 break-words whitespace-pre-wrap">{updateText(message)}</span>
+            </li>
+          ))}
+        </ol>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
 export function TaskCard({ task, canceling, onCancel }: { task: TrackedTask; canceling: boolean; onCancel: () => void }) {
   const state = stateName(task.state);
   return (
@@ -181,15 +216,15 @@ export function ArtifactCard({ artifact }: { artifact: AssembledArtifact }) {
   const textParts = artifact.parts.filter((part) => part.kind === "text");
   const otherParts = artifact.parts.filter((part) => part.kind !== "text");
   return (
-    <motion.section {...enter} className="bg-card border-border flex w-full max-w-[560px] flex-col gap-2 rounded-xl border p-3.5">
+    <motion.section {...enter} className="flex w-full flex-col gap-3 rounded-2xl border border-brand/40 bg-card p-4 shadow-elevated">
       <div className="flex flex-wrap items-center gap-2">
-        <Tag>Artifact</Tag>
-        <h3 className="min-w-0 flex-1 truncate font-heading text-sm font-semibold">{artifact.name ?? artifact.artifactId}</h3>
+        <Pill tone="brand">Result</Pill>
+        <h3 className="min-w-0 flex-1 truncate font-heading text-base font-semibold">{artifact.name ?? artifact.artifactId}</h3>
         <StateChip state={artifact.complete ? "COMPLETED" : "WORKING"} />
       </div>
       {artifact.description && <p className="text-muted-foreground text-xs">{artifact.description}</p>}
       {textParts.length > 0 && (
-        <div className="bg-background min-h-20 rounded-lg p-3 font-mono text-[12.5px] leading-relaxed break-words whitespace-pre-wrap">
+        <div className="bg-background min-h-20 rounded-lg border p-4 font-mono text-[13px] leading-relaxed break-words whitespace-pre-wrap">
           {textParts.map((part) => String(part.value)).join("")}
           {!artifact.complete && <span className="text-brand-text animate-caret">▌</span>}
         </div>

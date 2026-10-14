@@ -11,7 +11,7 @@ import { StructuredForm } from "@/components/chat/structured-form";
 import { startFormFromCard } from "@/lib/structured-form";
 import { A2uiSurfaces } from "@/components/a2ui/surface";
 import { A2UI_EXTENSION_URI, a2uiClientMetadata, surfacesFromParts } from "@/lib/a2ui";
-import { AgentBubble, ArtifactCard, TaskCard, UserBubble } from "@/components/chat/timeline";
+import { AgentBubble, ArtifactCard, ProgressLog, TaskCard, UserBubble } from "@/components/chat/timeline";
 import { SideRail, useIsDesktop, type RailTab } from "@/components/chat/side-rail";
 import { Button } from "@/components/ui/button";
 import { NativeSelect } from "@/components/ui/native-select";
@@ -245,15 +245,23 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
             {tasks.map((task) => {
               const firstAgent = task.messages.findIndex((message) => message.role === "agent");
               const cardAt = task.kind === "message" ? -1 : firstAgent >= 0 ? firstAgent : 0;
+              // In-between status updates fold into one progress log; the last message, questions and results stay prominent.
+              const lastIndex = task.messages.length - 1;
+              const isUpdate = (message: ThreadMessage, index: number) => task.kind !== "message" && message.role === "agent" && Boolean(message.fromStatus) && index !== lastIndex;
+              const updates = task.messages.filter(isUpdate);
+              const firstUpdate = task.messages.findIndex(isUpdate);
               const rows = task.messages.flatMap((message, index) => [
-                message.role === "user" ? (
-                  <UserBubble key={message.id} message={message} />
-                ) : (
-                  <AgentBubble key={message.id} message={message} taskState={task.kind === "message" ? undefined : task.state} onReply={(text) => void send([{ text, mediaType: "text/plain" }])}
-                    extensions={view?.extensions} a2ui={a2uiOn} answered={sending || index !== task.messages.length - 1}
-                    onSubmitForm={(submission) => send([{ data: submission, mediaType: "application/json" }])} />
-                ),
+                ...(isUpdate(message, index) ? [] : [
+                  message.role === "user" ? (
+                    <UserBubble key={message.id} message={message} />
+                  ) : (
+                    <AgentBubble key={message.id} message={message} taskState={task.kind === "message" ? undefined : task.state} onReply={(text) => void send([{ text, mediaType: "text/plain" }])}
+                      extensions={view?.extensions} a2ui={a2uiOn} answered={sending || index !== task.messages.length - 1}
+                      onSubmitForm={(submission) => send([{ data: submission, mediaType: "application/json" }])} />
+                  ),
+                ]),
                 ...(index === cardAt ? [<TaskCard key={`card-${task.taskId}`} task={task} canceling={cancelingId === task.taskId} onCancel={() => void cancelTask(task)} />] : []),
+                ...(index === firstUpdate ? [<ProgressLog key={`log-${task.taskId}`} messages={updates} active={isOpenTask(task)} />] : []),
               ]);
               return (
                 <div key={task.taskId} className="flex flex-col gap-3.5">

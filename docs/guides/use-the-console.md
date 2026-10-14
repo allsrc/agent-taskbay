@@ -100,7 +100,7 @@ An approval is not answered in chat. It appears in **Inbox**. See [Approvals and
 
 ### What you see while a task runs
 
-Each task has a task card with its title, state, the start of its task ID and context ID, and a step list (for example submitted, working, input required, completed). Artifacts appear as cards below the task. Text artifacts stream in. Other parts render as tables, trees, media or download cards, following the rules in [Rich content](../concepts/rich-content.md).
+Each task has a task card with its title, state, the start of its task ID and context ID, and a step list (for example submitted, working, input required, completed). The agent's in-between status updates are folded into one **Progress** log under the task card. It is open while the task runs and folded once it finishes; open it to read each update. The agent's last message, any question it asks you, and its artifacts stay in the main conversation. Artifacts appear as a highlighted **Result** card below the task, so the outcome stands out from the progress. Text artifacts stream in. Other parts render as tables, trees, media or download cards, following the rules in [Rich content](../concepts/rich-content.md).
 
 **Cancel** on the task card appears while the task is active. It asks "Cancel this task?" and then asks the agent to cancel. A toast says "Task canceled" on success. The agent decides whether it can cancel.
 
