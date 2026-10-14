@@ -61,7 +61,9 @@ Paste:
 http://127.0.0.1:4010/showcase/card.json
 ```
 
-Choose **Fetch Agent Card**, then **Continue**, then **Connect**.
+Choose **Fetch Agent Card**, then **Continue**, then **Connect**. The agent page shows the card the console fetched. Connecting the other printed cards adds them to the same list.
+
+![The sample agents, with the showcase card open](docs/images/agents.png)
 
 **4. Give it work that needs you.** Open the agent, choose **Start chat**, and send:
 
@@ -72,8 +74,12 @@ please approve the deploy
 **5. Make the decision.** Open **Inbox**. Under **Needs you** there is a pending approval, "Delete the staging cluster", marked **HIGH RISK**.
 Open it, review the proposed action, choose **Approve**, and confirm.
 
+![Pending approval for Delete the staging cluster, marked high risk, with the exact action under review](docs/images/approval.png)
+
 **What you should see:** the approval becomes `approved`, the exact content you reviewed is sent to the agent once, and the task moves to
 completed. The approval page shows "Delivered to the agent; task is now" followed by the task state, and **Audit** lists every step.
+
+![The same approval after it was delivered once, with the task completed](docs/images/approval-delivered.png)
 
 Close the browser at any point and open it again: the state is in the database, not the tab.
 
