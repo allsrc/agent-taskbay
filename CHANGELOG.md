@@ -5,7 +5,9 @@ the project uses [semantic versioning](https://semver.org/) once it reaches 1.0;
 
 ## [Unreleased]
 
-Nothing yet.
+### Changed
+
+- In chat, tool calls and results an agent returns as structured data (JSON artifacts, including Google ADK `function_call` and `function_response` parts) fold into one quiet **Activity** log, with each entry opening to its JSON. Consecutive agent messages before the reply fold into **Progress**. A final message that only repeats a finished text result is no longer shown twice, and a text result reads like an assistant reply.
 
 ## [0.2.0] - 2026-10-14
 

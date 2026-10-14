@@ -17,6 +17,14 @@ describe("activity artifacts", () => {
     expect(isActivityArtifact(artifact([json({ title: "Deploy" }, "application/vnd.agent-taskbay.form+json")]))).toBe(false);
   });
 
+  it("recognizes framework-tagged tool traffic, even beside other parts, and labels call versus result", () => {
+    const call = { id: "c", kind: "data" as const, value: { name: "get_weather", args: { city: "Oslo" } }, mediaType: "application/json", metadata: { type: "function_call" } };
+    const response = { ...call, value: { name: "get_weather", response: { temp: 4 } }, metadata: { adk_type: "function_response" } };
+    expect(isActivityArtifact(artifact([call]))).toBe(true);
+    expect(activityLabel(artifact([call]))).toBe("get_weather · call");
+    expect(activityLabel(artifact([response]))).toBe("get_weather · result");
+  });
+
   it("labels an activity by its tool name, then its artifact name", () => {
     expect(activityLabel(artifact([json({ tool: "get_weather" })]))).toBe("get_weather");
     expect(activityLabel(artifact([json({ function: { name: "lookup" } })]))).toBe("lookup");
