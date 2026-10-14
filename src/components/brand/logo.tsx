@@ -1,9 +1,9 @@
 import { cn } from "@/lib/utils"
 
 /**
- * Agent Taskbay mark: the prompt chevron and cursor, plus a signal dot for
- * live state. Colours come from theme tokens so it adapts to light and dark:
- *   prompt → brand, cursor → foreground, dot → signal.
+ * The http2xx mark: the prompt (">"), the cursor ("_") and three status dots
+ * reading as "2xx" (filled, open, open). Colours come from theme tokens so it
+ * adapts to light and dark:  prompt → brand, cursor → foreground, dots → signal.
  */
 export function Logomark({
   className,
@@ -25,9 +25,11 @@ export function Logomark({
       aria-hidden={title ? undefined : true}
       className={cn("size-7 shrink-0 overflow-visible", className)}
     >
-      <path d="M8 16 L32 32 L8 48" className="stroke-brand" strokeWidth="7" strokeLinecap="square" />
-      <rect x="36" y="44" width="22" height="8" className="fill-foreground" />
-      <circle cx="52" cy="14" r="6" className={cn("fill-signal", animated && "motion-safe:animate-pulse")} />
+      <path d="M8 12 L30 28 L8 44" className="stroke-brand" strokeWidth="7" strokeLinecap="square" />
+      <rect x="34" y="44" width="22" height="8" className="fill-foreground" />
+      <circle cx="36" cy="14" r="5.5" className={cn("fill-signal", animated && "motion-safe:animate-pulse")} />
+      <circle cx="48" cy="14" r="4" className="stroke-signal" strokeWidth="2.5" />
+      <circle cx="58" cy="14" r="4" className="stroke-signal" strokeWidth="2.5" />
     </svg>
   )
 }
