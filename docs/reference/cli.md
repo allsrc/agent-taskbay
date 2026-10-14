@@ -221,7 +221,7 @@ it: [Build an agent for Taskbay](../guides/build-an-agent-for-taskbay.md).
 `node scripts/fixture-content-agent.mjs [port]` (default port `4011`) starts a streaming sample agent that sends content under the wrong media
 type: Markdown and JSON as `text/plain`, JSON labelled `text/html`, an HTML page labelled `text/markdown`, and the other cases in
 `scripts/fixtures/mislabeled-content.json`, each with the view the console should choose. Send it `results` (the default: one result artifact per case),
-`reply` (every case in the final reply), `progress` (every case as a status update), `tools` (tool calls, results, reasoning and other JSON in the shapes Google ADK, OpenAI, Anthropic, the Vercel AI SDK and MCP use) or a case id such as `plain-json`. It is a development fixture and
+`reply` (every case in the final reply), `progress` (every case as a status update), `tools` (tool calls, results, reasoning and other JSON in the shapes Google ADK, OpenAI, Anthropic, the Vercel AI SDK and MCP use), `long` (700-line content in a status update, a tool result and a result artifact) or a case id such as `plain-json`. It is a development fixture and
 is not shipped in the package; `src/lib/mislabeled-content.test.tsx` runs the same cases.
 
 ## HTTP verification scripts

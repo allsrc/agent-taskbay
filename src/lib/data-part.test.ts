@@ -43,6 +43,13 @@ describe("summaries of data parts from agent frameworks", () => {
     expect(describeData(data({ content: [{ type: "text", text: "hi" }], isError: false }))).toMatchObject({ kind: "tool-result", failed: false });
   });
 
+  it("LangChain / LangGraph tool calls and tool messages", () => {
+    expect(describeData(data({ type: "ai", content: "", tool_calls: [{ name: "search", args: { q: "x" }, id: "lc1", type: "tool_call" }] }))).toMatchObject({ kind: "tool-call", title: "search" });
+    expect(describeData(data({ name: "search", args: { q: "x" }, id: "lc1", type: "tool_call" }))).toMatchObject({ kind: "tool-call", title: "search", id: "lc1" });
+    expect(describeData(data({ type: "tool", tool_call_id: "lc1", name: "search", content: "3 hits", status: "success" }))).toMatchObject({ kind: "tool-result", title: "search", id: "lc1", failed: false });
+    expect(describeData(data({ type: "tool", tool_call_id: "lc2", content: "boom", status: "error" })).failed).toBe(true);
+  });
+
   it("an untagged call id with JSON below it", () => {
     expect(describeData(data({ call_id: "callid_4456", output: { rows: 3 } }))).toMatchObject({ kind: "tool-result", id: "callid_4456" });
   });

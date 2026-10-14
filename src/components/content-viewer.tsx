@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Ellipsis, Maximize2, Pilcrow, WandSparkles } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -22,27 +22,44 @@ import { isTabular, parseCsv } from "@/lib/content";
 import { formattedView, profileContent, resolveView, VIEW_LABEL, type ContentProfile, type ViewKind, type ViewMode } from "@/lib/content-view";
 import { htmlPreviewDocument, sanitizeHtml } from "@/lib/html-preview";
 import { cn } from "@/lib/utils";
+import { Clamp, type ClampSize } from "@/components/long-content";
+
+/** Rows shown before a "Show more" button, so a huge table does not render thousands of rows at once. */
+const ROW_PAGE = 100;
+
+function MoreRows({ total, shown, onMore }: { total: number; shown: number; onMore: () => void }) {
+  if (total <= shown) return null;
+  return (
+    <Button variant="ghost" size="xs" className="text-muted-foreground mt-1" onClick={onMore}>
+      Show {Math.min(total - shown, ROW_PAGE * 5).toLocaleString("en")} more of {(total - shown).toLocaleString("en")} rows
+    </Button>
+  );
+}
 
 export function DataTable({ rows }: { rows: Record<string, unknown>[] }) {
+  const [shown, setShown] = useState(ROW_PAGE);
   const columns = [...new Set(rows.flatMap(Object.keys))];
   return (
     <div className="overflow-auto">
       <table className="w-full border-collapse text-xs">
         <thead><tr>{columns.map((column) => <th key={column} className="border-border text-muted-foreground border-b px-2 py-1.5 text-left font-medium">{column}</th>)}</tr></thead>
-        <tbody>{rows.map((row, index) => <tr key={index}>{columns.map((column) => <td key={column} className="border-border border-b px-2 py-1.5 align-top">{typeof row[column] === "object" ? JSON.stringify(row[column]) : String(row[column] ?? "")}</td>)}</tr>)}</tbody>
+        <tbody>{rows.slice(0, shown).map((row, index) => <tr key={index}>{columns.map((column) => <td key={column} className="border-border border-b px-2 py-1.5 align-top">{typeof row[column] === "object" ? JSON.stringify(row[column]) : String(row[column] ?? "")}</td>)}</tr>)}</tbody>
       </table>
+      <MoreRows total={rows.length} shown={shown} onMore={() => setShown(shown + ROW_PAGE * 5)} />
     </div>
   );
 }
 
 export function CsvTable({ text }: { text: string }) {
-  const rows = parseCsv(text);
+  const [shown, setShown] = useState(ROW_PAGE);
+  const rows = useMemo(() => parseCsv(text), [text]);
   return (
     <div className="overflow-auto">
       <table className="w-full border-collapse text-xs">
         <thead><tr>{rows[0]?.map((cell, index) => <th key={index} className="border-border text-muted-foreground border-b px-2 py-1.5 text-left font-medium">{cell}</th>)}</tr></thead>
-        <tbody>{rows.slice(1).map((row, index) => <tr key={index}>{row.map((cell, column) => <td key={column} className="border-border border-b px-2 py-1.5 align-top">{cell}</td>)}</tr>)}</tbody>
+        <tbody>{rows.slice(1, shown + 1).map((row, index) => <tr key={index}>{row.map((cell, column) => <td key={column} className="border-border border-b px-2 py-1.5 align-top">{cell}</td>)}</tr>)}</tbody>
       </table>
+      <MoreRows total={Math.max(0, rows.length - 1)} shown={shown} onMore={() => setShown(shown + ROW_PAGE * 5)} />
     </div>
   );
 }
@@ -67,7 +84,7 @@ function ContentBody({ text, view, profile, streaming }: { text: string; view: V
   if (view === "csv") return <CsvTable text={text} />;
   if (view === "html") return <div className="markdown-content break-words" dangerouslySetInnerHTML={{ __html: sanitizeHtml(text) }} />;
   // HTML shown as text is source code: keep it contained instead of letting markup fill the conversation.
-  if (profile.html) return <pre className="bg-muted/40 max-h-48 overflow-auto rounded-lg p-3 font-mono text-xs leading-relaxed break-all whitespace-pre-wrap">{text}{caret}</pre>;
+  if (profile.html) return <pre className="bg-muted/40 overflow-auto rounded-lg p-3 font-mono text-xs leading-relaxed break-all whitespace-pre-wrap">{text}{caret}</pre>;
   return <div className="break-words whitespace-pre-wrap">{text}{caret}</div>;
 }
 
@@ -85,6 +102,7 @@ export function ContentViewer({
   controls = true,
   align = "start",
   infer = true,
+  clamp = "normal",
 }: {
   text: string;
   mediaType?: string;
@@ -96,17 +114,22 @@ export function ContentViewer({
   align?: "start" | "end";
   /** Let the content decide when it does not fit its declared type. Off for a person's own messages. */
   infer?: boolean;
+  /** How much long text shows before it folds behind "Show all"; `none` never folds. */
+  clamp?: ClampSize | "none";
 }) {
   const [mode, setMode] = useState<ViewMode>(initialMode);
   const [previewOpen, setPreviewOpen] = useState(false);
-  const profile = profileContent(text, mediaType, { infer });
+  // Detection parses the text; streaming re-renders often, so only redo it when the text or its type changes.
+  const profile = useMemo(() => profileContent(text, mediaType, { infer }), [text, mediaType, infer]);
   const view = resolveView(profile, mode);
   const selectedMode = mode === "auto" || profile.options.includes(mode) ? mode : "text";
   const formatted = formattedView(profile);
   const showControls = controls && !streaming && (formatted !== null || profile.html || view !== profile.defaultView);
   return (
     <div className="min-w-0 max-w-full">
-      <ContentBody text={text} view={view} profile={profile} streaming={streaming} />
+      {clamp === "none" ? <ContentBody text={text} view={view} profile={profile} streaming={streaming} /> : (
+        <Clamp text={text} size={clamp}><ContentBody text={text} view={view} profile={profile} streaming={streaming} /></Clamp>
+      )}
       {showControls && (
         <div role="group" aria-label="Content format" className={cn("-mx-1.5 mt-1 flex items-center gap-0.5", align === "end" && "justify-end")}>
           {formatted && (view === "text" ? (

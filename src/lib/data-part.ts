@@ -8,7 +8,8 @@ import type { NormalizedPart } from "@/lib/types";
  * Recognized: Google ADK (`adk_type` metadata: function_call, function_response, tool_call, tool_response,
  * executable_code, code_execution_result), OpenAI (`function` calls, `role: "tool"` results, `tool_calls` lists),
  * Anthropic (`tool_use`, `tool_result`, `thinking`), Vercel AI SDK (`tool-call`, `tool-result`, `tool-<name>`,
- * `reasoning`), MCP (`tools/call`, `{ content, isError }` results) and plain `{ id, name, args | response }` envelopes.
+ * `reasoning`), MCP (`tools/call`, `{ content, isError }` results), LangChain / LangGraph (`tool_calls` lists, `type: "tool_call"`
+ * calls and `type: "tool"` messages) and plain `{ id, name, args | response }` envelopes.
  */
 export type DataKind = "tool-call" | "tool-result" | "code" | "code-result" | "reasoning" | "error" | "data";
 
@@ -108,6 +109,11 @@ function recognize(record: Json, tagged: DataKind | undefined): DataSummary | un
   if (resultTypeOf(type) && record.content !== undefined && record.result === undefined && record.output === undefined && record.response === undefined) {
     const failure = errorText(record);
     return { kind: "tool-result", title: str(record.name) ?? str(record.toolName) ?? "Tool result", id, preview: (failure !== "Error" ? failure : undefined) ?? fields(record.content), failed: Boolean(failure) };
+  }
+  // LangChain / LangGraph ToolMessage: `{ type: "tool", tool_call_id, name, content, status }`.
+  if (record.type === "tool" && (record.tool_call_id !== undefined || record.name !== undefined)) {
+    const failed = record.status === "error" || Boolean(errorText(record));
+    return { kind: "tool-result", title: str(record.name) ?? "Tool result", id, preview: fields(record.content), failed };
   }
   if (record.role === "tool") return { kind: "tool-result", title: str(record.name) ?? "Tool result", id, preview: fields(record.content), failed: Boolean(errorText(record)) };
   // MCP request.

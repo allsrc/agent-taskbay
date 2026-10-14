@@ -76,3 +76,13 @@ describe("profileContent", () => {
     expect(profileContent("Just a sentence.", "text/plain").suggestion).toBeNull();
   });
 });
+
+describe("long and code-like text", () => {
+  const code = Array.from({ length: 40 }, (_, index) => `export const s${index} = { a: 1, b: 2, c: "x" };`).join("\n");
+
+  it("does not mistake code with commas for CSV, but honors declared CSV with code characters", () => {
+    expect(detectContentKind(code).kind).not.toBe("csv");
+    expect(profileContent(code, "text/plain", { infer: true }).suggestion).not.toBe("csv");
+    expect(profileContent("a,b\n=1+1,x;y\n2,3", "text/csv").defaultView).toBe("csv");
+  });
+});

@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { PartRenderer } from "@/components/PartRenderer";
 import { ContentViewer } from "@/components/content-viewer";
+import { Clamp } from "@/components/long-content";
 import { cn } from "@/lib/utils";
 import { StructuredForm } from "@/components/chat/structured-form";
 import { formFromPart, type FormSubmission } from "@/lib/structured-form";
@@ -97,7 +98,7 @@ export function AgentBubble({
       {message.parts.some(isReasoningPart) && (
         <details className="text-xs text-muted-foreground">
           <summary className="cursor-pointer font-medium">Reasoning</summary>
-          <p className="mt-1 break-words whitespace-pre-wrap">{message.parts.filter(isReasoningPart).map((part) => String(part.value)).join("\n")}</p>
+          <div className="mt-1"><ReasoningText text={message.parts.filter(isReasoningPart).map((part) => String(part.value)).join("\n")} /></div>
         </details>
       )}
       <div className="flex flex-col gap-3">
@@ -197,7 +198,7 @@ function StepDisclosure({ summary, busy = false, children }: { summary: DataSumm
 }
 
 function ReasoningText({ text }: { text: string }) {
-  return <p className="border-l-2 pl-2.5 text-[13px] break-words whitespace-pre-wrap text-muted-foreground italic">{text}</p>;
+  return <Clamp text={text} size="compact"><p className="border-l-2 pl-2.5 text-[13px] break-words whitespace-pre-wrap text-muted-foreground italic">{text}</p></Clamp>;
 }
 
 /**
@@ -212,7 +213,7 @@ function StepPart({ part, busy = false, names }: { part: NormalizedPart; busy?: 
   const structured = part.kind === "data" || isToolPart(part);
   // Text reads inline whatever it was labelled; the content viewer decides how (an agent's JSON or Markdown is formatted).
   if (!structured && part.kind === "text" && typeof part.value === "string") {
-    return <div className="text-[13px] leading-relaxed text-foreground/80"><ContentViewer text={part.value} mediaType={part.mediaType} controls={false} /></div>;
+    return <div className="text-[13px] leading-relaxed text-foreground/80"><ContentViewer text={part.value} mediaType={part.mediaType} controls={false} clamp="compact" /></div>;
   }
   if (!structured) return <StepDisclosure summary={{ kind: "data", title: part.filename ?? "File", preview: part.mediaType }}><PartRenderer part={part} allowRaw /></StepDisclosure>;
   const summary = describeData(part, names);

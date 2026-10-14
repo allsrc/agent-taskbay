@@ -44,7 +44,9 @@ const HAS_TAG = /<[a-z!/][^<>]*>/i;
 
 /** At least two rows that each have the same number (two or more) of comma-separated columns. */
 function isCsvShaped(text: string): boolean {
-  const rows = parseCsv(text).filter((row) => row.some((cell) => cell.trim()));
+  // The first lines decide; parsing a whole long document on every render would be wasted work.
+  const sample = text.split(/\r?\n/, 50).join("\n");
+  const rows = parseCsv(sample).filter((row) => row.some((cell) => cell.trim()));
   return rows.length >= 2 && rows[0].length >= 2 && rows.every((row) => row.length === rows[0].length);
 }
 

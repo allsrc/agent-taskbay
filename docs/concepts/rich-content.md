@@ -23,6 +23,8 @@ Agents send messages and artifacts made of parts: text, structured data, files, 
 | Text whose content does not fit its declared type (for example JSON labelled `text/html`) | The view that fits the content, as described above |
 | `application/json` and other JSON | Table when it is a list of objects, otherwise a collapsible tree. A "Structured" toggle is available |
 | JSON in progress and activity logs | A one-line summary (kind, name or title, id, preview) that opens to the table or tree. See `src/lib/data-part.ts` for the recognized tool-call, result and reasoning shapes |
+
+Long content is folded, never cut. Text over about 20 lines or 2,400 characters (6 lines or 600 characters in progress steps, reasoning and JSON values) shows to a fixed height with a fade and a **Show all N lines** toggle. A multi-line string inside JSON keeps its line breaks. JSON trees and tables show the first 100 entries or rows with **Show more**, and an expanded data card scrolls inside a capped height. The full content stays in the page.
 | CSV | Table |
 | Images, audio, video, PDF | Shown inline only when the bytes were archived by the server. Remote media URLs are not loaded |
 | Anything else | A download card |

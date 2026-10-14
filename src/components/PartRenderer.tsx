@@ -81,7 +81,8 @@ export function PartRenderer({ part, allowRaw = false, richJson = false }: { par
           )}
         </div>
       </header>
-      <div className="overflow-auto p-3">
+      {/* A large payload scrolls inside the card instead of stretching the conversation. */}
+      <div className="max-h-[min(70dvh,640px)] overflow-auto p-3">
         {activeView === "raw" ? (
           <pre className="bg-muted/40 overflow-auto rounded-lg p-3 text-xs leading-relaxed whitespace-pre-wrap">{JSON.stringify(part, null, 2)}</pre>
         ) : activeView === "experimental" ? (

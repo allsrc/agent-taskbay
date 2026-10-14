@@ -40,9 +40,12 @@ function markdownScore(sample: string): number {
   return MARKDOWN_SIGNALS.reduce((score, [pattern, weight]) => score + (pattern.test(sample) ? weight : 0), 0);
 }
 
+/** Characters that mark code or markup, which also has commas but is not a table. */
+const CODE_LIKE = /[{};=<>]/;
+
 function looksLikeCsv(sample: string): boolean {
   const lines = sample.split(/\r?\n/).filter((line) => line.trim()).slice(0, 6);
-  if (lines.length < 3) return false;
+  if (lines.length < 3 || lines.some((line) => CODE_LIKE.test(line))) return false;
   return [","].some((delimiter) => {
     const columns = lines[0].split(delimiter).length;
     return columns > 1 && lines.every((line) => line.split(delimiter).length === columns);

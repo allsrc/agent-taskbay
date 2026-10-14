@@ -7,6 +7,7 @@
 //   "reply"              every case as a part of the agent's final reply
 //   "progress"           every case as an in-between status update, then a short reply
 //   "tools"              tool calls, results, reasoning and other JSON in the shapes common frameworks use, as status updates
+//   "long"               700-line content: a status update, a file read by a tool call and its result, and a result artifact
 //   a case id            only that case, as a result artifact (for example "plain-json")
 // Tests import startContentAgent() to run one in-process.
 import { readFileSync } from "node:fs";
@@ -34,6 +35,9 @@ export const DATA_SHAPES = [
   { data: [{ service: "api", replicas: 3 }, { service: "web", replicas: 2 }] },
 ].map((part) => ({ mediaType: "application/json", ...part }));
 
+/** A 700-line source file, for checking how long content is shown. */
+const LONG_FILE = Array.from({ length: 700 }, (_, index) => `${String(index + 1).padStart(3, " ")}  export const setting${index + 1} = { enabled: ${index % 3 === 0}, retries: ${index % 5}, label: "Setting number ${index + 1}" };`).join("\n");
+
 const FINAL = new Set(["TASK_STATE_COMPLETED", "TASK_STATE_FAILED", "TASK_STATE_CANCELED", "TASK_STATE_INPUT_REQUIRED"]);
 
 /** The events one message produces, in order. */
@@ -43,10 +47,20 @@ function script(taskId, contextId, said, nextId) {
   const part = (entry) => ({ text: entry.text, mediaType: entry.mediaType });
   const toolCall = status("TASK_STATE_WORKING", [{ data: { id: "call-1", name: "load_samples", args: { set: "mislabeled" } }, mediaType: "application/json", metadata: { adk_type: "function_call" } }]);
   const single = MISLABELED.find((entry) => said.includes(entry.id));
-  const mode = single ? "single" : said.includes("reply") ? "reply" : said.includes("progress") ? "progress" : said.includes("tools") ? "tools" : "results";
+  const mode = single ? "single" : said.includes("reply") ? "reply" : said.includes("progress") ? "progress" : said.includes("tools") ? "tools" : said.includes("long") ? "long" : "results";
   const asArtifact = (entry) => ({ artifactUpdate: { taskId, contextId, artifact: { artifactId: entry.id, name: entry.title, parts: [part(entry)] }, lastChunk: true } });
   if (mode === "single") return [toolCall, asArtifact(single), status("TASK_STATE_COMPLETED", [{ text: `Sent "${single.title}".` }])];
   if (mode === "reply") return [toolCall, status("TASK_STATE_COMPLETED", MISLABELED.map(part))];
+  if (mode === "long") {
+    const call = { id: "adk-cat-1", name: "cat", args: { path: "src/config/settings.ts" } };
+    return [
+      status("TASK_STATE_WORKING", [{ text: `Reading the config:\n${LONG_FILE}` }]),
+      status("TASK_STATE_WORKING", [{ data: call, mediaType: "application/json", metadata: { adk_type: "function_call" } }]),
+      status("TASK_STATE_WORKING", [{ data: { ...call, args: undefined, response: { content: LONG_FILE, lines: 700 } }, mediaType: "application/json", metadata: { adk_type: "function_response" } }]),
+      { artifactUpdate: { taskId, contextId, artifact: { artifactId: "settings", name: "settings.ts", parts: [{ text: LONG_FILE, mediaType: "text/plain" }] }, lastChunk: true } },
+      status("TASK_STATE_COMPLETED", [{ text: `Here is the whole file:\n\n\`\`\`ts\n${LONG_FILE}\n\`\`\`` }]),
+    ];
+  }
   if (mode === "tools") return [...DATA_SHAPES.map((shape) => status("TASK_STATE_WORKING", [shape])), status("TASK_STATE_COMPLETED", [{ text: `Sent ${DATA_SHAPES.length} structured updates.` }])];
   if (mode === "progress") return [toolCall, ...MISLABELED.map((entry) => status("TASK_STATE_WORKING", [part(entry)])), status("TASK_STATE_COMPLETED", [{ text: `Sent ${MISLABELED.length} updates.` }])];
   return [toolCall, ...MISLABELED.map(asArtifact), status("TASK_STATE_COMPLETED", [{ text: `Sent ${MISLABELED.length} results.` }])];
@@ -76,7 +90,7 @@ export async function startContentAgent(port = 0, { delayMs = 150 } = {}) {
         name: "Mislabeled content fixture", description: "Sends content under the wrong media type", version: "1.0.0",
         supportedInterfaces: [{ url: `${origin}/a2a`, protocolBinding: "JSONRPC", protocolVersion: "1.0" }],
         capabilities: { streaming: true }, defaultInputModes: ["text/plain"], defaultOutputModes: ["text/plain", "text/markdown", "text/html", "application/json", "text/csv"],
-        skills: [{ id: "samples", name: "Mislabeled samples", description: "Send results, a reply or progress with wrong media types", tags: ["fixture"], examples: ["results", "reply", "progress", "tools"] }],
+        skills: [{ id: "samples", name: "Mislabeled samples", description: "Send results, a reply or progress with wrong media types", tags: ["fixture"], examples: ["results", "reply", "progress", "tools", "long"] }],
       }));
       return;
     }
