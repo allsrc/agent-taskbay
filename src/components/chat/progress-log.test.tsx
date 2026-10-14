@@ -33,7 +33,10 @@ describe("progress log", () => {
 
   it("shows a tool call as a named step that opens to its JSON, with the sub-agent that ran it", () => {
     const html = renderToStaticMarkup(<ProgressLog active agentName="Knowledge agent" messages={[statusData("call", { id: "call-1", name: "list_directory", args: { path: "/kb" } })]} />);
-    expect(html).toContain("list_directory · call");
+    expect(html).toContain(">list_directory<");
+    expect(html).toContain(">call<");
+    expect(html).toContain(">call-1<");
+    expect(html).toContain("path: &quot;/kb&quot;");
     expect(html).toContain("knowledge_agent");
     expect(html).toContain("<details");
     expect(html).toContain("/kb");

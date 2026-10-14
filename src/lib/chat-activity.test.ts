@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { isActivityArtifact, isActivityMessage, isReasoningPart, planMessages, repeatsArtifact, settleArtifacts, statusAuthor, toolPartLabel } from "@/lib/chat-activity";
+import { isActivityArtifact, isActivityMessage, isReasoningPart, planMessages, repeatsArtifact, settleArtifacts, statusAuthor } from "@/lib/chat-activity";
+import { describeData } from "@/lib/data-part";
 import type { ThreadMessage } from "@/store/task-store";
 import type { AssembledArtifact } from "@/lib/types";
 
@@ -25,14 +26,12 @@ describe("activity artifacts", () => {
     const call = { id: "c", kind: "data" as const, value: { name: "get_weather", args: { city: "Oslo" } }, mediaType: "application/json", metadata: { type: "function_call" } };
     const response = { ...call, value: { name: "get_weather", response: { temp: 4 } }, metadata: { adk_type: "function_response" } };
     expect(isActivityArtifact(artifact([call]))).toBe(true);
-    expect(toolPartLabel(call)).toBe("get_weather · call");
-    expect(toolPartLabel(response)).toBe("get_weather · result");
+    expect(describeData(call)).toMatchObject({ kind: "tool-call", title: "get_weather" });
+    expect(describeData(response)).toMatchObject({ kind: "tool-result", title: "get_weather" });
   });
 
-  it("labels a tool step by the tool name its payload carries", () => {
-    expect(toolPartLabel(json({ tool: "get_weather" }))).toBe("get_weather");
-    expect(toolPartLabel(json({ function: { name: "lookup" } }))).toBe("lookup");
-    expect(toolPartLabel(json({ rows: 3 }))).toBe("Tool activity");
+  it("does not treat a lone tool name, without arguments or a result, as tool traffic", () => {
+    expect(isActivityArtifact(artifact([json({ tool: "get_weather" })]))).toBe(false);
   });
 });
 
@@ -41,7 +40,7 @@ describe("activity messages", () => {
     const call = { parts: [json({ id: "call-1", name: "list_directory", args: { path: "/kb" } })] };
     const result = { parts: [json({ id: "call-1", name: "list_directory", response: { content: [] } })] };
     expect(isActivityMessage(call)).toBe(true);
-    expect(toolPartLabel(call.parts[0])).toBe("list_directory");
+    expect(describeData(call.parts[0]).title).toBe("list_directory");
     expect(isActivityMessage(result)).toBe(true);
     expect(isActivityMessage({ parts: [json({ rows: [{ id: 1 }] })] })).toBe(false);
     expect(isActivityMessage({ parts: [text("The answer is 42")] })).toBe(false);
@@ -147,8 +146,7 @@ describe("where task messages go", () => {
 });
 
 describe("step labels", () => {
-  it("names a tool part and only names a status author who is not the agent", () => {
-    expect(toolPartLabel({ ...json({ id: "c", name: "search", args: {} }), metadata: { adk_type: "function_call" } })).toBe("search · call");
+  it("only names a status author who is not the agent", () => {
     expect(statusAuthor({ metadata: { adk_author: "knowledge_agent" } }, "Knowledge agent")).toBe("knowledge_agent");
     expect(statusAuthor({ metadata: { adk_author: "Knowledge agent" } }, "Knowledge agent")).toBeNull();
     expect(statusAuthor({}, "Knowledge agent")).toBeNull();

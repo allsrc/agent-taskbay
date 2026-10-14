@@ -1,4 +1,5 @@
 import { isA2uiPart } from "@/lib/a2ui";
+import { describeData, taggedKind } from "@/lib/data-part";
 import type { AssembledArtifact, NormalizedPart } from "@/lib/types";
 import { isActiveState, stateName } from "@/lib/task-view";
 import type { ThreadMessage, TrackedTask } from "@/store/task-store";
@@ -16,38 +17,20 @@ export function isReasoningPart(part: NormalizedPart): boolean {
   return ["adk_type", "type", "kind"].some((key) => typeof meta[key] === "string" && REASONING_TYPES.has(meta[key] as string));
 }
 
-
-/** Agent frameworks tag tool traffic on the part: Google ADK uses `type` (or `adk_type`) of function_call / function_response. */
-const TOOL_TYPES = new Set(["function_call", "function_response", "tool_call", "tool_result", "tool_use", "code_execution_result", "executable_code"]);
-const toolType = (part: NormalizedPart): string | undefined => {
-  for (const key of ["adk_type", "type", "kind"]) {
-    const value = part.metadata?.[key];
-    if (typeof value === "string" && TOOL_TYPES.has(value)) return value;
-  }
-  return undefined;
-};
-
-/** A tool call or result: tagged by the agent framework, or JSON shaped like `{ id, name, args | response }`. */
+/**
+ * A tool call or result, code or its output: tagged by the agent framework, or shaped like one (see `describeData`).
+ * Taskbay's own media types and A2UI surfaces are never tool traffic.
+ */
 export function isToolPart(part: NormalizedPart): boolean {
-  if (toolType(part)) return true;
+  if (taggedKind(part)) return true;
   if (!isJsonPart(part) || part.mediaType.startsWith("application/vnd.agent-taskbay") || isA2uiPart(part)) return false;
-  let value = part.value;
-  if (typeof value === "string") {
-    try {
-      value = JSON.parse(value);
-    } catch {
-      return false;
-    }
-  }
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-  const record = value as Record<string, unknown>;
-  const hasName = [record.name, record.toolName, record.tool_name, record.tool].some((candidate) => typeof candidate === "string" && candidate.trim());
-  const hasId = typeof record.id === "string" && Boolean(record.id);
-  const hasOperation = "args" in record || "response" in record;
-  return hasName && hasOperation && (hasId || typeof record.tool === "string");
+  return ["tool-call", "tool-result", "code", "code-result"].includes(describeData(part).kind);
 }
 
-const isActivityPart = (part: NormalizedPart) => isToolPart(part) || isReasoningPart(part);
+/** Reasoning sent as structured data (Anthropic `thinking`, Vercel `reasoning`). */
+const isReasoningData = (part: NormalizedPart) => isJsonPart(part) && !isA2uiPart(part) && describeData(part).kind === "reasoning";
+
+const isActivityPart = (part: NormalizedPart) => isToolPart(part) || isReasoningPart(part) || isReasoningData(part);
 
 export function isActivityMessage(message: Pick<ThreadMessage, "parts">): boolean {
   return message.parts.length > 0 && message.parts.every(isActivityPart);
@@ -61,28 +44,6 @@ export function isActivityMessage(message: Pick<ThreadMessage, "parts">): boolea
 export function isActivityArtifact(artifact: AssembledArtifact): boolean {
   return artifact.parts.length > 0 && artifact.parts.every(isActivityPart);
 }
-
-const SUFFIX: Record<string, string> = { function_call: "call", tool_call: "call", tool_use: "call", executable_code: "code", function_response: "result", tool_result: "result", code_execution_result: "result" };
-
-function activityName(parts: NormalizedPart[]): string | undefined {
-  for (const part of parts) {
-    const kind = toolType(part);
-    const suffix = kind ? ` · ${SUFFIX[kind]}` : "";
-    const value = part.value;
-    if (value && typeof value === "object" && !Array.isArray(value)) {
-      const record = value as Record<string, unknown>;
-      for (const key of ["tool", "toolName", "tool_name", "name", "function", "action", "type"]) {
-        const candidate = record[key];
-        if (typeof candidate === "string" && candidate.trim()) return candidate.trim() + suffix;
-        if (candidate && typeof candidate === "object" && typeof (candidate as { name?: unknown }).name === "string") return (candidate as { name: string }).name + suffix;
-      }
-    }
-  }
-  return undefined;
-}
-
-/** The tool or function a part names, with "call" or "result" when the framework tagged it. */
-export const toolPartLabel = (part: NormalizedPart): string => activityName([part]) ?? "Tool activity";
 
 /**
  * The sub-agent that wrote a status update (Google ADK sets `adk_author`), or null when it is the agent itself or

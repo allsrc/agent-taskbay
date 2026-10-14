@@ -13,11 +13,11 @@ the project uses [semantic versioning](https://semver.org/) once it reaches 1.0;
 - In chat, explicitly tagged or tool-shaped calls and results (including Google ADK `function_call` and `function_response` parts) fold into one quiet **Activity** log, with each entry opening to its JSON. Generic JSON artifacts remain visible as results. Consecutive agent messages before the reply fold into **Progress**. A final message that only repeats a finished text result is no longer shown twice.
 - For agents whose card advertises streaming, chat defaults `returnImmediately` on so Taskbay can subscribe to the active task and show updates sooner. The per-chat **Options** switch can turn it off.
 - New chats select their conversation on the first committed task snapshot, keeping streamed updates visible while the task runs.
-- Status updates fold into **Progress** while the agent works. Progress and Activity share one step design: text updates read as lines, tool calls and results are named steps (`list_directory · call`) that open to their JSON, and a sub-agent author (`adk_author`) is shown when it differs from the agent.
+- Status updates fold into **Progress** while the agent works. Progress and Activity share one step design: text updates read as lines, and structured parts become one-line steps that open to their JSON. A step names its kind (tool call, result, code, code output, reasoning, error or data), the tool or best title, the call id and a short preview, recognizing Google ADK (including `tool_response`), OpenAI, Anthropic, Vercel AI SDK and MCP shapes; a result carrying only a call id takes the call's name, and arbitrary JSON is summarized by its title, id and first fields instead of `[data]` or a bare media type. A sub-agent author (`adk_author`) is shown when it differs from the agent.
 
 ### Added
 
-- `scripts/fixture-content-agent.mjs`, a streaming sample agent that sends content under the wrong media type, with the cases in `scripts/fixtures/mislabeled-content.json` shared by its tests.
+- `scripts/fixture-content-agent.mjs`, a streaming sample agent that sends content under the wrong media type (cases in `scripts/fixtures/mislabeled-content.json`, shared by its tests) and, with `tools`, tool calls, results, reasoning and other JSON in common framework shapes.
 
 ### Fixed
 

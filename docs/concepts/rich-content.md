@@ -22,6 +22,7 @@ Agents send messages and artifacts made of parts: text, structured data, files, 
 | Text that looks like CSV or HTML, or anything in your own messages | A suggested view; Auto does not change. HTML always starts as contained source text |
 | Text whose content does not fit its declared type (for example JSON labelled `text/html`) | The view that fits the content, as described above |
 | `application/json` and other JSON | Table when it is a list of objects, otherwise a collapsible tree. A "Structured" toggle is available |
+| JSON in progress and activity logs | A one-line summary (kind, name or title, id, preview) that opens to the table or tree. See `src/lib/data-part.ts` for the recognized tool-call, result and reasoning shapes |
 | CSV | Table |
 | Images, audio, video, PDF | Shown inline only when the bytes were archived by the server. Remote media URLs are not loaded |
 | Anything else | A download card |

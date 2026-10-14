@@ -3,7 +3,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ContentViewer } from "@/components/content-viewer";
 import { profileContent, resolveView } from "@/lib/content-view";
 import cases from "../../scripts/fixtures/mislabeled-content.json";
-import { startContentAgent } from "../../scripts/fixture-content-agent.mjs";
+import { DATA_SHAPES, startContentAgent } from "../../scripts/fixture-content-agent.mjs";
+import { describeData } from "@/lib/data-part";
 
 type Case = { id: string; mediaType: string; text: string; expect: { view: string; html?: boolean; suggestion?: string } };
 
@@ -71,5 +72,13 @@ describe("mislabeled content fixture agent", () => {
     expect(reply.status.message.parts).toHaveLength(cases.length);
     const single = await settle(await send("plain-json"));
     expect(single.artifacts.map((artifact: { artifactId: string }) => artifact.artifactId)).toEqual(["plain-json"]);
+  });
+
+  it("streams the framework data shapes, each with a recognizable summary", async () => {
+    const task = await settle(await send("tools"));
+    const updates = task.history.filter((message: { role: string }) => message.role === "ROLE_AGENT");
+    expect(updates).toHaveLength(DATA_SHAPES.length + 1);
+    const kinds = (DATA_SHAPES as Array<{ data: unknown; metadata?: Record<string, unknown> }>).map((shape) => describeData({ value: shape.data, metadata: shape.metadata, mediaType: "application/json" }).kind);
+    expect(new Set(kinds)).toEqual(new Set(["tool-call", "tool-result", "code", "code-result", "reasoning", "data", "error"]));
   });
 });
