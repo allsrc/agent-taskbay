@@ -94,7 +94,7 @@ These are read by the repository's tests and verification scripts, not by the ap
 ## Boundaries
 
 - Domain and application code never import React, Next.js, MikroORM or a database driver. New persistence goes behind a port with an adapter.
-- Migrations are additive. Create one with `npm run db:migration:create`.
+- Migrations are additive. Create one with `npm run db:migration:create`. Do not edit the baseline; it is the schema as released.
 - Browser code never receives agent credentials; credentials are resolved on the server.
 - Security-relevant changes (authentication, credentials, outbound requests, webhooks, artifacts) update the [threat model](../security/threat-model.md) and add a regression test.
 

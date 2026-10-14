@@ -25,7 +25,6 @@ async function contract(config: DatabaseConfig, directory: string) {
   process.env.A2A_VAULT_KEYS = JSON.stringify({old: "ab".repeat(32), current: "cd".repeat(32)}); process.env.A2A_VAULT_ACTIVE_KEY = "old";
   try {
     if ((await orm.migrator.getExecuted()).length) await orm.migrator.down({to: 0});
-    await orm.migrator.up({to: "Migration20261003080625_IdentitySessions"});
     await orm.migrator.up();
     const registry = new DatabaseAgentRegistry({orm, legacyFilePath: join(directory, "absent"), environmentUrls: () => []});
     const agent = await registry.add("https://agent.test/card");
@@ -100,9 +99,7 @@ async function contract(config: DatabaseConfig, directory: string) {
     expect(await withPrincipal(member, () => registry.get(agent.id))).toBeUndefined();
     expect(await withPrincipal(member, () => readCommand(command.id, orm))).toBeUndefined();
     await orm.em.fork().nativeUpdate(AccessGrantEntity, {id: grant.id}, {enabled: false});
-    await orm.migrator.down({to: "Migration20261003080625_IdentitySessions"});
-    expect(await orm.em.getConnection().execute("select remote_task_id from tasks where id = ?", [publicTask.localId])).toEqual([{remote_task_id: "public-task"}]);
-    await orm.migrator.up(); expect(await orm.migrator.checkSchema()).toBe(false);
+    expect(await orm.migrator.checkSchema()).toBe(false);
   } finally {
     if (previousKeys === undefined) delete process.env.A2A_VAULT_KEYS; else process.env.A2A_VAULT_KEYS = previousKeys;
     if (previousActive === undefined) delete process.env.A2A_VAULT_ACTIVE_KEY; else process.env.A2A_VAULT_ACTIVE_KEY = previousActive;

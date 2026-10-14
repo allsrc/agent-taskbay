@@ -12,24 +12,7 @@ import {
   withRequestEntityManager,
 } from "./orm";
 
-const migrationNames = [
-  "Migration20261001000000_Baseline",
-  "Migration20261001131340_InitialModel",
-  "Migration20261003000000_TaskContent",
-  "Migration20261003010000_TaskCommands",
-  "Migration20261003020000_TaskSubscriptions",
-  "Migration20261003030000_TaskPushRegistrations",
-  "Migration20261003045027_TaskReconciliation",
-  "Migration20261003052730_VersionedTaskProjections",
-  "Migration20261003060000_ApplicationFreshness",
-  "Migration20261003080625_IdentitySessions",
-  "Migration20261003100926_ScopedSecurity",
-  "Migration20261005051700_DecisionAggregates",
-  "Migration20261005081948_WorkflowOwnership",
-  "Migration20261005091051_AuditImmutability",
-  "Migration20261005111024_Notifications",
-  "Migration20261005130000_InboxIndex",
-];
+const migrationNames = ["Migration20261014000000_Baseline"];
 
 async function verifyMigrationContract(config: DatabaseConfig) {
   const orm = await createDatabaseOrm(config);
@@ -45,7 +28,7 @@ async function verifyMigrationContract(config: DatabaseConfig) {
     const applied = await orm.migrator.up();
     expect(applied.map((migration) => migration.name)).toEqual(migrationNames);
     expect(await orm.migrator.getPending()).toHaveLength(0);
-    expect(await orm.migrator.getExecuted()).toHaveLength(16);
+    expect(await orm.migrator.getExecuted()).toHaveLength(1);
     expect(await orm.migrator.checkSchema()).toBe(false);
   } finally {
     await orm.close(true);
@@ -71,43 +54,44 @@ describe("PGlite database adapter", () => {
 
     reopenedOrm = await createDatabaseOrm(config);
     expect(await reopenedOrm.migrator.getPending()).toHaveLength(0);
-    expect(await reopenedOrm.migrator.getExecuted()).toHaveLength(16);
+    expect(await reopenedOrm.migrator.getExecuted()).toHaveLength(1);
   });
 
-  it("upgrades the immediately previous push schema", async () => {
-    const upgradeDataDir = await mkdtemp(
-      path.join(tmpdir(), "agent-taskbay-pglite-upgrade-"),
-    );
-    const config = { profile: "pglite" as const, dataDir: upgradeDataDir };
+  it("adopts a database created by the migrations that came before the squashed baseline", async () => {
+    const legacyDataDir = await mkdtemp(path.join(tmpdir(), "agent-taskbay-pglite-legacy-"));
     try {
-      const previousOrm = await createDatabaseOrm(config);
-      await previousOrm.migrator.up({ to: migrationNames[5] });
-      await previousOrm.em.getConnection().execute(`insert into organizations (id, slug, name, created_at, updated_at) values ('00000000-0000-4000-a000-000000000001', 'upgrade', 'Upgrade', now(), now())`);
-      await previousOrm.em.getConnection().execute(`insert into agents (id, organization_id, card_url, source, enabled, created_at, updated_at) values ('00000000-0000-4000-a000-000000000002', '00000000-0000-4000-a000-000000000001', 'https://upgrade.example.test', 'managed', true, now(), now())`);
-      await previousOrm.em.getConnection().execute(`insert into tasks (id, organization_id, agent_id, tenant, remote_task_id, kind, state, created_at, updated_at) values ('00000000-0000-4000-a000-000000000003', '00000000-0000-4000-a000-000000000001', '00000000-0000-4000-a000-000000000002', '', 'retained', 'task', 'TASK_STATE_WORKING', now(), now())`);
-      await previousOrm.em.getConnection().execute(`insert into task_subscriptions (id, organization_id, task_id, status, available_at, created_at, updated_at) values ('00000000-0000-4000-a000-000000000004', '00000000-0000-4000-a000-000000000001', '00000000-0000-4000-a000-000000000003', 'pending', now(), now(), now())`);
-      await previousOrm.close(true);
+      const orm = await createDatabaseOrm({ profile: "pglite", dataDir: legacyDataDir });
+      await orm.migrator.up();
+      const connection = orm.em.getConnection();
+      await connection.execute(`insert into organizations (id, slug, name, created_at, updated_at) values ('00000000-0000-4000-a000-000000000001', 'kept', 'Kept', now(), now())`);
+      // What the old chain left behind: its own names in the migrations table, in place of the baseline's.
+      await connection.execute(`delete from agent_taskbay_migrations`);
+      await connection.execute(`insert into agent_taskbay_migrations (name) values ('Migration20261001000000_Baseline'), ('Migration20261005111024_Notifications'), ('Migration20261005130000_InboxIndex')`);
+      expect((await orm.migrator.getPending()).map(({ name }) => name)).toEqual(migrationNames);
 
-      const upgradedOrm = await createDatabaseOrm(config);
-      expect(
-        (await upgradedOrm.migrator.getPending()).map(({ name }) => name),
-      ).toEqual([migrationNames[6], migrationNames[7], migrationNames[8], migrationNames[9], migrationNames[10], migrationNames[11], migrationNames[12], migrationNames[13], migrationNames[14], migrationNames[15]]);
-      await upgradedOrm.migrator.up();
-      const rows = await upgradedOrm.em.getConnection().execute(`select remote_task_id, state, content_json from tasks where id = '00000000-0000-4000-a000-000000000003'`);
-      expect(rows).toEqual([{ remote_task_id: "retained", state: "TASK_STATE_WORKING", content_json: {} }]);
-      const adopted = await upgradedOrm.em.getConnection().execute(`select task_id, status from task_subscriptions`);
-      expect(adopted).toEqual([{ task_id: "00000000-0000-4000-a000-000000000003", status: "pending" }]);
-      const push = await upgradedOrm.em.getConnection().execute(`select count(*)::int as count from task_push_registrations`);
-      expect(push).toEqual([{ count: 0 }]);
-      const sync = await upgradedOrm.em.getConnection().execute(`select resource_key, task_id, status from sync_cursors order by resource_key`);
-      expect(sync).toEqual([
-        { resource_key: "", task_id: null, status: "pending" },
-        { resource_key: "00000000-0000-4000-a000-000000000003", task_id: "00000000-0000-4000-a000-000000000003", status: "pending" },
-      ]);
-      expect(await upgradedOrm.migrator.checkSchema()).toBe(false);
-      await upgradedOrm.close(true);
+      await orm.migrator.up();
+      expect((await orm.migrator.getExecuted()).map(({ name }) => name)).toEqual(migrationNames);
+      expect(await connection.execute(`select slug from organizations`)).toEqual([{ slug: "kept" }]);
+      expect(await orm.migrator.checkSchema()).toBe(false);
+      await orm.close(true);
     } finally {
-      await rm(upgradeDataDir, { force: true, recursive: true });
+      await rm(legacyDataDir, { force: true, recursive: true });
+    }
+  });
+
+  it("refuses a database left part way through the old migrations", async () => {
+    const partialDataDir = await mkdtemp(path.join(tmpdir(), "agent-taskbay-pglite-partial-"));
+    try {
+      const orm = await createDatabaseOrm({ profile: "pglite", dataDir: partialDataDir });
+      await orm.migrator.up();
+      const connection = orm.em.getConnection();
+      await connection.execute(`delete from agent_taskbay_migrations`);
+      await connection.execute(`insert into agent_taskbay_migrations (name) values ('Migration20261003060000_ApplicationFreshness')`);
+      await expect(orm.migrator.up()).rejects.toThrow("missing some of its migrations");
+      expect((await orm.migrator.getExecuted()).map(({ name }) => name)).toEqual(["Migration20261003060000_ApplicationFreshness"]);
+      await orm.close(true);
+    } finally {
+      await rm(partialDataDir, { force: true, recursive: true });
     }
   });
 

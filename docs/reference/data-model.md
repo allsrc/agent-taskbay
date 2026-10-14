@@ -125,7 +125,8 @@ losing content. See [`npm run db:projections:rebuild`](cli.md#npm-run-dbprojecti
 
 ## Migrations
 
-Sixteen migrations, applied in file-name order, create this schema; the first is dated 2026-10-01. The latest adds an index on `decision_requests (organization_id, updated_at)`. List them with
+One baseline migration, `Migration20261014000000_Baseline`, creates this schema. It replaces the sixteen migrations of the development period; databases that applied them are adopted as they are (see
+[Upgrading and backups](../guides/upgrading-and-backups.md#migrations)). Later changes are new migrations after it. List them with
 `npm run db:migration:list` and check for drift with `npm run db:schema:check` ([CLI](cli.md#npm-scripts)). Down migrations exist for rollback in development; take a backup before relying on one.
 
 ## Limits

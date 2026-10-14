@@ -20,7 +20,7 @@ This quickstart is local-only. The development identity grants administrator rig
 npx agent-taskbay
 ```
 
-The launcher starts the console at `http://127.0.0.1:3002` and opens a browser tab when it is attached to a terminal (`--no-open` turns that off). It prints the Next.js start banner and the migrations as they apply, then a summary. This is the summary from a run with `--data-dir ./scratch-data --no-open -p 3055`:
+The launcher starts the console at `http://127.0.0.1:3002` and opens a browser tab when it is attached to a terminal (`--no-open` turns that off). It prints the Next.js start banner, then whether it is creating a new database or upgrading an existing one (an existing PGlite database is backed up first), then a summary. This is the summary from a run with `--data-dir ./scratch-data --no-open -p 3055`:
 
 ```text
   Agent Taskbay 0.2.0 is running at http://127.0.0.1:3055

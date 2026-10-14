@@ -137,6 +137,8 @@ See [Notifications](../guides/notifications.md).
 | Symptom | Cause | Fix |
 |---|---|---|
 | Requests fail with database errors right after an upgrade | Pending migrations. | `npm run db:migration:pending`, `npm run db:migrate`. |
+| `Could not back up … before upgrading, so nothing was changed` | The launcher copies an existing PGlite directory before upgrading it and the copy failed (disk space or permissions). | Free space or fix permissions and start again, or back it up yourself and set `A2A_AUTO_MIGRATE=false`. |
+| `This database was created by an older Agent Taskbay release…` | The database has only some of the migrations that preceded the baseline. | Start it once with `agent-taskbay@0.2.0`, then the new version. |
 | `audit records are append-only` / `decision request core is immutable` | A manual UPDATE or DELETE hit a protected table. | Do not modify those rows. |
 | A second process cannot open the PGlite directory | PGlite allows one owner. | Stop the other process; use PostgreSQL for a separate worker. |
 | `Active task content projection missing.` / `Projection ledger scope mismatch.` and similar | Stored projection and ledger disagree. | Run a [projection rebuild](../guides/upgrading-and-backups.md#rebuild-projections) for the task. |

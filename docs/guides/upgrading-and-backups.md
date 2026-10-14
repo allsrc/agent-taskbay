@@ -76,6 +76,18 @@ When migrations run by themselves:
 | Everything else, including production builds and PostgreSQL | **Off.** Run `npm run db:migrate` yourself. |
 | Any situation with `A2A_AUTO_MIGRATE` set | `true` turns it on, any other non-empty value turns it off. |
 
+When automatic migration is on, startup says which case it found:
+
+| Found | Message | What happens |
+|---|---|---|
+| No migrations recorded (a new installation) | `No existing database found. Creating a new one.` | The schema is created. Nothing exists to back up. |
+| Recorded migrations, some pending (an upgrade) | `Existing database found with N pending migration(s). Upgrading.` | An embedded PGlite directory is copied to `<pglite dir>.backup-<timestamp>` first, then migrated. The newest 3 copies are kept. If the copy fails, nothing is migrated and startup fails. PostgreSQL is **not** backed up for you. |
+| Nothing pending | no message | Nothing runs. |
+
+Releases up to 0.2.0 shipped sixteen migrations; they were squashed into one baseline, `Migration20261014000000_Baseline`. A database from 0.2.0 or earlier that has all sixteen applied is recognised and adopted: its tables are
+kept and the migrations table is rewritten to the single baseline. A database that is missing some of the sixteen is refused with `This database was created by an older Agent Taskbay release…`. Start it once with
+`agent-taskbay@0.2.0`, then start the new version.
+
 With more than one web replica keep `A2A_AUTO_MIGRATE` off and run `db:migrate` once per release. Replicas racing to migrate is the case the default avoids.
 
 The migrations add append-only triggers on the security audit table and on the fixed core of approval requests. Updates and deletes on those rows fail with `audit records are append-only` or

@@ -22,16 +22,14 @@ async function contract(config: DatabaseConfig, directory: string) {
   const identities = () => new DatabaseIdentityRepository(orm.em.fork());
   try {
     if ((await orm.migrator.getExecuted()).length) await orm.migrator.down({ to: 0 });
-    await orm.migrator.up({ to: "Migration20261003060000_ApplicationFreshness" });
+    await orm.migrator.up();
     const org = await bootstrapDefaultLocalOrganization(createPersistenceRepositories(orm.em.fork()).organizations);
-    // Upgrade the immediately previous schema with retained agents/tasks and identities.
     const registry = new DatabaseAgentRegistry({ orm, environmentUrls: () => [], legacyFilePath: join(directory, "absent") });
     const agent = await registry.add("https://fixture.example.test/card");
     const view = { localId: randomUUID() };
     await orm.em.getConnection().execute(
       "insert into tasks (id, organization_id, agent_id, tenant, remote_task_id, kind, state, created_at, updated_at) values (?, ?, ?, '', 'retained', 'task', 'TASK_STATE_WORKING', now(), now())",
       [view.localId, org.id, agent.id]);
-    await orm.migrator.up();
     expect(await orm.migrator.checkSchema()).toBe(false);
     expect((await withTaskQueries((q) => q.detail(org.id, view.localId), orm))?.taskId).toBe("retained");
     const foreign = await createPersistenceRepositories(orm.em.fork()).organizations.getOrCreate({ id: randomUUID(), slug: "foreign",
@@ -95,11 +93,6 @@ async function contract(config: DatabaseConfig, directory: string) {
     expect((await identities().resolveSession(tokenHash(token), new Date()))?.role).toBe("viewer");
     await identities().revokeSession(tokenHash(token));
     expect(await identities().resolveSession(tokenHash(token), new Date())).toBeUndefined();
-    // Read the retained previous-schema row without the newer ORM column mapping.
-    await orm.migrator.down({ to: "Migration20261003060000_ApplicationFreshness" });
-    expect(await orm.em.getConnection().execute("select remote_task_id from tasks where id = ?", [view.localId]))
-      .toEqual([{ remote_task_id: "retained" }]);
-    await orm.migrator.up();
     expect(await orm.migrator.checkSchema()).toBe(false);
   } finally { await orm.close(true); }
 }
