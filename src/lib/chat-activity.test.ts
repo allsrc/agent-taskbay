@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activityLabel, isActivityArtifact, repeatsArtifact } from "@/lib/chat-activity";
+import { activityLabel, isActivityArtifact, isReasoningOnly, isReasoningPart, repeatsArtifact, settleArtifacts } from "@/lib/chat-activity";
 import type { AssembledArtifact } from "@/lib/types";
 
 const artifact = (parts: AssembledArtifact["parts"], extra: Partial<AssembledArtifact> = {}): AssembledArtifact => ({ artifactId: "a", parts, complete: true, updateCount: 1, ...extra });
@@ -48,5 +48,44 @@ describe("duplicate final answers", () => {
     expect(repeatsArtifact(message(answer), [artifact([text(answer)], { complete: false })])).toBe(false);
     expect(repeatsArtifact(message("Hi"), [artifact([text("Hi")])])).toBe(true);
     expect(repeatsArtifact(message(answer), [artifact([json({ tool: "x" })])])).toBe(false);
+  });
+});
+
+describe("reasoning parts", () => {
+  const thought = (value: string, meta: Record<string, unknown> = { thought: true }) => ({ id: "r", kind: "text" as const, value, mediaType: "text/plain", metadata: meta });
+
+  it("recognizes reasoning marked by common frameworks", () => {
+    expect(isReasoningPart(thought("hmm"))).toBe(true);
+    expect(isReasoningPart(thought("hmm", { adk_thought: true }))).toBe(true);
+    expect(isReasoningPart(thought("hmm", { type: "reasoning" }))).toBe(true);
+    expect(isReasoningPart(text("Plain answer"))).toBe(false);
+  });
+
+  it("folds a reasoning-only artifact into activity and labels it", () => {
+    expect(isActivityArtifact(artifact([thought("Let me think")]))).toBe(true);
+    expect(activityLabel(artifact([thought("Let me think")]))).toBe("Reasoning");
+  });
+
+  it("does not count reasoning as the answer when looking for duplicates", () => {
+    const answer = "Everything is healthy and all twelve smoke tests passed in staging.";
+    const message = { parts: [thought("I should check the tests"), text(answer)] };
+    expect(isReasoningOnly(message)).toBe(false);
+    expect(isReasoningOnly({ parts: [thought("only thinking")] })).toBe(true);
+    expect(repeatsArtifact(message, [artifact([text(answer)])])).toBe(true);
+  });
+});
+
+describe("settling streamed artifacts", () => {
+  it("marks unfinished artifacts complete once the task is over, and leaves running tasks alone", () => {
+    const open = artifact([text("partial")], { complete: false });
+    expect(settleArtifacts([open], true)[0].complete).toBe(true);
+    expect(settleArtifacts([open], false)[0].complete).toBe(false);
+  });
+
+  it("lets a finished task's un-terminated answer de-duplicate the final message", () => {
+    const answer = "Staging is healthy and the smoke tests passed, so no rollback is needed.";
+    const open = artifact([text(answer)], { complete: false });
+    expect(repeatsArtifact({ parts: [text(answer)] }, [open])).toBe(false);
+    expect(repeatsArtifact({ parts: [text(answer)] }, settleArtifacts([open], true))).toBe(true);
   });
 });

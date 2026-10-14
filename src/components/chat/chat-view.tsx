@@ -11,7 +11,7 @@ import { StructuredForm } from "@/components/chat/structured-form";
 import { startFormFromCard } from "@/lib/structured-form";
 import { A2uiSurfaces } from "@/components/a2ui/surface";
 import { A2UI_EXTENSION_URI, a2uiClientMetadata, surfacesFromParts } from "@/lib/a2ui";
-import { isActivityArtifact, repeatsArtifact } from "@/lib/chat-activity";
+import { isActivityArtifact, isReasoningOnly, repeatsArtifact, settleArtifacts } from "@/lib/chat-activity";
 import { ActivityLog, AgentBubble, ArtifactCard, ProgressLog, TaskCard, UserBubble } from "@/components/chat/timeline";
 import { SideRail, useIsDesktop, type RailTab } from "@/components/chat/side-rail";
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,7 @@ import { conversationKey, findConversation, groupConversations, isOpenTask } fro
 import type { OutgoingPart } from "@/lib/message-parts";
 import type { WireEntry } from "@/lib/wire-sequence";
 import { runSend, userThreadMessage } from "@/lib/run-message";
-import { stateName } from "@/lib/task-view";
+import { isActiveState, stateName } from "@/lib/task-view";
 import { useAgentStore } from "@/store/agent-store";
 import { useSettingsStore } from "@/store/settings-store";
 import { useTaskStore, type SendConfig, type ThreadMessage, type TrackedTask } from "@/store/task-store";
@@ -248,13 +248,14 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
               const cardAt = task.kind === "message" ? -1 : firstAgent >= 0 ? firstAgent : 0;
               // In-between status updates fold into one progress log; the last message, questions and results stay prominent.
               const lastIndex = task.messages.length - 1;
-              const activity = task.artifacts.filter(isActivityArtifact);
-              const results = task.artifacts.filter((artifact) => !isActivityArtifact(artifact));
+              const settled = settleArtifacts(task.artifacts, task.kind !== "message" && !isActiveState(task.state));
+              const activity = settled.filter(isActivityArtifact);
+              const results = settled.filter((artifact) => !isActivityArtifact(artifact));
               // The last message is dropped when it only repeats a finished result, so the answer appears once.
               const repeated = task.kind !== "message" && !isOpenTask(task) && lastIndex >= 0 && task.messages[lastIndex].role === "agent" && repeatsArtifact(task.messages[lastIndex], results);
               // An update is a status message, or an agent message followed straight away by another agent message (it was not the reply).
               const isUpdate = (message: ThreadMessage, index: number) =>
-                task.kind !== "message" && message.role === "agent" && index !== lastIndex && (Boolean(message.fromStatus) || task.messages[index + 1]?.role === "agent");
+                task.kind !== "message" && message.role === "agent" && (isReasoningOnly(message) || (index !== lastIndex && (Boolean(message.fromStatus) || task.messages[index + 1]?.role === "agent")));
               // Each run of consecutive updates becomes its own log, so the conversation keeps its order.
               const runs = new Map<number, ThreadMessage[]>();
               task.messages.forEach((message, index) => {

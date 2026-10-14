@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 import { StructuredForm } from "@/components/chat/structured-form";
 import { formFromPart, type FormSubmission } from "@/lib/structured-form";
 import { isA2uiPart } from "@/lib/a2ui";
-import { activityLabel } from "@/lib/chat-activity";
+import { activityLabel, isReasoningOnly, isReasoningPart } from "@/lib/chat-activity";
 
 const enter = { initial: { opacity: 0, y: 8 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.2, ease: "easeOut" as const } };
 
@@ -77,8 +77,15 @@ export function AgentBubble({
       )}
     >
       {prompt && <span><Pill tone={prompt === "INPUT_REQUIRED" ? "warning" : "info"} dot>{prompt === "INPUT_REQUIRED" ? "Input required" : "Authorization required"}</Pill></span>}
+      {message.parts.some(isReasoningPart) && (
+        <details className="text-xs text-muted-foreground">
+          <summary className="cursor-pointer font-medium">Reasoning</summary>
+          <p className="mt-1 break-words whitespace-pre-wrap">{message.parts.filter(isReasoningPart).map((part) => String(part.value)).join("\n")}</p>
+        </details>
+      )}
       <div>
         {message.parts
+          .filter((part) => !isReasoningPart(part))
           // The options list is shown as buttons below; don't echo it as raw JSON too.
           .filter((part) => !(options.length > 0 && part.kind === "data") && part !== formPart?.part)
           .map((part, index) => a2ui && isA2uiPart(part)
@@ -136,6 +143,7 @@ function stepsFor(task: TrackedTask): Array<{ label: string; status: "done" | "a
 /** Short text for one in-between update; non-text parts show their kind. */
 function updateText(message: ThreadMessage): string {
   const text = message.parts.map((part) => (part.kind === "text" ? String(part.value) : `[${part.kind}]`)).join(" ").trim();
+  if (isReasoningOnly(message)) return `Reasoning · ${text}`;
   return text || "Update";
 }
 
