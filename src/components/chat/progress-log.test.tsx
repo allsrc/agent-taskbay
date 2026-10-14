@@ -24,27 +24,28 @@ describe("progress log", () => {
     expect(html).toContain('aria-expanded="false"');
   });
 
-  it("offers the shared views for plain status text inside collapsed details", () => {
-    const html = renderToStaticMarkup(<ProgressLog active messages={[update("a", "**Working**")]} />);
-    expect(html).toContain("text/plain · Details");
-    expect(html).toContain("Content view");
-    expect(html).toContain("Sanitized HTML");
-    expect(html).not.toContain('aria-label="Rich HTML preview"');
+  it("shows status text once, without format controls or a duplicate details box", () => {
+    const html = renderToStaticMarkup(<ProgressLog active messages={[update("a", "Reading the index")]} />);
+    expect(html.match(/Reading the index/g)).toHaveLength(1);
+    expect(html).not.toContain("Details");
+    expect(html).not.toContain("Content view");
   });
 
-  it("shows status authors and expandable JSON instead of a [data] placeholder", () => {
-    const html = renderToStaticMarkup(<ProgressLog active messages={[statusData("call", { id: "call-1", name: "list_directory", args: { path: "/kb" } })]} />);
-    expect(html).toContain("knowledge_agent → You");
-    expect(html).toContain("application/json · Details");
-    expect(html).toContain("list_directory");
+  it("shows a tool call as a named step that opens to its JSON, with the sub-agent that ran it", () => {
+    const html = renderToStaticMarkup(<ProgressLog active agentName="Knowledge agent" messages={[statusData("call", { id: "call-1", name: "list_directory", args: { path: "/kb" } })]} />);
+    expect(html).toContain("list_directory · call");
+    expect(html).toContain("knowledge_agent");
+    expect(html).toContain("<details");
+    expect(html).toContain("/kb");
     expect(html).not.toContain("[data]");
+    expect(html).not.toContain("→ You");
   });
 });
 
 describe("sent messages", () => {
-  it("uses a soft semantic surface rather than the primary action color", () => {
+  it("use a soft brand surface rather than the primary action color", () => {
     const html = renderToStaticMarkup(<UserBubble message={update("sent", "Hello")} />);
-    expect(html).toContain("bg-secondary text-secondary-foreground");
+    expect(html).toContain("bg-brand-soft");
     expect(html).not.toContain("bg-primary");
     expect(html).toContain("Hello");
   });
@@ -61,18 +62,24 @@ describe("activity log messages", () => {
 });
 
 describe("artifact card", () => {
-  it("presents the artifact as the result", () => {
+  it("highlights a finished text result as the outcome", () => {
     const html = renderToStaticMarkup(<ArtifactCard artifact={{ artifactId: "x", name: "Report", complete: true, parts: [{ id: "p", kind: "text", value: "All good", mediaType: "text/plain" }] } as never} />);
     expect(html).toContain("Result");
     expect(html).toContain("Report");
     expect(html).toContain("All good");
   });
 
-  it("keeps a text result in the Result card with its content type and raw markdown", () => {
-    const html = renderToStaticMarkup(<ArtifactCard artifact={{ artifactId: "x", complete: true, parts: [{ id: "p", kind: "text", value: "**bold**", mediaType: "text/plain" }] } as never} />);
-    expect(html).toContain("Result");
+  it("formats a Markdown answer and does not repeat Result as the title of an unnamed result", () => {
+    const html = renderToStaticMarkup(<ArtifactCard artifact={{ artifactId: "x", complete: true, parts: [{ id: "p", kind: "text", value: "## Summary\n\n- **one**", mediaType: "text/plain" }] } as never} />);
+    expect(html).toContain("<strong>one</strong>");
     expect(html).toContain("Completed");
-    expect(html).toContain("text/plain");
-    expect(html).toContain("**bold**");
+    expect(html.match(/>Result</g)).toHaveLength(1);
+  });
+
+  it("keeps HTML source contained until the person previews it", () => {
+    const html = renderToStaticMarkup(<ArtifactCard artifact={{ artifactId: "x", complete: true, parts: [{ id: "p", kind: "text", value: "<h1>Hi</h1><p>there</p>", mediaType: "text/html" }] } as never} />);
+    expect(html).toContain("<pre");
+    expect(html).toContain("Preview HTML");
+    expect(html).not.toContain("<h1>Hi</h1>");
   });
 });

@@ -11,7 +11,7 @@ import { StructuredForm } from "@/components/chat/structured-form";
 import { startFormFromCard } from "@/lib/structured-form";
 import { A2uiSurfaces } from "@/components/a2ui/surface";
 import { A2UI_EXTENSION_URI, a2uiClientMetadata, surfacesFromParts } from "@/lib/a2ui";
-import { isActivityArtifact, isActivityMessage, repeatsArtifact, settleArtifacts } from "@/lib/chat-activity";
+import { isActivityArtifact, planMessages, settleArtifacts } from "@/lib/chat-activity";
 import { ActivityLog, AgentBubble, ArtifactCard, ProgressLog, SenderLabel, TaskCard, UserBubble } from "@/components/chat/timeline";
 import { SideRail, useIsDesktop, type RailTab } from "@/components/chat/side-rail";
 import { Button } from "@/components/ui/button";
@@ -261,25 +261,19 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
               const lastIndex = task.messages.length - 1;
               const settled = settleArtifacts(task.artifacts, task.kind !== "message" && !isActiveState(task.state));
               const activity = settled.filter(isActivityArtifact);
-              const activityMessages = task.messages.filter((message) => message.role === "agent" && !message.fromStatus && isActivityMessage(message));
-              const activityMessageIds = new Set(activityMessages.map((message) => message.id));
               const results = settled.filter((artifact) => !isActivityArtifact(artifact));
-              // The last message is dropped when it only repeats a finished result, so the answer appears once.
-              const repeated = task.kind !== "message" && !isOpenTask(task) && lastIndex >= 0 && task.messages[lastIndex].role === "agent" && repeatsArtifact(task.messages[lastIndex], results);
-              // An update is a status message, or an agent message followed straight away by another agent message (it was not the reply).
-              const isUpdate = (message: ThreadMessage, index: number) =>
-                task.kind !== "message" && message.role === "agent" && !activityMessageIds.has(message.id) &&
-                (Boolean(message.fromStatus) || (index !== lastIndex && task.messages[index + 1]?.role === "agent"));
+              const { activityMessages, isUpdate, repeated } = planMessages(task, results);
+              const activityMessageIds = new Set(activityMessages.map((message) => message.id));
               // Each run of consecutive updates becomes its own log, so the conversation keeps its order.
               const runs = new Map<number, ThreadMessage[]>();
               task.messages.forEach((message, index) => {
-                if (!isUpdate(message, index)) return;
-                const startsRun = index === 0 || !isUpdate(task.messages[index - 1], index - 1);
+                if (!isUpdate(index)) return;
+                const startsRun = index === 0 || !isUpdate(index - 1);
                 if (startsRun) runs.set(index, [message]);
                 else for (const [start, list] of runs) if (start + list.length === index) list.push(message);
               });
               const rows = task.messages.flatMap((message, index) => [
-                ...(activityMessageIds.has(message.id) || isUpdate(message, index) || (repeated && index === lastIndex) ? [] : [
+                ...(activityMessageIds.has(message.id) || isUpdate(index) || (repeated && index === lastIndex) ? [] : [
                   ...sender(message.role === "user" ? "you" : "agent", message.id),
                   message.role === "user" ? (
                     <UserBubble key={message.id} message={message} />

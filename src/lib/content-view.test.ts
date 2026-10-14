@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { detectContentKind } from "@/lib/content-sniff";
-import { profileContent, resolveView } from "@/lib/content-view";
+import { formattedView, profileContent, resolveView } from "@/lib/content-view";
 
 describe("detectContentKind", () => {
   it("recognizes JSON objects and arrays, not bare scalars or broken JSON", () => {
@@ -35,6 +35,13 @@ describe("detectContentKind", () => {
 });
 
 describe("profileContent", () => {
+  it("formats an agent's Markdown sent as text/plain only when asked to infer it", () => {
+    const agent = profileContent("Result: **done**", "text/plain", { inferMarkdown: true });
+    expect(agent.defaultView).toBe("markdown");
+    expect(formattedView(agent)).toBe("markdown");
+    expect(profileContent("Just a sentence.", "text/plain", { inferMarkdown: true }).defaultView).toBe("text");
+  });
+
   it("shows what was declared and only suggests what it detected", () => {
     const profile = profileContent("# Title\n\n- one\n- two", "text/plain");
     expect(profile.defaultView).toBe("text");
@@ -48,6 +55,9 @@ describe("profileContent", () => {
     expect(declared.defaultView).toBe("text");
     expect(declared.suggestion).toBe("html");
     expect(declared.options).toContain("html");
+    expect(declared.html).toBe(true);
+    expect(formattedView(declared)).toBeNull();
+    expect(profileContent("<p>x</p>", "text/html", { inferMarkdown: true }).defaultView).toBe("text");
   });
 
   it("offers JSON only when the text parses", () => {

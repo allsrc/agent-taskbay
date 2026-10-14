@@ -7,13 +7,17 @@ the project uses [semantic versioning](https://semver.org/) once it reaches 1.0;
 
 ### Changed
 
-- Sent messages use a soft semantic surface. Shared content controls sit in a compact footer using design-system controls, without duplicate view labels; HTML expansion is contextual and uses a responsive dialog or phone sheet.
-- Shared frontend-only content views for sent/received messages, status/activity details and results show original MIME, detected suggestions and the effective view. Text, Markdown, valid JSON and CSV can be selected without changing stored data. HTML is opt-in: sanitized inline content or styled HTML in an isolated modal iframe, with scripts and remote resources blocked.
+- Sent messages use a soft brand surface instead of the primary action color.
+- Text in chat can be viewed another way without changing stored data. Ordinary text carries no controls; text with another useful view gets a **Format as …** / **Plain text** toggle and a menu naming the declared type with Text, Markdown, valid JSON, CSV and Sanitized HTML. An agent's Markdown is formatted even when sent as `text/plain`. HTML is opt-in: its source shows in a contained block, with **Preview HTML** opening a sanitized, styled document in an isolated iframe (dialog on desktop, sheet on phones), scripts and remote resources blocked.
 - In chat, each run of messages now carries a label saying who is speaking ("You", or the agent's name with its avatar), so your messages are easy to tell apart from the agent's.
 - In chat, explicitly tagged or tool-shaped calls and results (including Google ADK `function_call` and `function_response` parts) fold into one quiet **Activity** log, with each entry opening to its JSON. Generic JSON artifacts remain visible as results. Consecutive agent messages before the reply fold into **Progress**. A final message that only repeats a finished text result is no longer shown twice.
 - For agents whose card advertises streaming, chat defaults `returnImmediately` on so Taskbay can subscribe to the active task and show updates sooner. The per-chat **Options** switch can turn it off.
 - New chats select their conversation on the first committed task snapshot, keeping streamed updates visible while the task runs.
-- Status-update messages now remain in Progress regardless of position; their structured parts are expandable and their author metadata is shown when the agent supplies it.
+- Status updates fold into **Progress** while the agent works. Progress and Activity share one step design: text updates read as lines, tool calls and results are named steps (`list_directory · call`) that open to their JSON, and a sub-agent author (`adk_author`) is shown when it differs from the agent.
+
+### Fixed
+
+- In chat, a question the agent asks (input or authorization required) and its final reply stay in the conversation instead of being folded into the Progress log, so quick replies and forms show again.
 
 ## [0.2.0] - 2026-10-14
 

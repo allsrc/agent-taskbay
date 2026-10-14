@@ -1,6 +1,7 @@
 import { isA2uiPart } from "@/lib/a2ui";
 import type { AssembledArtifact, NormalizedPart } from "@/lib/types";
-import type { ThreadMessage } from "@/store/task-store";
+import { isActiveState, stateName } from "@/lib/task-view";
+import type { ThreadMessage, TrackedTask } from "@/store/task-store";
 
 const isJsonPart = (part: NormalizedPart) => part.kind === "data" || /json/i.test(part.mediaType);
 
@@ -15,8 +16,6 @@ export function isReasoningPart(part: NormalizedPart): boolean {
   return ["adk_type", "type", "kind"].some((key) => typeof meta[key] === "string" && REASONING_TYPES.has(meta[key] as string));
 }
 
-/** True when every part of a message is reasoning, so there is nothing to show as a reply. */
-export const isReasoningOnly = (message: Pick<ThreadMessage, "parts">) => message.parts.length > 0 && message.parts.every(isReasoningPart);
 
 /** Agent frameworks tag tool traffic on the part: Google ADK uses `type` (or `adk_type`) of function_call / function_response. */
 const TOOL_TYPES = new Set(["function_call", "function_response", "tool_call", "tool_result", "tool_use", "code_execution_result", "executable_code"]);
@@ -28,7 +27,8 @@ const toolType = (part: NormalizedPart): string | undefined => {
   return undefined;
 };
 
-function hasToolEnvelope(part: NormalizedPart): boolean {
+/** A tool call or result: tagged by the agent framework, or JSON shaped like `{ id, name, args | response }`. */
+export function isToolPart(part: NormalizedPart): boolean {
   if (toolType(part)) return true;
   if (!isJsonPart(part) || part.mediaType.startsWith("application/vnd.agent-taskbay") || isA2uiPart(part)) return false;
   let value = part.value;
@@ -47,7 +47,7 @@ function hasToolEnvelope(part: NormalizedPart): boolean {
   return hasName && hasOperation && (hasId || typeof record.tool === "string");
 }
 
-const isActivityPart = (part: NormalizedPart) => hasToolEnvelope(part) || isReasoningPart(part);
+const isActivityPart = (part: NormalizedPart) => isToolPart(part) || isReasoningPart(part);
 
 export function isActivityMessage(message: Pick<ThreadMessage, "parts">): boolean {
   return message.parts.length > 0 && message.parts.every(isActivityPart);
@@ -81,20 +81,17 @@ function activityName(parts: NormalizedPart[]): string | undefined {
   return undefined;
 }
 
-/** A short label for a structured activity, using the tool name when the payload carries one. */
-export function activityLabel(artifact: AssembledArtifact): string {
-  if (artifact.parts.length > 0 && artifact.parts.every(isReasoningPart)) return "Reasoning";
-  return activityName(artifact.parts) ?? (artifact.name?.trim() || "Tool result");
-}
+/** The tool or function a part names, with "call" or "result" when the framework tagged it. */
+export const toolPartLabel = (part: NormalizedPart): string => activityName([part]) ?? "Tool activity";
 
-export function activityMessageLabel(message: Pick<ThreadMessage, "parts">): string {
-  if (message.parts.length > 0 && message.parts.every(isReasoningPart)) return "Reasoning";
-  return activityName(message.parts) ?? "Tool activity";
-}
-
-export function statusAuthorLabel(message: Pick<ThreadMessage, "metadata">, agentName: string): string {
+/**
+ * The sub-agent that wrote a status update (Google ADK sets `adk_author`), or null when it is the agent itself or
+ * unknown, so the log only names an author when it adds something.
+ */
+export function statusAuthor(message: Pick<ThreadMessage, "metadata">, agentName: string): string | null {
   const author = message.metadata?.adk_author;
-  return `${typeof author === "string" && author.trim() ? author.trim() : agentName} → You`;
+  if (typeof author !== "string" || !author.trim()) return null;
+  return author.trim().toLowerCase() === agentName.trim().toLowerCase() ? null : author.trim();
 }
 
 const squash = (text: string) => text.replace(/\s+/g, " ").trim().toLowerCase();
@@ -126,3 +123,27 @@ export function repeatsArtifact(message: Pick<ThreadMessage, "parts">, artifacts
  */
 export const settleArtifacts = (artifacts: AssembledArtifact[], taskFinished: boolean): AssembledArtifact[] =>
   taskFinished ? artifacts.map((artifact) => (artifact.complete ? artifact : { ...artifact, complete: true })) : artifacts;
+
+/**
+ * Decides where each message of a task goes. Tool-only agent messages fold into the activity log. An update (status
+ * text the agent sends while it works, or an agent message followed straight away by another agent message) folds
+ * into the progress log. Once the task stops working, to ask you something or because it ended, its last message is
+ * the agent speaking to you and stays in the conversation, unless it is only tool traffic or repeats a finished result.
+ */
+export function planMessages(task: Pick<TrackedTask, "kind" | "state" | "messages">, results: AssembledArtifact[]) {
+  const { messages } = task;
+  const lastIndex = messages.length - 1;
+  const isTask = task.kind !== "message";
+  const activityMessages = messages.filter((message) => message.role === "agent" && !message.fromStatus && isActivityMessage(message));
+  const activityIds = new Set(activityMessages.map((message) => message.id));
+  const working = ["SUBMITTED", "WORKING"].includes(stateName(task.state));
+  const speaks = (index: number) => index === lastIndex && !working && !isActivityMessage(messages[index]);
+  const isUpdate = (index: number) => {
+    const message = messages[index];
+    return isTask && message?.role === "agent" && !activityIds.has(message.id) && !speaks(index) &&
+      (Boolean(message.fromStatus) || (index !== lastIndex && messages[index + 1]?.role === "agent"));
+  };
+  // The last message is dropped when it only repeats a finished result, so the answer appears once.
+  const repeated = isTask && !isActiveState(task.state) && lastIndex >= 0 && messages[lastIndex].role === "agent" && repeatsArtifact(messages[lastIndex], results);
+  return { activityMessages, isUpdate, repeated };
+}

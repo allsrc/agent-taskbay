@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { activityLabel, activityMessageLabel, isActivityArtifact, isActivityMessage, isReasoningOnly, isReasoningPart, repeatsArtifact, settleArtifacts } from "@/lib/chat-activity";
+import { isActivityArtifact, isActivityMessage, isReasoningPart, planMessages, repeatsArtifact, settleArtifacts, statusAuthor, toolPartLabel } from "@/lib/chat-activity";
+import type { ThreadMessage } from "@/store/task-store";
 import type { AssembledArtifact } from "@/lib/types";
 
 const artifact = (parts: AssembledArtifact["parts"], extra: Partial<AssembledArtifact> = {}): AssembledArtifact => ({ artifactId: "a", parts, complete: true, updateCount: 1, ...extra });
@@ -24,15 +25,14 @@ describe("activity artifacts", () => {
     const call = { id: "c", kind: "data" as const, value: { name: "get_weather", args: { city: "Oslo" } }, mediaType: "application/json", metadata: { type: "function_call" } };
     const response = { ...call, value: { name: "get_weather", response: { temp: 4 } }, metadata: { adk_type: "function_response" } };
     expect(isActivityArtifact(artifact([call]))).toBe(true);
-    expect(activityLabel(artifact([call]))).toBe("get_weather · call");
-    expect(activityLabel(artifact([response]))).toBe("get_weather · result");
+    expect(toolPartLabel(call)).toBe("get_weather · call");
+    expect(toolPartLabel(response)).toBe("get_weather · result");
   });
 
-  it("labels an activity by its tool name, then its artifact name", () => {
-    expect(activityLabel(artifact([json({ tool: "get_weather" })]))).toBe("get_weather");
-    expect(activityLabel(artifact([json({ function: { name: "lookup" } })]))).toBe("lookup");
-    expect(activityLabel(artifact([json({ rows: 3 })], { name: "Query result" }))).toBe("Query result");
-    expect(activityLabel(artifact([json({ rows: 3 })]))).toBe("Tool result");
+  it("labels a tool step by the tool name its payload carries", () => {
+    expect(toolPartLabel(json({ tool: "get_weather" }))).toBe("get_weather");
+    expect(toolPartLabel(json({ function: { name: "lookup" } }))).toBe("lookup");
+    expect(toolPartLabel(json({ rows: 3 }))).toBe("Tool activity");
   });
 });
 
@@ -41,7 +41,7 @@ describe("activity messages", () => {
     const call = { parts: [json({ id: "call-1", name: "list_directory", args: { path: "/kb" } })] };
     const result = { parts: [json({ id: "call-1", name: "list_directory", response: { content: [] } })] };
     expect(isActivityMessage(call)).toBe(true);
-    expect(activityMessageLabel(call)).toBe("list_directory");
+    expect(toolPartLabel(call.parts[0])).toBe("list_directory");
     expect(isActivityMessage(result)).toBe(true);
     expect(isActivityMessage({ parts: [json({ rows: [{ id: 1 }] })] })).toBe(false);
     expect(isActivityMessage({ parts: [text("The answer is 42")] })).toBe(false);
@@ -76,16 +76,13 @@ describe("reasoning parts", () => {
     expect(isReasoningPart(text("Plain answer"))).toBe(false);
   });
 
-  it("folds a reasoning-only artifact into activity and labels it", () => {
+  it("folds a reasoning-only artifact into activity", () => {
     expect(isActivityArtifact(artifact([thought("Let me think")]))).toBe(true);
-    expect(activityLabel(artifact([thought("Let me think")]))).toBe("Reasoning");
   });
 
   it("does not count reasoning as the answer when looking for duplicates", () => {
     const answer = "Everything is healthy and all twelve smoke tests passed in staging.";
     const message = { parts: [thought("I should check the tests"), text(answer)] };
-    expect(isReasoningOnly(message)).toBe(false);
-    expect(isReasoningOnly({ parts: [thought("only thinking")] })).toBe(true);
     expect(repeatsArtifact(message, [artifact([text(answer)])])).toBe(true);
   });
 });
@@ -102,5 +99,58 @@ describe("settling streamed artifacts", () => {
     const open = artifact([text(answer)], { complete: false });
     expect(repeatsArtifact({ parts: [text(answer)] }, [open])).toBe(false);
     expect(repeatsArtifact({ parts: [text(answer)] }, settleArtifacts([open], true))).toBe(true);
+  });
+});
+
+describe("where task messages go", () => {
+  const say = (id: string, value: string, extra: Partial<ThreadMessage> = {}) => ({ id, role: "agent", parts: [text(value)], ...extra }) as ThreadMessage;
+  const you = { id: "u", role: "user", parts: [text("Deploy it")] } as ThreadMessage;
+  const call = say("call", "", { fromStatus: true, parts: [json({ id: "c1", name: "list_directory", args: {} }, "application/json")] });
+  const plan = (state: string, messages: ThreadMessage[]) => planMessages({ kind: "task", state, messages }, []);
+
+  it("folds status updates into progress while the agent works", () => {
+    const { isUpdate } = plan("TASK_STATE_WORKING", [you, say("a", "Reading", { fromStatus: true }), say("b", "Summarizing", { fromStatus: true })]);
+    expect([isUpdate(1), isUpdate(2)]).toEqual([true, true]);
+  });
+
+  it("keeps the question in the conversation when the agent needs input", () => {
+    const { isUpdate } = plan("TASK_STATE_INPUT_REQUIRED", [you, say("a", "Looking", { fromStatus: true }), say("q", "Which environment?", { fromStatus: true })]);
+    expect(isUpdate(1)).toBe(true);
+    expect(isUpdate(2)).toBe(false);
+  });
+
+  it("keeps the final status message as the reply once the task ends", () => {
+    const { isUpdate } = plan("TASK_STATE_COMPLETED", [you, say("a", "Working", { fromStatus: true }), say("done", "Found 3 services.", { fromStatus: true })]);
+    expect(isUpdate(2)).toBe(false);
+  });
+
+  it("never treats a tool call as the reply", () => {
+    expect(plan("TASK_STATE_COMPLETED", [you, call]).isUpdate(1)).toBe(true);
+  });
+
+  it("sends tool-only agent messages outside status updates to the activity log", () => {
+    const standalone = { ...call, id: "tool", fromStatus: false };
+    const { activityMessages, isUpdate } = plan("TASK_STATE_WORKING", [you, standalone, say("b", "Done")]);
+    expect(activityMessages.map((message) => message.id)).toEqual(["tool"]);
+    expect(isUpdate(1)).toBe(false);
+  });
+
+  it("drops a final message that repeats a finished result", () => {
+    const answer = "Deployment finished: 3 replicas are healthy in staging and the smoke tests passed.";
+    const { repeated } = planMessages({ kind: "task", state: "TASK_STATE_COMPLETED", messages: [you, say("done", answer, { fromStatus: true })] }, [artifact([text(answer)])]);
+    expect(repeated).toBe(true);
+  });
+
+  it("does not fold a direct message reply", () => {
+    expect(planMessages({ kind: "message", state: "", messages: [you, say("r", "Hi")] }, []).isUpdate(1)).toBe(false);
+  });
+});
+
+describe("step labels", () => {
+  it("names a tool part and only names a status author who is not the agent", () => {
+    expect(toolPartLabel({ ...json({ id: "c", name: "search", args: {} }), metadata: { adk_type: "function_call" } })).toBe("search · call");
+    expect(statusAuthor({ metadata: { adk_author: "knowledge_agent" } }, "Knowledge agent")).toBe("knowledge_agent");
+    expect(statusAuthor({ metadata: { adk_author: "Knowledge agent" } }, "Knowledge agent")).toBeNull();
+    expect(statusAuthor({}, "Knowledge agent")).toBeNull();
   });
 });

@@ -25,41 +25,69 @@ afterEach(async () => {
   container.remove();
 });
 
-async function choose(view: string) {
-  const select = container.querySelector("select")!;
-  await act(async () => {
-    select.value = view;
-    select.dispatchEvent(new Event("change", { bubbles: true }));
-  });
+const button = (label: string) =>
+  [...container.querySelectorAll("button")].find((element) => element.textContent?.trim() === label || element.getAttribute("aria-label") === label);
+
+async function click(element: Element | undefined | null) {
+  expect(element).toBeTruthy();
+  await act(async () => (element as HTMLElement).click());
+}
+
+/** Opens the content-view menu and picks a view by its label. */
+async function choose(label: string) {
+  await click(button("Content view"));
+  const item = [...document.querySelectorAll('[role="menuitemradio"]')].find((element) => element.textContent?.startsWith(label));
+  await click(item);
 }
 
 describe("shared content viewer", () => {
-  it("suggests Markdown without changing the source, and permits a local override", async () => {
+  it("shows no controls for an ordinary sentence", async () => {
+    await act(async () => root.render(<ContentViewer text="Hello there." />));
+    expect(container.textContent).toBe("Hello there.");
+    expect(container.querySelector('[aria-label="Content format"]')).toBeNull();
+  });
+
+  it("keeps a person's own text as sent, offers formatting, and never changes the source", async () => {
     const part = Object.freeze({ id: "p", kind: "text" as const, mediaType: "text/plain", value: "**done**" });
     await act(async () => root.render(<BubblePart part={part} onUser />));
-    expect(container.textContent).toContain("Markdown suggested");
     expect(container.querySelector("strong")).toBeNull();
-    await choose("markdown");
+    await click(button("Format as Markdown"));
     expect(container.querySelector("strong")?.textContent).toBe("done");
-    expect(container.textContent).toContain("Sent as text/plain");
-    expect(container.querySelector("select")?.value).toBe("markdown");
     expect(part.value).toBe("**done**");
     expect(part.mediaType).toBe("text/plain");
-    await choose("text");
+    await click(button("Plain text"));
     expect(container.textContent).toContain("**done**");
+  });
+
+  it("formats an agent's Markdown sent as text/plain, with a way back to the plain text", async () => {
+    const part = { id: "p", kind: "text" as const, mediaType: "text/plain", value: "**staging** had 14 deploys" };
+    await act(async () => root.render(<BubblePart part={part} />));
+    expect(container.querySelector("strong")?.textContent).toBe("staging");
+    await click(button("Plain text"));
+    expect(container.querySelector("strong")).toBeNull();
+  });
+
+  it("lists every view with the declared type in the menu", async () => {
+    await act(async () => root.render(<ContentViewer text={"# Title\n\n- one"} mediaType="text/plain" />));
+    await click(button("Content view"));
+    const menu = document.querySelector('[role="menu"]')!;
+    expect(menu.textContent).toContain("Sent as text/plain");
+    expect(menu.textContent).toContain("Auto (Markdown)");
+    expect(menu.textContent).toContain("Sanitized HTML");
   });
 
   it("sanitizes HTML inline only after explicit selection", async () => {
     await act(async () => root.render(<ContentViewer text={'<p onclick="alert(1)" style="position:fixed">Hello</p><script>alert(1)</script>'} mediaType="text/html" />));
     expect(container.querySelector("p")).toBeNull();
-    await choose("html");
+    expect(container.querySelector("pre")?.textContent).toContain("<p onclick");
+    await choose("Sanitized HTML");
     expect(container.querySelector("p")?.outerHTML).toBe("<p>Hello</p>");
     expect(container.querySelector("script")).toBeNull();
   });
 
   it("opens rich HTML in a modal with an empty sandbox and restricted CSP", async () => {
     await act(async () => root.render(<ContentViewer text="<style>p{color:red}</style><p>Hello</p>" />));
-    await act(async () => container.querySelector<HTMLButtonElement>('button[aria-label="Rich HTML preview"]')!.click());
+    await click(button("Preview HTML"));
     const frame = document.querySelector("iframe")!;
     expect(frame).not.toBeNull();
     expect(document.querySelector('[role="dialog"]')).not.toBeNull();
@@ -71,22 +99,26 @@ describe("shared content viewer", () => {
 
   it("retains the selected mode across streaming updates and falls back safely for incomplete JSON", async () => {
     await act(async () => root.render(<ContentViewer text={'{"answer":1}'} />));
-    await choose("json");
+    await choose("JSON");
+    expect(container.textContent).toContain("answer");
     await act(async () => root.render(<ContentViewer text={'{"answer":'} />));
-    expect(container.querySelector("select")?.value).toBe("text");
-    expect(container.querySelector('button[aria-label="Rich HTML preview"]')).toBeNull();
+    expect(container.textContent).toBe('{"answer":');
     await act(async () => root.render(<ContentViewer text={'{"answer":2}'} />));
-    expect(container.querySelector("select")?.value).toBe("json");
+    expect(container.textContent).not.toContain('{"answer":2}');
+    expect(container.textContent).toContain("answer");
   });
 
-  it("uses common controls for sent data and received parts, preserving JSON tables", () => {
+  it("hides controls while text streams in", async () => {
+    await act(async () => root.render(<ContentViewer text={"# Title"} streaming />));
+    expect(container.querySelector('[aria-label="Content format"]')).toBeNull();
+  });
+
+  it("renders structured data as a table, not as text with format controls", () => {
     const part = { id: "data", kind: "data" as const, mediaType: "application/json", value: [{ name: "report" }] };
     for (const element of [<BubblePart key="sent" part={part} onUser />, <BubblePart key="received" part={part} />, <PartRenderer key="status" part={part} allowRaw />]) {
       const html = renderToStaticMarkup(element);
-      expect(html).toContain("Content view");
-      expect(html).toContain("Sanitized HTML");
-      expect(html).not.toContain('aria-label="Rich HTML preview"');
       expect(html).toContain("<table");
+      expect(html).not.toContain("Sanitized HTML");
     }
   });
 
@@ -94,16 +126,6 @@ describe("shared content viewer", () => {
     const part = { id: "image", kind: "text" as const, mediaType: "text/markdown", value: "![remote](https://evil.test/pixel)" };
     expect(renderToStaticMarkup(<BubblePart part={part} onUser />)).not.toContain("<img");
     expect(renderToStaticMarkup(<BubblePart part={part} />)).not.toContain("<img");
-  });
-
-  it("keeps content before a compact shared-control footer without repeated view labels", async () => {
-    await act(async () => root.render(<ContentViewer text="Hello" />));
-    const footer = container.querySelector('[aria-label="Content format"]')!;
-    expect(footer.previousElementSibling?.textContent).toBe("Hello");
-    expect(footer.querySelector('[data-slot="native-select"]')).not.toBeNull();
-    expect(container.textContent).not.toContain("Current:");
-    expect(container.textContent).not.toContain("Viewing as");
-    expect(container.querySelector('button[aria-label="Rich HTML preview"]')).toBeNull();
   });
 
   it("handles an empty data value without passing undefined to the detector", () => {

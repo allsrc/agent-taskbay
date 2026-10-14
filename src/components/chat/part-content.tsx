@@ -5,10 +5,10 @@ import { PartRenderer } from "@/components/PartRenderer";
 import { Chip } from "@/components/a2a/primitives";
 import type { NormalizedPart } from "@/lib/types";
 
-/** A message part inside a chat bubble: plain text inline, Markdown rendered, everything else via the full part renderer. */
+/** A message part inside a chat bubble: text through the shared content viewer, everything else via the full part renderer. */
 export function BubblePart({ part, onUser = false }: { part: NormalizedPart; onUser?: boolean }) {
   if (part.kind === "text" && typeof part.value === "string") {
-    return <ContentViewer text={part.value} mediaType={part.mediaType} />;
+    return <ContentViewer text={part.value} mediaType={part.mediaType} align={onUser ? "end" : "start"} inferMarkdown={!onUser} />;
   }
   if (onUser && part.kind !== "data") {
     const kind = part.kind === "raw" ? "FILE" : part.kind === "url" ? "URL" : "DATA";

@@ -90,8 +90,8 @@ export function PartRenderer({ part, allowRaw = false, richJson = false }: { par
           isTabular(part.value) ? <DataTable rows={part.value} /> : <JsonTree value={part.value} />
         ) : activeView === "structured" && typeof part.value === "string" ? (
           <CsvTable text={part.value} />
-        ) : part.kind === "text" || part.kind === "data" ? (
-          <ContentViewer text={text} mediaType={mime} />
+        ) : part.kind === "text" ? (
+          <div className="text-sm leading-relaxed"><ContentViewer text={text} mediaType={mime} /></div>
         ) : mime.startsWith("image/") && url ? (
           <a href={url} target="_blank" rel="noreferrer">
             {/* Agent URLs and data URIs are intentionally not passed through Next's image proxy. */}
