@@ -125,7 +125,7 @@ losing content. See [`npm run db:projections:rebuild`](cli.md#npm-run-dbprojecti
 
 ## Migrations
 
-One baseline migration, `Migration20261014000000_Baseline`, creates this schema. It replaces the sixteen migrations of the development period; databases that applied them are adopted as they are (see
+One baseline migration, `Migration0001_Baseline`, creates this schema (schema version 1). It replaces the sixteen migrations of the development period; databases that applied them are adopted as they are (see
 [Upgrading and backups](../guides/upgrading-and-backups.md#migrations)). Later changes are new migrations after it. List them with
 `npm run db:migration:list` and check for drift with `npm run db:schema:check` ([CLI](cli.md#npm-scripts)). Down migrations exist for rollback in development; take a backup before relying on one.
 

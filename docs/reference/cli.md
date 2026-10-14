@@ -107,7 +107,7 @@ Run from the repository root. Pass extra arguments after `--`.
 | `npm run test:coverage` | `vitest run --coverage`, excluding database tests | |
 | `npm run db:migrate` | `mikro-orm migration:up` | Applies pending migrations to the configured database. |
 | `npm run db:migrate:down` | `mikro-orm migration:down` | Reverts the last migration. |
-| `npm run db:migration:create` | `mikro-orm migration:create` | For contributors; writes a new file in `src/server/adapters/db/migrations/`. |
+| `npm run db:migration:create` | `mikro-orm migration:create` | For contributors; writes the next numbered file (`Migration<nnnn>_<name>`) in `src/server/adapters/db/migrations/`. Then raise `DB_SCHEMA_VERSION`. |
 | `npm run db:migration:list` | `mikro-orm migration:list` | Applied migrations. |
 | `npm run db:migration:pending` | `mikro-orm migration:pending` | Migrations not yet applied. |
 | `npm run db:schema:check` | `mikro-orm migration:check` | Fails if the entities and the migrations disagree. |

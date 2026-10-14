@@ -12,7 +12,7 @@ import {
   withRequestEntityManager,
 } from "./orm";
 
-const migrationNames = ["Migration20261014000000_Baseline"];
+const migrationNames = ["Migration0001_Baseline"];
 
 async function verifyMigrationContract(config: DatabaseConfig) {
   const orm = await createDatabaseOrm(config);
