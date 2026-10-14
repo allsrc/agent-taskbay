@@ -1,17 +1,10 @@
-"use client";
+import { PageTransition } from "@/components/navigation/page-transition"
 
-import { motion } from "motion/react";
-
-/** Re-mounts on every navigation, giving each screen a short fade-and-rise entrance. */
+/** Re-mounts on every navigation so route changes fade and slide. */
 export default function Template({ children }: { children: React.ReactNode }) {
   return (
-    <motion.div
-      className="flex min-h-0 min-w-0 flex-1 flex-col"
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.18, ease: "easeOut" }}
-    >
-      {children}
-    </motion.div>
-  );
+    <PageTransition>
+      <div className="flex min-w-0 flex-1 flex-col md:min-h-0">{children}</div>
+    </PageTransition>
+  )
 }

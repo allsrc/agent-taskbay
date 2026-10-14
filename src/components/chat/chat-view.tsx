@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus } from "lucide-react";
+import { Plus, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { useShallow } from "zustand/react/shallow";
 import { AgentAvatar } from "@/components/a2a/primitives";
@@ -14,6 +14,7 @@ import { A2UI_EXTENSION_URI, a2uiClientMetadata, surfacesFromParts } from "@/lib
 import { AgentBubble, ArtifactCard, TaskCard, UserBubble } from "@/components/chat/timeline";
 import { SideRail, useIsDesktop, type RailTab } from "@/components/chat/side-rail";
 import { Button } from "@/components/ui/button";
+import { NativeSelect } from "@/components/ui/native-select";
 import { conversationKey, findConversation, groupConversations, isOpenTask } from "@/lib/conversations";
 import type { OutgoingPart } from "@/lib/message-parts";
 import type { WireEntry } from "@/lib/wire-sequence";
@@ -190,13 +191,13 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
   const messageColumn = "mx-auto w-full max-w-[760px]";
 
   return (
-    <div className="flex min-h-0 flex-1">
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <header className="border-border flex shrink-0 flex-wrap items-center gap-2.5 border-b px-4 py-3 md:px-6">
+    <div className="flex flex-1 md:min-h-0">
+      <div className="flex min-w-0 flex-1 flex-col md:min-h-0">
+        <header className="top-chrome sticky z-30 flex shrink-0 items-center gap-2.5 border-b bg-background/90 px-4 py-2.5 backdrop-blur-xl md:static md:px-6 md:py-3">
           <AgentAvatar name={name} id={agentId} size="sm" />
-          <div className="min-w-28 flex-1">
-            <div className="truncate font-semibold">{name}</div>
-            <div className="text-muted-foreground truncate font-mono text-[11px]">
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-sm font-medium">{name}</div>
+            <div className="truncate font-mono text-[11px] text-muted-foreground">
               {(tasks.find((task) => task.contextId)?.contextId ?? "new conversation").slice(0, 18)} · {stateLabel}
             </div>
           </div>
@@ -208,23 +209,23 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
             size="sm"
             onClick={() => showRail("sequence")}
             aria-pressed={railVisible && railTab === "sequence"}
-            className={cn("font-mono", railVisible && railTab === "sequence" && "border-brand text-brand")}
+            className={cn("font-mono", railVisible && railTab === "sequence" && "border-brand/50 bg-brand-soft text-brand-text")}
           >
             {"{ } Wire"}
           </Button>
-          <Button variant="outline" size="sm" onClick={() => router.push(`/chat?agent=${agentId}`)}>
-            Reset
+          <Button variant="ghost" size="icon-sm" onClick={() => router.push(`/chat?agent=${agentId}`)} aria-label="Reset conversation" title="Reset conversation">
+            <RotateCcw />
           </Button>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-auto">
-          <div className={cn(messageColumn, "flex min-h-full flex-col gap-3.5 p-4 md:p-6")}>
+        <div className="flex flex-1 flex-col md:min-h-0 md:overflow-auto">
+          <div className={cn(messageColumn, "flex min-h-[40dvh] flex-1 flex-col gap-4 p-4 md:min-h-full md:p-6")}>
             {empty && (
               <div className="m-auto flex max-w-[440px] flex-col items-center gap-3.5 text-center">
-                <h2 className="font-mono text-xl font-bold tracking-tight">
+                <h2 className="font-heading text-2xl font-semibold tracking-tight">
                   Message = communication.
                   <br />
-                  <span className="text-brand">Task = execution.</span>
+                  <span className="text-brand-text">Task = execution.</span>
                 </h2>
                 <p className="text-muted-foreground">
                   Ask {name} to do work. A message holds one or more parts: text, files (inline or by URL) and structured data. Use + to add them.
@@ -233,7 +234,7 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
                   <button
                     type="button"
                     onClick={() => setSeed({ id: (seed?.id ?? 0) + 1, text: suggestion })}
-                    className="border-primary text-primary hover:bg-primary/10 rounded-[10px] border px-3.5 py-2.5 text-left text-[13px] transition-colors"
+                    className="border-brand text-brand-text hover:bg-brand-soft rounded-lg border px-3.5 py-2.5 text-left text-[13px] transition-colors"
                   >
                     {suggestion}
                   </button>
@@ -271,12 +272,12 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
               );
             })}
             {pending && !tasks.some((task) => task.messages.some((message) => message.id === pending.id)) && <UserBubble message={pending} />}
-            {error && <p className="border-brand/40 bg-brand/10 text-brand rounded-lg border px-3.5 py-2.5 font-mono text-xs">{error}</p>}
+            {error && <p className="border-danger/40 bg-danger/10 text-danger rounded-lg border px-3.5 py-2.5 font-mono text-xs">{error}</p>}
             <div ref={bottom} />
           </div>
         </div>
 
-        <div className="border-border shrink-0 border-t">
+        <div className="sticky bottom-[calc(3.75rem+env(safe-area-inset-bottom))] z-30 shrink-0 border-t bg-background md:static">
           <div className={messageColumn}>
             {openTasks.length > 0 && (
               <div className="flex flex-wrap items-center gap-1.5 px-4 pt-2.5 md:px-6" role="radiogroup" aria-label="Send to">
@@ -292,7 +293,7 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
                       onClick={() => setOverride(task.taskId)}
                       className={cn(
                         "rounded-full border px-2.5 py-1 font-mono text-[11px] font-medium transition-colors",
-                        target === task.taskId ? "border-primary bg-primary/15 text-primary" : attention ? "border-warning/60 text-warning" : "border-border text-muted-foreground hover:text-foreground",
+                        target === task.taskId ? "border-brand bg-brand-soft text-brand-text" : attention ? "border-warning/60 text-warning" : "border-border text-muted-foreground hover:text-foreground",
                       )}
                     >
                       {task.taskId.slice(0, 8)} · {stateName(task.state).toLowerCase().replaceAll("_", " ")}
@@ -306,20 +307,20 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
                   onClick={() => setOverride(NEW_TASK)}
                   className={cn(
                     "flex items-center gap-1 rounded-full border px-2.5 py-1 font-mono text-[11px] font-medium transition-colors",
-                    target === NEW_TASK ? "border-primary bg-primary/15 text-primary" : "border-border text-muted-foreground hover:text-foreground",
+                    target === NEW_TASK ? "border-brand bg-brand-soft text-brand-text" : "border-border text-muted-foreground hover:text-foreground",
                   )}
                 >
                   <Plus className="size-3" /> new task
                 </button>
               </div>
             )}
-            {view?.requiresSkill && !targetTask && <label className="mb-2 block text-sm">Skill
-          <select aria-label="Selected skill" value={selectedSkill || view.skills[0]?.id || ""} onChange={(event) => setSelectedSkill(event.target.value)} className="border-border bg-background ml-2 rounded-md border px-2 py-1">
+            {view?.requiresSkill && !targetTask && <label className="mx-4 mt-2.5 flex items-center gap-2 text-sm md:mx-6">Skill
+          <NativeSelect aria-label="Selected skill" value={selectedSkill || view.skills[0]?.id || ""} onChange={(event) => setSelectedSkill(event.target.value)}>
             {view.skills.map((skill) => <option key={skill.id} value={skill.id}>{skill.name}</option>)}
-          </select>
+          </NativeSelect>
         </label>}
         {startForm && target === NEW_TASK && (
-          <details open={empty} className="border-border bg-card mb-2 rounded-xl border px-3 py-2" data-testid="start-form">
+          <details open={empty} className="mx-4 mt-2.5 rounded-xl border bg-card px-3 py-2 md:mx-6" data-testid="start-form">
             <summary className="cursor-pointer text-sm font-medium">Start with a form: {startForm.title}</summary>
             <div className="pt-3 pb-1">
               <StructuredForm form={startForm} disabled={sending} onSubmit={(submission) => send([{ data: submission, mediaType: "application/json" }])} />

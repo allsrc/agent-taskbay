@@ -1,45 +1,31 @@
 import { agentBadge } from "@/lib/agent-card";
-import { STATE_COLOR, stateName } from "@/lib/task-view";
+import { STATE_TONE, stateLabel, stateName } from "@/lib/task-view";
 import { cn } from "@/lib/utils";
+import { Panel } from "@/components/patterns/layout";
+import { Pill, Tag } from "@/components/patterns/status";
 
-/** Task state pill: INPUT_REQUIRED in amber, AUTH_REQUIRED in purple, COMPLETED in green, ... */
+/** Task state pill: tone follows the wire state (input required is amber, completed green, failed red, ...). */
 export function StateChip({ state, className }: { state: string; className?: string }) {
   const name = stateName(state);
   return (
-    <span
-      className={cn(
-        "inline-flex shrink-0 items-center rounded-full px-2 py-0.5 font-mono text-[10px] font-medium whitespace-nowrap",
-        STATE_COLOR[name] ?? STATE_COLOR.SUBMITTED,
-        className,
-      )}
-    >
-      {name === "MESSAGE_ONLY" ? "MESSAGE" : name}
-    </span>
+    <Pill tone={STATE_TONE[name] ?? "neutral"} dot live={name === "WORKING"} className={className}>
+      {stateLabel(state)}
+    </Pill>
   );
 }
 
 /** Small monospace chip for media types, bindings and ids. */
 export function Chip({ children, className, tone }: { children: React.ReactNode; className?: string; tone?: "warn" }) {
-  return (
-    <span
-      className={cn(
-        "bg-secondary border-border inline-flex items-center rounded-md border px-2 py-0.5 font-mono text-[11px] font-medium",
-        tone === "warn" && "border-warning/50 text-warning",
-        className,
-      )}
-    >
-      {children}
-    </span>
-  );
+  return <Tag className={cn(tone === "warn" && "bg-warning/10 text-warning", className)}>{children}</Tag>;
 }
 
 export function AgentAvatar({ name, id, size = "md" }: { name: string; id: string; size?: "sm" | "md" | "lg" }) {
   const { short, color } = agentBadge(name, id);
-  const box = size === "lg" ? "size-[52px] rounded-2xl text-[17px]" : size === "sm" ? "size-[34px] rounded-[10px] text-xs" : "size-[38px] rounded-[10px] text-[13px]";
+  const box = size === "lg" ? "size-14 rounded-2xl text-lg" : size === "sm" ? "size-8 rounded-lg text-xs" : "size-10 rounded-xl text-sm";
   return (
     <div
-      className={cn("flex shrink-0 items-center justify-center font-mono font-bold", box)}
-      style={{ background: `${color}22`, color }}
+      className={cn("flex shrink-0 items-center justify-center font-mono font-semibold", box)}
+      style={{ background: `color-mix(in oklch, ${color} 16%, transparent)`, color }}
       aria-hidden
     >
       {short}
@@ -47,40 +33,28 @@ export function AgentAvatar({ name, id, size = "md" }: { name: string; id: strin
   );
 }
 
-/** Dark card with the prototype's mono caption label. */
-export function InfoCard({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
+/** A titled card for grouped facts. */
+export function InfoCard({ label, children, className, action }: { label: string; children: React.ReactNode; className?: string; action?: React.ReactNode }) {
   return (
-    <section className={cn("bg-card border-border rounded-xl border p-3.5", className)}>
-      <h3 className="label-mono mb-1.5">{label}</h3>
+    <Panel title={label} action={action} className={className} bodyClassName="p-4">
       {children}
-    </section>
+    </Panel>
   );
 }
 
-export function EmptyState({ icon, title, children }: { icon: React.ReactNode; title: string; children?: React.ReactNode }) {
+/** Empty or missing state, centred in the pane it fills. */
+export function EmptyState({ icon: Icon, title, children, action, className }: {
+  icon: React.ComponentType<{ className?: string }>; title: string; children?: React.ReactNode; action?: React.ReactNode; className?: string }) {
   return (
-    <div className="m-auto flex max-w-sm flex-col items-center gap-3 p-8 text-center">
-      <div className="text-primary">{icon}</div>
-      <p className="font-mono text-base font-bold">{title}</p>
-      {children && <div className="text-muted-foreground text-sm">{children}</div>}
+    <div className={cn("flex flex-1 items-center justify-center p-6 md:p-10", className)}>
+      <div className="flex max-w-sm flex-col items-center text-center">
+        <span className="flex size-11 items-center justify-center rounded-xl border bg-sunken text-muted-foreground">
+          <Icon className="size-5" />
+        </span>
+        <h2 className="mt-4 font-heading text-sm font-semibold">{title}</h2>
+        {children && <div className="mt-1 text-sm text-muted-foreground">{children}</div>}
+        {action && <div className="mt-5">{action}</div>}
+      </div>
     </div>
-  );
-}
-
-/** Desktop: list pane + detail side by side. Mobile: one at a time, chosen by `showDetail`. */
-export function SplitPane({ list, children, showDetail }: { list: React.ReactNode; children: React.ReactNode; showDetail: boolean }) {
-  return (
-    <div className="flex min-h-0 flex-1">
-      <div className={cn("border-border min-h-0 w-full flex-col md:flex md:w-80 md:shrink-0 md:border-r", showDetail ? "hidden" : "flex")}>{list}</div>
-      <div className={cn("min-h-0 min-w-0 flex-1 flex-col md:flex", showDetail ? "flex" : "hidden")}>{children}</div>
-    </div>
-  );
-}
-
-export function BackLink({ href, children }: { href: string; children: React.ReactNode }) {
-  return (
-    <a href={href} className="text-primary mb-3 inline-block font-mono text-[13px] font-medium md:hidden">
-      ← {children}
-    </a>
   );
 }

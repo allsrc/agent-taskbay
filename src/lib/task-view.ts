@@ -1,3 +1,4 @@
+import type { Tone } from "./tone";
 import type { ThreadMessage, TrackedTask } from "../shared/task-types";
 
 const bare = (state: string) => state.replace("TASK_STATE_", "");
@@ -5,27 +6,24 @@ const bare = (state: string) => state.replace("TASK_STATE_", "");
 /** Upper-case wire name without the `TASK_STATE_` prefix, e.g. INPUT_REQUIRED. */
 export const stateName = (state: string) => bare(state);
 
-export const STATE_COLOR: Record<string, string> = {
-  SUBMITTED: "text-muted-foreground bg-muted-foreground/15",
-  WORKING: "text-primary bg-primary/15",
-  INPUT_REQUIRED: "text-warning bg-warning/15",
-  AUTH_REQUIRED: "text-auth bg-auth/15",
-  COMPLETED: "text-success bg-success/15",
-  FAILED: "text-brand bg-brand/15",
-  CANCELED: "text-muted-foreground bg-muted-foreground/15",
-  REJECTED: "text-brand bg-brand/15",
-  MESSAGE_ONLY: "text-muted-foreground bg-muted-foreground/15",
+export const STATE_TONE: Record<string, Tone> = {
+  SUBMITTED: "neutral",
+  WORKING: "brand",
+  INPUT_REQUIRED: "warning",
+  AUTH_REQUIRED: "info",
+  COMPLETED: "success",
+  FAILED: "danger",
+  CANCELED: "neutral",
+  REJECTED: "danger",
+  MESSAGE_ONLY: "neutral",
 };
 
-export const STATE_DOT: Record<string, string> = {
-  SUBMITTED: "bg-muted-foreground",
-  WORKING: "bg-primary",
-  INPUT_REQUIRED: "bg-warning",
-  AUTH_REQUIRED: "bg-auth",
-  COMPLETED: "bg-success",
-  FAILED: "bg-brand",
-  CANCELED: "bg-muted-foreground",
-  REJECTED: "bg-brand",
+/** Sentence-case label for a wire state, e.g. INPUT_REQUIRED becomes "Input required". */
+export const stateLabel = (state: string) => {
+  const name = bare(state);
+  if (name === "MESSAGE_ONLY") return "Message";
+  const text = name.toLowerCase().replaceAll("_", " ");
+  return text.charAt(0).toUpperCase() + text.slice(1);
 };
 
 export function firstText(messages: ThreadMessage[], role?: ThreadMessage["role"]): string | undefined {

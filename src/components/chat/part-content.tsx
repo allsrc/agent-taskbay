@@ -16,7 +16,7 @@ export function BubblePart({ part, onUser = false }: { part: NormalizedPart; onU
         </div>
       );
     }
-    return <span className="whitespace-pre-wrap">{part.value}</span>;
+    return <span className="break-words whitespace-pre-wrap">{part.value}</span>;
   }
   if (onUser) {
     const kind = part.kind === "raw" ? "FILE" : part.kind === "url" ? "URL" : "DATA";

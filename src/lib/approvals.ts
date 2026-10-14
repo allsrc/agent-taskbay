@@ -1,15 +1,15 @@
 import type { DecisionExecutionView, DecisionOutcome, DecisionRisk, DecisionStatus, ExecutionStatus } from "@/shared/decision-types";
+import type { Tone } from "./tone";
 import { stateName } from "./task-view";
 
 export const STATUS_LABEL: Record<DecisionStatus, string> = {
   pending: "Pending", approved: "Approved", rejected: "Rejected", changes_requested: "Changes requested",
   expired: "Expired", superseded: "Superseded",
 };
-export const STATUS_TONE: Record<DecisionStatus, string> = {
-  pending: "text-warning bg-warning/15", approved: "text-success bg-success/15", rejected: "text-brand bg-brand/15",
-  changes_requested: "text-auth bg-auth/15", expired: "text-muted-foreground bg-muted-foreground/15", superseded: "text-muted-foreground bg-muted-foreground/15",
+export const STATUS_TONE: Record<DecisionStatus, Tone> = {
+  pending: "warning", approved: "success", rejected: "danger", changes_requested: "info", expired: "neutral", superseded: "neutral",
 };
-export const RISK_TONE: Record<DecisionRisk, string> = { low: "text-success bg-success/15", medium: "text-warning bg-warning/15", high: "text-brand bg-brand/15" };
+export const RISK_TONE: Record<DecisionRisk, Tone> = { low: "success", medium: "warning", high: "danger" };
 export const OUTCOME_LABEL: Record<DecisionOutcome, string> = {
   approve: "Approved", reject: "Rejected", edit: "Edited and approved", request_changes: "Requested changes", delegate: "Delegated",
 };

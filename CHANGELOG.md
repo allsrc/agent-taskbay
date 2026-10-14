@@ -5,7 +5,9 @@ the project uses [semantic versioning](https://semver.org/) once it reaches 1.0;
 
 ## [Unreleased]
 
-Nothing yet.
+### Changed
+
+- The console moved to the http2xx design system: new tokens, light and dark themes, Base UI components, Geist and Space Grotesk type, every screen rebuilt on shared page and list-and-detail layouts, and responsive navigation (a sidebar, an icon rail on medium screens, and a bottom tab bar with a More sheet on phones). No behavior, API or data changed.
 
 ## [0.1.1] - 2026-10-07
 

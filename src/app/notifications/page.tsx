@@ -2,10 +2,15 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, Loader2 } from "lucide-react";
+import { Bell, CheckCheck, Loader2 } from "lucide-react";
 import { EmptyState } from "@/components/a2a/primitives";
+import { Page } from "@/components/console/page";
+import { ListSkeleton } from "@/components/patterns/collections";
+import { Callout } from "@/components/patterns/data-display";
+import { FilterChips } from "@/components/patterns/filter-chips";
+import { Pill, StatusDot } from "@/components/patterns/status";
 import { Button } from "@/components/ui/button";
-import { KIND_LABEL, NOTIFICATIONS_CHANGED, needsAction, safeLink, unreadLabel } from "@/lib/notification-view";
+import { KIND_LABEL, NOTIFICATIONS_CHANGED, needsAction, safeLink } from "@/lib/notification-view";
 import { relativeTime } from "@/lib/task-view";
 import { useServerResource } from "@/lib/use-server-resource";
 import type { InboxPage, NotificationView } from "@/shared/notification-types";
@@ -55,46 +60,49 @@ function Inbox({ unreadOnly, onFilter }: { unreadOnly: boolean; onFilter: (unrea
   }
 
   return (
-    <div className="min-h-0 flex-1 overflow-auto p-4 md:p-6">
-      <div className="flex flex-wrap items-center gap-2.5">
-        <h1 className="min-w-32 flex-1 font-mono text-lg font-bold tracking-tight">Notifications</h1>
-        <div className="flex gap-1.5" role="tablist" aria-label="Filter notifications">
-          {[{ label: "All", value: false }, { label: "Unread", value: true }].map((tab) => (
-            <button key={tab.label} role="tab" aria-selected={unreadOnly === tab.value} onClick={() => onFilter(tab.value)}
-              className={cn("rounded-full border px-2.5 py-1 font-mono text-xs font-medium transition-colors", unreadOnly === tab.value ? "border-primary text-primary" : "border-border text-muted-foreground hover:text-foreground")}>
-              {tab.label}{tab.value && unread > 0 ? ` (${unreadLabel(unread)})` : ""}
-            </button>
-          ))}
-        </div>
-        <Button variant="outline" size="sm" disabled={unread === 0} onClick={() => mark({ all: true })}>Mark all read</Button>
-      </div>
-      <p className="text-muted-foreground mt-2 mb-3 max-w-2xl text-[13px]">
-        Your own notifications about approvals and tasks you are responsible for. They are kept for you on the server, so read marks follow you across browsers.
-      </p>
-      {(problem || first.error) && <p role="alert" className="text-brand mb-3 text-sm">{problem ?? first.error} <button className="text-primary underline" onClick={first.refresh}>Retry</button></p>}
-      {first.loading ? <p role="status" className="text-muted-foreground">Loading notifications…</p> : items.length === 0 ? (
-        <EmptyState icon={<Bell className="size-7" />} title={unreadOnly ? "Nothing unread" : "All quiet"}>
+    <Page
+      size="narrow"
+      title="Notifications"
+      description="Your own notifications about approvals and tasks you are responsible for. They are kept for you on the server, so read marks follow you across browsers."
+      actions={<Button variant="outline" disabled={unread === 0} onClick={() => mark({ all: true })}><CheckCheck /> Mark all read</Button>}
+      headerChildren={
+        <FilterChips
+          label="Filter notifications"
+          className="pt-1"
+          options={[{ value: "all", label: "All" }, { value: "unread", label: "Unread", count: unread > 0 ? unread : undefined }]}
+          value={[unreadOnly ? "unread" : "all"]}
+          onValueChange={(next) => onFilter(next[0] === "unread")}
+        />
+      }
+    >
+      {(problem || first.error) && (
+        <Callout tone="danger" className="mb-4" action={<Button size="sm" variant="outline" onClick={first.refresh}>Retry</Button>}>{problem ?? first.error}</Callout>
+      )}
+      {first.loading ? <div role="status" aria-label="Loading notifications"><ListSkeleton rows={5} /></div> : items.length === 0 ? (
+        <div className="flex"><EmptyState icon={Bell} title={unreadOnly ? "Nothing unread" : "All quiet"}>
           Approvals that need you, tasks assigned or escalated to you, and tasks that need input will appear here.
-        </EmptyState>
+        </EmptyState></div>
       ) : (
-        <ul className="flex flex-col gap-1.5" aria-label="Notifications">
+        <ul className="divide-y overflow-hidden rounded-xl border bg-card" aria-label="Notifications">
           {items.map((item) => (
             <li key={item.id}>
               <button type="button" onClick={() => open(item)} data-kind={item.kind} data-unread={item.readAt ? "false" : "true"}
-                className={cn("border-border flex w-full items-start gap-3 rounded-xl border p-3 text-left transition-colors", item.readAt ? "hover:bg-accent/30" : "bg-card hover:bg-accent/60")}>
-                <span className={cn("mt-1.5 size-2 shrink-0 rounded-full", item.readAt ? "bg-transparent" : "bg-brand")} aria-label={item.readAt ? undefined : "Unread"} />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2"><span className="font-semibold">{item.title}</span>
-                    {needsAction(item.kind) && !item.readAt && <span className="text-warning bg-warning/15 rounded-full px-1.5 font-mono text-[10px]">ACTION</span>}</div>
-                  <div className="text-muted-foreground text-[13px] break-words">{item.body}</div>
-                  <div className="text-muted-foreground mt-0.5 font-mono text-[11px]">{KIND_LABEL[item.kind]} · {relativeTime(item.createdAt)}</div>
+                className={cn("flex w-full items-start gap-3 px-4 py-3.5 text-left transition-colors outline-none hover:bg-muted/50 focus-visible:bg-muted", !item.readAt && "bg-brand-soft/40")}>
+                <span className="mt-1.5 flex size-2 shrink-0 justify-center">{!item.readAt && <StatusDot tone="brand" />}</span>
+                <div className="min-w-0 flex-1 space-y-0.5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={cn("text-sm", item.readAt ? "font-normal" : "font-medium")}>{item.title}</span>
+                    {needsAction(item.kind) && !item.readAt && <Pill tone="warning">Action</Pill>}
+                  </div>
+                  <div className="text-sm break-words text-muted-foreground">{item.body}</div>
+                  <div className="font-mono text-[11px] text-subtle-foreground">{KIND_LABEL[item.kind]} · {relativeTime(item.createdAt)}</div>
                 </div>
               </button>
             </li>
           ))}
         </ul>
       )}
-      {pages.at(-1)?.next && <Button variant="outline" size="sm" className="mt-3" disabled={more} onClick={loadMore}>{more && <Loader2 className="animate-spin" />} Show older notifications</Button>}
-    </div>
+      {pages.at(-1)?.next && <Button variant="outline" className="mt-4" disabled={more} onClick={loadMore}>{more && <Loader2 className="animate-spin" />} Show older notifications</Button>}
+    </Page>
   );
 }

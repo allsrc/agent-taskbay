@@ -22,7 +22,7 @@ export interface OptionsPanelProps {
 /** Per-request `SendMessageConfiguration`, applied to the next message only. */
 export function OptionsPanel(props: OptionsPanelProps) {
   const chip = (on: boolean) =>
-    cn("rounded-md border px-2 py-0.5 font-mono text-[11px] font-medium transition-colors", on ? "border-primary bg-primary/15 text-foreground" : "border-border text-muted-foreground");
+    cn("rounded-md border px-2 py-0.5 font-mono text-[11px] font-medium transition-colors", on ? "border-brand bg-brand-soft text-foreground" : "border-border text-muted-foreground");
   return (
     <div className="flex flex-col gap-5">
       <label className="flex items-start gap-3">
@@ -52,7 +52,7 @@ export function OptionsPanel(props: OptionsPanelProps) {
                 className={chip(on)}
               >
                 {mime}
-                {props.declaredOutputModes.includes(mime) && <span className="text-brand"> ★</span>}
+                {props.declaredOutputModes.includes(mime) && <span className="text-brand-text"> ★</span>}
               </button>
             );
           })}

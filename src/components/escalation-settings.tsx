@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { InfoCard } from "./a2a/primitives";
 import { Button } from "./ui/button";
+import { NativeSelect } from "./ui/native-select";
 import { useAgentStore } from "@/store/agent-store";
 import type { EscalationPolicyView } from "@/shared/workflow-types";
 
@@ -41,13 +42,12 @@ export function EscalationSettings() {
     finally { setBusy(false); }
   }
   if (!data) return error ? <p role="alert">{error}</p> : null;
-  const selectClass = "border-border bg-background w-full rounded-md border px-2 py-1 text-sm";
   const scopeName = (agentId: string | null) => agentId === null ? "All agents" : agents.find((agent) => agent.id === agentId)?.view?.name ?? "Agent";
 
   return (
     <InfoCard label="Escalation">
       <p className="text-muted-foreground mb-3 text-xs">When owned work passes its due time, it is handed to this reviewer once per due time. An agent-specific rule overrides “All agents”. Without a rule, overdue work is only flagged.</p>
-      {error && <p role="alert" className="text-destructive mb-2">{error}</p>}
+      {error && <p role="alert" className="text-danger mb-2">{error}</p>}
       <ul className="mb-3" aria-label="Escalation rules">
         {data.policies.length === 0 && <li className="text-muted-foreground text-[13px]">No escalation rules yet.</li>}
         {data.policies.map((policy) => (
@@ -63,14 +63,14 @@ export function EscalationSettings() {
         event.preventDefault(); const form = new FormData(event.currentTarget);
         void save({ agentId: String(form.get("agentId")) || null, targetMembershipId: String(form.get("targetMembershipId")), enabled: true });
       }}>
-        <select name="agentId" aria-label="Applies to" className={selectClass} defaultValue="">
+        <NativeSelect name="agentId" aria-label="Applies to" defaultValue="">
           <option value="">All agents</option>
           {agents.map((agent) => <option key={agent.id} value={agent.id}>{agent.view?.name ?? agent.id}</option>)}
-        </select>
-        <select name="targetMembershipId" aria-label="Escalate to" required className={selectClass} defaultValue="">
+        </NativeSelect>
+        <NativeSelect name="targetMembershipId" aria-label="Escalate to" required defaultValue="">
           <option value="">Escalate to…</option>
           {members.map((member) => <option key={member.id} value={member.id}>{member.name} ({member.role})</option>)}
-        </select>
+        </NativeSelect>
         <Button disabled={busy}>Save rule</Button>
       </form>
     </InfoCard>

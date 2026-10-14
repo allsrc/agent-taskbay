@@ -7,17 +7,19 @@ import { NotificationChannelSettings } from "@/components/notification-channel-s
 import { useState } from "react";
 import { Trash2 } from "lucide-react";
 import { InfoCard } from "@/components/a2a/primitives";
+import { Page } from "@/components/console/page";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { OUTPUT_MODE_OPTIONS, useSettingsStore } from "@/store/settings-store";
 
 function ToggleRow({ title, desc, checked, onChange, disabled }: { title: string; desc: string; checked: boolean; onChange: (value: boolean) => void; disabled?: boolean }) {
   return (
-    <label className="flex cursor-pointer items-center gap-2.5 py-2">
-      <span className="flex-1">
-        <span className="block">{title}</span>
-        <span className="text-muted-foreground block font-mono text-[11px] break-all">{desc}</span>
+    <label className="flex cursor-pointer items-center gap-3 py-2.5 first:pt-0 last:pb-0">
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm">{title}</span>
+        <span className="block font-mono text-[11px] break-words text-muted-foreground">{desc}</span>
       </span>
       <Switch checked={checked} onCheckedChange={onChange} disabled={disabled} aria-label={title} />
     </label>
@@ -29,52 +31,74 @@ export default function SettingsPage() {
   const [extension, setExtension] = useState("");
 
   return (
-    <div className="min-h-0 flex-1 overflow-auto p-4 md:p-6">
-      <h1 className="mb-3.5 font-mono text-lg font-bold tracking-tight">Settings</h1>
-      <div className="grid max-w-[900px] grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-3">
-        <InfoCard label="Request defaults">
-          <p className="text-muted-foreground mb-1 text-xs">acceptedOutputModes, used when an agent card doesn&apos;t declare its own.</p>
-          {OUTPUT_MODE_OPTIONS.map((mode) => (
-            <ToggleRow key={mode.key} title={mode.title} desc={mode.key} checked={settings.acceptedOutputModes.includes(mode.key)} onChange={() => settings.toggleOutputMode(mode.key)} />
-          ))}
-          <ToggleRow title="Return immediately" desc="Get the Task back as soon as it's created" checked={settings.returnImmediately} onChange={settings.setReturnImmediately} />
-          <ToggleRow title="Push notifications" desc="Needs the webhook receiver (ROADMAP Phase 1)" checked={false} onChange={() => undefined} disabled />
-          <label className="text-muted-foreground flex items-center gap-2 pt-2 font-mono text-xs">
-            historyLength
-            <Input value={settings.historyLength} onChange={(event) => settings.setHistoryLength(event.target.value)} placeholder="unset" inputMode="numeric" className="h-7 w-20 px-2 font-mono text-xs" />
-          </label>
-        </InfoCard>
-
-        <InfoCard label="Extensions">
-          <p className="text-muted-foreground mb-1 text-xs">Extension URIs activated on every request, in addition to any the gateway negotiates itself.</p>
-          {settings.extensions.map((item) => (
-            <div key={item.uri} className="flex items-center gap-1">
-              <div className="flex-1">
-                <ToggleRow title={item.uri.split("/").filter(Boolean).slice(-2).join("/")} desc={item.uri} checked={item.enabled} onChange={() => settings.toggleExtension(item.uri)} />
-              </div>
-              <Button variant="ghost" size="icon" aria-label="Remove extension" onClick={() => settings.removeExtension(item.uri)}>
-                <Trash2 />
-              </Button>
+    <Page
+      title="Settings"
+      size="default"
+      description="Defaults for the requests you send, and, for administrators, who can reach which agents."
+    >
+      <section className="space-y-4">
+        <div>
+          <h2 className="font-heading text-base font-semibold">Saved in this browser</h2>
+          <p className="text-sm text-muted-foreground">Request defaults and extensions apply to your chats on this device.</p>
+        </div>
+        <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+          <InfoCard label="Request defaults">
+            <p className="mb-3 text-xs text-muted-foreground">acceptedOutputModes, used when an agent card doesn&apos;t declare its own.</p>
+            <div className="divide-y">
+              {OUTPUT_MODE_OPTIONS.map((mode) => (
+                <ToggleRow key={mode.key} title={mode.title} desc={mode.key} checked={settings.acceptedOutputModes.includes(mode.key)} onChange={() => settings.toggleOutputMode(mode.key)} />
+              ))}
+              <ToggleRow title="Return immediately" desc="Get the Task back as soon as it's created" checked={settings.returnImmediately} onChange={settings.setReturnImmediately} />
+              <ToggleRow title="Push notifications" desc="Needs the webhook receiver (ROADMAP Phase 1)" checked={false} onChange={() => undefined} disabled />
             </div>
-          ))}
-          <form
-            className="flex gap-2 pt-2"
-            onSubmit={(event) => {
-              event.preventDefault();
-              if (!extension.trim()) return;
-              settings.addExtension(extension.trim());
-              setExtension("");
-            }}
-          >
-            <Input value={extension} onChange={(event) => setExtension(event.target.value)} placeholder="https://example.com/a2a/extensions/trace/v1" className="font-mono text-xs" aria-label="Extension URI" />
-            <Button type="submit" variant="outline">Add</Button>
-          </form>
-        </InfoCard>
+            <div className="mt-4 flex items-center gap-3">
+              <Label htmlFor="history-length" className="font-mono text-xs text-muted-foreground">historyLength</Label>
+              <Input id="history-length" value={settings.historyLength} onChange={(event) => settings.setHistoryLength(event.target.value)} placeholder="unset" inputMode="numeric" className="w-24 font-mono text-xs" />
+            </div>
+          </InfoCard>
 
-        <SecuritySettings />
-        <EscalationSettings />
-        <NotificationChannelSettings />
+          <InfoCard label="Extensions">
+            <p className="mb-3 text-xs text-muted-foreground">Extension URIs activated on every request, in addition to any the gateway negotiates itself.</p>
+            <div className="divide-y">
+              {settings.extensions.map((item) => (
+                <div key={item.uri} className="flex items-center gap-1 py-2.5 first:pt-0">
+                  <div className="min-w-0 flex-1">
+                    <ToggleRow title={item.uri.split("/").filter(Boolean).slice(-2).join("/")} desc={item.uri} checked={item.enabled} onChange={() => settings.toggleExtension(item.uri)} />
+                  </div>
+                  <Button variant="ghost" size="icon" aria-label="Remove extension" onClick={() => settings.removeExtension(item.uri)}>
+                    <Trash2 />
+                  </Button>
+                </div>
+              ))}
+            </div>
+            <form
+              className="mt-4 flex gap-2"
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (!extension.trim()) return;
+                settings.addExtension(extension.trim());
+                setExtension("");
+              }}
+            >
+              <Input value={extension} onChange={(event) => setExtension(event.target.value)} placeholder="https://example.com/a2a/extensions/trace/v1" className="font-mono text-xs" aria-label="Extension URI" />
+              <Button type="submit" variant="outline">Add</Button>
+            </form>
+          </InfoCard>
+        </div>
+      </section>
+
+      {/* Administrator cards render nothing for other roles, so the heading shows only when a card did. */}
+      <div className="mt-10 flex flex-col gap-4">
+        <div className="peer order-2 grid gap-4 empty:hidden lg:grid-cols-2 lg:items-start">
+          <SecuritySettings />
+          <EscalationSettings />
+          <NotificationChannelSettings />
+        </div>
+        <div className="order-1 hidden peer-[:not(:empty)]:block">
+          <h2 className="font-heading text-base font-semibold">Organization settings</h2>
+          <p className="text-sm text-muted-foreground">Visible to administrators only. The server enforces access regardless.</p>
+        </div>
       </div>
-    </div>
+    </Page>
   );
 }

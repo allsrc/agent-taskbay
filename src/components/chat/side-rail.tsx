@@ -50,7 +50,7 @@ function RailBody({
             onClick={() => onTab(item.key)}
             className={cn(
               "rounded-md px-2.5 py-1 font-mono text-xs font-medium transition-colors",
-              tab === item.key ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground",
+              tab === item.key ? "bg-brand-soft text-brand-text" : "text-muted-foreground hover:text-foreground",
             )}
           >
             {item.label}

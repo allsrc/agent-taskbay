@@ -28,7 +28,7 @@ export function StructuredForm({ form, disabled, onSubmit }: { form: FormDefinit
         {form.description && <p className="text-muted-foreground mt-0.5 text-xs whitespace-pre-wrap">{form.description}</p>}
       </div>
       <FormFields form={form} values={values} errors={errors} disabled={disabled} onChange={(key, value) => setValues((current) => ({ ...current, [key]: value }))} />
-      <div><Button type="submit" variant="brand" size="sm" disabled={disabled}>{form.submitLabel}</Button></div>
+      <div><Button type="submit" variant="default" size="sm" disabled={disabled}>{form.submitLabel}</Button></div>
     </form>
   );
 }
@@ -52,11 +52,11 @@ export function FormFields({ form, values, errors, disabled, onChange }: {
                 {field.label}
               </label>
             ) : (
-              <label htmlFor={id} className="text-sm font-medium">{field.label}{field.required && <span aria-hidden className="text-brand"> *</span>}</label>
+              <label htmlFor={id} className="text-sm font-medium">{field.label}{field.required && <span aria-hidden className="text-brand-text"> *</span>}</label>
             )}
             {field.type !== "boolean" && <FieldInput id={id} field={field} value={values[field.key]} disabled={disabled} invalid={!!error} onChange={(value) => onChange(field.key, value)} />}
             {field.description && <p id={`${id}-hint`} className="text-muted-foreground text-xs">{field.description}</p>}
-            {error && <p id={`${id}-error`} role="alert" className="text-brand text-xs">{error}</p>}
+            {error && <p id={`${id}-error`} role="alert" className="text-danger text-xs">{error}</p>}
           </div>
         );
       })}

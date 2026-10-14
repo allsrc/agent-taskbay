@@ -1,0 +1,483 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/*
+ * http2xx.io design tokens
+ * ------------------------------------------------------------------
+ * Every colour in the product resolves to one of the semantic tokens
+ * below. Components never reference raw palette values, so both
+ * themes are first-class: light and dark each define the full set.
+ *
+ * Brand (from the http2xx.io logo kit):
+ *   brand  — the blue of the prompt and "2xx"; identity, links, focus.
+ *   signal — the green status dots; live / healthy state only.
+ * Both are used sparingly and never as large fills.
+ */
+
+@custom-variant dark (&:where(.dark, .dark *):not(:where(.light-scope, .light-scope *)));
+
+@theme inline {
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
+  --font-heading: var(--font-space-grotesk), var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-subtle-foreground: var(--subtle-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* Surfaces: page < sunken < card < raised */
+  --color-sunken: var(--sunken);
+  --color-raised: var(--raised);
+  --color-code: var(--code);
+  --color-code-foreground: var(--code-foreground);
+
+  /* Brand */
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-brand-text: var(--brand-text);
+  --color-brand-soft: var(--brand-soft);
+  --color-signal: var(--signal);
+
+  /* Status — mirrors HTTP semantics */
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-info: var(--info);
+  --color-neutral: var(--neutral);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+
+  --shadow-elevated: var(--elevation);
+
+  --animate-pulse-ring: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-fade-up: fade-up 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+
+  @keyframes pulse-ring {
+    0% { transform: scale(1); opacity: 0.55; }
+    80%, 100% { transform: scale(2.4); opacity: 0; }
+  }
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+}
+
+/* ---------- Light ---------- */
+/* `.light-scope` lets a subtree render light inside a dark page (theme previews). */
+:root,
+.light-scope {
+  color-scheme: light;
+  --radius: 0.625rem;
+
+  /* Neutrals derived from brand #05070E (ink) and #F3F6FC / #E3E7EF (paper) */
+  --background: oklch(0.99 0.004 264.5);
+  --foreground: oklch(0.17 0.017 268.4);
+  --sunken: oklch(0.973 0.009 264.5);
+  --card: oklch(1 0 0);
+  --card-foreground: var(--foreground);
+  --raised: oklch(1 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: var(--foreground);
+
+  --primary: oklch(0.17 0.017 268.4);
+  --primary-foreground: oklch(0.973 0.009 264.5);
+  --secondary: oklch(0.955 0.01 264.5);
+  --secondary-foreground: var(--foreground);
+  --muted: oklch(0.955 0.01 264.5);
+  --muted-foreground: oklch(0.48 0.022 264.4);
+  --subtle-foreground: oklch(0.6 0.018 263);
+  --accent: oklch(0.95 0.012 264.5);
+  --accent-foreground: var(--foreground);
+
+  --border: oklch(0.927 0.012 264.5);
+  --border-strong: oklch(0.86 0.016 264.5);
+  --input: oklch(0.89 0.014 264.5);
+  --ring: oklch(0.587 0.225 262.6);
+
+  --code: oklch(0.973 0.009 264.5);
+  --code-foreground: oklch(0.27 0.02 268);
+
+  /* Brand blue #2B6FFF — the "2xx" and the prompt */
+  --brand: oklch(0.587 0.225 262.6);
+  --brand-foreground: oklch(0.99 0.004 264.5);
+  --brand-text: oklch(0.52 0.22 263);
+  --brand-soft: oklch(0.587 0.225 262.6 / 0.09);
+
+  /* Signal green #10B981 — live / healthy (non-text use) */
+  --signal: oklch(0.696 0.149 162.5);
+
+  --success: oklch(0.56 0.13 162);
+  --warning: oklch(0.6 0.15 65);
+  --danger: oklch(0.56 0.2 25);
+  --info: oklch(0.56 0.12 225);
+  --neutral: oklch(0.6 0.018 263);
+  --destructive: var(--danger);
+
+  --chart-1: oklch(0.587 0.225 262.6);
+  --chart-2: oklch(0.696 0.149 162.5);
+  --chart-3: oklch(0.65 0.15 65);
+  --chart-4: oklch(0.56 0.17 300);
+  --chart-5: oklch(0.6 0.12 210);
+
+  --sidebar: oklch(0.98 0.006 264.5);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: oklch(0.945 0.012 264.5);
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+
+  --cover-l: 0.56;
+  --cover-c: 0.13;
+  --grid-line: oklch(0.17 0.017 268.4 / 0.05);
+  --glow: oklch(0.587 0.225 262.6 / 0.12);
+  --glow-signal: oklch(0.696 0.149 162.5 / 0.1);
+  --elevation: 0 1px 2px oklch(0.17 0.017 268 / 0.04), 0 8px 24px -12px oklch(0.17 0.017 268 / 0.14);
+}
+
+/* ---------- Dark ---------- */
+.dark {
+  color-scheme: dark;
+
+  /* Built on brand ink #05070E */
+  --background: oklch(0.13 0.017 268.4);
+  --foreground: oklch(0.973 0.009 264.5);
+  --sunken: oklch(0.11 0.015 268.4);
+  --card: oklch(0.163 0.019 268);
+  --card-foreground: var(--foreground);
+  --raised: oklch(0.19 0.021 268);
+  --popover: oklch(0.185 0.021 268);
+  --popover-foreground: var(--foreground);
+
+  --primary: oklch(0.973 0.009 264.5);
+  --primary-foreground: oklch(0.13 0.017 268.4);
+  --secondary: oklch(0.215 0.022 268);
+  --secondary-foreground: var(--foreground);
+  --muted: oklch(0.205 0.021 268);
+  --muted-foreground: oklch(0.71 0.018 264);
+  --subtle-foreground: oklch(0.58 0.016 263);
+  --accent: oklch(0.225 0.024 268);
+  --accent-foreground: var(--foreground);
+
+  --border: oklch(0.973 0.009 264.5 / 0.085);
+  --border-strong: oklch(0.973 0.009 264.5 / 0.16);
+  --input: oklch(0.973 0.009 264.5 / 0.13);
+  --ring: oklch(0.66 0.18 265);
+
+  --code: oklch(0.11 0.015 268.4);
+  --code-foreground: oklch(0.9 0.012 264.5);
+
+  /* Brand blue #5B8BFF */
+  --brand: oklch(0.66 0.18 265);
+  --brand-foreground: oklch(0.13 0.017 268.4);
+  --brand-text: oklch(0.74 0.15 265);
+  --brand-soft: oklch(0.66 0.18 265 / 0.14);
+
+  /* Signal green #00F59B */
+  --signal: oklch(0.854 0.2 157.9);
+
+  --success: oklch(0.82 0.19 158);
+  --warning: oklch(0.82 0.14 75);
+  --danger: oklch(0.7 0.18 25);
+  --info: oklch(0.76 0.11 225);
+  --neutral: oklch(0.6 0.016 263);
+  --destructive: var(--danger);
+
+  --chart-1: oklch(0.66 0.18 265);
+  --chart-2: oklch(0.854 0.2 157.9);
+  --chart-3: oklch(0.82 0.14 75);
+  --chart-4: oklch(0.72 0.15 300);
+  --chart-5: oklch(0.76 0.11 210);
+
+  --sidebar: oklch(0.115 0.016 268.4);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: oklch(0.19 0.021 268);
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+
+  --cover-l: 0.78;
+  --cover-c: 0.13;
+  --grid-line: oklch(0.973 0.009 264.5 / 0.04);
+  --glow: oklch(0.66 0.18 265 / 0.16);
+  --glow-signal: oklch(0.854 0.2 157.9 / 0.08);
+  --elevation: 0 1px 0 oklch(1 0 0 / 0.04) inset, 0 12px 32px -16px oklch(0 0 0 / 0.7);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+    /* App-like: no rubber-band bounce revealing the browser behind the UI */
+    overscroll-behavior-y: none;
+  }
+  /* Reserve scrollbar space only where scrollbars take space (mouse devices) */
+  @media (hover: hover) and (pointer: fine) {
+    html {
+      scrollbar-gutter: stable;
+    }
+  }
+  /* Interactive chrome responds instantly to touch, without double-tap zoom delay */
+  a,
+  button,
+  [role="button"],
+  [role="tab"],
+  label {
+    touch-action: manipulation;
+  }
+  /* Chrome (nav bars, tab bars, toolbars) is not selectable text, like a native app */
+  [data-chrome] {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "ss01", "cv11";
+  }
+  ::selection {
+    background: var(--brand-soft);
+    color: var(--foreground);
+  }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+  /* Disable transitions while switching theme so nothing animates mid-swap */
+  .theme-switching *,
+  .theme-switching *::before,
+  .theme-switching *::after {
+    transition: none !important;
+  }
+}
+
+/* ------------------------------------------------------------------
+ * View transitions — route changes animate like an app, not a reload.
+ * Content uses a short fade + lift; persistent chrome never animates.
+ * ------------------------------------------------------------------ */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+}
+::view-transition-old(.page) {
+  animation: 140ms cubic-bezier(0.4, 0, 1, 1) both vt-fade-out;
+}
+::view-transition-new(.page) {
+  animation: 240ms cubic-bezier(0.2, 0.8, 0.2, 1) 40ms both vt-fade-in;
+}
+/* Directional push / pop between screens */
+::view-transition-old(.nav-forward) {
+  --slide-offset: -48px;
+  animation: 140ms ease-in both vt-fade-out, 320ms cubic-bezier(0.3, 0, 0.2, 1) both vt-slide reverse;
+}
+::view-transition-new(.nav-forward) {
+  --slide-offset: 48px;
+  animation: 220ms ease-out 100ms both vt-fade-in-plain, 320ms cubic-bezier(0.3, 0, 0.2, 1) both vt-slide;
+}
+::view-transition-old(.nav-back) {
+  --slide-offset: 48px;
+  animation: 140ms ease-in both vt-fade-out, 320ms cubic-bezier(0.3, 0, 0.2, 1) both vt-slide reverse;
+}
+::view-transition-new(.nav-back) {
+  --slide-offset: -48px;
+  animation: 220ms ease-out 100ms both vt-fade-in-plain, 320ms cubic-bezier(0.3, 0, 0.2, 1) both vt-slide;
+}
+/* Persistent chrome: captured separately, never animates, always on top */
+::view-transition-group(top-bar),
+::view-transition-group(tab-bar),
+::view-transition-group(side-bar) {
+  animation: none;
+  z-index: 50;
+}
+@keyframes vt-slide {
+  from { translate: var(--slide-offset); }
+  to { translate: 0; }
+}
+@keyframes vt-fade-in-plain {
+  from { opacity: 0; }
+}
+@keyframes vt-fade-out {
+  to { opacity: 0; }
+}
+@keyframes vt-fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
+
+@layer utilities {
+  /* Tactile press feedback for tappable surfaces */
+  .pressable {
+    transition: transform 120ms cubic-bezier(0.2, 0.8, 0.2, 1), background-color 150ms, border-color 150ms, box-shadow 200ms;
+  }
+  .pressable:active {
+    transform: scale(0.985);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .pressable:active { transform: none; }
+  }
+  /* Subtle technical grid used behind hero areas */
+  .bg-grid {
+    background-image:
+      linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+  .bg-dots {
+    background-image: radial-gradient(var(--grid-line) 1px, transparent 1px);
+    background-size: 16px 16px;
+  }
+  .mask-fade-b {
+    mask-image: linear-gradient(to bottom, black 40%, transparent);
+  }
+  .mask-radial {
+    mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
+  }
+  .glow-brand {
+    background:
+      radial-gradient(ellipse 60% 70% at 80% 0%, var(--glow), transparent 70%),
+      radial-gradient(ellipse 45% 55% at 5% 60%, var(--glow-signal), transparent 70%);
+    /* Never show the container's edge */
+    mask-image: linear-gradient(to bottom, black 55%, transparent);
+  }
+  .text-balance {
+    text-wrap: balance;
+  }
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+  /* Sticky offset matching whichever top bar is visible (mobile vs desktop) */
+  .top-chrome {
+    top: calc(3rem + env(safe-area-inset-top));
+  }
+  @media (min-width: 48rem) {
+    .top-chrome {
+      top: 3.5rem;
+    }
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+}
+
+@layer components {
+  /* Small mono caption used for card labels throughout: "CAPABILITIES", "TASK", ... */
+  .label-mono {
+    @apply text-subtle-foreground font-mono text-[11px] font-medium tracking-[0.06em] uppercase;
+  }
+
+  .markdown-content {
+    @apply text-sm leading-relaxed;
+  }
+  .markdown-content > :first-child {
+    @apply mt-0;
+  }
+  .markdown-content > :last-child {
+    @apply mb-0;
+  }
+  .markdown-content h1,
+  .markdown-content h2,
+  .markdown-content h3 {
+    @apply mt-4 mb-2 font-semibold tracking-tight;
+  }
+  .markdown-content p {
+    @apply my-2;
+  }
+  .markdown-content ul,
+  .markdown-content ol {
+    @apply my-2 ps-5;
+  }
+  .markdown-content ul {
+    @apply list-disc;
+  }
+  .markdown-content ol {
+    @apply list-decimal;
+  }
+  .markdown-content a {
+    @apply text-primary underline-offset-2 hover:underline;
+  }
+  .markdown-content code {
+    @apply bg-muted rounded px-1 py-0.5 font-mono text-[0.85em];
+  }
+  .markdown-content pre {
+    @apply bg-muted/60 my-2 overflow-auto rounded-lg p-3;
+  }
+  .markdown-content pre code {
+    @apply bg-transparent p-0;
+  }
+  .markdown-content blockquote {
+    @apply border-border text-muted-foreground my-2 border-l-2 pl-3 italic;
+  }
+  .markdown-content table {
+    @apply my-2 w-full border-collapse text-xs;
+  }
+  .markdown-content th,
+  .markdown-content td {
+    @apply border-border border px-2 py-1 text-left;
+  }
+}
+
+@theme inline {
+  --animate-pulse-soft: pulse-soft 1.2s ease-in-out infinite;
+  --animate-caret: caret 1s steps(1) infinite;
+  @keyframes pulse-soft { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+  @keyframes caret { 50% { opacity: 0; } }
+}

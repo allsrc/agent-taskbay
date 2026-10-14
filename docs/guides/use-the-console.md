@@ -22,7 +22,7 @@ The console is the web app you open in the browser. The sidebar lists its screen
 
 ## The sidebar
 
-The sidebar items are **Agents**, **Chat**, **Inbox**, **Tasks**, **Orchestration**, **Audit**, **Notifications** and **Settings**. **Audit** only appears for administrators. On a small screen the same items sit in a bottom bar with short names: **Flows** for Orchestration, **Alerts** for Notifications and **Setup** for Settings.
+On a medium screen the sidebar shrinks to an icon rail; from a large screen it shows labels. The sidebar items are **Agents**, **Chat**, **Inbox**, **Tasks**, **Orchestration**, **Audit**, **Notifications** and **Settings**. **Audit** only appears for administrators. On a phone the bottom bar shows **Chat**, **Inbox**, **Tasks** and **Agents**, plus a **More** tab that opens a sheet with the rest (**Orchestration**, **Audit** for administrators, **Notifications** and **Settings**), your identity menu and the theme switch. A count of pending approvals or unread notifications sits in the top bar.
 
 **Inbox** shows a badge with the number of pending approvals. **Notifications** shows your unread count (shown as "99+" above 99). The bottom of the sidebar shows your identity menu, a **Light** / **System** / **Dark** theme switch, and the tenant of the first agent that reports one.
 

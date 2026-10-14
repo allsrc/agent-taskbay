@@ -79,6 +79,7 @@ These are read by the repository's tests and verification scripts, not by the ap
 | --- | --- |
 | `src/app/` | Next.js routes: pages, and HTTP handlers under `src/app/api/` |
 | `src/components/`, `src/store/`, `src/lib/` | UI, client state and shared helpers (gateway, URL safety, A2UI, rendering) |
+| `src/components/ui/`, `patterns/`, `theme/`, `navigation/`, `brand/`, `src/styles/globals.css` | The http2xx design system (see [User interface](#user-interface)) |
 | `src/server/domain/` | Domain models and rules; no framework or database imports |
 | `src/server/application/` | Use cases and services behind ports |
 | `src/server/adapters/` | Implementations: `db` (MikroORM, migrations), `a2a`, `auth`, `blob`, `live`, `notify`, `agui` |
@@ -93,6 +94,17 @@ These are read by the repository's tests and verification scripts, not by the ap
 - Migrations are additive. Create one with `npm run db:migration:create`.
 - Browser code never receives agent credentials; credentials are resolved on the server.
 - Security-relevant changes (authentication, credentials, outbound requests, webhooks, artifacts) update the [threat model](../security/threat-model.md) and add a regression test.
+
+## User interface
+
+The console uses the http2xx design system: Tailwind 4 with Base UI primitives, tokens in `src/styles/globals.css`, and a light and dark theme stored under `agent-taskbay-theme`. Rules when you change the UI:
+
+- Take colors from the semantic tokens (`bg-card`, `text-muted-foreground`, `text-brand-text`, `bg-signal`). Do not write hex values, `oklch()` or Tailwind palette classes.
+- Status colors are tones (`brand`, `success`, `warning`, `danger`, `info`, `neutral`). Task and approval states map onto them in `src/lib/task-view.ts` and `src/lib/approvals.ts`.
+- Use the existing primitives and patterns (`Button`, `Dialog`/`ResponsiveDialog`, `Panel`, `EmptyState`, `Pill`). Buttons that navigate use `buttonVariants` on a link; Base UI has no `asChild`, it uses `render`.
+- Components in `ui/`, `patterns/`, `theme/` and `navigation/` come from the design system. Add product-specific components next to the feature that needs them. The one addition to `ui/` is `NativeSelect`, for plain forms that read values with `FormData`.
+- Screens are built from `src/components/console/`. `Page` is a full page (design-system header, width-limited container). `MasterDetail`, `ListPane`, `ListRow` and `ListStatus` build list-and-detail screens (Tasks, Inbox, Approvals, Agents). Do not hand-roll a scroll container.
+- Layout is responsive by default. From `md` up the screen fills the viewport and each pane scrolls on its own. On a phone the document scrolls, the top bar shows a back button for detail screens (see `parentOf` in `app-shell.tsx`) and the tab bar stays fixed. Check a new screen at phone width, and make sure nothing makes the page scroll sideways.
 
 ## Next.js caveat
 
