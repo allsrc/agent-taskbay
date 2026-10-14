@@ -19,9 +19,9 @@ export function Chip({ children, className, tone }: { children: React.ReactNode;
   return <Tag className={cn(tone === "warn" && "bg-warning/10 text-warning", className)}>{children}</Tag>;
 }
 
-export function AgentAvatar({ name, id, size = "md" }: { name: string; id: string; size?: "sm" | "md" | "lg" }) {
+export function AgentAvatar({ name, id, size = "md" }: { name: string; id: string; size?: "xs" | "sm" | "md" | "lg" }) {
   const { short, color } = agentBadge(name, id);
-  const box = size === "lg" ? "size-14 rounded-2xl text-lg" : size === "sm" ? "size-8 rounded-lg text-xs" : "size-10 rounded-xl text-sm";
+  const box = size === "xs" ? "size-5 rounded-md text-[9px]" : size === "lg" ? "size-14 rounded-2xl text-lg" : size === "sm" ? "size-8 rounded-lg text-xs" : "size-10 rounded-xl text-sm";
   return (
     <div
       className={cn("flex shrink-0 items-center justify-center font-mono font-semibold", box)}

@@ -1,9 +1,9 @@
 "use client";
 
-import { Ban, Check, ChevronDown, Circle, Loader2, X } from "lucide-react";
+import { Ban, Check, ChevronDown, Circle, Loader2, Wrench, X } from "lucide-react";
 import { motion } from "motion/react";
 import { BubblePart } from "@/components/chat/part-content";
-import { StateChip } from "@/components/a2a/primitives";
+import { AgentAvatar, StateChip } from "@/components/a2a/primitives";
 import { Pill } from "@/components/patterns/status";
 import { stateName, taskTitle, isActiveState } from "@/lib/task-view";
 import type { AssembledArtifact } from "@/lib/types";
@@ -15,8 +15,21 @@ import { cn } from "@/lib/utils";
 import { StructuredForm } from "@/components/chat/structured-form";
 import { formFromPart, type FormSubmission } from "@/lib/structured-form";
 import { isA2uiPart } from "@/lib/a2ui";
+import { activityLabel, isReasoningOnly, isReasoningPart } from "@/lib/chat-activity";
 
 const enter = { initial: { opacity: 0, y: 8 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.2, ease: "easeOut" as const } };
+
+/** Says who is speaking. Shown when the sender changes, so a run of messages from one side carries one label. */
+export function SenderLabel({ who, name, id }: { who: "you" | "agent"; name: string; id: string }) {
+  return who === "you" ? (
+    <span className="-mb-2 self-end pr-1 text-xs font-medium text-muted-foreground">You</span>
+  ) : (
+    <span className="-mb-2 flex items-center gap-1.5 self-start pl-0.5 text-xs font-medium text-muted-foreground">
+      <AgentAvatar name={name} id={id} size="xs" />
+      {name}
+    </span>
+  );
+}
 
 export function UserBubble({ message }: { message: ThreadMessage }) {
   return (
@@ -76,8 +89,15 @@ export function AgentBubble({
       )}
     >
       {prompt && <span><Pill tone={prompt === "INPUT_REQUIRED" ? "warning" : "info"} dot>{prompt === "INPUT_REQUIRED" ? "Input required" : "Authorization required"}</Pill></span>}
+      {message.parts.some(isReasoningPart) && (
+        <details className="text-xs text-muted-foreground">
+          <summary className="cursor-pointer font-medium">Reasoning</summary>
+          <p className="mt-1 break-words whitespace-pre-wrap">{message.parts.filter(isReasoningPart).map((part) => String(part.value)).join("\n")}</p>
+        </details>
+      )}
       <div>
         {message.parts
+          .filter((part) => !isReasoningPart(part))
           // The options list is shown as buttons below; don't echo it as raw JSON too.
           .filter((part) => !(options.length > 0 && part.kind === "data") && part !== formPart?.part)
           .map((part, index) => a2ui && isA2uiPart(part)
@@ -135,6 +155,7 @@ function stepsFor(task: TrackedTask): Array<{ label: string; status: "done" | "a
 /** Short text for one in-between update; non-text parts show their kind. */
 function updateText(message: ThreadMessage): string {
   const text = message.parts.map((part) => (part.kind === "text" ? String(part.value) : `[${part.kind}]`)).join(" ").trim();
+  if (isReasoningOnly(message)) return `Reasoning · ${text}`;
   return text || "Update";
 }
 
@@ -161,6 +182,45 @@ export function ProgressLog({ messages, active }: { messages: ThreadMessage[]; a
             </li>
           ))}
         </ol>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+/**
+ * Tool calls and results the agent returned as structured data. They are background work, so they fold into one
+ * quiet log, newest last, and each entry opens to show its JSON. Open while the task runs, folded once it finishes.
+ */
+export function ActivityLog({ artifacts, active }: { artifacts: AssembledArtifact[]; active: boolean }) {
+  return (
+    <Collapsible defaultOpen={active} className="w-full max-w-[560px] rounded-xl border bg-sunken/60">
+      <CollapsibleTrigger className="group/log flex w-full items-center gap-2 rounded-xl px-3.5 py-2.5 text-left text-xs text-muted-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+        <Wrench className="size-3.5" />
+        <span className="flex-1 font-medium">
+          Activity · {artifacts.length} tool {artifacts.length === 1 ? "result" : "results"}
+        </span>
+        <ChevronDown className="size-4 transition-transform group-data-panel-open/log:rotate-180" />
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <ul className="divide-y border-t">
+          {artifacts.map((artifact) => (
+            <li key={artifact.artifactId}>
+              <details className="group/entry px-3.5 py-2">
+                <summary className="flex cursor-pointer list-none items-center gap-2 text-[13px] text-muted-foreground">
+                  <span className="size-1.5 shrink-0 rounded-full bg-border-strong" aria-hidden />
+                  <span className="min-w-0 flex-1 truncate font-mono text-xs">{activityLabel(artifact)}</span>
+                  {!artifact.complete && <Loader2 className="size-3 animate-spin" />}
+                  <ChevronDown className="size-3.5 transition-transform group-open/entry:rotate-180" />
+                </summary>
+                <div className="mt-2 space-y-2">
+                  {artifact.parts.map((part, index) => (
+                    <PartRenderer key={`${artifact.artifactId}-${index}`} part={part} />
+                  ))}
+                </div>
+              </details>
+            </li>
+          ))}
+        </ul>
       </CollapsibleContent>
     </Collapsible>
   );
@@ -215,6 +275,19 @@ export function TaskCard({ task, canceling, onCancel }: { task: TrackedTask; can
 export function ArtifactCard({ artifact }: { artifact: AssembledArtifact }) {
   const textParts = artifact.parts.filter((part) => part.kind === "text");
   const otherParts = artifact.parts.filter((part) => part.kind !== "text");
+  // A text-only artifact is the agent's answer, so it reads like a chat reply rather than a data card.
+  if (textParts.length > 0 && otherParts.length === 0) {
+    const caption = artifact.name && artifact.name !== artifact.artifactId ? artifact.name : null;
+    return (
+      <motion.section {...enter} aria-label="Result" className="flex max-w-[92%] flex-col gap-1.5 self-start rounded-2xl rounded-bl-sm border bg-popover px-3.5 py-2.5 sm:max-w-[82%]">
+        {caption && <span className="text-xs font-medium text-muted-foreground">{caption}</span>}
+        <div>
+          {textParts.map((part) => <BubblePart key={part.id} part={part} />)}
+          {!artifact.complete && <span className="text-brand-text animate-caret">▌</span>}
+        </div>
+      </motion.section>
+    );
+  }
   return (
     <motion.section {...enter} className="flex w-full flex-col gap-3 rounded-2xl border border-brand/40 bg-card p-4 shadow-elevated">
       <div className="flex flex-wrap items-center gap-2">
