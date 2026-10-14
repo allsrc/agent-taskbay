@@ -27,7 +27,7 @@ export function TaskApprovals({ taskId, canRequest }: { taskId: string; canReque
         </Link>
       ))}
       {!resource.loading && rows.length === 0 && <p className="text-muted-foreground pb-1 text-[13px]">No approvals for this task.</p>}
-      {resource.error && <p role="alert" className="text-brand text-[12px]">{resource.error}</p>}
+      {resource.error && <p role="alert" className="text-danger text-[12px]">{resource.error}</p>}
       {canRequest && (
         <>
           <Button variant="outline" size="sm" className="mt-2" onClick={() => setOpen(true)}><ShieldCheck /> Request approval</Button>

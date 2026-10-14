@@ -42,7 +42,7 @@ function ScalarValue({ value }: { value: unknown }) {
   if (url) {
     return (
       <a
-        className="text-primary inline-flex items-center gap-1 break-words hover:underline"
+        className="text-brand-text inline-flex items-center gap-1 break-words hover:underline"
         href={url}
         target="_blank"
         rel="noreferrer"
@@ -59,7 +59,7 @@ function ScalarValue({ value }: { value: unknown }) {
       </time>
     );
   }
-  return <span className="whitespace-pre-wrap">{text}</span>;
+  return <span className="break-words whitespace-pre-wrap">{text}</span>;
 }
 
 function RecordTable({ rows }: { rows: JsonRecord[] }) {
@@ -177,9 +177,9 @@ function RichValue({ value, depth }: { value: unknown; depth: number }) {
 
 export function RichJsonView({ value }: { value: unknown }) {
   return (
-    <div className="border-primary/25 border-border overflow-hidden rounded-xl border">
-      <header className="from-primary/10 to-muted/40 border-border flex items-center justify-between gap-2.5 border-b bg-gradient-to-r px-3 py-2">
-        <div className="text-primary flex items-center gap-1.5">
+    <div className="border-brand/25 border-border overflow-hidden rounded-xl border">
+      <header className="from-brand-soft to-muted/40 border-border flex items-center justify-between gap-2.5 border-b bg-gradient-to-r px-3 py-2">
+        <div className="text-brand-text flex items-center gap-1.5">
           <Sparkles className="size-3.5" />
           <strong className="text-foreground text-sm">Rich JSON</strong>
           <span className="bg-background rounded-full px-1.5 py-0.5 text-[10px] font-bold tracking-wide uppercase">Experimental</span>

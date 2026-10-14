@@ -1,16 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2 } from "lucide-react";
+import { ArrowLeft, Link2, Loader2, ShieldCheck, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { viewAgentCard, type AgentView } from "@/lib/agent-card";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { AgentAvatar, Chip } from "@/components/a2a/primitives";
+import { Callout, Stepper, type StepState } from "@/components/patterns/data-display";
+import { DefinitionList } from "@/components/patterns/layout";
+import { ResponsiveDialog } from "@/components/patterns/responsive-dialog";
+import { Pill } from "@/components/patterns/status";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { useAgentStore } from "@/store/agent-store";
-import { cn } from "@/lib/utils";
 
-const STEPS = 3;
+const STEP_TITLES = ["Agent Card", "Review", "Connect"];
 
 /** Administrative registration with optional card preview and separate server credential setup. */
 export function ConnectAgentDialog({
@@ -22,12 +26,17 @@ export function ConnectAgentDialog({
   onOpenChange: (open: boolean) => void;
   initialUrl?: string;
 }) {
+  // The flow mounts only while open, so every open starts from the first step.
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-popover border-border max-md:top-auto max-md:bottom-0 max-md:translate-y-0 max-md:rounded-b-none max-md:rounded-t-2xl sm:max-w-[440px]">
-        <ConnectFlow initialUrl={initialUrl} onDone={() => onOpenChange(false)} />
-      </DialogContent>
-    </Dialog>
+    <ResponsiveDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Connect an agent"
+      description="Add an A2A agent to the catalog by its Agent Card URL."
+      className="sm:max-w-lg"
+    >
+      {open && <ConnectFlow initialUrl={initialUrl} onDone={() => onOpenChange(false)} />}
+    </ResponsiveDialog>
   );
 }
 
@@ -81,70 +90,107 @@ function ConnectFlow({ initialUrl, onDone }: { initialUrl: string; onDone: () =>
     }
   }
 
-  const schemes = view?.security.length ? view.security : ["None advertised"];
+  const schemes = view?.security.length ? view.security : [];
+  const steps = STEP_TITLES.map((title, index) => ({
+    title,
+    state: (index < step ? "complete" : index === step ? "current" : "upcoming") as StepState,
+  }));
+  const back = (
+    <Button variant="ghost" disabled={busy} onClick={() => { setError(null); setStep(step - 1); }}>
+      <ArrowLeft /> Back
+    </Button>
+  );
 
   return (
-        <div className="flex flex-col gap-3.5">
-          <DialogTitle className="font-mono text-[17px] font-bold">Connect agent</DialogTitle>
-          <DialogDescription className="sr-only">Connect an A2A agent by its Agent Card URL.</DialogDescription>
-          <div className="flex gap-1.5" aria-hidden>
-            {Array.from({ length: STEPS }, (_, index) => (
-              <div key={index} className={cn("h-[3px] flex-1 rounded-full transition-colors", index <= step ? "bg-primary" : "bg-border")} />
-            ))}
-          </div>
+    <div className="flex flex-col gap-5">
+      <Stepper steps={steps} />
 
-          {step === 0 && (
-            <>
-              <label htmlFor="card-url" className="label-mono">Agent Card URL</label>
-              <Input
+      {step === 0 && (
+        <form
+          className="flex flex-col gap-5"
+          onSubmit={(event) => { event.preventDefault(); if (url.trim() && !busy) void fetchCard(); }}
+        >
+          <Field>
+            <FieldLabel htmlFor="card-url">Agent Card URL</FieldLabel>
+            <InputGroup>
+              <InputGroupAddon><Link2 /></InputGroupAddon>
+              <InputGroupInput
                 id="card-url"
                 type="url"
                 autoFocus
                 value={url}
                 onChange={(event) => setUrl(event.target.value)}
                 placeholder="https://agents.company.com/.well-known/agent-card.json"
-                className="border-primary font-mono text-xs"
+                className="font-mono text-xs"
               />
-              <Button variant="brand" size="lg" disabled={busy || !url.trim()} onClick={fetchCard}>
-                {busy && <Loader2 className="animate-spin" />} Fetch Agent Card
-              </Button>
-              <Button variant="outline" disabled={busy || !url.trim()} onClick={connect}>Register URL</Button>
-              <p className="text-muted-foreground text-xs">For a protected card, register its URL first, then configure credentials on the server.</p>
-            </>
-          )}
+            </InputGroup>
+            <FieldDescription>Fetch the card to review what the agent can do before adding it.</FieldDescription>
+          </Field>
+          <Callout tone="info" icon={ShieldCheck} title="Protected card?">
+            Register its URL directly, then configure the credentials on the server.
+          </Callout>
+          {error && <Callout tone="danger">{error}</Callout>}
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button type="button" variant="outline" disabled={busy || !url.trim()} onClick={connect}>Register URL only</Button>
+            <Button type="submit" disabled={busy || !url.trim()}>
+              {busy ? <Loader2 className="animate-spin" /> : <Zap />} Fetch Agent Card
+            </Button>
+          </div>
+        </form>
+      )}
 
-          {step === 1 && view && (
-            <>
-              <div className="bg-card border-border rounded-xl border p-3.5">
-                <div className="font-semibold">{view.name}</div>
-                <div className="text-muted-foreground text-[13px]">
-                  v{view.version} · {view.skills.length} skills{view.streaming ? " · streaming" : ""}
-                  {view.pushNotifications ? " · push notifications" : ""}
-                </div>
+      {step === 1 && view && (
+        <div className="flex flex-col gap-5">
+          <div className="flex items-start gap-3 rounded-xl border bg-sunken p-4">
+            <AgentAvatar name={view.name} id={url} size="lg" />
+            <div className="min-w-0 flex-1 space-y-1.5">
+              <div className="font-heading text-base font-semibold">{view.name}</div>
+              {view.description && <p className="line-clamp-3 text-sm text-muted-foreground">{view.description}</p>}
+              <div className="flex flex-wrap gap-1.5 pt-0.5">
+                <Chip>v{view.version}</Chip>
+                <Chip>{view.skills.length} skill{view.skills.length === 1 ? "" : "s"}</Chip>
+                {view.streaming && <Pill tone="success">Streaming</Pill>}
+                {view.pushNotifications && <Pill tone="info">Push notifications</Pill>}
               </div>
-              <span className="label-mono">Advertised security</span>
-              {schemes.map((label) => <div key={label} className="border-border rounded-[10px] border px-3 py-2.5">{label}</div>)}
-              <Button variant="brand" size="lg" onClick={() => setStep(2)}>
-                Continue
-              </Button>
-            </>
-          )}
-
-          {step === 2 && view && (
-            <>
-              <div className="bg-card border-border flex flex-col gap-1.5 rounded-xl border p-3.5">
-                <div className="font-semibold">Connect {view.name}</div>
-                <p className="text-muted-foreground text-[13px]">
-                  Register this agent, configure its service credentials on the server, then grant users access in Settings.
-                </p>
-              </div>
-              <Button variant="brand" size="lg" disabled={busy} onClick={connect}>
-                {busy && <Loader2 className="animate-spin" />} Connect
-              </Button>
-            </>
-          )}
-
-          {error && <p className="text-brand text-sm">{error}</p>}
+            </div>
+          </div>
+          <DefinitionList
+            items={[
+              { label: "Advertised security", value: schemes.length ? schemes.join(", ") : "None advertised" },
+              { label: "Interfaces", value: view.bindings.length ? view.bindings.join(", ") : "—" },
+            ]}
+          />
+          {error && <Callout tone="danger">{error}</Callout>}
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
+            {back}
+            <Button onClick={() => setStep(2)}>Continue</Button>
+          </div>
         </div>
+      )}
+
+      {step === 2 && view && (
+        <div className="flex flex-col gap-5">
+          <div className="space-y-1">
+            <h3 className="font-heading text-base font-semibold">Connect {view.name}</h3>
+            <p className="text-sm text-muted-foreground">Three things happen from here:</p>
+          </div>
+          <ol className="space-y-3 text-sm">
+            {["The agent is registered in this catalog.", "Configure its service credentials on the server, if it needs any.", "Grant users access in Settings."].map((text, index) => (
+              <li key={text} className="flex gap-3">
+                <span className="flex size-5 shrink-0 items-center justify-center rounded-full border bg-sunken font-mono text-[11px] text-muted-foreground">{index + 1}</span>
+                <span>{text}</span>
+              </li>
+            ))}
+          </ol>
+          {error && <Callout tone="danger">{error}</Callout>}
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
+            {back}
+            <Button disabled={busy} onClick={connect}>
+              {busy && <Loader2 className="animate-spin" />} Connect agent
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

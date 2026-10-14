@@ -23,7 +23,7 @@ const TEXT_TYPES = [
   { key: "md", label: "Markdown", mime: "text/markdown", hint: "**Markdown** message…" },
 ] as const;
 
-const KIND_TONE: Record<PartKind, string> = { FILE: "text-primary", URL: "text-primary", DATA: "text-primary" };
+const KIND_TONE: Record<PartKind, string> = { FILE: "text-brand-text", URL: "text-brand-text", DATA: "text-brand-text" };
 
 function toBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -139,8 +139,8 @@ export function Composer({
 
   return (
     <div className="shrink-0">
-      <div className="flex flex-wrap items-center gap-1.5 px-4 pt-2.5 md:px-6">
-        <span className="label-mono mr-0.5">Text as</span>
+      <div className="flex items-center gap-1.5 overflow-x-auto px-4 pt-2.5 scrollbar-none md:px-6">
+        <span className="label-mono mr-0.5 shrink-0">Text as</span>
         {TEXT_TYPES.map((type) => {
           const on = current.key === type.key;
           return (
@@ -150,17 +150,17 @@ export function Composer({
               onClick={() => setTextType(type.key)}
               aria-pressed={on}
               className={cn(
-                "rounded-full border px-2.5 py-1 font-mono text-xs font-medium transition-colors",
-                on ? "border-primary bg-primary/15 text-primary" : "border-border text-muted-foreground hover:text-foreground",
+                "shrink-0 rounded-full border px-2.5 py-1 font-mono text-xs font-medium whitespace-nowrap transition-colors",
+                on ? "border-brand bg-brand-soft text-brand-text" : "border-border text-muted-foreground hover:text-foreground",
               )}
             >
               {type.label}
-              {type.key === preferred && <span className="text-brand"> ★</span>}
+              {type.key === preferred && <span className="text-brand-text"> ★</span>}
             </button>
           );
         })}
       </div>
-      <p className="text-muted-foreground px-4 py-1 font-mono text-[11px] md:px-6">{note}</p>
+      <p className="hidden px-4 py-1 font-mono text-[11px] text-muted-foreground md:block md:px-6">{note}</p>
 
       <AnimatePresence initial={false}>
         {parts.length > 0 && (
@@ -175,7 +175,7 @@ export function Composer({
               return (
                 <div
                   key={part.id}
-                  className={cn("bg-card flex max-w-full items-center gap-2 rounded-[10px] border px-2.5 py-1.5", bad ? "border-warning" : "border-border")}
+                  className={cn("bg-card flex max-w-full items-center gap-2 rounded-lg border px-2.5 py-1.5", bad ? "border-warning" : "border-border")}
                 >
                   <span className={cn("font-mono text-[10px] font-bold", bad ? "text-warning" : KIND_TONE[part.kind])}>{part.kind}</span>
                   <div className="min-w-0">
@@ -229,7 +229,7 @@ export function Composer({
                   value={dataDraft}
                   onChange={(event) => setDataDraft(event.target.value)}
                   rows={5}
-                  className="border-input bg-inset rounded-md border p-2 font-mono text-xs outline-none"
+                  className="border-input bg-sunken rounded-md border p-2 font-mono text-xs outline-none"
                 />
                 <Button size="sm" onClick={addData}>Add data part</Button>
               </div>
@@ -238,7 +238,7 @@ export function Composer({
         )}
       </AnimatePresence>
 
-      {error && <p className="text-brand px-4 pt-1 font-mono text-xs md:px-6">{error}</p>}
+      {error && <p className="text-danger px-4 pt-1 font-mono text-xs md:px-6">{error}</p>}
 
       <div className="flex items-end gap-2 px-4 pt-1.5 pb-3 md:px-6">
         <input ref={fileInput} type="file" multiple hidden onChange={(event) => void onFiles(event.target.files)} />
@@ -248,8 +248,8 @@ export function Composer({
           aria-expanded={menu !== null}
           onClick={() => setMenu((open) => (open ? null : "menu"))}
           className={cn(
-            "flex size-10 shrink-0 items-center justify-center rounded-[10px] border transition-colors",
-            menu ? "border-primary text-primary" : "border-border text-muted-foreground hover:text-foreground",
+            "flex size-10 shrink-0 items-center justify-center rounded-lg border transition-colors",
+            menu ? "border-brand text-brand-text" : "border-border text-muted-foreground hover:text-foreground",
           )}
         >
           <Plus className={cn("size-5 transition-transform", menu && "rotate-45")} />
@@ -267,9 +267,9 @@ export function Composer({
           disabled={sending || disabled}
           placeholder={hint ?? current.hint}
           aria-label="Message"
-          className="bg-card border-input placeholder:text-muted-foreground focus-visible:border-ring field-sizing-content max-h-40 min-h-10 min-w-0 flex-1 resize-none rounded-[10px] border px-3 py-2.5 text-sm outline-none disabled:opacity-60"
+          className="bg-card border-input placeholder:text-muted-foreground focus-visible:border-ring field-sizing-content max-h-40 min-h-10 min-w-0 flex-1 resize-none rounded-lg border px-3 py-2.5 text-sm outline-none disabled:opacity-60"
         />
-        <Button variant="brand" size="icon" className="size-10 rounded-[10px]" disabled={!canSend} onClick={() => void submit()} aria-label="Send">
+        <Button variant="default" size="icon" className="size-10 rounded-lg" disabled={!canSend} onClick={() => void submit()} aria-label="Send">
           {sending ? <Loader2 className="animate-spin" /> : <ArrowUp className="size-5" strokeWidth={2.5} />}
         </Button>
       </div>
@@ -280,7 +280,7 @@ export function Composer({
 function MenuItem({ icon, title, desc, onClick }: { icon: React.ReactNode; title: string; desc: string; onClick: () => void }) {
   return (
     <button type="button" onClick={onClick} className="hover:bg-accent flex items-start gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors">
-      <span className="text-primary mt-0.5">{icon}</span>
+      <span className="text-brand-text mt-0.5">{icon}</span>
       <span>
         <span className="block font-medium">{title}</span>
         <span className="text-muted-foreground block font-mono text-[11px]">{desc}</span>

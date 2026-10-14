@@ -38,17 +38,17 @@ export function NotificationChannelSettings() {
   return (
     <InfoCard label="Notification channel">
       <p className="text-muted-foreground mb-2 text-xs">Everyone receives notifications in the app. An optional signed webhook (for example a team chat) also receives each one; its address and secret are set in server configuration.</p>
-      {error && <p role="alert" className="text-destructive mb-2 text-[13px]">{error}</p>}
+      {error && <p role="alert" className="text-danger mb-2 text-[13px]">{error}</p>}
       <dl className="flex flex-col gap-1.5 font-mono text-[12px]">
         <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Webhook</dt>
           <dd data-testid="channel-state">{!status.configured ? "Not configured" : status.enabledForOrganization ? `On → ${status.host}` : "Configured for another organization"}</dd></div>
         {status.configured && (<>
           <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Delivered</dt><dd>{status.counts.delivered}</dd></div>
           <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Waiting / retrying</dt><dd>{status.counts.pending + status.counts.processing}</dd></div>
-          <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Gave up</dt><dd className={status.counts.failed ? "text-brand" : undefined}>{status.counts.failed}</dd></div>
+          <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Gave up</dt><dd className={status.counts.failed ? "text-danger" : undefined}>{status.counts.failed}</dd></div>
         </>)}
       </dl>
-      {status.lastFailure && <p className="text-brand mt-2 text-[12px]">Last failure: {status.lastFailure.message ?? "Delivery failed."}</p>}
+      {status.lastFailure && <p className="text-danger mt-2 text-[12px]">Last failure: {status.lastFailure.message ?? "Delivery failed."}</p>}
       <div className="mt-3 flex items-center gap-2">
         <Button size="sm" variant="outline" disabled={busy} onClick={test}>Send test notification</Button>
         {sent && <span role="status" className="text-success text-[12px]">Queued — it will appear in your notifications.</span>}

@@ -2,10 +2,16 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Workflow } from "lucide-react";
-import { motion } from "motion/react";
+import type { Route } from "next";
+import { ArrowRight, MessageSquare, Workflow } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import { Chip, EmptyState, StateChip } from "@/components/a2a/primitives";
+import { Page, PageMessage } from "@/components/console/page";
+import { cardSurface } from "@/components/patterns/card-surface";
+import { FilterChips } from "@/components/patterns/filter-chips";
+import { Panel } from "@/components/patterns/layout";
+import { Eyebrow } from "@/components/patterns/status";
+import { buttonVariants } from "@/components/ui/button";
 import { groupConversations } from "@/lib/conversations";
 import { referencesOf, taskTitle } from "@/lib/task-view";
 import { useTaskStore, type TrackedTask } from "@/store/task-store";
@@ -13,33 +19,22 @@ import { cn } from "@/lib/utils";
 
 function TaskNode({ task, accent, refs }: { task: TrackedTask; accent?: "brand"; refs?: string[] }) {
   return (
-    <motion.div layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-      <Link
-        href={task.localId ? `/tasks/${task.localId}` : "/tasks"}
-        className={cn(
-          "bg-card hover:bg-accent/40 flex h-full flex-col gap-1 rounded-xl border p-3.5 transition-colors",
-          accent === "brand" ? "border-brand" : "border-border",
-        )}
-      >
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="min-w-0 flex-1 truncate font-semibold">{taskTitle(task, 40)}</span>
-          <StateChip state={task.state} />
+    <Link
+      href={(task.localId ? `/tasks/${task.localId}` : "/tasks") as Route}
+      className={cn(cardSurface, "flex h-full flex-col gap-1.5 p-4", accent === "brand" && "border-brand/50")}
+    >
+      <div className="flex flex-wrap items-start gap-2">
+        <span className="min-w-0 flex-1 truncate text-sm font-medium">{taskTitle(task, 40)}</span>
+        <StateChip state={task.state} />
+      </div>
+      <span className="font-mono text-[11px] text-muted-foreground">{task.taskId.slice(0, 8)} · {task.agentName}</span>
+      {refs && refs.length > 0 && (
+        <div className="mt-2 space-y-1.5">
+          <Eyebrow>referenceTaskIds</Eyebrow>
+          <div className="flex flex-wrap gap-1.5">{refs.map((id) => <Chip key={id}>{id.slice(0, 8)}</Chip>)}</div>
         </div>
-        <span className="text-muted-foreground font-mono text-[11px]">
-          {task.taskId.slice(0, 8)} · {task.agentName}
-        </span>
-        {refs && refs.length > 0 && (
-          <>
-            <span className="label-mono mt-2">referenceTaskIds</span>
-            <div className="flex flex-wrap gap-1.5">
-              {refs.map((id) => (
-                <Chip key={id}>{id.slice(0, 8)}</Chip>
-              ))}
-            </div>
-          </>
-        )}
-      </Link>
-    </motion.div>
+      )}
+    </Link>
   );
 }
 
@@ -53,11 +48,11 @@ export default function FlowsPage() {
   const [picked, setPicked] = useState<string | null>(null);
   const conversation = conversations.find((item) => item.key === picked) ?? [...conversations].sort((a, b) => b.tasks.length - a.tasks.length)[0];
 
-  if (!loaded) return <p role="status" className="text-muted-foreground p-6">Loading orchestration…</p>;
+  if (!loaded) return <PageMessage>Loading orchestration…</PageMessage>;
 
   if (!conversation) {
     return (
-      <EmptyState icon={<Workflow className="size-7" />} title="No orchestration yet">
+      <EmptyState icon={Workflow} title="No orchestration yet">
         Tasks that share a contextId show up here, with later tasks pointing at earlier ones through referenceTaskIds.
       </EmptyState>
     );
@@ -68,68 +63,51 @@ export default function FlowsPage() {
   const refsOf = (task: TrackedTask) => referencesOf(task).filter((id) => ids.has(id));
   const dependents = real.filter((task) => refsOf(task).length > 0);
   const sources = real.filter((task) => !dependents.includes(task));
+  const arrow = <div className="hidden items-center text-muted-foreground lg:flex"><ArrowRight className="size-4" /></div>;
 
   return (
-    <div className="min-h-0 flex-1 overflow-auto p-4 md:p-6">
-      <h1 className="font-mono text-lg font-bold tracking-tight">Orchestration</h1>
-      <p className="text-muted-foreground mt-0.5 mb-4">One context, several tasks. Later tasks point at earlier ones through referenceTaskIds.</p>
-
-      {conversations.length > 1 && (
-        <div className="mb-4 flex flex-wrap gap-1.5" role="tablist" aria-label="Conversation">
-          {conversations.map((item) => (
-            <button
-              key={item.key}
-              role="tab"
-              aria-selected={item.key === conversation.key}
-              onClick={() => setPicked(item.key)}
-              className={cn(
-                "max-w-56 truncate rounded-full border px-2.5 py-1 font-mono text-xs font-medium transition-colors",
-                item.key === conversation.key ? "border-primary text-primary" : "border-border text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {item.title}
-            </button>
-          ))}
-        </div>
-      )}
-
+    <Page
+      title="Orchestration"
+      size="wide"
+      description="One context, several tasks. Later tasks point at earlier ones through referenceTaskIds."
+      actions={<Link href={`/chat/${conversation.key}` as Route} className={buttonVariants({ variant: "outline" })}><MessageSquare /> Open chat</Link>}
+      headerChildren={
+        conversations.length > 1 ? (
+          <FilterChips
+            label="Conversation"
+            className="pt-1"
+            options={conversations.map((item) => ({ value: item.key, label: item.title }))}
+            value={[conversation.key]}
+            onValueChange={(next) => next[0] && setPicked(next[0])}
+          />
+        ) : undefined
+      }
+    >
       <div className="mb-4 flex flex-wrap items-center gap-2.5">
         <Chip>contextId</Chip>
-        <span className="font-mono text-sm font-medium">{conversation.tasks.find((task) => task.contextId)?.contextId ?? conversation.key}</span>
-        <Link href={`/chat/${conversation.key}`} className="text-primary ml-auto font-mono text-xs hover:underline">
-          Open chat →
-        </Link>
+        <span className="font-mono text-sm break-all">{conversation.tasks.find((task) => task.contextId)?.contextId ?? conversation.key}</span>
       </div>
 
-      <div className="flex flex-col items-stretch gap-3 md:flex-row">
-        <div className="bg-card border-primary flex-1 rounded-xl border p-3.5">
-          <h3 className="label-mono mb-1.5">Conversation agent</h3>
-          <div className="font-semibold">{conversation.agentName}</div>
-          <p className="text-muted-foreground text-[13px]">
+      <div className="flex flex-col items-stretch gap-4 lg:flex-row">
+        <Panel title="Conversation agent" className="border-brand/50 lg:flex-1" bodyClassName="space-y-1">
+          <div className="text-sm font-medium">{conversation.agentName}</div>
+          <p className="text-sm text-muted-foreground">
             Sends SendMessage for each task in this context{dependents.length ? " and links results through referenceTaskIds." : "."}
           </p>
-        </div>
-        <div className="text-muted-foreground hidden items-center md:flex">
-          <ArrowRight className="size-4" />
-        </div>
-        <div className={cn("flex flex-col gap-3", dependents.length ? "md:flex-[1.4]" : "md:flex-[2.4]")}>
-          {sources.map((task) => (
-            <TaskNode key={task.taskId} task={task} />
-          ))}
+        </Panel>
+        {arrow}
+        <div className={cn("flex flex-col gap-4", dependents.length ? "lg:flex-[1.4]" : "lg:flex-[2.4]")}>
+          {sources.map((task) => <TaskNode key={task.taskId} task={task} />)}
         </div>
         {dependents.length > 0 && (
           <>
-            <div className="text-muted-foreground hidden items-center md:flex">
-              <ArrowRight className="size-4" />
-            </div>
-            <div className="flex flex-col gap-3 md:flex-[1.4]">
-              {dependents.map((task) => (
-                <TaskNode key={task.taskId} task={task} accent="brand" refs={refsOf(task)} />
-              ))}
+            {arrow}
+            <div className="flex flex-col gap-4 lg:flex-[1.4]">
+              {dependents.map((task) => <TaskNode key={task.taskId} task={task} accent="brand" refs={refsOf(task)} />)}
             </div>
           </>
         )}
       </div>
-    </div>
+    </Page>
   );
 }

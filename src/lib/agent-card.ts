@@ -87,10 +87,11 @@ export function viewAgentCard(card: unknown): AgentView {
 }
 
 /** A stable two-letter badge + accent colour per agent, like the prototype's AR / FL / HT chips. */
-const ACCENTS = ["#8C8FFF", "#FF6B4A", "#5EE0A0", "#FFC65C", "#D08CFF"];
+/** Hues (degrees) for the generated agent avatars; lightness and chroma come from the theme's cover tokens. */
+const HUES = [262, 162, 65, 300, 210, 25];
 export function agentBadge(name: string, id: string): { short: string; color: string } {
   const words = name.split(/[^A-Za-z0-9]+/).filter(Boolean);
   const short = (words.length > 1 ? words[0][0] + words[1][0] : (words[0] ?? "A").slice(0, 2)).toUpperCase();
   const hash = [...id].reduce((sum, char) => (sum * 31 + char.charCodeAt(0)) >>> 0, 7);
-  return { short, color: ACCENTS[hash % ACCENTS.length] };
+  return { short, color: `oklch(var(--cover-l) var(--cover-c) ${HUES[hash % HUES.length]})` };
 }

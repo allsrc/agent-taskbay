@@ -90,7 +90,7 @@ function RequestForm({ taskId, onDone, onCreated }: { taskId: string; onDone: ()
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-3">
-      <DialogTitle className="font-mono text-base font-bold">Request approval</DialogTitle>
+      <DialogTitle className="font-heading text-base font-semibold">Request approval</DialogTitle>
       <DialogDescription className="text-muted-foreground text-[13px]">
         Record an action for a reviewer to approve before it is sent to the agent. Nothing is sent until someone approves it.
       </DialogDescription>
@@ -130,7 +130,7 @@ function RequestForm({ taskId, onDone, onCreated }: { taskId: string; onDone: ()
       {error && <p role="alert" className="text-destructive text-sm">{error}</p>}
       <div className="flex justify-end gap-2">
         <Button type="button" variant="outline" onClick={onDone}>Cancel</Button>
-        <Button type="submit" variant="brand" disabled={!valid || busy}>{busy && <Loader2 className="animate-spin" />} Request approval</Button>
+        <Button type="submit" variant="default" disabled={!valid || busy}>{busy && <Loader2 className="animate-spin" />} Request approval</Button>
       </div>
     </form>
   );

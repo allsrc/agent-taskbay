@@ -40,7 +40,7 @@ export function TaskOwnership({ taskId, active }: { taskId: string; active: bool
     finally { setBusy(null); resource.refresh(); }
   }
 
-  if (!data) return <InfoCard label="Ownership">{resource.error ? <p role="alert" className="text-brand text-[13px]">{resource.error}</p> : <p role="status" className="text-muted-foreground text-[13px]">Loading…</p>}</InfoCard>;
+  if (!data) return <InfoCard label="Ownership">{resource.error ? <p role="alert" className="text-danger text-[13px]">{resource.error}</p> : <p role="status" className="text-muted-foreground text-[13px]">Loading…</p>}</InfoCard>;
   const { assignment, viewer, people } = data;
   const overdue = active && isOverdue(assignment?.dueAt);
   const dueValue = due ?? toLocalInput(assignment?.dueAt ?? null);
@@ -50,17 +50,17 @@ export function TaskOwnership({ taskId, active }: { taskId: string; active: bool
     <InfoCard label="Ownership" className="md:col-span-2">
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-[14px] font-semibold" data-testid="assignee">{assigneeLabel(assignment, viewer.membershipId, people)}</span>
-        {assignment?.dueAt && <span className={cn("rounded-full px-2 py-0.5 font-mono text-[10px] font-medium", overdue ? "text-brand bg-brand/15" : "text-muted-foreground bg-muted-foreground/15")} data-testid="due">
+        {assignment?.dueAt && <span className={cn("rounded-full px-2 py-0.5 font-mono text-[10px] font-medium", overdue ? "text-danger bg-danger/15" : "text-muted-foreground bg-muted-foreground/15")} data-testid="due">
           {active ? dueLabel(assignment.dueAt) : `Was due ${new Date(assignment.dueAt).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}`}</span>}
-        {assignment && assignment.escalationLevel > 0 && <span className="text-auth bg-auth/15 rounded-full px-2 py-0.5 font-mono text-[10px] font-medium" data-testid="escalated">
+        {assignment && assignment.escalationLevel > 0 && <span className="text-info bg-auth/15 rounded-full px-2 py-0.5 font-mono text-[10px] font-medium" data-testid="escalated">
           ESCALATED{assignment.escalationLevel > 1 ? ` ×${assignment.escalationLevel}` : ""}</span>}
       </div>
-      {problem && <p role="alert" className="text-brand mt-2 text-[13px]">{problem}</p>}
+      {problem && <p role="alert" className="text-danger mt-2 text-[13px]">{problem}</p>}
       {!active && <p className="text-muted-foreground mt-2 text-[12px]">This task has finished, so ownership can no longer change.</p>}
       {operator && active && (
         <div className="mt-3 flex flex-col gap-3">
           <div className="flex flex-wrap items-center gap-2">
-            {!assignment?.assigneeMembershipId && <Button size="sm" variant="brand" disabled={busy !== null} onClick={() => post("claim", undefined, "claim", "You own this task")}>
+            {!assignment?.assigneeMembershipId && <Button size="sm" variant="default" disabled={busy !== null} onClick={() => post("claim", undefined, "claim", "You own this task")}>
               {busy === "claim" && <Loader2 className="animate-spin" />} Claim</Button>}
             {assignment?.assigneeMembershipId && manage && <Button size="sm" variant="outline" disabled={busy !== null} onClick={() => post("release", undefined, "release", "Task released")}>
               {busy === "release" && <Loader2 className="animate-spin" />} {mine ? "Release" : "Take away"}</Button>}
@@ -84,7 +84,7 @@ export function TaskOwnership({ taskId, active }: { taskId: string; active: bool
               <Input id="due-at" type="datetime-local" className="h-9 min-w-0 flex-1" value={dueValue} disabled={busy !== null} onChange={(event) => setDue(event.target.value)} />
               <Button size="sm" variant="outline" disabled={busy !== null || !dueValue || dueValue === toLocalInput(assignment?.dueAt ?? null)}
                 onClick={() => post("due", { dueAt: fromLocalInput(dueValue) }, "due", "Due time saved")}>{busy === "due" && <Loader2 className="animate-spin" />} Set due</Button>
-              {assignment?.dueAt && <Button size="sm" variant="ghost" disabled={busy !== null} onClick={() => post("due", { dueAt: null }, "due", "Due time cleared")}>Clear</Button>}
+              {assignment?.dueAt && <Button size="sm" variant="outline" disabled={busy !== null} onClick={() => post("due", { dueAt: null }, "due", "Due time cleared")}>Clear</Button>}
             </div>
           )}
         </div>
@@ -134,7 +134,7 @@ export function TaskNotes({ taskId }: { taskId: string }) {
       {canOperate(data.viewer.role) && (
         <form onSubmit={add} className="mb-3 flex flex-col gap-2">
           <Textarea aria-label="Add a note" value={text} rows={2} maxLength={4000} placeholder="Add context for whoever picks this up next…" disabled={busy} onChange={(event) => setText(event.target.value)} />
-          {problem && <p role="alert" className="text-brand text-[13px]">{problem}</p>}
+          {problem && <p role="alert" className="text-danger text-[13px]">{problem}</p>}
           <div><Button type="submit" size="sm" variant="outline" disabled={busy || !text.trim()}>{busy && <Loader2 className="animate-spin" />} Add note</Button></div>
         </form>
       )}

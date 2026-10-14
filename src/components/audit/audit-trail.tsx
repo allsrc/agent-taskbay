@@ -47,7 +47,7 @@ export function AuditTrail({ taskId, group = "all", since, until, pageSize = 25,
 
   return (
     <div>
-      {error && <p role="alert" className="text-brand mb-2 text-sm">{error}</p>}
+      {error && <p role="alert" className="text-danger mb-2 text-sm">{error}</p>}
       {entries.length === 0 && !error && <p className="text-muted-foreground p-2 text-sm">Nothing has been recorded here yet.</p>}
       <ol aria-label="Audit trail" className="flex flex-col">
         {entries.map((entry) => {
@@ -61,12 +61,12 @@ export function AuditTrail({ taskId, group = "all", since, until, pageSize = 25,
               </div>
               {!compact && entry.taskId && (
                 <p className="text-muted-foreground font-mono text-[11px]">
-                  <Link href={`/tasks/${entry.taskId}`} className="text-primary hover:underline">{task?.title ?? "Task"}</Link>{task ? ` · ${task.agentName}` : ""}
+                  <Link href={`/tasks/${entry.taskId}`} className="text-brand-text hover:underline">{task?.title ?? "Task"}</Link>{task ? ` · ${task.agentName}` : ""}
                 </p>
               )}
               {description.facts.length > 0 && (
                 <details className="mt-1">
-                  <summary className="text-primary cursor-pointer font-mono text-[11px]">Details</summary>
+                  <summary className="text-brand-text cursor-pointer font-mono text-[11px]">Details</summary>
                   <dl className="mt-1 flex flex-col gap-1 text-[12px]">
                     {description.facts.map(([label, value]) => (
                       <div key={label} className={cn("flex gap-3", value.length > 60 && "flex-col gap-0.5")}>

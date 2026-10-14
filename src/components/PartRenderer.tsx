@@ -1,5 +1,6 @@
 "use client";
 
+import { buttonVariants } from "@/components/ui/button";
 import { useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -164,7 +165,7 @@ export function PartRenderer({ part, allowRaw = false, richJson = false }: { par
         ) : mime === "application/pdf" && url ? (
           <div>
             <iframe className="border-border h-[min(65vh,650px)] w-full rounded-lg border" src={url} title={part.filename || "PDF artifact"} sandbox="allow-same-origin" />
-            <a className="text-primary mt-2 inline-flex items-center gap-1.5 text-xs hover:underline" href={url} download={part.filename}>
+            <a className={buttonVariants({ variant: "outline", size: "sm", className: "mt-2" })} href={url} download={part.filename}>
               <Download className="size-3.5" />
               Download PDF
             </a>
@@ -178,7 +179,7 @@ export function PartRenderer({ part, allowRaw = false, richJson = false }: { par
             <ReactMarkdown remarkPlugins={[remarkGfm]} components={{img: ({alt}) => <span>{alt ? `Image: ${alt}` : "Remote image omitted"}</span>}}>{text}</ReactMarkdown>
           </div>
         ) : part.kind === "text" ? (
-          <div className="text-sm leading-relaxed whitespace-pre-wrap">{text}</div>
+          <div className="text-sm leading-relaxed break-words whitespace-pre-wrap">{text}</div>
         ) : url ? (
           <a className="hover:bg-accent flex items-center gap-2.5 rounded-lg p-2 no-underline" href={url} download={part.filename}>
             <FileText className="text-muted-foreground size-5 shrink-0" />

@@ -4,10 +4,13 @@ import { use, useRef, useState } from "react";
 import Link from "next/link";
 import { Loader2, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
-import { BackLink, Chip, EmptyState, InfoCard } from "@/components/a2a/primitives";
+import { Chip, EmptyState, InfoCard } from "@/components/a2a/primitives";
+import { Page, PageMessage } from "@/components/console/page";
+import { Callout } from "@/components/patterns/data-display";
 import { DecisionStatusChip, RiskChip } from "@/components/approvals/badges";
 import { actionLabel, isActionValid, ProposedActionEditor, ProposedActionView } from "@/components/approvals/proposed-action";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { IdempotencyKeys, OUTCOME_LABEL, canDecide, executionSummary, expiryLabel, isExpired, isOpen, shortDigest } from "@/lib/approvals";
@@ -24,11 +27,11 @@ export default function ApprovalReviewPage({ params }: { params: Promise<{ decis
   const resource = useServerResource<DecisionDetail>(`/api/decisions/${encodeURIComponent(decisionId)}`);
   const detail = resource.data;
 
-  if (resource.loading) return <div className="p-6" role="status">Loading approval…</div>;
+  if (resource.loading) return <PageMessage>Loading approval…</PageMessage>;
   if (!detail) {
     return (
-      <EmptyState icon={<ShieldCheck className="size-7" />} title="Approval not found">
-        {resource.error ?? "This approval is not available."} <Link href="/approvals" className="text-primary hover:underline">Back to approvals</Link>
+      <EmptyState icon={ShieldCheck} title="Approval not found" action={<Link href="/inbox?kind=approval&view=needs-input" className={buttonVariants({ variant: "outline" })}>Back to inbox</Link>}>
+        {resource.error ?? "This approval is not available."}
       </EmptyState>
     );
   }
@@ -94,23 +97,25 @@ function Review({ detail, refresh, error }: { detail: DecisionDetail; refresh: (
   const approvedExecution = executions[0];
 
   return (
-    <div className="min-h-0 flex-1 overflow-auto p-4 md:p-6">
-      <BackLink href="/approvals">Approvals</BackLink>
-      <div className="flex flex-wrap items-center gap-2.5">
-        <h2 className="min-w-40 flex-1 font-mono text-[22px] font-bold tracking-tight">{request.title}</h2>
-        <RiskChip risk={request.risk} />
-        <DecisionStatusChip status={request.status} />
-      </div>
-      <p className="text-muted-foreground mt-1 mb-4 font-mono text-xs">
-        {request.agentName ?? "Agent"} · requested by {request.requesterUserId ? person(request.requesterUserId) : `${request.agentName ?? "the agent"} (agent)`} · {when(request.createdAt)} ·{" "}
-        {isOpen(request.status) && <><span className={cn(expired && "text-brand")}>{expiryLabel(request.expiresAt)}</span> · </>}
-        <Link href={`/tasks/${request.taskId}`} className="text-primary hover:underline">View task{request.taskState ? ` (${stateName(request.taskState)})` : ""}</Link>
-      </p>
-      {(error || problem) && <p role="alert" className="text-brand mb-3 text-sm">{problem ?? error}</p>}
+    <Page
+      detail
+      size="wide"
+      title={request.title}
+      eyebrow={<span className="flex flex-wrap items-center gap-2"><DecisionStatusChip status={request.status} /><RiskChip risk={request.risk} /></span>}
+      description={
+        <span className="font-mono text-xs">
+          {request.agentName ?? "Agent"} · requested by {request.requesterUserId ? person(request.requesterUserId) : `${request.agentName ?? "the agent"} (agent)`} · {when(request.createdAt)} ·{" "}
+          {isOpen(request.status) && <><span className={cn(expired && "text-danger")}>{expiryLabel(request.expiresAt)}</span> · </>}
+          <Link href={`/tasks/${request.taskId}`} className="text-brand-text hover:underline">View task{request.taskState ? ` (${stateName(request.taskState)})` : ""}</Link>
+        </span>
+      }
+    >
+      {(error || problem) && <Callout tone="danger" className="mb-4">{problem ?? error}</Callout>}
       {request.summary && <p className="mb-4 max-w-3xl text-sm whitespace-pre-wrap">{request.summary}</p>}
 
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(300px,1fr))] gap-3">
-        <InfoCard label={`Proposed action · revision ${current.number}`} className="md:col-span-2">
+      <div className="grid gap-4 2xl:grid-cols-3 2xl:items-start">
+        <div className="space-y-4 2xl:col-span-2">
+        <InfoCard label={`Proposed action · revision ${current.number}`}>
           <p className="text-muted-foreground mb-2 font-mono text-[11px]">{actionLabel(current.action)} · digest {shortDigest(current.digest)}</p>
           <ProposedActionView action={current.action} />
           {!request.requesterUserId && <p className="text-muted-foreground mt-3 text-[12px]" data-testid="agent-origin">Opened by the agent through the approval-request extension. The agent cannot decide it; only reviewers can.</p>}
@@ -119,7 +124,7 @@ function Review({ detail, refresh, error }: { detail: DecisionDetail; refresh: (
         </InfoCard>
 
         {decidable && (
-          <InfoCard label="Your decision" className="md:col-span-2">
+          <InfoCard label="Your decision">
             <Label htmlFor="rationale" className="mb-1.5">Rationale <span className="text-muted-foreground font-normal">(required to reject, edit, delegate or request changes)</span></Label>
             <Textarea id="rationale" value={rationale} rows={2} maxLength={4000} onChange={(event) => setRationale(event.target.value)} disabled={busy !== null} />
             {mode === "edit" && (
@@ -127,7 +132,7 @@ function Review({ detail, refresh, error }: { detail: DecisionDetail; refresh: (
                 <Label htmlFor="edited-action" className="mb-1.5">Edited action</Label>
                 <ProposedActionEditor id="edited-action" action={draft} onChange={setDraft} disabled={busy !== null} />
                 <div className="mt-2 flex gap-2">
-                  <Button variant="brand" disabled={busy !== null || !reason || !changed || !isActionValid(draft) || !allowed("edit")} onClick={() => decide("edit")}>
+                  <Button variant="default" disabled={busy !== null || !reason || !changed || !isActionValid(draft) || !allowed("edit")} onClick={() => decide("edit")}>
                     {busy === "edit" && <Loader2 className="animate-spin" />} Approve edited version</Button>
                   <Button variant="outline" onClick={() => { setMode("none"); setDraft(current.action); }}>Cancel edit</Button>
                 </div>
@@ -137,14 +142,13 @@ function Review({ detail, refresh, error }: { detail: DecisionDetail; refresh: (
             {mode === "delegate" && (
               <div className="mt-3">
                 <Label htmlFor="delegate" className="mb-1.5">Hand over to</Label>
-                <select id="delegate" value={delegate} onChange={(event) => setDelegate(event.target.value)} disabled={busy !== null}
-                  className="border-input bg-background h-9 w-full rounded-md border px-2 text-sm">
+                <NativeSelect id="delegate" value={delegate} onChange={(event) => setDelegate(event.target.value)} disabled={busy !== null}>
                   <option value="">Choose a reviewer…</option>
                   {(reviewers.data?.reviewers ?? []).filter((candidate) => !candidate.self).map((candidate) =>
                     <option key={candidate.membershipId} value={candidate.membershipId}>{candidate.displayName} · {candidate.role}</option>)}
-                </select>
+                </NativeSelect>
                 <div className="mt-2 flex gap-2">
-                  <Button variant="brand" disabled={busy !== null || !reason || !delegate} onClick={() => decide("delegate")}>
+                  <Button variant="default" disabled={busy !== null || !reason || !delegate} onClick={() => decide("delegate")}>
                     {busy === "delegate" && <Loader2 className="animate-spin" />} Delegate</Button>
                   <Button variant="outline" onClick={() => setMode("none")}>Cancel</Button>
                 </div>
@@ -152,7 +156,7 @@ function Review({ detail, refresh, error }: { detail: DecisionDetail; refresh: (
             )}
             {mode === "none" && (
               <div className="mt-3 flex flex-wrap gap-2">
-                <Button variant="brand" disabled={busy !== null || !allowed("approve")} onClick={() => decide("approve")}>
+                <Button variant="default" disabled={busy !== null || !allowed("approve")} onClick={() => decide("approve")}>
                   {busy === "approve" && <Loader2 className="animate-spin" />} Approve</Button>
                 <Button variant="outline" disabled={busy !== null || !allowed("edit")} onClick={() => { setDraft(current.action); setMode("edit"); }}>Edit…</Button>
                 <Button variant="outline" disabled={busy !== null || !reason || !allowed("request_changes")} onClick={() => decide("request_changes")}>
@@ -166,33 +170,33 @@ function Review({ detail, refresh, error }: { detail: DecisionDetail; refresh: (
         )}
 
         {blocked && canDecide(request.status, request.expiresAt) && (
-          <InfoCard label="Waiting for a reviewer" className="md:col-span-2"><p className="text-sm" data-testid="blocked-reason">{blocked}</p></InfoCard>
+          <InfoCard label="Waiting for a reviewer"><p className="text-sm" data-testid="blocked-reason">{blocked}</p></InfoCard>
         )}
 
         {request.status === "changes_requested" && !expired && (
-          <InfoCard label="Revise the proposal" className="md:col-span-2">
+          <InfoCard label="Revise the proposal">
             <p className="text-muted-foreground mb-2 text-[13px]">A reviewer asked for changes. Submit a revised proposal to put it back in the queue.</p>
             <ProposedActionEditor id="revision" action={draft} onChange={setDraft} disabled={busy !== null} />
-            <Button className="mt-2" variant="brand" disabled={busy !== null || !changed || !isActionValid(draft)} onClick={revise}>
+            <Button className="mt-2" variant="default" disabled={busy !== null || !changed || !isActionValid(draft)} onClick={revise}>
               {busy === "revise" && <Loader2 className="animate-spin" />} Submit revised proposal</Button>
           </InfoCard>
         )}
 
         {expired && (
-          <InfoCard label="Expired" className="md:col-span-2">
+          <InfoCard label="Expired">
             <p className="text-sm">This request passed its deadline and can no longer authorize an action. Open a new request from the task if it is still needed.</p>
           </InfoCard>
         )}
         {request.status === "superseded" && (
-          <InfoCard label="Superseded" className="md:col-span-2">
+          <InfoCard label="Superseded">
             <p className="text-sm">A newer request replaced this one, or the task has finished. It can no longer authorize an action.</p>
           </InfoCard>
         )}
 
         {approvedExecution && (
-          <InfoCard label="Result" className="md:col-span-2">
+          <InfoCard label="Result">
             <p className="text-sm font-medium" data-testid="execution-summary">{executionSummary(approvedExecution)}</p>
-            {approvedExecution.error && <p className="text-brand mt-1 text-[12px]">{approvedExecution.error}</p>}
+            {approvedExecution.error && <p className="text-danger mt-1 text-[12px]">{approvedExecution.error}</p>}
             <dl className="mt-2 flex flex-col gap-1.5 font-mono text-[11px]">
               {[["Approved revision digest", shortDigest(approvedExecution.revisionDigest)], ["Message ID", approvedExecution.messageId],
                 ["Command", approvedExecution.commandId], ["Last checked", when(approvedExecution.updatedAt)]].map(([key, value]) => (
@@ -201,6 +205,9 @@ function Review({ detail, refresh, error }: { detail: DecisionDetail; refresh: (
           </InfoCard>
         )}
 
+        </div>
+
+        <div className="space-y-4">
         <InfoCard label="Decision record">
           {decisions.length === 0 && <p className="text-muted-foreground text-[13px]">No decision yet.</p>}
           {decisions.map((decision) => {
@@ -218,20 +225,21 @@ function Review({ detail, refresh, error }: { detail: DecisionDetail; refresh: (
 
         <InfoCard label="Audit">
           <p className="text-muted-foreground mb-2 text-[13px]">Every step of this request, and the task it belongs to, is kept in a permanent audit trail.</p>
-          <Link href={`/audit?taskId=${request.taskId}`} className="text-primary font-mono text-[12px] hover:underline">View the audit trail for this task</Link>
+          <Link href={`/audit?taskId=${request.taskId}`} className={buttonVariants({ variant: "outline", size: "sm" })}>View the audit trail for this task</Link>
         </InfoCard>
 
         <InfoCard label="Revisions">
           {[...revisions].reverse().map((revision) => (
             <div key={revision.id} className="border-border border-t py-2 first:border-t-0">
               <div className="flex items-center gap-2"><Chip>#{revision.number}</Chip>
-                {revision.id === current.id && <span className="text-primary font-mono text-[11px]">current</span>}
+                {revision.id === current.id && <span className="text-brand-text font-mono text-[11px]">current</span>}
                 <span className="text-muted-foreground ml-auto font-mono text-[11px]">{revision.authorType === "agent" ? "the agent" : person(revision.authorUserId)} · {when(revision.createdAt)}</span></div>
               <p className="mt-1 line-clamp-3 text-[13px] whitespace-pre-wrap">{revision.action.kind === "send_data" ? Object.entries(revision.action.values).map(([key, value]) => `${key}: ${String(value)}`).join(" · ") : revision.action.text}</p>
             </div>
           ))}
         </InfoCard>
+        </div>
       </div>
-    </div>
+    </Page>
   );
 }

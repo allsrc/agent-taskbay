@@ -14,7 +14,7 @@ const DOT: Record<RowTone, string> = {
   state: "bg-muted-foreground",
   artifact: "bg-success",
   message: "bg-foreground",
-  cancel: "bg-brand",
+  cancel: "bg-danger",
 };
 
 const seconds = (ms: number) => (ms < 1000 ? `+${ms}ms` : `+${(ms / 1000).toFixed(1)}s`);
@@ -50,7 +50,7 @@ function Row({ row, agentName }: { row: SequenceRow; agentName: string }) {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="bg-inset border-border text-muted-foreground mt-1 mb-1.5 max-h-64 overflow-auto rounded-lg border p-2.5 font-mono text-[11px] leading-normal whitespace-pre-wrap"
+            className="bg-sunken border-border text-muted-foreground mt-1 mb-1.5 max-h-64 overflow-auto rounded-lg border p-2.5 font-mono text-[11px] leading-normal whitespace-pre-wrap"
           >
             {JSON.stringify(row.json, null, 1)}
           </motion.pre>

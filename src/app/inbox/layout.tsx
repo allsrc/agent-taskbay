@@ -1,9 +1,13 @@
 "use client";
 
 import { Suspense, useState } from "react";
-import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { SplitPane, StateChip } from "@/components/a2a/primitives";
+import { StateChip } from "@/components/a2a/primitives";
+import { ListPane, ListRow, ListStatus, MasterDetail } from "@/components/console/master-detail";
+import { FilterChips } from "@/components/patterns/filter-chips";
+import { Tag } from "@/components/patterns/status";
+import { Button } from "@/components/ui/button";
+import { NativeSelect } from "@/components/ui/native-select";
 import { DecisionStatusChip, RiskChip } from "@/components/approvals/badges";
 import { expiryLabel } from "@/lib/approvals";
 import { inboxHref, inboxQuery, type InboxFilters } from "@/lib/inbox-view";
@@ -12,7 +16,6 @@ import { dueLabel, isOverdue } from "@/lib/workflow";
 import { useServerResource } from "@/lib/use-server-resource";
 import type { DecisionStatus } from "@/shared/decision-types";
 import type { InboxKind, InboxPageView, InboxView } from "@/shared/inbox-types";
-import { cn } from "@/lib/utils";
 
 const VIEWS: Array<{ id: InboxView; label: string }> = [
   { id: "needs-input", label: "Needs you" }, { id: "assigned", label: "Mine" }, { id: "overdue", label: "Overdue" },
@@ -56,61 +59,69 @@ function InboxShell({ children }: { children: React.ReactNode }) {
     } catch (cause) { setProblem(cause instanceof Error ? cause.message : "Could not load more."); }
     finally { setMore(false); }
   }
-  const chip = (on: boolean) => cn("rounded-full border px-2.5 py-1 font-mono text-xs font-medium transition-colors", on ? "border-primary text-primary" : "border-border text-muted-foreground hover:text-foreground");
 
   return (
-    <SplitPane
+    <MasterDetail
       showDetail={Boolean(activeId)}
       list={
-        <>
-          <h1 className="px-4 pt-4 pb-2 font-mono text-lg font-bold tracking-tight">Inbox</h1>
-          <div className="flex flex-wrap gap-1.5 px-4 pb-2" role="tablist" aria-label="Inbox view">
-            {VIEWS.map((candidate) => (
-              <button key={candidate.id} role="tab" aria-selected={view === candidate.id} onClick={() => setView(candidate.id)} className={chip(view === candidate.id)}>{candidate.label}</button>
-            ))}
-          </div>
-          <div className="flex flex-wrap items-center gap-2 px-4 pb-2.5 text-xs">
-            <label className="flex items-center gap-1.5"><span className="text-muted-foreground">Show</span>
-              <select value={kind} onChange={(event) => setKind(event.target.value as InboxKind | "")} className="border-border bg-background rounded-md border px-1.5 py-1">
-                {KINDS.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
-              </select></label>
-            <label className="flex items-center gap-1.5"><span className="text-muted-foreground">Risk</span>
-              <select value={risk} onChange={(event) => setRisk(event.target.value as InboxFilters["risk"])} className="border-border bg-background rounded-md border px-1.5 py-1">
-                <option value="">Any</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option>
-              </select></label>
-          </div>
-          <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-auto px-2 pb-3">
-            {first.loading && <p className="px-3 py-2 text-sm" role="status">Loading inbox…</p>}
-            {first.error && <div className="px-3 py-2 text-sm" role="alert">{first.error} <button onClick={first.refresh} className="text-primary underline">Retry</button></div>}
-            {problem && <div className="px-3 py-2 text-sm" role="alert">{problem}</div>}
-            {!first.loading && !first.error && items.length === 0 && <p className="text-muted-foreground px-3 py-2 text-sm">Nothing here. Try another view, or start a chat and ask an agent to do work.</p>}
-            {items.map((item) => (
-              <Link key={`${item.kind}:${item.id}`} href={inboxHref(item)}
-                className={cn("flex flex-col gap-1 rounded-[10px] px-3 py-2.5 transition-colors", activeId === item.id ? "bg-accent" : "hover:bg-accent/50")}>
-                <div className="flex items-center gap-2">
-                  <span className="text-muted-foreground font-mono text-[10px] uppercase">{item.kind === "approval" ? "Approval" : "Task"}</span>
-                  <span className="min-w-0 flex-1 truncate font-semibold">{item.title}</span>
-                  {item.kind === "approval" ? <DecisionStatusChip status={item.status as DecisionStatus} /> : <StateChip state={item.status} />}
-                </div>
-                <div className="flex flex-wrap items-center gap-1.5 font-mono text-[11px]">
-                  {item.risk && <RiskChip risk={item.risk} />}
-                  <span className="text-muted-foreground truncate">{item.agentName} · {relativeTime(item.updatedAt)}</span>
-                  {item.assigneeName && <span className="text-muted-foreground">→ {item.assigneeName}</span>}
-                  {item.kind === "approval" && item.open && item.expiresAt && (
-                    <span className={isOverdue(item.expiresAt) ? "text-brand" : "text-muted-foreground"}>{expiryLabel(item.expiresAt)}</span>)}
-                  {item.kind === "task" && item.dueAt && isActiveState(item.status) && (
-                    <span className={isOverdue(item.dueAt) ? "text-brand" : "text-muted-foreground"}>{dueLabel(item.dueAt)}</span>)}
-                  {item.escalationLevel > 0 && <span className="text-auth">escalated</span>}
-                </div>
-              </Link>
-            ))}
-            {cursor && <button onClick={loadMore} disabled={more} className="text-primary px-3 py-2 text-left text-sm disabled:opacity-50">{more ? "Loading…" : "Load more"}</button>}
-          </div>
-          <div className="flex items-center justify-end px-4 pb-3 text-sm"><button onClick={first.refresh} className="text-primary">Refresh</button></div>
-        </>
+        <ListPane
+          title="Inbox"
+          controls={
+            <div className="space-y-3">
+              <FilterChips
+                label="Inbox view"
+                options={VIEWS.map((candidate) => ({ value: candidate.id, label: candidate.label }))}
+                value={[view]}
+                onValueChange={(next) => setView((next[0] as InboxView | undefined) ?? "all")}
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <label className="space-y-1 text-xs text-muted-foreground">Show
+                  <NativeSelect value={kind} onChange={(event) => setKind(event.target.value as InboxKind | "")}>
+                    {KINDS.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
+                  </NativeSelect>
+                </label>
+                <label className="space-y-1 text-xs text-muted-foreground">Risk
+                  <NativeSelect value={risk} onChange={(event) => setRisk(event.target.value as InboxFilters["risk"])}>
+                    <option value="">Any</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option>
+                  </NativeSelect>
+                </label>
+              </div>
+            </div>
+          }
+          footer={<><span /><Button variant="ghost" size="sm" onClick={first.refresh}>Refresh</Button></>}
+        >
+          <ListStatus
+            loading={first.loading}
+            loadingLabel="Loading inbox"
+            error={problem ?? first.error}
+            onRetry={first.refresh}
+            empty={items.length === 0}
+            emptyText="Nothing here. Try another view, or start a chat and ask an agent to do work."
+          />
+          {items.map((item) => (
+            <ListRow key={`${item.kind}:${item.id}`} href={inboxHref(item)} active={activeId === item.id}>
+              <div className="flex items-start gap-2">
+                <span className="min-w-0 flex-1 truncate text-sm font-medium">{item.title}</span>
+                {item.kind === "approval" ? <DecisionStatusChip status={item.status as DecisionStatus} /> : <StateChip state={item.status} />}
+              </div>
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[11px] text-muted-foreground">
+                <Tag>{item.kind === "approval" ? "Approval" : "Task"}</Tag>
+                {item.risk && <RiskChip risk={item.risk} />}
+                <span className="truncate">{item.agentName} · {relativeTime(item.updatedAt)}</span>
+                {item.assigneeName && <span>→ {item.assigneeName}</span>}
+                {item.kind === "approval" && item.open && item.expiresAt && (
+                  <span className={isOverdue(item.expiresAt) ? "text-danger" : undefined}>{expiryLabel(item.expiresAt)}</span>)}
+                {item.kind === "task" && item.dueAt && isActiveState(item.status) && (
+                  <span className={isOverdue(item.dueAt) ? "text-danger" : undefined}>{dueLabel(item.dueAt)}</span>)}
+                {item.escalationLevel > 0 && <span className="text-info">escalated</span>}
+              </div>
+            </ListRow>
+          ))}
+          {cursor && <div className="p-3"><Button variant="outline" size="sm" className="w-full" onClick={loadMore} disabled={more}>{more ? "Loading…" : "Load more"}</Button></div>}
+        </ListPane>
       }
     >
       {children}
-    </SplitPane>
+    </MasterDetail>
   );
 }

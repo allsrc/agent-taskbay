@@ -3,13 +3,16 @@
 import { use, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Loader2, Trash2 } from "lucide-react";
+import { Loader2, MessageSquare, Settings2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { AgentAvatar, BackLink, Chip, EmptyState, InfoCard } from "@/components/a2a/primitives";
+import { Chip, EmptyState, InfoCard } from "@/components/a2a/primitives";
+import { Page, PageMessage } from "@/components/console/page";
+import { Callout } from "@/components/patterns/data-display";
+import { DefinitionList } from "@/components/patterns/layout";
+import { Eyebrow, Pill } from "@/components/patterns/status";
 import { ConnectAgentDialog } from "@/components/agents/connect-agent-dialog";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { useAgentStore } from "@/store/agent-store";
-import { cn } from "@/lib/utils";
 
 export default function AgentDetailPage({ params }: { params: Promise<{ agentId: string }> }) {
   const { agentId } = use(params);
@@ -22,15 +25,9 @@ export default function AgentDetailPage({ params }: { params: Promise<{ agentId:
 
   if (!agent) {
     return status === "loading" || status === "idle" ? (
-      <div className="text-muted-foreground flex items-center gap-2 p-6 font-mono text-sm">
-        <Loader2 className="size-4 animate-spin" /> Loading agent…
-      </div>
+      <PageMessage>Loading agent…</PageMessage>
     ) : (
-      <EmptyState icon={<Trash2 className="size-7" />} title="Agent not found">
-        <Link href="/agents" className="text-primary hover:underline">
-          Back to agents
-        </Link>
-      </EmptyState>
+      <EmptyState icon={Trash2} title="Agent not found" action={<Link href="/agents" className={buttonVariants({ variant: "outline" })}>Back to agents</Link>} />
     );
   }
 
@@ -54,95 +51,94 @@ export default function AgentDetailPage({ params }: { params: Promise<{ agentId:
   }
 
   return (
-    <div className="min-h-0 flex-1 overflow-auto p-4 md:p-6">
-      <BackLink href="/agents">Agents</BackLink>
-      <div className="flex flex-wrap items-center gap-3.5">
-        <AgentAvatar name={view?.name ?? "Agent"} id={agent.id} size="lg" />
-        <div className="min-w-44 flex-1">
-          <h2 className="font-mono text-[22px] leading-tight font-bold tracking-tight">{view?.name ?? "Unreachable agent"}</h2>
-          <p className="text-muted-foreground mt-0.5">{view?.description ?? agent.error}</p>
-        </div>
-      </div>
-
-      <div className="mt-4 mb-5 flex flex-wrap gap-2">
-        {view && (
-          <Button variant="brand" size="lg" asChild>
-            <Link href={`/chat?agent=${agent.id}`}>Start chat</Link>
-          </Button>
-        )}
-        <Button variant="outline" size="lg" onClick={() => setConnectOpen(true)}>
-          Connection setup
-        </Button>
-        {view && (
-          <span className="border-border text-muted-foreground flex items-center rounded-lg border px-4 font-mono text-xs">Agent Card v{view.version}</span>
-        )}
-        {agent.source === "managed" && (
-          <Button variant="ghost" size="lg" onClick={remove} disabled={removing} className="text-muted-foreground">
-            {removing ? <Loader2 className="animate-spin" /> : <Trash2 />} Remove
-          </Button>
-        )}
-      </div>
-
+    <Page
+      detail
+      size="wide"
+      title={view?.name ?? "Unreachable agent"}
+      description={view?.description ?? agent.error}
+      eyebrow={view ? <Pill tone="success" dot live>Reachable · Agent Card v{view.version}</Pill> : <Pill tone="danger" dot>Discovery failed</Pill>}
+      actions={
+        <>
+          {agent.source === "managed" && (
+            <Button variant="outline" onClick={remove} disabled={removing}>
+              {removing ? <Loader2 className="animate-spin" /> : <Trash2 />} Remove
+            </Button>
+          )}
+          <Button variant="outline" onClick={() => setConnectOpen(true)}><Settings2 /> Connection setup</Button>
+          {view && <Link href={`/chat?agent=${agent.id}`} className={buttonVariants()}><MessageSquare /> Start chat</Link>}
+        </>
+      }
+    >
       {view ? (
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(250px,1fr))] gap-3">
+        <div className="grid gap-4 xl:grid-cols-2">
           <InfoCard label="Capabilities">
-            {[
-              ["Streaming", view.streaming],
-              ["Push notifications", view.pushNotifications],
-              ["Extended card", view.extendedCard],
-            ].map(([key, on]) => (
-              <div key={String(key)} className="flex justify-between py-1.5">
-                <span>{String(key)}</span>
-                <span className={cn(on ? "text-success" : "text-muted-foreground")}>{on ? "Yes" : "No"}</span>
-              </div>
-            ))}
+            <ul className="divide-y">
+              {[
+                ["Streaming", view.streaming],
+                ["Push notifications", view.pushNotifications],
+                ["Extended card", view.extendedCard],
+              ].map(([key, on]) => (
+                <li key={String(key)} className="flex items-center justify-between py-2 text-sm first:pt-0 last:pb-0">
+                  <span>{String(key)}</span>
+                  <Pill tone={on ? "success" : "neutral"}>{on ? "Yes" : "No"}</Pill>
+                </li>
+              ))}
+            </ul>
             {view.extensions.length > 0 && (
-              <div className="mt-2 flex flex-col gap-1">
-                <span className="label-mono">Extensions</span>
+              <div className="mt-4 space-y-1.5">
+                <Eyebrow>Extensions</Eyebrow>
                 {view.extensions.map((uri) => (
-                  <span key={uri} className="text-muted-foreground font-mono text-xs break-all">
-                    {uri}
-                  </span>
+                  <span key={uri} className="block font-mono text-xs break-all text-muted-foreground">{uri}</span>
                 ))}
               </div>
             )}
           </InfoCard>
 
           <InfoCard label="Interfaces">
-            {(view.bindings.length ? view.bindings : ["—"]).map((binding) => (
-              <div key={binding} className="flex items-center gap-2 py-1.5">
-                <Chip>{binding}</Chip>
-                <span className="text-muted-foreground truncate font-mono text-xs">{view.url}</span>
-              </div>
-            ))}
-            <p className="text-muted-foreground pt-1.5 font-mono text-xs">
-              tenant: <span className="text-foreground">{view.tenant ?? "—"}</span>
-            </p>
+            <ul className="space-y-2">
+              {(view.bindings.length ? view.bindings : ["—"]).map((binding) => (
+                <li key={binding} className="flex items-center gap-2">
+                  <Chip>{binding}</Chip>
+                  <span className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground">{view.url}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-3 font-mono text-xs text-muted-foreground">tenant: <span className="text-foreground">{view.tenant ?? "—"}</span></p>
           </InfoCard>
 
           <InfoCard label="Skills">
-            {view.skills.length === 0 && <p className="text-muted-foreground text-sm">No skills advertised.</p>}
-            {view.skills.map((skill) => (
-              <div key={skill.id} className="border-border border-t py-2 first:border-t-0">
-                <div className="font-semibold">{skill.name}</div>
-                <div className="text-muted-foreground text-[13px]">{skill.description}</div>
-              </div>
-            ))}
+            {view.skills.length === 0 && <p className="text-sm text-muted-foreground">No skills advertised.</p>}
+            <ul className="divide-y">
+              {view.skills.map((skill) => (
+                <li key={skill.id} className="py-2.5 first:pt-0 last:pb-0">
+                  <div className="text-sm font-medium">{skill.name}</div>
+                  <div className="text-sm text-muted-foreground">{skill.description}</div>
+                </li>
+              ))}
+            </ul>
           </InfoCard>
 
           <InfoCard label="Security">
-            <p className="mb-2 text-sm">Card signature: {agent.trust ?? "unknown"}</p>
-            <div className="py-1.5">{view.security.length ? view.security.join(", ") : "None advertised"}</div>
-            <h4 className="label-mono mt-2.5 mb-1.5">Default input modes</h4>
-            <div className="flex flex-wrap gap-1.5">{view.inputModes.map((mode) => <Chip key={mode}>{mode}</Chip>)}</div>
-            <h4 className="label-mono mt-2.5 mb-1.5">Default output modes</h4>
-            <div className="flex flex-wrap gap-1.5">{view.outputModes.map((mode) => <Chip key={mode}>{mode}</Chip>)}</div>
+            <DefinitionList
+              items={[
+                { label: "Card signature", value: agent.trust ?? "unknown" },
+                { label: "Authentication", value: view.security.length ? view.security.join(", ") : "None advertised" },
+              ]}
+            />
+            <div className="mt-4 space-y-1.5">
+              <Eyebrow>Default input modes</Eyebrow>
+              <div className="flex flex-wrap gap-1.5">{view.inputModes.map((mode) => <Chip key={mode}>{mode}</Chip>)}</div>
+            </div>
+            <div className="mt-4 space-y-1.5">
+              <Eyebrow>Default output modes</Eyebrow>
+              <div className="flex flex-wrap gap-1.5">{view.outputModes.map((mode) => <Chip key={mode}>{mode}</Chip>)}</div>
+            </div>
           </InfoCard>
         </div>
       ) : (
-        <p className="border-brand/40 bg-brand/10 text-brand rounded-lg border px-4 py-3 font-mono text-sm">{agent.error}</p>
+        <Callout tone="danger" title="This agent could not be reached"><span className="font-mono">{agent.error}</span></Callout>
       )}
       <ConnectAgentDialog open={connectOpen} onOpenChange={setConnectOpen} initialUrl={agent.cardUrl} />
-    </div>
+    </Page>
   );
 }

@@ -61,7 +61,7 @@ function Node({ ctx, id, depth, trail }: { ctx: Ctx; id: string; depth: number; 
     case "Button": {
       const event = readEvent(component.action, ctx.model);
       return (
-        <Button type="button" size="sm" variant={component.variant === "primary" ? "brand" : component.variant === "borderless" ? "ghost" : "outline"}
+        <Button type="button" size="sm" variant={component.variant === "primary" ? "default" : component.variant === "borderless" ? "ghost" : "outline"}
           disabled={!ctx.interactive || !event} title={event ? undefined : "This action is not supported"}
           onClick={() => event && ctx.fire(buildActionMessage(ctx.surface.id, id, event))}>
           {child(component.child)}

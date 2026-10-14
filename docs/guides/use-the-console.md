@@ -22,9 +22,9 @@ The console is the web app you open in the browser. The sidebar lists its screen
 
 ## The sidebar
 
-The sidebar items are **Agents**, **Chat**, **Inbox**, **Tasks**, **Orchestration**, **Audit**, **Notifications** and **Settings**. **Audit** only appears for administrators. On a small screen the same items sit in a bottom bar with short names: **Flows** for Orchestration, **Alerts** for Notifications and **Setup** for Settings.
+On a medium screen the sidebar shrinks to an icon rail; from a large screen it shows labels. The sidebar items are **Agents**, **Chat**, **Inbox**, **Tasks**, **Orchestration**, **Audit**, **Notifications** and **Settings**. **Audit** only appears for administrators. On a phone the bottom bar shows **Chat**, **Inbox**, **Tasks** and **Agents**, plus a **More** tab that opens a sheet with the rest (**Orchestration**, **Audit** for administrators, **Notifications** and **Settings**), your identity menu and the theme switch. A count of pending approvals or unread notifications sits in the top bar.
 
-**Inbox** shows a badge with the number of pending approvals. **Notifications** shows your unread count (shown as "99+" above 99). The bottom of the sidebar shows your identity menu, a **Light** / **System** / **Dark** theme switch, and the tenant of the first agent that reports one.
+**Inbox** shows a badge with the number of pending approvals. **Notifications** shows your unread count (shown as "99+" above 99). The bottom of the sidebar shows your identity menu, a **Light** / **System** / **Dark** theme switch, the tenant of the first agent that reports one, and the version of Agent Taskbay that is running (the package version, for example `v0.1.1`).
 
 Opening the console root (`/`) takes you to **Chat**.
 
@@ -100,7 +100,7 @@ An approval is not answered in chat. It appears in **Inbox**. See [Approvals and
 
 ### What you see while a task runs
 
-Each task has a task card with its title, state, the start of its task ID and context ID, and a step list (for example submitted, working, input required, completed). Artifacts appear as cards below the task. Text artifacts stream in. Other parts render as tables, trees, media or download cards, following the rules in [Rich content](../concepts/rich-content.md).
+Each task has a task card with its title, state, the start of its task ID and context ID, and a step list (for example submitted, working, input required, completed). The agent's in-between status updates are folded into one **Progress** log under the task card. It is open while the task runs and folded once it finishes; open it to read each update. The agent's last message, any question it asks you, and its artifacts stay in the main conversation. Artifacts appear as a highlighted **Result** card below the task, so the outcome stands out from the progress. Text artifacts stream in. Other parts render as tables, trees, media or download cards, following the rules in [Rich content](../concepts/rich-content.md).
 
 **Cancel** on the task card appears while the task is active. It asks "Cancel this task?" and then asks the agent to cancel. A toast says "Task canceled" on success. The agent decides whether it can cancel.
 
