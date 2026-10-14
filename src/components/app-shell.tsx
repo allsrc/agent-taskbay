@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import type { Route } from "next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, Inbox, LayoutGrid, ListChecks, MessageSquare, MoreHorizontal, ScrollText, SlidersHorizontal, Workflow, type LucideIcon } from "lucide-react";
+import { Bell, House, Inbox, LayoutGrid, ListChecks, MessageSquare, MoreHorizontal, ScrollText, SlidersHorizontal, Workflow, type LucideIcon } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { MobileTopBar } from "@/components/navigation/mobile-top-bar";
 import { TabBar, type TabBarItem } from "@/components/navigation/tab-bar";
@@ -32,6 +32,7 @@ interface NavItem {
 }
 
 const NAV: NavItem[] = [
+  { href: "/" as Route, label: "Home", short: "Home", icon: House },
   { href: "/agents" as Route, label: "Agents", short: "Agents", icon: LayoutGrid },
   { href: "/chat" as Route, label: "Chat", short: "Chat", icon: MessageSquare },
   { href: "/inbox" as Route, label: "Inbox", short: "Inbox", icon: Inbox },
@@ -51,13 +52,13 @@ function parentOf(pathname: string): Route | null {
 }
 
 /** Tabs pinned to the phone tab bar; everything else lives under "More". */
-const PRIMARY_TABS = new Set<string>(["/chat", "/inbox", "/tasks", "/agents"]);
+const PRIMARY_TABS = new Set<string>(["/", "/chat", "/inbox", "/tasks"]);
 
 function useActive(nav: NavItem[]) {
   const pathname = usePathname() ?? "/";
   // The standalone approvals queue now lives in the inbox, so its review pages keep the Inbox item active.
   const path = pathname === "/approvals" || pathname.startsWith("/approvals/") ? pathname.replace("/approvals", "/inbox") : pathname;
-  return nav.find((item) => path === item.href || path.startsWith(`${item.href}/`));
+  return nav.find((item) => (item.href === "/" ? path === "/" : path === item.href || path.startsWith(`${item.href}/`)));
 }
 
 function CountBadge({ count, label, children }: { count: number; label: string; children: React.ReactNode }) {
@@ -94,17 +95,17 @@ export function AppShell({ children, identity }: { children: React.ReactNode;
   const tenant = agents.find((agent) => agent.view?.tenant)?.view?.tenant ?? "default";
 
   const badgeFor = (href: string) => (href === "/notifications" ? unread : href === "/inbox" ? pending : 0);
-  const tabs: TabBarItem[] = [
-    ...nav.filter((item) => PRIMARY_TABS.has(item.href)).map((item) => ({ title: item.short, href: item.href, icon: item.icon })),
-    { title: "More", icon: MoreHorizontal, onSelect: () => setMoreOpen(true) },
-  ];
   const moreItems = nav.filter((item) => !PRIMARY_TABS.has(item.href));
+  const tabs: TabBarItem[] = [
+    ...nav.filter((item) => PRIMARY_TABS.has(item.href)).map((item) => ({ title: item.short, href: item.href, icon: item.icon, badge: badgeFor(item.href) || undefined })),
+    { title: "More", icon: MoreHorizontal, onSelect: () => setMoreOpen(true), badge: moreItems.reduce((sum, item) => sum + badgeFor(item.href), 0) > 0 ? true : undefined },
+  ];
 
   return (
     <div className="bg-background text-foreground flex min-h-dvh md:h-dvh md:overflow-hidden">
       <DurableTaskSync />
       <aside className="bg-sidebar border-sidebar-border hidden w-16 shrink-0 flex-col border-r md:flex lg:w-60" data-chrome style={{ viewTransitionName: "side-bar" }}>
-        <Link href={"/chat" as Route} className="flex h-14 items-center justify-center lg:justify-start lg:px-5" aria-label="Agent Taskbay home">
+        <Link href={"/" as Route} className="flex h-14 items-center justify-center lg:justify-start lg:px-5" aria-label="Agent Taskbay home">
           <Logo className="[&>span:last-child]:hidden lg:[&>span:last-child]:inline" />
         </Link>
         <nav className="flex flex-col gap-0.5 px-2 py-2 lg:px-3" aria-label="Primary">
@@ -158,19 +159,8 @@ export function AppShell({ children, identity }: { children: React.ReactNode;
 
       <div className="flex min-w-0 flex-1 flex-col pb-[calc(3.75rem+env(safe-area-inset-bottom))] md:min-h-0 md:pb-0">
         <MobileTopBar
-          homeHref={"/chat" as Route}
+          homeHref={"/" as Route}
           parentOf={parentOf}
-          trailing={
-            (unread > 0 || pending > 0) && (
-              <Link
-                href={(pending > 0 ? "/inbox" : "/notifications") as Route}
-                className="bg-brand-soft text-brand-text inline-flex h-7 items-center rounded-full px-2.5 font-mono text-xs font-semibold tabular-nums"
-                aria-label={pending > 0 ? `${pending} pending approvals` : `${unread} unread notifications`}
-              >
-                {pending > 0 ? pending : unreadLabel(unread)}
-              </Link>
-            )
-          }
         />
 
         <main className="flex min-w-0 flex-1 flex-col md:min-h-0">

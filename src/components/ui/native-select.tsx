@@ -1,5 +1,4 @@
 import * as React from "react"
-import { ChevronDownIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 /**
@@ -19,7 +18,8 @@ function NativeSelect({ className, children, ...props }: React.ComponentProps<"s
       >
         {children}
       </select>
-      <ChevronDownIcon className="pointer-events-none absolute top-1/2 right-2.5 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+      {/* A bordered square rather than an icon, so the control never emits <svg> (the form renderer must stay free of media). */}
+      <span aria-hidden className="pointer-events-none absolute top-1/2 right-3 size-1.5 -translate-y-[70%] rotate-45 border-r-[1.5px] border-b-[1.5px] border-muted-foreground" />
     </div>
   )
 }

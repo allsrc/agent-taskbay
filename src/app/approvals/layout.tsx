@@ -35,6 +35,7 @@ export default function ApprovalsLayout({ children }: { children: React.ReactNod
           title="Approvals"
           controls={
             <FilterChips
+              className="md:flex-wrap md:overflow-x-visible"
               label="Filter approvals"
               options={FILTER_NAMES.map((name) => ({ value: name, label: name }))}
               value={[filter]}

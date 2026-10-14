@@ -41,6 +41,7 @@ export default function TasksLayout({ children }: { children: React.ReactNode })
           title="Tasks"
           controls={
             <FilterChips
+              className="md:flex-wrap md:overflow-x-visible"
               label="Filter tasks"
               options={FILTER_NAMES.map((name) => ({ value: name, label: name }))}
               value={[filter]}

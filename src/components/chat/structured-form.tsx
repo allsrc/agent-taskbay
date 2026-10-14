@@ -2,6 +2,7 @@
 
 import { useId, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { initialValues, validateForm, type FormDefinition, type FormErrors, type FormField, type FormSubmission, type FormValues } from "@/lib/structured-form";
@@ -47,7 +48,7 @@ export function FormFields({ form, values, errors, disabled, onChange }: {
           <div key={field.key} className="flex flex-col gap-1">
             {field.type === "boolean" ? (
               <label htmlFor={id} className="flex items-center gap-2 text-sm">
-                <input id={id} type="checkbox" checked={values[field.key] === true} disabled={disabled}
+                <input id={id} type="checkbox" className="size-4 accent-brand" checked={values[field.key] === true} disabled={disabled}
                   onChange={(event) => onChange(field.key, event.target.checked)} />
                 {field.label}
               </label>
@@ -79,11 +80,10 @@ function FieldInput({ id, field, value, disabled, invalid, onChange }: {
         value={value === undefined ? "" : String(value)} disabled={disabled} onChange={(event) => onChange(event.target.value === "" ? undefined : Number(event.target.value))} {...aria} />;
     case "enum":
       return (
-        <select id={id} value={String(value ?? "")} disabled={disabled} onChange={(event) => onChange(event.target.value || undefined)}
-          className="border-input bg-background h-9 rounded-md border px-2 text-sm" {...aria}>
+        <NativeSelect id={id} value={String(value ?? "")} disabled={disabled} onChange={(event) => onChange(event.target.value || undefined)} {...aria}>
           <option value="">Select…</option>
           {field.options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-        </select>
+        </NativeSelect>
       );
   }
 }
