@@ -248,8 +248,14 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
               // In-between status updates fold into one progress log; the last message, questions and results stay prominent.
               const lastIndex = task.messages.length - 1;
               const isUpdate = (message: ThreadMessage, index: number) => task.kind !== "message" && message.role === "agent" && Boolean(message.fromStatus) && index !== lastIndex;
-              const updates = task.messages.filter(isUpdate);
-              const firstUpdate = task.messages.findIndex(isUpdate);
+              // Each run of consecutive updates becomes its own log, so the conversation keeps its order.
+              const runs = new Map<number, ThreadMessage[]>();
+              task.messages.forEach((message, index) => {
+                if (!isUpdate(message, index)) return;
+                const startsRun = index === 0 || !isUpdate(task.messages[index - 1], index - 1);
+                if (startsRun) runs.set(index, [message]);
+                else for (const [start, list] of runs) if (start + list.length === index) list.push(message);
+              });
               const rows = task.messages.flatMap((message, index) => [
                 ...(isUpdate(message, index) ? [] : [
                   message.role === "user" ? (
@@ -261,7 +267,7 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
                   ),
                 ]),
                 ...(index === cardAt ? [<TaskCard key={`card-${task.taskId}`} task={task} canceling={cancelingId === task.taskId} onCancel={() => void cancelTask(task)} />] : []),
-                ...(index === firstUpdate ? [<ProgressLog key={`log-${task.taskId}`} messages={updates} active={isOpenTask(task)} />] : []),
+                ...(runs.has(index) ? [<ProgressLog key={`log-${message.id}`} messages={runs.get(index)!} active={isOpenTask(task)} />] : []),
               ]);
               return (
                 <div key={task.taskId} className="flex flex-col gap-3.5">

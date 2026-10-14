@@ -95,11 +95,11 @@ export function AppShell({ children, identity }: { children: React.ReactNode;
   const tenant = agents.find((agent) => agent.view?.tenant)?.view?.tenant ?? "default";
 
   const badgeFor = (href: string) => (href === "/notifications" ? unread : href === "/inbox" ? pending : 0);
-  const tabs: TabBarItem[] = [
-    ...nav.filter((item) => PRIMARY_TABS.has(item.href)).map((item) => ({ title: item.short, href: item.href, icon: item.icon })),
-    { title: "More", icon: MoreHorizontal, onSelect: () => setMoreOpen(true) },
-  ];
   const moreItems = nav.filter((item) => !PRIMARY_TABS.has(item.href));
+  const tabs: TabBarItem[] = [
+    ...nav.filter((item) => PRIMARY_TABS.has(item.href)).map((item) => ({ title: item.short, href: item.href, icon: item.icon, badge: badgeFor(item.href) || undefined })),
+    { title: "More", icon: MoreHorizontal, onSelect: () => setMoreOpen(true), badge: moreItems.reduce((sum, item) => sum + badgeFor(item.href), 0) > 0 ? true : undefined },
+  ];
 
   return (
     <div className="bg-background text-foreground flex min-h-dvh md:h-dvh md:overflow-hidden">
@@ -161,17 +161,6 @@ export function AppShell({ children, identity }: { children: React.ReactNode;
         <MobileTopBar
           homeHref={"/" as Route}
           parentOf={parentOf}
-          trailing={
-            (unread > 0 || pending > 0) && (
-              <Link
-                href={(pending > 0 ? "/inbox" : "/notifications") as Route}
-                className="bg-brand-soft text-brand-text inline-flex h-7 items-center rounded-full px-2.5 font-mono text-xs font-semibold tabular-nums"
-                aria-label={pending > 0 ? `${pending} pending approvals` : `${unread} unread notifications`}
-              >
-                {pending > 0 ? pending : unreadLabel(unread)}
-              </Link>
-            )
-          }
         />
 
         <main className="flex min-w-0 flex-1 flex-col md:min-h-0">

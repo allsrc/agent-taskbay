@@ -69,6 +69,7 @@ function InboxShell({ children }: { children: React.ReactNode }) {
           controls={
             <div className="space-y-3">
               <FilterChips
+                className="md:flex-wrap md:overflow-x-visible"
                 label="Inbox view"
                 options={VIEWS.map((candidate) => ({ value: candidate.id, label: candidate.label }))}
                 value={[view]}

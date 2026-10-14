@@ -11,6 +11,7 @@ the project uses [semantic versioning](https://semver.org/) once it reaches 1.0;
 
 ### Changed
 
+- Outline buttons have a stronger border, filter chips in list panes wrap instead of scrolling sideways on wide screens, the progress log keeps its place in the conversation, and the phone tab bar shows counts as badges.
 - Refreshed the screenshots in the README and the console guide for the new design.
 
 - The console moved to the http2xx design system: new tokens, light and dark themes, Base UI components, Geist and Space Grotesk type, every screen rebuilt on shared page and list-and-detail layouts, and responsive navigation (a sidebar, an icon rail on medium screens, and a bottom tab bar with a More sheet on phones). In chat, the agent's in-between status updates fold into a Progress log and artifacts show as a highlighted Result card. The sidebar shows the running package version. No API or data changed.

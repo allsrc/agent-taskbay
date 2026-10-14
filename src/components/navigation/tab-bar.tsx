@@ -7,7 +7,10 @@ import { cn } from "@/lib/utils"
 
 import { isActive, type NavItem } from "@/lib/navigation"
 
-export type TabBarItem = NavItem | { title: string; icon: NavItem["icon"]; onSelect: () => void; href?: undefined }
+export type TabBarItem = (NavItem | { title: string; icon: NavItem["icon"]; onSelect: () => void; href?: undefined }) & {
+  /** A count (or `true` for a dot) shown on the icon, for unread or pending items. */
+  badge?: number | boolean
+}
 
 /**
  * Native-style bottom tab bar for phones. Shared by the public site and the
@@ -41,11 +44,22 @@ function Tabs({ items, pathname }: { items: TabBarItem[]; pathname: string | nul
           <>
             <span
               className={cn(
-                "flex h-7 w-14 items-center justify-center rounded-full transition-colors duration-200",
+                "relative flex h-7 w-14 items-center justify-center rounded-full transition-colors duration-200",
                 active && "bg-muted"
               )}
             >
               <item.icon className={cn("size-[19px] transition-transform", active && "scale-105")} strokeWidth={active ? 2.25 : 2} />
+              {item.badge ? (
+                <span
+                  className={cn(
+                    "absolute top-0.5 right-3 flex items-center justify-center rounded-full bg-brand font-mono text-[10px] leading-none font-semibold text-brand-foreground",
+                    item.badge === true ? "size-2" : "h-4 min-w-4 px-1"
+                  )}
+                  aria-label={typeof item.badge === "number" ? `${item.badge} new` : "New"}
+                >
+                  {typeof item.badge === "number" ? (item.badge > 99 ? "99+" : item.badge) : null}
+                </span>
+              ) : null}
             </span>
             <span className={cn("text-[11px] leading-none", active ? "font-medium text-foreground" : "")}>{item.title}</span>
           </>
