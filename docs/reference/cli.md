@@ -3,7 +3,7 @@
 > For anyone who needs the exact commands, flags and exit behavior: the `agent-taskbay` launcher, every `npm run` script, and the operational
 > scripts under `scripts/`.
 
-Agent Taskbay is pre-1.0 (package version `0.1.1`) and is published to npm. In a git checkout run the launcher as
+Agent Taskbay is pre-1.0 (package version `0.2.0`) and is published to npm. In a git checkout run the launcher as
 `node bin/agent-taskbay.mjs` after `npm run build`; the `npx agent-taskbay` form below runs the published package. Flags and
 script names may change between minor versions.
 
@@ -41,7 +41,7 @@ agent-taskbay --version | --help
 | `--no-open` | | Do not open a browser tab. |
 | `--open` | | Open a browser tab even when not attached to a terminal. |
 | `-h`, `--help` | | Print usage and exit 0. |
-| `-v`, `--version` | | Print the package version (currently `0.1.1`) and exit 0. |
+| `-v`, `--version` | | Print the package version (currently `0.2.0`) and exit 0. |
 
 By default a browser tab opens when standard output is a terminal and the `CI` variable is not set.
 

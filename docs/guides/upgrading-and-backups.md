@@ -5,7 +5,7 @@
 Taskbay keeps three kinds of state that must stay consistent with each other: the database, the artifact directory, and the vault keys. Backups, upgrades and restores are all about treating those three
 as one unit. Backup and restore tooling is not provided; this page tells you what to copy and what to check.
 
-The project is pre-1.0 (0.1.1). Interfaces and migrations may change in any minor version. Read [`CHANGELOG.md`](../../CHANGELOG.md) before each upgrade.
+The project is pre-1.0 (0.2.0). Interfaces and migrations may change in any minor version. Read [`CHANGELOG.md`](../../CHANGELOG.md) before each upgrade.
 
 ## Before you start
 
@@ -162,7 +162,7 @@ There is no tool to move data from PGlite to PostgreSQL, or back. Start producti
 
 - No scripted backup, restore or retention. No online consistent snapshot across database and artifacts.
 - Artifacts are never deleted by Taskbay; the directory grows with use.
-- No version-to-version upgrade notes exist yet beyond the changelog. The published versions are 0.1.0 and 0.1.1, and 0.1.1 changed no runtime behavior (documentation and release process only), so there is nothing to migrate between them.
+- No version-to-version upgrade notes exist yet beyond the changelog. The published versions are 0.1.0, 0.1.1 and 0.2.0. 0.1.1 changed no runtime behavior. 0.2.0 redesigns the console and adds a Home screen; it changes no HTTP API, database schema or configuration, so there is nothing to migrate when upgrading from 0.1.x. The theme preference is stored under a new key, so the console falls back to your system theme once.
 
 ## Related
 

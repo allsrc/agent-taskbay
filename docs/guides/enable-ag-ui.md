@@ -2,7 +2,7 @@
 
 > Who this is for: a developer who wants an AG-UI client to drive an A2A agent that is already connected to Agent Taskbay. You will have the adapter turned on, a first run streamed from a sample agent, and an agent question answered through an interrupt.
 
-The AG-UI adapter is **optional, experimental and off by default**. Taskbay is pre-1.0 (package version `0.1.1`), and the adapter may change in any release. It has only been exercised by the repository's own script, `scripts/verify-agui-http.mjs`, not by a real AG-UI client library ([#13](https://github.com/allsrc/agent-taskbay/issues/13)).
+The AG-UI adapter is **optional, experimental and off by default**. Taskbay is pre-1.0 (package version `0.2.0`), and the adapter may change in any release. It has only been exercised by the repository's own script, `scripts/verify-agui-http.mjs`, not by a real AG-UI client library ([#13](https://github.com/allsrc/agent-taskbay/issues/13)).
 
 The adapter works in one direction. It exposes an A2A agent registered in Taskbay to an AG-UI client at `POST /api/agents/{agentId}/ag-ui`. It does **not** connect Taskbay to agents that speak AG-UI, and it does not add a new kind of agent to the catalog.
 

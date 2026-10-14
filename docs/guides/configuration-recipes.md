@@ -3,7 +3,7 @@
 > Who this is for: operators and developers who want a working set of `A2A_*` variables for a common setup without reading every row of the reference. You will have a copy-pasteable environment for your case, the commands to start it, and a check that tells you it is working.
 
 Agent Taskbay is configured only by environment variables. Each recipe below lists the variables for one setup, explains the lines that are not obvious, and links to the
-[configuration reference](../reference/configuration.md), which is the full list with every default and valid value. Taskbay is pre-1.0 (version 0.1.1): variable names and
+[configuration reference](../reference/configuration.md), which is the full list with every default and valid value. Taskbay is pre-1.0 (version 0.2.0): variable names and
 defaults may change between minor versions, so check the [CHANGELOG](../../CHANGELOG.md) when you upgrade.
 
 | Recipe | Database | Sign-in | Safe on a shared network |
@@ -70,7 +70,7 @@ npx agent-taskbay --port 3010 --data-dir ./taskbay-eval --no-open
 runs; without `-p` the port is 3002):
 
 ```text
-  Agent Taskbay 0.1.1 is running at http://127.0.0.1:3077
+  Agent Taskbay 0.2.0 is running at http://127.0.0.1:3077
   Data: <your data dir>
   Local mode: you are signed in as a development administrator. Only this machine can connect.
   Try it with sample agents: npx agent-taskbay demo-agent

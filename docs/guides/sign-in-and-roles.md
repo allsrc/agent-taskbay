@@ -5,7 +5,7 @@
 Agent Taskbay has two ways to identify a person: a local development administrator (no sign-in, loopback only), and OpenID Connect (OIDC) for everything else. This page covers both, the three roles,
 and how access to agents is granted. How agents authenticate to Taskbay's outbound calls is a separate subject: see [Agent credentials](./agent-credentials.md).
 
-The package is pre-1.0 (version 0.1.1). It is on npm (`npx agent-taskbay`), and running from a source checkout also works. Settings described
+The package is pre-1.0 (version 0.2.0). It is on npm (`npx agent-taskbay`), and running from a source checkout also works. Settings described
 here may change between minor versions.
 
 ## Before you start

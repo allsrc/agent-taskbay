@@ -17,7 +17,7 @@ propose, and later show what happened.
 
 Created and maintained by [Shashi Kanth G S](https://shashikanth.me), part of [Allsrc](https://allsrc.dev).
 
-> **Status: pre-1.0 (`0.1.1`), published on npm as `agent-taskbay`.** Interfaces, HTTP routes and stored data shapes may change between
+> **Status: pre-1.0 (`0.2.0`), published on npm as `agent-taskbay`.** Interfaces, HTTP routes and stored data shapes may change between
 > minor versions. It has not been independently security-reviewed. See [Status and roadmap](docs/project/status-and-roadmap.md) for what
 > works, what is partial and what is planned.
 

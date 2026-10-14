@@ -5,16 +5,32 @@ the project uses [semantic versioning](https://semver.org/) once it reaches 1.0;
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [0.2.0] - 2026-10-14
+
+A redesign of the console, with a new Home screen. No HTTP API, database schema or configuration changed, so there is nothing to migrate when upgrading from 0.1.x.
+
 ### Added
 
-- A Home screen where the console opens: counts of agents, items that need you, active tasks and unread notifications, the items waiting on you, recent conversations and the connected agents, with a get-started panel before any agent is connected.
+- **Home.** The console now opens on a Home screen: counts of agents reachable, items that need you, active tasks and unread notifications; the approvals and input requests waiting on you; recent conversations; and the connected agents. Before any agent is connected it shows a three-step get-started panel.
+- **Phone navigation.** A bottom tab bar (Home, Chat, Inbox, Tasks and a More sheet for the rest) with a back button on detail screens. The Inbox tab shows the pending-approval count, and More shows a dot when there are unread notifications.
+- **Version in the sidebar.** The running package version (for example `v0.2.0`) is shown under the tenant, whether you start from source or with `npx agent-taskbay`.
+- **Progress log in chat.** The agent's in-between status updates fold into a Progress log that is open while the task runs and folded when it finishes. The agent's last message, any question it asks you and its artifacts stay in the main conversation, and an artifact shows as a highlighted Result card.
+- New screenshots for the README and the console guide, including Home.
 
 ### Changed
 
-- Outline buttons have a stronger border, filter chips in list panes wrap instead of scrolling sideways on wide screens, the progress log keeps its place in the conversation, and the phone tab bar shows counts as badges.
-- Refreshed the screenshots in the README and the console guide for the new design.
+- **New design system.** The whole console moved to the http2xx design system: new tokens, light and dark themes, Base UI components, and Geist and Space Grotesk type. Status colors are now tone-based pills ("Input required", "Completed") instead of upper-case codes.
+- **Every screen rebuilt on shared layouts.** Tasks, Inbox, Approvals and Agents are list-and-detail screens; Chat, Orchestration, Notifications, Audit and Settings are full pages. The layout is responsive: a sidebar on large screens, an icon rail on medium screens, and the tab bar on phones. Filter chips wrap on wide screens, and outline buttons have a clearer border.
+- **Add agent dialog.** Redesigned as a three-step flow (Agent Card, Review, Connect) with a review card, and it opens as a bottom sheet on a phone.
+- Forms an agent sends in chat use the design system's controls. Text-only actions across the console (for example "View the full trail", "Add an agent") are now real buttons.
+- New logo mark, favicon and app icons from the http2xx brand suite.
+- Dependencies: the Radix UI packages and `next-themes` are replaced by `@base-ui/react`, `cmdk` and `shadcn`.
 
-- The console moved to the http2xx design system: new tokens, light and dark themes, Base UI components, Geist and Space Grotesk type, every screen rebuilt on shared page and list-and-detail layouts, and responsive navigation (a sidebar, an icon rail on medium screens, and a bottom tab bar with a More sheet on phones). In chat, the agent's in-between status updates fold into a Progress log and artifacts show as a highlighted Result card. The sidebar shows the running package version. No API or data changed.
+### Fixed
+
+- A long unbroken string in an agent message (for example an approval hash) made the chat page scroll sideways on a phone.
 
 ## [0.1.1] - 2026-10-07
 

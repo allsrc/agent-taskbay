@@ -4,7 +4,7 @@
 
 Agent Taskbay is the human operations console for [A2A](https://a2a-protocol.org) agent workflows. An agent does the work. Taskbay is the place where a human starts that work, finds it again later, answers the agent when it asks for something, approves risky steps, and can later show who did what. An optional, experimental AG-UI adapter lets AG-UI clients drive the same durable tasks ([AG-UI adapter](../reference/ag-ui.md)).
 
-The project is pre-1.0 (package version 0.1.1). Interfaces and data shapes can change between minor versions.
+The project is pre-1.0 (package version 0.2.0). Interfaces and data shapes can change between minor versions.
 
 ## The problem it addresses
 
