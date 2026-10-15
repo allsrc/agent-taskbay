@@ -64,6 +64,14 @@ when it needs a person. Tracking does not notify anyone about the state the task
 
 An administrator can instead let a worker find them: in **automatic** discovery the reconciliation worker lists the agent's tasks, asks only for what changed after the first full read, and stores unknown ones within fixed limits ([Task discovery](../guides/connect-an-agent.md#task-discovery)).
 
+## Taskbay's record and the agent's history
+
+The ledger is Taskbay's record of what it received. An agent keeps its own history for a task, which can hold more (messages from before Taskbay followed the task) or less (agents decide what to keep and may trim it). Taskbay does not treat the agent's history as the record, and never replaces the ledger with it.
+
+On request, a person can ask for it (**Load agent history**): Taskbay makes one `GetTask` call with a `historyLength` (1 to 200, default 50) and ingests the answer through the same path as any read, as a `reconcile` event. Entries already in the ledger are matched by message ID, so nothing is duplicated, and loading the same answer again is the same ledger entry. A message that only that answer carries is labelled `origin: "agent-history"` in the projection, and the console shows it apart from what Taskbay received. The label is derived from the ledger (the event is marked as a history load), so a projection rebuild keeps it. A message Taskbay already had keeps its provenance, a later read by Taskbay's own worker does not relabel a message, and a message that later arrives live on a stream, push or command reply counts as received.
+
+The task's current status message is not labelled, because the agent is saying it now. Nothing here is automatic and there is no retention: loaded history stays with the task.
+
 ## One ingestion path
 
 Task state can arrive by four routes:

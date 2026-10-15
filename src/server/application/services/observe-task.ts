@@ -32,6 +32,8 @@ export interface TaskObservation {
   requestId: string;
   directThreadId: string;
   userMessage?: JsonValue;
+  /** The event is the agent's history for the task, loaded on request: messages only it carries are labelled as agent history. */
+  historyRefresh?: boolean;
   userMessagePayloadDigest?: string;
   userMessageOriginalObjectKey?: string;
   streamMetadata?: StreamMetadata;
@@ -102,7 +104,7 @@ export class ObserveTaskService {
         payloadDigest: digest, payloadJson: {
           event, ...(originalEventObjectKey ? { originalEventObjectKey } : {}),
           ...(input.streamMetadata ? { streamMetadata: { ...input.streamMetadata } } : {}),
-          projectionContext: { turnId: lastUser, stableSourceIdentity: Boolean(input.stableSourceIdentity), projectorKey: sourceKey },
+          projectionContext: { turnId: lastUser, stableSourceIdentity: Boolean(input.stableSourceIdentity), projectorKey: sourceKey, ...(input.historyRefresh ? { historyRefresh: true } : {}) },
         },
         sessionId: input.sessionId, requestId: input.requestId, traceId: null, projectionVersion: TASK_PROJECTOR_VERSION,
       });

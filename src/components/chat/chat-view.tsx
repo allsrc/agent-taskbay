@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { useShallow } from "zustand/react/shallow";
 import { AgentAvatar } from "@/components/a2a/primitives";
 import { CommandError } from "@/components/a2a/command-error";
+import { AGENT_HISTORY_NOTE, AgentHistoryDivider, LoadAgentHistoryButton, splitAgentHistory } from "@/components/chat/agent-history";
 import { DiscoveredMarker } from "@/components/chat/discovered-marker";
 import { Pill } from "@/components/patterns/status";
 import { CommandFailureError, failureFromError, failureFromResponse, type CommandFailure } from "@/lib/command-failure";
@@ -275,7 +276,10 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
               </div>
             )}
 
-            {tasks.map((task) => {
+            {tasks.map((fullTask) => {
+              // Messages that only the agent's own history carried are shown apart, under their own label.
+              const { received, history } = splitAgentHistory(fullTask.messages);
+              const task = history.length ? { ...fullTask, messages: received } : fullTask;
               const firstAgent = task.messages.findIndex((message) => message.role === "agent");
               const cardAt = task.kind === "message" ? -1 : firstAgent >= 0 ? firstAgent : 0;
               // In-between status updates fold into one progress log; the last message, questions and results stay prominent.
@@ -309,7 +313,9 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
               ]);
               return (
                 <div key={task.taskId} className="flex flex-col gap-3.5">
+                  <LoadAgentHistoryButton task={task} onLoaded={upsertTask} />
                   {task.origin === "discovered" && <DiscoveredMarker task={task} now={renderedAt} />}
+                  {history.length > 0 && <AgentHistoryDivider>What Taskbay received</AgentHistoryDivider>}
                   {rows}
                   {a2uiOn && (
                     <A2uiSurfaces state={surfacesFromParts(task.messages.filter((message) => message.role === "agent").flatMap((message) => message.parts))}
@@ -320,6 +326,13 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
                   )}
                   {(activity.length > 0 || activityMessages.length > 0) && [...sender("agent", `act-${task.taskId}`), <ActivityLog key="activity" artifacts={activity} messages={activityMessages} active={isOpenTask(task)} />]}
                   {results.flatMap((artifact) => [...sender("agent", artifact.artifactId), <ArtifactCard key={artifact.artifactId} artifact={artifact} />])}
+                  {history.length > 0 && (
+                    <>
+                      <AgentHistoryDivider>History the agent returned</AgentHistoryDivider>
+                      <p className="text-muted-foreground text-center text-xs">{AGENT_HISTORY_NOTE}</p>
+                      {history.map((message) => message.role === "user" ? <UserBubble key={message.id} message={message} /> : <AgentBubble key={message.id} message={message} />)}
+                    </>
+                  )}
                 </div>
               );
             })}

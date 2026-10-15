@@ -405,6 +405,25 @@ A discovered task's view also has `origin: "discovered"`, `discoveredAt`, and, o
 `read`. `{taskId}` is the local ID. `{ "task": <view> }` with `messages` (each with `id`, `role` `user` or `agent`, normalized `parts`, `timestamp`,
 `fromStatus` for the agent's question), `artifacts`, `transitions`, `version` and the fields above. `404 Task not found.`
 
+A message that reached Taskbay only because the agent's history was loaded has `origin: "agent-history"`. Messages Taskbay received itself have no `origin`.
+
+### `POST /api/tasks/{taskId}/history/refresh`
+
+`operate` on the task's agent and skill. Asks the agent for the history it keeps for the task (one `GetTask` with `historyLength`) and stores what Taskbay did not already have, labelled `origin: "agent-history"`. Body (required, may be `{}`; any other field is `400`): `{ "historyLength": 1..200 }`, default 50.
+
+`200 { "task": <view>, "added": <number>, "total": <number> }`. `added` is the number of messages this call added, `total` the number now labelled as agent history. Loading again returns `added: 0` unless the agent has more. Nothing is sent to the agent except the read. The response is `Cache-Control: no-store`.
+
+| Status | `error.kind` | Meaning |
+| --- | --- | --- |
+| `400` | `invalid_request` | `historyLength` is not a whole number from 1 to 200, or the body has another field. |
+| `403` | | The caller cannot operate (a viewer, or a read-only grant). |
+| `404` | `task_not_found` | Unknown task, or one the caller has no access to. |
+| `409` | `no_remote_task` | A direct message: there is no task on the agent. |
+| `409` | `task_not_found` | The agent no longer knows the task. Nothing changes. |
+| `409` | `unknown_agent` | The agent is disabled or removed. |
+| `429` | | More than 6 loads for this task in a minute (kept in the database, so it holds across instances). `Retry-After: 60`. |
+| `502` | `agent_unavailable`, `agent_response_invalid`, or a refusal kind such as `unsupported_operation` | The agent could not be reached, answered about another task, tenant or context, or refused the request. Nothing is stored. |
+
 ### `GET /api/task-views`
 
 `read`. Pages durable content by local task ID, for chat and flow views. `limit` 1 to 100 (default 100) and `after` (a local UUID) are validated:

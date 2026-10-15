@@ -57,7 +57,15 @@ export function reduceTaskLedger(task: TaskRecord, agentName: string, ledger: Ta
     // Project one message at a time, giving no-ID messages the same identity
     // whether they arrive in a status, history, or direct message envelope.
     for (const { message, fromStatus } of messages) {
+      const seen = view.messages.some((item) => item.id === message.messageId);
       view = projectTaskEvent(view, json({ message }), row.receivedAt.toISOString(), message.messageId, false);
+      // A message that only the agent's loaded history carries is labelled so. One Taskbay already had keeps its provenance, and one
+      // that later arrives on a stream, push or command reply was received live after all. Taskbay's own re-reads do not count as live.
+      const labelled = view.messages.find((item) => item.id === message.messageId);
+      if (labelled) {
+        if (!seen && context.historyRefresh === true && !fromStatus) labelled.origin = "agent-history";
+        else if (seen && labelled.origin && row.source !== "reconcile") delete labelled.origin;
+      }
       if (fromStatus) {
         const projected = view.messages.find((item) => item.id === message.messageId);
         if (projected) {
