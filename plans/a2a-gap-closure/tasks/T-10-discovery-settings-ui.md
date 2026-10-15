@@ -2,12 +2,12 @@
 id: T-10
 title: Discovery mode, status and disclosure in the console
 phase: 2
-status: todo
+status: done
 depends_on: [T-08, T-26]
 size: M
 gap: G5
 migration: no
-updated:
+updated: 2026-10-15
 ---
 
 # T-10. Discovery settings and disclosure
@@ -60,3 +60,5 @@ The browse dialog (T-26), the automatic sweep (T-25), badges (T-11).
 ## Notes for later
 
 ## Implementation log
+
+- 2026-10-15 · done: Settings: agentSettingsSchema + changeAgentSettings accept taskDiscovery/taskDiscoveryHistoryDays (cap check 409 discovery_capped, auto refused 409 not_available until T-25, audited task.discovery.mode_changed.<mode>), readDiscoveryStatus + GET /api/agents/:id/discovery (listing from list cursors, canBrowse), SyncCursorRepository.listCursors, /api/auth/session returns taskDiscoveryCap. UI: TaskDiscoveryCard (radio modes, cap and read-only explanations, Browse tasks inside the card; the header button from T-26 removed), TaskDiscoveryNotice in the connect dialog (no checkbox, per design), AUTOMATIC_DISCOVERY_AVAILABLE=false hides Automatic. Tests: agent-settings.db.test.ts (added to test:db), task-discovery-card.test.tsx (static renders), verify-task-http.mjs (status, off->409, cap, validation; agent one reports listing unsupported because polling learned it). Docs: connect-an-agent, use-the-console, teams-and-grants, http-api, data-model, configuration-recipes (recipe 9), CHANGELOG. Not done: history-days input in the UI (only meaningful in Automatic, T-25); upgrading-and-backups wording (nothing to say: no upgrade behavior); browser check.

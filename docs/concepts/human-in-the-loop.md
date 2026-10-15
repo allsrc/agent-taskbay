@@ -22,6 +22,12 @@ The inbox is one authorized list across agents, combining tasks and approval req
 
 The console shows six views: **Needs you** (the default), **Mine**, **Overdue**, **Active**, **Done** and **All**. In `GET /api/inbox` they are `needs-input`, `assigned`, `overdue`, `active`, `done` and `all`. The console offers two filters, **Show** (Everything, Tasks, Approvals) and **Risk** (Any, High, Medium, Low), and loads 30 rows at a time. The API also filters by `agentId`, `skillId`, `status` and `updatedAfter`, and returns at most 100 rows per page. Saved views, free-text search, arbitrary-assignee filters and bulk actions do not exist yet ([#5](https://github.com/allsrc/agent-taskbay/issues/5)).
 
+### Tasks started elsewhere
+
+A task that another system started reaches the inbox the same way as any other once it is stored: a person **tracks** it from the agent's task list, or an administrator turns on automatic discovery for the agent.
+Until then it is not in Taskbay and appears nowhere, so browsing an agent's tasks never fills the inbox. Once stored, a task that waits on a person is under **Needs you** for people with access to the
+whole agent, and ownership, due times, escalation and notes work on it unchanged.
+
 ## Approvals
 
 An approval is a `DecisionRequest` scoped to one A2A task. The agent, tenant and skill come from the task's own row, never from the proposed content. The design goal: the record alone can show who approved exactly what, and what happened next.

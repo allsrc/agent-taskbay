@@ -20,6 +20,13 @@ export const COMMAND_ERROR_COPY: Record<string, Copy> = {
   version_not_supported: { tone: "danger", text: "The agent does not support this protocol version. See the agent page." },
   invalid_request: { tone: "warning", text: "The agent rejected the request as malformed." },
   task_terminal: { tone: "info", text: "This task is finished. Start a new task in the same conversation." },
+  whole_agent_required: { tone: "warning", text: "You need access to the whole agent to browse or track its tasks." },
+  discovery_disabled: { tone: "info", text: "Task discovery is turned off for this agent." },
+  listing_unsupported: { tone: "info", text: "This agent does not support listing tasks. You can still track a task if you know its ID." },
+  agent_unavailable: { tone: "warning", text: "The agent could not be reached." },
+  agent_response_invalid: { tone: "warning", text: "The agent returned something Taskbay could not read." },
+  task_not_found_on_agent: { tone: "warning", text: "The agent does not have a task with that ID." },
+  unknown_agent: { tone: "warning", text: "This agent is not available." },
   uncertain: { tone: "warning", text: "Taskbay can't tell whether the agent received this. It will not resend automatically. Check the task before trying again." },
 };
 const GENERIC = "The request could not be completed.";

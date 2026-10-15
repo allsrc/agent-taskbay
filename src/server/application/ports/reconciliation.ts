@@ -10,6 +10,8 @@ export interface SyncCursorRepository {
   finish(cursor: SyncCursorRecord, now: Date, changes: Pick<SyncCursorRecord, "status" | "availableAt" | "lastError" | "pageToken" | "lastSyncedAt">): Promise<boolean>;
   find(organizationId: string, agentId: string, tenant: string, resourceKey: string): Promise<SyncCursorRecord | undefined>;
   knownTasks(cursor: SyncCursorRecord): Promise<TaskRecord[]>;
+  /** The agent's whole-agent list cursors (one per tenant), for status display. */
+  listCursors(organizationId: string, agentId: string): Promise<SyncCursorRecord[]>;
 }
 export interface ReconciliationUnitOfWork {
   run<T>(work: (ports: { agents: AgentRepository; tasks: TaskRepository; syncCursors: SyncCursorRepository }) => Promise<T>): Promise<T>;

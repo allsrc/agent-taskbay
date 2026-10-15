@@ -110,6 +110,7 @@ When a limit is hit the route answers `429`. The webhook and the browse and trac
 | `GET /api/auth/session` | read | Console | Who am I, and the auth mode |
 | `GET /api/agents` | read | Integration | Catalog with discovered cards |
 | `PATCH /api/agents/{agentId}/settings` | administer | Console | Change an agent's settings (extension override) |
+| `GET /api/agents/{agentId}/discovery` | read | Console | How task discovery is set for the agent and what it has done |
 | `GET /api/agents/{agentId}/remote-tasks` | operate | Console | Browse the agent's tasks now (nothing is stored) |
 | `POST /api/agents/{agentId}/remote-tasks/track` | operate | Console | Store one of the agent's tasks and follow it |
 | `POST /api/agents` | administer | Integration | Register an agent by Agent Card URL |
@@ -217,8 +218,17 @@ status of the underlying error). Records a card snapshot.
 ### `PATCH /api/agents/{agentId}/settings`
 
 `administer`. Body `{ "extensionOverride": true | false }`; unknown fields and an empty body are `400`. `true` allows sending to an agent whose card requires an extension
-Taskbay does not support; `false` blocks again. Response `200 { "agentId", "extensionOverride" }`. `404` for an unknown agent. Audited as `agent.extension.override` or
+Taskbay does not support; `false` blocks again. Response `200 { "agentId", "extensionOverride" }`.
+
+The same route also takes `taskDiscovery` (`off`, `browse` or `auto`) and `taskDiscoveryHistoryDays` (a whole number from 0 to 90, used by automatic discovery). A mode above the deployment's `A2A_TASK_DISCOVERY` is `409` with `error.kind` `discovery_capped`; `auto` is `409` `not_available` until automatic discovery exists. A change of mode is audited as `task.discovery.mode_changed.<mode>`. `404` for an unknown agent. Audited as `agent.extension.override` or
 `agent.extension.override.removed`. See [Required extensions](../guides/connect-an-agent.md#required-extensions).
+
+### `GET /api/agents/{agentId}/discovery`
+
+`read`. `{ "mode", "effectiveMode", "cap", "historyDays", "pausedReason", "listing", "auto", "canBrowse" }`. `mode` is the agent's setting, `cap` the deployment's `A2A_TASK_DISCOVERY`, and
+`effectiveMode` the lower of the two. `listing` is `supported`, `unsupported` or `unknown` (from what polling has learned about whether the agent can list tasks). `auto` is `null` unless
+the effective mode is `auto`. `canBrowse` says whether this caller may browse and track now (an administrator or whole-agent operator, with the effective mode not `off`). Nothing in it comes from the agent.
+`GET /api/auth/session` also returns `taskDiscoveryCap`.
 
 ### `GET /api/agents/{agentId}/remote-tasks`
 

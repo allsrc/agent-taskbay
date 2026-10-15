@@ -455,6 +455,22 @@ try {
   assert.equal((await trackCall({ taskId: "x", content: "from the browser" })).status, 400);
   assert.equal((await trackCall({ taskId: "x" }, randomUUID())).status, 404);
   assert.equal((await fetch(`${base}/api/agents/${one.id}/remote-tasks?status=nonsense`, { headers: { Origin: base } })).status, 400);
+  // Task discovery settings: the mode controls what browsing allows, the deployment cap limits it, and the status says what applies.
+  assert.equal((await json("/api/auth/session")).taskDiscoveryCap, "browse");
+  assert.deepEqual(await json(`/api/agents/${one.id}/discovery`), { mode: "browse", effectiveMode: "browse", cap: "browse", historyDays: 7, pausedReason: null, listing: "unsupported", auto: null, canBrowse: true });
+  assert.equal((await settings({ taskDiscovery: "off" }, one.id)).status, 200);
+  assert.equal((await json(`/api/agents/${one.id}/discovery`)).canBrowse, false);
+  const disabled = await fetch(`${base}/api/agents/${one.id}/remote-tasks`, { headers: { Origin: base } });
+  assert.equal(disabled.status, 409);
+  assert.equal((await disabled.json()).error.kind, "discovery_disabled");
+  assert.equal((await settings({ taskDiscovery: "browse", taskDiscoveryHistoryDays: 14 }, one.id)).status, 200);
+  assert.equal((await json(`/api/agents/${one.id}/discovery`)).historyDays, 14);
+  const capped = await settings({ taskDiscovery: "auto" }, one.id);
+  assert.equal(capped.status, 409);
+  assert.equal((await capped.json()).error.kind, "discovery_capped");
+  assert.equal((await settings({ taskDiscoveryHistoryDays: 200 }, one.id)).status, 400);
+  assert.equal((await settings({ taskDiscovery: "everything" }, one.id)).status, 400);
+  assert.equal((await fetch(`${base}/api/agents/${randomUUID()}/discovery`, { headers: { Origin: base } })).status, 404);
   // TSK-003/REL-001: SDK-managed push and actual authenticated production route.
   const pushAgent = (await json("/api/agents", { method: "POST", body: JSON.stringify({ cardUrl: `http://127.0.0.1:${fixturePort}/push/card.json` }) })).agent;
   const pushCommand = await json(`/api/agents/${pushAgent.id}/commands`, { method: "POST", headers: { "Idempotency-Key": "push-command" },

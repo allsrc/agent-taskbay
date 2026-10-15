@@ -13,6 +13,8 @@ import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { useAgentStore } from "@/store/agent-store";
+import { useServerResource } from "@/lib/use-server-resource";
+import { TaskDiscoveryNotice } from "@/components/agents/task-discovery-notice";
 
 const STEP_TITLES = ["Agent Card", "Review", "Connect"];
 
@@ -43,6 +45,7 @@ export function ConnectAgentDialog({
 /** Mounted only while the dialog is open, so every open starts from step 0. */
 function ConnectFlow({ initialUrl, onDone }: { initialUrl: string; onDone: () => void }) {
   const refresh = useAgentStore((state) => state.refresh);
+  const session = useServerResource<{ taskDiscoveryCap?: string }>("/api/auth/session");
   const [step, setStep] = useState(0);
   const [url, setUrl] = useState(initialUrl);
   const [view, setView] = useState<AgentView | null>(null);
@@ -182,6 +185,7 @@ function ConnectFlow({ initialUrl, onDone }: { initialUrl: string; onDone: () =>
               </li>
             ))}
           </ol>
+          <TaskDiscoveryNotice cap={session.data?.taskDiscoveryCap} />
           {error && <Callout tone="danger">{error}</Callout>}
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
             {back}

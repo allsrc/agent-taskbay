@@ -59,6 +59,8 @@ A person can record an action that needs sign-off even if the agent did not ask.
 
 ## Own a task
 
+Tasks started outside Taskbay and tracked by someone work the same way: **tracking is not claiming**, so a tracked task has no owner until someone claims or is assigned it.
+
 Open a task from **Tasks** or the inbox. The **Ownership** card shows the assignee, the due time (or "overdue"), and an "ESCALATED" tag, with the last few ownership events.
 
 | Action | Who can do it |

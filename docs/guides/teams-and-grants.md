@@ -92,6 +92,8 @@ Use `"skillId": null` for the whole agent. For everyone, use `"subjectType": "or
 4. Their task lists show only tasks recorded for that skill.
 5. The **Audit** page records each change: `team.created`, `team.addTeamMember`, `access.granted`.
 
+Browsing an agent's tasks and tracking them need an `operate` grant on the **whole** agent (or the administrator role). A skill grant never allows it, and a person with only skill grants never sees tracked or discovered tasks ([Task discovery](connect-an-agent.md#task-discovery)).
+
 A member with a skill grant cannot send to the agent without a skill, cannot pick another skill, and cannot continue an arbitrary existing context. Those sends fail with `403` (see the table below).
 
 ## Revoke access

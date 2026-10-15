@@ -30,6 +30,18 @@ Open **Notifications** (the sidebar shows an unread count, capped at "99+"). Ite
 | Task needs input or authorization | Input needed / Authorization needed | The owner, or if unowned, up to 25 eligible reviewers |
 | Task finished or failed | Task finished / Task failed | The owner only (nobody if unowned) |
 
+### Tasks that were started outside Taskbay
+
+A task another system started shows up in Taskbay only when someone tracks it, or when an administrator sets the agent to automatic discovery
+([Tasks that Taskbay did not start](../concepts/durable-tasks.md#tasks-that-taskbay-did-not-start)). They notify so that nobody is flooded with old news:
+
+| How it arrived | First time Taskbay sees it | Later changes |
+| --- | --- | --- |
+| A person tracked it | Never notifies, whatever its state: the person just chose it | Notify like any task |
+| Found by automatic discovery | Notifies only if it is waiting for input or authorization **and** the agent updated it within the last 24 hours. A finished, failed, working or untimed task never notifies. | Notify like any task |
+
+The title says where it came from: "A task started outside Taskbay needs input" or "…needs authorization". The people told are the same as for any task that needs input.
+
 Rules that apply to all of them:
 
 - You are never told about your own action.

@@ -2,12 +2,12 @@
 id: T-11
 title: Show, answer and steer discovered tasks
 phase: 2
-status: todo
+status: in_progress
 depends_on: [T-08, T-02]
 size: L
 gap: G5
 migration: no
-updated:
+updated: 2026-10-15
 ---
 
 # T-11. Tracked and discovered tasks in the Tasks list, task page and chat

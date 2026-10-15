@@ -77,6 +77,27 @@ curl -s http://localhost:3002/api/agents
 
 Each entry has the card, a `trust` value, or an `error` string if discovery failed. In local development mode this works without a login; in OIDC mode it needs a session cookie.
 
+## Task discovery
+
+Other systems can start tasks on an agent you connect: a pipeline, a schedule, a colleague's own client. Taskbay can show you those tasks so you can answer, steer or cancel them.
+It does this with the **agent's own credential**, so what you see is what that credential can list, which may include other people's work.
+
+Each agent has a mode, set on its page by an administrator:
+
+| Mode | What Taskbay does | Default |
+| --- | --- | --- |
+| **Browse only** | Lists the agent's tasks live when someone asks (**Browse tasks**). Nothing is stored. A task is stored, and followed, only when a person **tracks** it. | Yes |
+| **Off** | Never lists the agent's tasks. | |
+| **Automatic** | Also stores and follows tasks started elsewhere in the background. Not available yet. | |
+
+Who may browse and track: an administrator, or an operator with an `operate` grant on the **whole** agent. A grant limited to one skill never lets someone browse, and never shows a tracked task.
+Viewers cannot. A tracked task has no owner and nobody is notified about the state it is already in; see [Browse an agent's tasks](use-the-console.md#browse-an-agents-tasks).
+
+The deployment can lower the highest mode with `A2A_TASK_DISCOVERY` (`off`, `browse` or `auto`, default `browse`; [Configuration](../reference/configuration.md)). The agent page shows "This deployment allows up to …" for modes it forbids.
+Every change of mode and every tracked task is recorded in the security audit (`task.discovery.mode_changed.<mode>`, `task.discovery.tracked`).
+
+If the agent does not support listing tasks, browsing says so; you can still track a task by its ID.
+
 ## Required extensions
 
 An Agent Card can mark an extension `required: true`. If Taskbay does not understand that extension, the agent cannot be expected to behave correctly, so Taskbay blocks

@@ -2,12 +2,12 @@
 id: T-26
 title: Browse an agent's tasks and track from the console
 phase: 2
-status: todo
+status: done
 depends_on: [T-08, T-04]
 size: M
 gap: G5
 migration: no
-updated:
+updated: 2026-10-15
 ---
 
 # T-26. Browse dialog
@@ -59,3 +59,5 @@ Settings (T-10), badges (T-11), automatic mode (T-25).
 ## Notes for later
 
 ## Implementation log
+
+- 2026-10-15 · done: components/agents/browse-tasks-dialog.tsx (live list, state/context filters, agent page tokens with Previous/Next, Track per row, Track by task ID, per-row failures), browse-task-row.tsx (static, agent text as inert text, Track/Tracked/Open with named buttons), lib/browse-tasks.ts, discovery error kinds added to command-error copy; Browse tasks button on the agent page header for admin/operator (T-10 moves it into the Task discovery card). Deviation: tenants prop uses the card's single tenant; the selector appears when T-18 provides several. Tests: browse-task-row.test.tsx, browse-tasks.test.ts (static renders; the repo has no browser test environment so dialog interactions were not exercised in a browser). Docs: use-the-console, CHANGELOG.

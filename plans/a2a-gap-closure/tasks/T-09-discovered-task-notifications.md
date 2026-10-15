@@ -2,12 +2,12 @@
 id: T-09
 title: Notification and inbox rules for tracked and discovered tasks
 phase: 2
-status: todo
+status: done
 depends_on: [T-08]
 size: S
 gap: G5
 migration: no
-updated:
+updated: 2026-10-15
 ---
 
 # T-09. Notifications and inbox for tracked and discovered tasks
@@ -59,3 +59,5 @@ Badges and filters (T-11).
 ## Notes for later
 
 ## Implementation log
+
+- 2026-10-15 · done: observe-task: suppressFirstSight(): a tracked task never notifies on first sight; automatic discovery notifies only for INPUT/AUTH_REQUIRED updated within 24h (no timestamp counts as not recent); later changes notify normally. Fan-out title 'A task started outside Taskbay needs input/authorization' from task.origin. Deviation: no webhook 'origin' field (NotificationRecord is persisted, so it would need another migration; the title carries the origin). Tests: suppress-first-sight.test.ts (table), discovered-notifications.db.test.ts (added to test:db: outbox counts per case, replay, later change, created-origin unchanged, titles, skill-scoped sees nothing, inbox needs-input for whole-agent/admin only, claim works and tracking does not claim). Docs: notifications, approvals-and-ownership, human-in-the-loop, CHANGELOG.

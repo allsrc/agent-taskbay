@@ -37,6 +37,16 @@ export interface TaskObservation {
   streamMetadata?: StreamMetadata;
 }
 
+/** A task a person chose to track is not news. One found by automatic discovery notifies only when it is waiting on a person and the agent said so recently. */
+export const DISCOVERED_NOTIFY_WINDOW_MS = 24 * 60 * 60 * 1000;
+export function suppressFirstSight(input: Pick<TaskObservation, "origin" | "trackedByUserId">, previousState: string, nextState: string, remoteUpdatedAt: Date | null, now: Date) {
+  if (input.origin !== "discovered" || previousState !== "TASK_STATE_UNSPECIFIED") return false;
+  if (input.trackedByUserId) return true;
+  const waiting = nextState === "INPUT_REQUIRED" || nextState === "AUTH_REQUIRED";
+  const recent = remoteUpdatedAt !== null && now.getTime() - remoteUpdatedAt.getTime() <= DISCOVERED_NOTIFY_WINDOW_MS;
+  return !(waiting && recent);
+}
+
 export class ObserveTaskService {
   constructor(
     private readonly agents: AgentRepository,
@@ -129,9 +139,7 @@ export class ObserveTaskService {
         INPUT_REQUIRED: { kind: "task.needs_input", detail: "input" }, AUTH_REQUIRED: { kind: "task.needs_input", detail: "auth" },
         COMPLETED: { kind: "task.finished" }, FAILED: { kind: "task.failed" },
       };
-      // A task someone just chose to track, or that was just discovered, is not news: only its later changes notify.
-      const firstSightOfDiscovered = input.origin === "discovered" && task.state === "TASK_STATE_UNSPECIFIED";
-      if (task.kind === "task" && task.state !== view.state && NOTIFY[next] && !firstSightOfDiscovered)
+      if (task.kind === "task" && task.state !== view.state && NOTIFY[next] && !suppressFirstSight(input, task.state, next, projection.remoteUpdatedAt, now))
         await enqueueNotificationEvent(this.outbox, input.organizationId, { ...NOTIFY[next], taskId: task.id }, now);
     }
     return view;

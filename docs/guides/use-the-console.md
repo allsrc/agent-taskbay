@@ -44,10 +44,22 @@ Select an agent to see its card:
 
 - **Capabilities**: streaming, push notifications, extended card, and the advertised extension URIs.
 - **Interfaces**: protocol bindings, URL and tenant.
+- **Task discovery**: how Taskbay finds tasks other systems started on this agent (**Browse only**, **Off**), with **Browse tasks** for people who may use it. Only administrators can change the mode; the choices a deployment forbids are disabled and say so. See [Task discovery](connect-an-agent.md#task-discovery).
 - **Skills**: name and description of each advertised skill.
 - **Security**: the card signature result, advertised security schemes, and default input and output modes.
 
 **Start chat** opens a new chat with that agent. It only appears when the card was fetched. **Connection setup** reopens the connect dialog with this card URL. **Remove** appears for agents added in the console, not for agents configured through environment variables, and asks "Remove this agent from the catalog?" first.
+
+### Browse an agent's tasks
+
+**Browse tasks** (in the **Task discovery** card; operators and administrators) opens the agent's task list, read live from the agent with the agent's own credential. Use it to find work another system started.
+Filter by **State** or **Context ID**, page with **Previous** and **Next**, or paste a task ID under **Track by task ID**.
+
+Each row shows the task's title or ID, its state, how long ago it changed and, in quotes, the first line of what the agent last said. That text comes from the agent and is shown as plain text.
+**Track** stores that one task and starts following it; the row then says **Tracked** and **Open** takes you to the task. Browsing alone stores nothing: a task you never track does not appear in **Tasks** or the inbox.
+
+You need access to the whole agent to browse or track (an administrator, or an `operate` grant that is not limited to one skill). If you do not have it, or task discovery is off for the agent, the dialog says so.
+An agent that cannot list tasks shows "This agent does not support listing tasks"; you can still track a task by its ID.
 
 **Add agent** opens the "Connect agent" dialog. Every role sees the button, but only administrators can save an agent. The full procedure is in [Connect an agent](connect-an-agent.md).
 

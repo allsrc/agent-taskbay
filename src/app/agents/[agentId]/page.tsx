@@ -12,6 +12,9 @@ import { DefinitionList } from "@/components/patterns/layout";
 import { Eyebrow, Pill } from "@/components/patterns/status";
 import { ConnectAgentDialog } from "@/components/agents/connect-agent-dialog";
 import { RequiredExtensionsNotice } from "@/components/agents/required-extensions-notice";
+import { BrowseTasksDialog } from "@/components/agents/browse-tasks-dialog";
+import { TaskDiscoveryCard } from "@/components/agents/task-discovery-card";
+import type { DiscoveryStatusView } from "@/lib/browse-tasks";
 import { useServerResource } from "@/lib/use-server-resource";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { useAgentStore } from "@/store/agent-store";
@@ -23,8 +26,10 @@ export default function AgentDetailPage({ params }: { params: Promise<{ agentId:
   const status = useAgentStore((state) => state.status);
   const refresh = useAgentStore((state) => state.refresh);
   const [connectOpen, setConnectOpen] = useState(false);
+  const [browseOpen, setBrowseOpen] = useState(false);
   const [removing, setRemoving] = useState(false);
   const session = useServerResource<{ user: { role: string } }>("/api/auth/session");
+  const discovery = useServerResource<DiscoveryStatusView>(`/api/agents/${agentId}/discovery`);
 
   if (!agent) {
     return status === "loading" || status === "idle" ? (
@@ -80,6 +85,8 @@ export default function AgentDetailPage({ params }: { params: Promise<{ agentId:
       )}
       {view ? (
         <div className="grid gap-4 xl:grid-cols-2">
+          {discovery.data && <TaskDiscoveryCard agentId={agent.id} status={discovery.data} admin={session.data?.user.role === "admin"} onChanged={discovery.refresh} onBrowse={() => setBrowseOpen(true)} />}
+
           <InfoCard label="Capabilities">
             <ul className="divide-y">
               {[
@@ -147,6 +154,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ agentId:
       ) : (
         <Callout tone="danger" title="This agent could not be reached"><span className="font-mono">{agent.error}</span></Callout>
       )}
+      {view && <BrowseTasksDialog agentId={agent.id} agentName={view.name} tenants={view.tenant ? [view.tenant] : []} open={browseOpen} onOpenChange={setBrowseOpen} />}
       <ConnectAgentDialog open={connectOpen} onOpenChange={setConnectOpen} initialUrl={agent.cardUrl} />
     </Page>
   );

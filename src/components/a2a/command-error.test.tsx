@@ -16,7 +16,8 @@ describe("CommandError", () => {
 
   it("covers every kind the API can return", () => {
     for (const kind of ["task_not_found", "task_not_cancelable", "push_not_supported", "unsupported_operation", "content_type_not_supported", "extended_card_not_configured",
-      "extension_required", "version_not_supported", "invalid_request", "task_terminal", "uncertain"]) expect(COMMAND_ERROR_COPY[kind], kind).toBeDefined();
+      "extension_required", "version_not_supported", "invalid_request", "task_terminal", "uncertain", "whole_agent_required", "discovery_disabled", "listing_unsupported",
+      "agent_unavailable", "agent_response_invalid", "task_not_found_on_agent", "unknown_agent"]) expect(COMMAND_ERROR_COPY[kind], kind).toBeDefined();
   });
 
   it("uses the message, as plain text, only when Taskbay has no words for the failure", () => {

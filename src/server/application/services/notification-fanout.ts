@@ -101,7 +101,8 @@ async function resolve(ports: FanoutPorts, organizationId: string, event: Notifi
     case "task.needs_input": {
       const owner = assignment?.assigneeMembershipId;
       const recipients = owner ? await filterReadable([owner], target) : (await eligibleReviewers(target, [actorMembership])).slice(0, MAX_NEEDS_INPUT_RECIPIENTS);
-      return { title: event.detail === "auth" ? "Authorization needed" : "Input needed", link, body: `${agentName}: ${quote(label)}`, recipients };
+      const outside = task?.origin === "discovered" ? "A task started outside Taskbay needs" : undefined;
+      return { title: event.detail === "auth" ? (outside ? `${outside} authorization` : "Authorization needed") : (outside ? `${outside} input` : "Input needed"), link, body: `${agentName}: ${quote(label)}`, recipients };
     }
     case "task.finished":
     case "task.failed": {

@@ -55,6 +55,9 @@ export class MikroOrmSyncCursorRepository implements SyncCursorRepository {
       remoteCreatedAt: row.remoteCreatedAt ?? null, remoteUpdatedAt: row.remoteUpdatedAt ?? null, terminalAt: row.terminalAt ?? null,
     }));
   }
+  async listCursors(organizationId: string, agentId: string) {
+    return (await this.em.find(SyncCursorEntity, { organizationId, agentId, resourceKey: "" }, { refresh: true })).map((row) => this.record(row));
+  }
   private record(row: SyncCursorEntity): SyncCursorRecord {
     return { ...row, taskId: row.taskId ?? null, leaseOwner: row.leaseOwner ?? null,
       leaseUntil: row.leaseUntil ?? null, lastError: row.lastError ?? null, lastSyncedAt: row.lastSyncedAt ?? null, lastFullSweepAt: row.lastFullSweepAt ?? null };
