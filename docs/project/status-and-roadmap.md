@@ -14,6 +14,8 @@ Agent Taskbay is **pre-1.0**. The package version is `0.2.0` and it is published
 | --- | --- |
 | Frontend-only content-view overrides and opt-in sanitized/styled HTML previews; no script execution or remote assets | `npm test` (`content-view.test.ts`, `html-preview.test.ts`, `content-viewer.test.tsx`); cross-browser verification remains open |
 | Register agents from an Agent Card; A2A 1.0 over JSON-RPC and HTTP+JSON through the official SDK | `npm test`, `npm run test:http` (`verify-task-http.mjs`) |
+| Find tasks another system started: browse an agent's tasks live (nothing stored), track one, answer, steer or cancel it; opt-in automatic discovery with limits; per-agent mode and deployment cap | `npm run test:db` (`discovery.db.test.ts`, `auto-discovery.db.test.ts`) and `npm run test:http` (`verify-discovery-http.mjs`) |
+| Definite refusals by an agent are recorded as rejected with a kind; finished tasks are not continued; an unsupported required extension blocks sending until an administrator allows it | `npm run test:db` (`commands.db.test.ts`, `terminal-guard.db.test.ts`, `required-extensions.db.test.ts`) and `npm run test:http` (`verify-task-http.mjs`) |
 | Send a task, stream it, cancel it, and see it again after the browser closes and the server restarts | `npm run test:db` and `npm run test:http` (`verify-task-http.mjs`) |
 | Webhook (push) and polling reconciliation feeding the same idempotent ingestion path | `npm run test:db` (`push.db.test.ts`, `reconciliation.db.test.ts`) |
 | Rebuilding task projections from retained events | `npm run test:db` (`projection-rebuild.db.test.ts`); CLI `npm run db:projections:rebuild` |

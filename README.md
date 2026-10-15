@@ -54,7 +54,7 @@ machine only.
 npx agent-taskbay demo-agent
 ```
 
-It prints four Agent Card URLs on port 4010. You will use the `showcase` one.
+It prints five Agent Card URLs on port 4010. You will use the `showcase` one.
 
 **3. Connect the agent.** In the console, open **Agents** and choose **Add agent** (the sample-agent output calls this "Connect agent").
 Paste:
@@ -85,7 +85,7 @@ completed. The approval page shows "Delivered to the agent; task is now" followe
 
 Close the browser at any point and open it again: the state is in the database, not the tab.
 
-The [quickstart](docs/quickstart.md) walks through each step, running from a git checkout, and what to check when a step fails.
+The `automation` card is a sample agent that already has tasks another system started; the [quickstart](docs/quickstart.md#7-find-a-task-another-system-started) shows how to browse, track and answer one. The [quickstart](docs/quickstart.md) walks through each step, running from a git checkout, and what to check when a step fails.
 
 ## What you get
 

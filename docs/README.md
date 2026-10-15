@@ -16,8 +16,8 @@ Agent Taskbay is pre-1.0. If a word is unfamiliar, the [glossary](reference/glos
 | --- | --- |
 | Evaluating whether to use it | [Overview](concepts/overview.md), [Quickstart](quickstart.md), [Status and roadmap](project/status-and-roadmap.md), [Compatibility](reference/compatibility.md), [Threat model](security/threat-model.md) |
 | Using the console day to day | [Use the console](guides/use-the-console.md), [Approvals and ownership](guides/approvals-and-ownership.md), [Notifications](guides/notifications.md) |
-| Running it for a team | [Production deployment](guides/production-deployment.md), [Configuration recipes](guides/configuration-recipes.md), [Sign in and roles](guides/sign-in-and-roles.md), [Teams and grants](guides/teams-and-grants.md), [Agent credentials](guides/agent-credentials.md), [Running and workers](operations/running-and-workers.md), [Upgrading and backups](guides/upgrading-and-backups.md) |
-| Building or connecting an agent | [Connect an agent](guides/connect-an-agent.md), [Build an agent for Taskbay](guides/build-an-agent-for-taskbay.md), [Extensions](reference/extensions/README.md), [Receive push callbacks](guides/agent-push-callbacks.md), [A2UI subset](reference/a2ui.md) |
+| Running it for a team | [Production deployment](guides/production-deployment.md), [Configuration recipes](guides/configuration-recipes.md), [Sign in and roles](guides/sign-in-and-roles.md), [Teams and grants](guides/teams-and-grants.md), [Agent credentials](guides/agent-credentials.md), [Running and workers](operations/running-and-workers.md), [Upgrading and backups](guides/upgrading-and-backups.md), [Find and steer tasks started elsewhere](guides/find-and-steer-tasks-started-elsewhere.md) |
+| Building or connecting an agent | [Connect an agent](guides/connect-an-agent.md), [Build an agent for Taskbay](guides/build-an-agent-for-taskbay.md), [Extensions](reference/extensions/README.md), [Receive push callbacks](guides/agent-push-callbacks.md), [Find and steer tasks started elsewhere](guides/find-and-steer-tasks-started-elsewhere.md), [A2UI subset](reference/a2ui.md) |
 
 ## Guides
 
@@ -35,6 +35,7 @@ How do I...
 - **...pick the right environment variables** for my setup? [Configuration recipes](guides/configuration-recipes.md)
 - **...deploy with PostgreSQL** and separate workers? [Production deployment](guides/production-deployment.md)
 - **...upgrade, back up and restore?** [Upgrading and backups](guides/upgrading-and-backups.md)
+- **...find and take over tasks another system started?** [Find and steer tasks started elsewhere](guides/find-and-steer-tasks-started-elsewhere.md)
 - **...try the experimental AG-UI adapter?** [Try the AG-UI adapter](guides/enable-ag-ui.md)
 
 ## Concepts

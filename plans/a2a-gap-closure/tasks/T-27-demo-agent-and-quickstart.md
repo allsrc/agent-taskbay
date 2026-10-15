@@ -2,12 +2,12 @@
 id: T-27
 title: Demo agent and quickstart for tasks started elsewhere
 phase: 2
-status: todo
+status: in_progress
 depends_on: [T-26, T-12]
 size: M
 gap: dev-startup
 migration: no
-updated:
+updated: 2026-10-15
 ---
 
 # T-27. Dev startup: try browse and track in two minutes

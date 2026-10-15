@@ -2,7 +2,7 @@
 id: T-12
 title: End-to-end proof and guide for finding and steering tasks started elsewhere
 phase: 2
-status: in_progress
+status: done
 depends_on: [T-03, T-09, T-10, T-11, T-25, T-26]
 size: M
 gap: G5
@@ -60,3 +60,5 @@ New behavior.
 ## Notes for later
 
 ## Implementation log
+
+- 2026-10-15 · done: scripts/verify-discovery-http.mjs (added to test:http; A2A_DISCOVERY_HTTP_TEST_PORT) drives the real production server against the scenario agent: browse stores nothing, track + inbox + answer on the same task and context, a finished task is refused (task_terminal), steer delivered, agent refusal recorded as rejected/unsupported_operation, cancel, off and discovery_capped, deployment cap off then auto, automatic discovery stores waiting/working tasks and skips a 30-day-old finished one, no trackedBy for automatic, notification text, browse rate limit with Retry-After. Passed on PGlite with the embedded worker. Found and fixed a real bug on the way: SdkReconciliationGateway.list rejected the last page (SDK omits empty nextPageToken) and empty lists as 'Invalid task list', so every sweep against a real agent retried forever (reconciliation-gateway-list.test.ts). Also: a mode change now makes the sweep due immediately. Guide docs/guides/find-and-steer-tasks-started-elsewhere.md, docs index, development.md variable, cli.md, status-and-roadmap Works today. Not done: separate-worker run (needs PostgreSQL; verify-task-http covers that mode for the rest) and the permission matrix over HTTP with OIDC identities (covered by discovery.db.test.ts).

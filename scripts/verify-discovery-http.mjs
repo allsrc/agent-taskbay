@@ -58,7 +58,6 @@ try {
   registered = (await call("/api/agents", { method: "POST", body: JSON.stringify({ cardUrl: agent.cardUrl }) })).body.agent;
   assert.equal((await call("/api/agents")).status, 200);
 
-  console.log("step 0");
   // Browse only (the default). Taskbay lists what the agent has and stores nothing.
   await agent.control({ seed: [
     { id: "work", contextId: "ctx-work", state: "working", updatedAt: iso(60_000) },
@@ -74,7 +73,6 @@ try {
   assert.deepEqual(await tasks(), [], "browsing stored a task");
   assert.equal((await browse("?status=TASK_STATE_INPUT_REQUIRED")).body.rows.length, 1);
 
-  console.log("step 1");
   // Track the task waiting for a person: it is stored as discovered, appears in the inbox, and tracking tells nobody about its current state.
   const tracked = await track("ask");
   assert.equal(tracked.status, 201, tracked.text);
@@ -89,7 +87,6 @@ try {
   assert.equal((await browse()).body.rows.find((row) => row.taskId === "ask").tracked, true);
   assert.equal(((await call("/api/notifications")).body.notifications ?? (await call("/api/notifications")).body.items ?? []).length, 0, "tracking must not notify");
 
-  console.log("step 2");
   // Answer it: the message reaches the agent on the same task and context, and the task moves on.
   const answered = await command("answer-ask", { text: "Use the main ledger", taskId: "ask", contextId: "ctx-ask" });
   assert.equal(answered.status, "succeeded", JSON.stringify(answered));
@@ -100,7 +97,6 @@ try {
   // A finished task is not continued.
   assert.equal((await call(`/api/agents/${registered.id}/commands`, { method: "POST", headers: { "Idempotency-Key": "after" }, body: JSON.stringify({ text: "More", taskId: "ask" }) })).body.error.kind, "task_terminal");
 
-  console.log("step 3");
   // Steer a task that is working: delivered, or refused by the agent with a kind; then cancel it.
   const working = await track("work");
   assert.equal((await command("steer-1", { text: "Focus on March", taskId: "work", contextId: "ctx-work" })).status, "succeeded");
@@ -113,7 +109,6 @@ try {
   assert.equal(cancel.status, 200, cancel.text);
   assert.equal((await call(`/api/tasks/${working.body.localId}`)).body.task.state, "TASK_STATE_CANCELED");
 
-  console.log("step 4");
   // Modes: off refuses browsing and tracking; the settings route validates.
   assert.equal((await settings({ taskDiscovery: "off" })).status, 200);
   assert.equal((await browse()).body.error.kind, "discovery_disabled");
@@ -121,14 +116,12 @@ try {
   assert.equal((await settings({ taskDiscovery: "browse" })).status, 200);
   assert.equal((await settings({ taskDiscovery: "auto" })).body.error.kind, "discovery_capped", "automatic discovery needs the deployment to allow it");
 
-  console.log("step 5");
   // The deployment cap: off forbids everything.
   await stopServer(); await start({ A2A_TASK_DISCOVERY: "off" });
   assert.equal((await browse()).body.error.kind, "discovery_disabled");
   assert.equal((await call(`/api/agents/${registered.id}/discovery`)).body.canBrowse, false);
   assert.equal((await call("/api/auth/session")).body.taskDiscoveryCap, "off");
 
-  console.log("step 6");
   // Automatic discovery: allowed by the cap, switched on for the agent, found by the worker without anyone browsing.
   await stopServer(); await start({ A2A_TASK_DISCOVERY: "auto" });
   assert.equal((await settings({ taskDiscovery: "auto" })).status, 200);
@@ -137,7 +130,7 @@ try {
     { id: "auto-ask", contextId: "ctx-aa", state: "input-required", updatedAt: iso(60_000) },
     { id: "auto-old", contextId: "ctx-ao", state: "completed", updatedAt: iso(30 * DAY) },
   ] });
-  await until(async () => (await tasks("?origin=discovered")).some((task) => task.taskId === "auto-ask"), "automatic discovery stores a waiting task", 600).catch(async (error) => { console.log(JSON.stringify((await call(`/api/agents/${registered.id}/discovery`)).body), JSON.stringify((await agent.state()).log.filter((entry) => entry.method === "ListTasks").slice(-3))); throw error; });
+  await until(async () => (await tasks("?origin=discovered")).some((task) => task.taskId === "auto-ask"), "automatic discovery stores a waiting task", 600);
   const found = (await tasks("?origin=discovered")).map((task) => task.taskId);
   assert.ok(found.includes("auto-work") && found.includes("auto-ask"), found.join());
   assert.ok(!found.includes("auto-old"), "a finished task outside the history window must stay on the agent");
@@ -153,7 +146,6 @@ try {
   }, "automatic discovery tells people about work waiting on them");
   assert.equal((await settings({ taskDiscovery: "browse" })).status, 200);
 
-  console.log("step 7");
   // The browse rate limit is kept per person and agent.
   let limited;
   for (let call_ = 0; call_ < 40 && !limited; call_++) { const result = await browse(); if (result.status === 429) limited = result; }

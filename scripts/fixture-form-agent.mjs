@@ -65,7 +65,57 @@ const a2uiSurface = [
   { version: "v0.9", updateDataModel: { surfaceId: "deploy", path: "/", value: { service: "billing-api", env: ["staging"], notify: false } } },
 ];
 
+/**
+ * The `automation` variant: an agent that other systems also use. It starts with two tasks nobody sent a message for, as if a pipeline had started them,
+ * and supports ListTasks, GetTask, SendMessage and CancelTask, so a person can browse, track, answer and cancel them in the console.
+ */
+function createAutomation() {
+  const at = (ageMs) => new Date(Date.now() - ageMs).toISOString();
+  const tasks = new Map();
+  const add = (id, contextId, state, title, text, ageMs) => tasks.set(id, { id, contextId, state, title, updatedAt: at(ageMs), history: [{ messageId: `${id}-m1`, role: "ROLE_AGENT", taskId: id, contextId, parts: [{ text }] }] });
+  add("rotate-staging-credentials", "pipeline-run-41", "TASK_STATE_INPUT_REQUIRED", "Rotate staging credentials", "Which environment should I rotate?", 8 * 60_000);
+  add("nightly-report", "pipeline-run-40", "TASK_STATE_COMPLETED", "Nightly report", "The report is ready.", 3_600_000);
+  const finished = (state) => ["TASK_STATE_COMPLETED", "TASK_STATE_FAILED", "TASK_STATE_CANCELED", "TASK_STATE_REJECTED"].includes(state);
+  const json = (task) => ({ id: task.id, contextId: task.contextId, status: { state: task.state, timestamp: task.updatedAt, message: task.history.at(-1) }, history: task.history, artifacts: [], metadata: { title: task.title } });
+  const fail = (rpc, code, message) => ({ jsonrpc: "2.0", id: rpc.id, error: { code, message } });
+  const card = (origin) => ({ name: "Automation fixture", description: "An agent that a pipeline also uses: it already has tasks you can browse and track.", version: "1.0.0",
+    supportedInterfaces: [{ url: `${origin}/automation/a2a`, protocolBinding: "JSONRPC", protocolVersion: "1.0" }], capabilities: { streaming: false, pushNotifications: false },
+    defaultInputModes: ["text/plain"], defaultOutputModes: ["text/plain"], skills: [{ id: "rotate", name: "Rotate credentials", description: "Rotates credentials for an environment", tags: ["ops"], examples: ["rotate staging"] }] });
+  const handle = (rpc) => {
+    const params = rpc.params ?? {};
+    if (rpc.method === "ListTasks") {
+      const rows = [...tasks.values()].filter((task) => (!params.contextId || task.contextId === params.contextId) && (!params.status || params.status.endsWith("UNSPECIFIED") || task.state === params.status));
+      return { jsonrpc: "2.0", id: rpc.id, result: { tasks: rows.map(json), pageSize: 50, totalSize: rows.length } };
+    }
+    if (rpc.method === "GetTask") return tasks.has(params.id) ? { jsonrpc: "2.0", id: rpc.id, result: json(tasks.get(params.id)) } : fail(rpc, -32001, "Task not found");
+    if (rpc.method === "CancelTask") {
+      const task = tasks.get(params.id);
+      if (!task) return fail(rpc, -32001, "Task not found");
+      if (finished(task.state)) return fail(rpc, -32002, "Task cannot be canceled");
+      task.state = "TASK_STATE_CANCELED"; task.updatedAt = at(0);
+      return { jsonrpc: "2.0", id: rpc.id, result: json(task) };
+    }
+    if (rpc.method === "SendMessage") {
+      const message = params.message ?? {};
+      const task = message.taskId ? tasks.get(message.taskId) : undefined;
+      if (message.taskId && !task) return fail(rpc, -32001, "Task not found");
+      if (task) {
+        if (finished(task.state)) return fail(rpc, -32004, "The task is finished");
+        const answer = (message.parts ?? []).map((part) => part.text ?? "").join(" ").trim();
+        task.history.push(message);
+        task.state = "TASK_STATE_COMPLETED"; task.updatedAt = at(0);
+        task.history.push({ messageId: `${task.id}-m${task.history.length + 1}`, role: "ROLE_AGENT", taskId: task.id, contextId: task.contextId, parts: [{ text: `Done. Rotated ${answer || "the credentials"}.` }] });
+        return { jsonrpc: "2.0", id: rpc.id, result: { task: json(task) } };
+      }
+      return { jsonrpc: "2.0", id: rpc.id, result: { message: { messageId: `direct-${tasks.size}`, role: "ROLE_AGENT", parts: [{ text: "Ask about the existing tasks, or track one in the console." }] } } };
+    }
+    return fail(rpc, -32601, `Method not found: ${rpc.method}`);
+  };
+  return { card, handle };
+}
+
 export async function startFormAgent(port = 0) {
+  const automation = createAutomation();
   const received = [];
   const cancelled = [];
   const contexts = new Map();
@@ -73,6 +123,7 @@ export async function startFormAgent(port = 0) {
   const server = createServer(async (request, response) => {
     const variant = request.url.split("/")[1];
     response.setHeader("Content-Type", "application/json");
+    if (request.method === "GET" && variant === "automation") { response.end(JSON.stringify(automation.card(origin))); return; }
     if (request.method === "GET") {
       response.end(JSON.stringify({
         name: `Form fixture (${variant})`, description: "Asks for input with a structured form", version: "1.0.0",
@@ -88,6 +139,7 @@ export async function startFormAgent(port = 0) {
     let input = "";
     for await (const chunk of request) input += chunk;
     const rpc = JSON.parse(input);
+    if (variant === "automation") { response.end(JSON.stringify(automation.handle(rpc))); return; }
     const message = rpc.params?.message;
     const taskId = message?.taskId ?? `form-task-${received.length}`;
     const contextId = message?.contextId ?? "form-context";

@@ -101,7 +101,8 @@ async function demoAgent(positional) {
   const agent = await startFormAgent(port);
   console.log("Sample A2A agents are running. In the console choose Connect agent and paste one of these Agent Card URLs:\n");
   for (const [variant, summary] of [["showcase", "form, A2UI surface and approval request"], ["form", "structured input form"],
-    ["approver", "asks a person to approve an action"], ["a2ui", "A2UI confirmation surface"]]) {
+    ["approver", "asks a person to approve an action"], ["a2ui", "A2UI confirmation surface"],
+    ["automation", "already has tasks another system started: browse and track them"]]) {
     console.log(`  ${agent.cardUrl(variant)}   ${summary}`);
   }
   console.log("\nPress Ctrl+C to stop.");

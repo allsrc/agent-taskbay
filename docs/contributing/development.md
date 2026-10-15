@@ -72,7 +72,7 @@ These are read by the repository's tests and verification scripts, not by the ap
 | --- | --- |
 | `A2A_TEST_POSTGRES_URL` | Database tests (`npm run test:db`) and HTTP verification scripts; a PostgreSQL URL for a disposable test database. |
 | `A2A_HTTP_TEST_PROFILE`, `A2A_IDENTITY_HTTP_TEST_PROFILE`, `A2A_HTTP_TEST_KEEP_SERVER` | `scripts/verify-*-http.mjs` |
-| `A2A_*_HTTP_TEST_PORT` (`A2A_HTTP_TEST_PORT`, `A2A_AGUI_HTTP_TEST_PORT`, `A2A_A2UI_HTTP_TEST_PORT`, `A2A_FORMS_HTTP_TEST_PORT`, `A2A_DECISIONS_HTTP_TEST_PORT`, `A2A_IDENTITY_HTTP_TEST_PORT`, `A2A_WORKFLOW_HTTP_TEST_PORT`, `A2A_NOTIFICATIONS_HTTP_TEST_PORT`, `A2A_AGENT_APPROVALS_HTTP_TEST_PORT`, `A2A_PHASE6_EXIT_HTTP_TEST_PORT`) | Port overrides for the matching script. |
+| `A2A_*_HTTP_TEST_PORT` (`A2A_HTTP_TEST_PORT`, `A2A_AGUI_HTTP_TEST_PORT`, `A2A_A2UI_HTTP_TEST_PORT`, `A2A_FORMS_HTTP_TEST_PORT`, `A2A_DECISIONS_HTTP_TEST_PORT`, `A2A_IDENTITY_HTTP_TEST_PORT`, `A2A_WORKFLOW_HTTP_TEST_PORT`, `A2A_NOTIFICATIONS_HTTP_TEST_PORT`, `A2A_AGENT_APPROVALS_HTTP_TEST_PORT`, `A2A_PHASE6_EXIT_HTTP_TEST_PORT`, `A2A_DISCOVERY_HTTP_TEST_PORT`) | Port overrides for the matching script. |
 | `A2A_SERVICE_FIXTURE_DIR` | `scripts/verify-service-security.mjs` |
 | `A2A_PACKAGE_TARBALL` | `scripts/verify-package.mjs`: reuse an existing tarball. |
 

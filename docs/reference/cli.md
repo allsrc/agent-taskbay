@@ -87,6 +87,7 @@ per variant:
 | `form` | `http://127.0.0.1:<port>/form/card.json` | A structured input form |
 | `approver` | `http://127.0.0.1:<port>/approver/card.json` | An approval request |
 | `a2ui` | `http://127.0.0.1:<port>/a2ui/card.json` | An A2UI confirmation surface |
+| `automation` | `http://127.0.0.1:<port>/automation/card.json` | Already has two tasks another system started (one waiting for input, one finished), to browse, track, answer and cancel ([walk-through](../quickstart.md#7-find-a-task-another-system-started)) |
 
 The script also serves other variants used by tests (`plain`, `invalid`, `unknown`, `rogue`) that are not printed. These agents are test fixtures,
 not examples of production agents. Stop with Ctrl+C (exit 0). The console must be allowed to reach loopback addresses, which local mode does by default.
@@ -249,7 +250,7 @@ A message to a finished task is always refused, and a message to an `input-requi
 `npm run test:http` runs these in order. Each starts a real production server on a private port (overridable; see
 [Development setup](../contributing/development.md#test-and-verification-variables)) with a temporary database and fixture agents, then asserts behavior over
 HTTP: `verify-service-security`, `verify-task-http`, `verify-identity-http`, `verify-decisions-http`, `verify-workflow-http`,
-`verify-notifications-http`, `verify-forms-http`, `verify-agui-http`, `verify-a2ui-http`, `verify-agent-approvals-http` and `verify-phase6-exit-http`.
+`verify-notifications-http`, `verify-forms-http`, `verify-agui-http`, `verify-a2ui-http`, `verify-agent-approvals-http`, `verify-phase6-exit-http` and `verify-discovery-http` (finding, tracking, answering and steering tasks another system started, the modes and the cap, and automatic discovery against the scenario agent).
 They need a completed `npm run build` and, for the PostgreSQL variants, `A2A_TEST_POSTGRES_URL`. A non-zero exit means an assertion failed.
 
 ## Limits

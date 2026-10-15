@@ -133,6 +133,18 @@ try {
   assert.ok(taskId, "the command produced no durable task");
   assert.equal((await call(base, `/api/tasks/${taskId}`)).status, 200);
 
+  // The sample agent that already has tasks another system started: browse them, track one, and it is a discovered task (the quickstart's second walk-through).
+  assert.ok(/automation\/card\.json/.test(demo.output.text), "demo-agent does not print the automation card");
+  const automation = await call(base, "/api/agents", { method: "POST", body: JSON.stringify({ cardUrl: `http://127.0.0.1:${demoPort}/automation/card.json` }) });
+  assert.equal(automation.status, 201, JSON.stringify(automation.body));
+  await call(base, "/api/agents");
+  const browsed = await call(base, `/api/agents/${automation.body.agent.id}/remote-tasks`);
+  assert.equal(browsed.status, 200, JSON.stringify(browsed.body));
+  assert.deepEqual(browsed.body.rows.map((row) => row.taskId).sort(), ["nightly-report", "rotate-staging-credentials"]);
+  const tracked = await call(base, `/api/agents/${automation.body.agent.id}/remote-tasks/track`, { method: "POST", body: JSON.stringify({ taskId: "rotate-staging-credentials" }) });
+  assert.equal(tracked.status, 201, JSON.stringify(tracked.body));
+  assert.equal((await call(base, `/api/tasks/${tracked.body.localId}`)).body.task.origin, "discovered");
+
   // Restart: migrations are idempotent, the vault key is reused and nothing is lost.
   await stop(server);
   assert.equal(existsSync(join(dataDir, "agent-taskbay.pid")), false, "the pid file was not released");
@@ -143,7 +155,7 @@ try {
 
   await stop(server);
   await stop(demo);
-  console.log("package verified: tarball contents, install, launch, auth guard, data-dir guard, agent registration, command dispatch, restart");
+  console.log("package verified: tarball contents, install, launch, auth guard, data-dir guard, agent registration, command dispatch, browse and track, restart");
 } catch (error) {
   console.error(error);
   process.exitCode = 1;

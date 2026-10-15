@@ -59,7 +59,7 @@ In a second terminal:
 npx agent-taskbay demo-agent
 ```
 
-It prints the four card URLs used below (`showcase`, `form`, `approver`, `a2ui`) on port 4010, or on the port you pass as an argument. The text it prints says "choose Connect agent", but the button in the Agents list is **Add agent**.
+It prints the card URLs used below (`showcase`, `form`, `approver`, `a2ui`, `automation`) on port 4010, or on the port you pass as an argument. The text it prints says "choose Connect agent", but the button in the Agents list is **Add agent**.
 
 ### From source
 
@@ -89,6 +89,7 @@ This is a test fixture, not a real agent. One server serves several variants, ea
 | `http://127.0.0.1:4010/form/card.json` | Asks for a deployment form. Advertises the structured-form extension. |
 | `http://127.0.0.1:4010/approver/card.json` | Asks a person to approve an action. |
 | `http://127.0.0.1:4010/a2ui/card.json` | Asks for confirmation with an A2UI surface. |
+| `http://127.0.0.1:4010/automation/card.json` | Already has two tasks another system "started" (one waiting for you, one finished), for [the second walk-through](#7-find-a-task-another-system-started). |
 | `http://127.0.0.1:4010/plain/card.json` | Sends a form without advertising the extension, so the console shows it as plain data. |
 | `http://127.0.0.1:4010/invalid/card.json` | Advertises the extension but sends a form outside the supported subset, so the console falls back to plain data. |
 
@@ -130,6 +131,18 @@ The full set of reviewer actions is in [Approvals and ownership](guides/approval
 
 Everything above is stored in the database, not in the browser. With `npx` the state lives in the launcher's data directory (`~/.agent-taskbay` by default). From source it lives in `./.data/pglite` (database) and `./.data/artifacts` (binary content). The state survives a restart: `npm run verify:package` installs the packaged launcher, registers an agent, sends it a command, restarts, and checks that the agent and task are still there.
 
+## 7. Find a task another system started
+
+Real agents are often driven by more than one system. The `automation` sample agent plays that: it already has a task, "Rotate staging credentials", waiting for an answer, as if a pipeline had started it.
+
+1. In **Agents**, choose **Add agent**, paste `http://127.0.0.1:4010/automation/card.json`, then **Fetch Agent Card**, **Continue** and **Connect**.
+2. Open the agent and choose **Browse tasks**. You see two tasks, with the agent's question in quotes: "Which environment should I rotate?". Nothing has been stored yet.
+3. Choose **Track** on "Rotate staging credentials". The row says **Tracked**; choose **Open**.
+4. Open the task in chat and reply `staging`. The task completes ("Done. Rotated staging.").
+
+**What you should see:** the task in **Tasks** with a **Discovered** tag, and, before you answered, under **Needs you** in the **Inbox**. The finished "Nightly report" task never appeared, because you did not track it.
+How it works, who may do this and how to switch it off: [Find and steer tasks started elsewhere](guides/find-and-steer-tasks-started-elsewhere.md).
+
 ## When it fails
 
 | Symptom | Likely cause | What to do |
@@ -140,6 +153,7 @@ Everything above is stored in the database, not in the browser. With `npx` the s
 | `Agent Taskbay is already running for <dir> (pid ...)` | A second launcher on the same data directory. The embedded database allows one owner. | Stop the first process or pass `--data-dir`. |
 | "There is no production build." | The launcher was run from a checkout without a build. | Run `npm run build` first, or use `npx agent-taskbay`. |
 | Database error when starting a second `npm run dev` or script against the same `.data` | PGlite has a single owner process. | Stop the other process. CLIs that touch the database need `--offline-pglite` while it is stopped. |
+| **Browse tasks** is missing, or says task discovery is off | Your role cannot browse (viewers and skill-only grants cannot), or `A2A_TASK_DISCOVERY=off` | Local mode signs you in as an administrator, so check that variable. |
 | The approval never appears | The message did not contain "approve", so the showcase agent sent a form instead. | Use the exact message above, or open the task and choose **Request approval** to record one yourself. |
 | Approve is disabled or refused: "The requester cannot decide their own request." | Separation of duties is on by default. | Agent-opened requests have no requester, so this only hits approvals you created yourself. Ask another reviewer. |
 

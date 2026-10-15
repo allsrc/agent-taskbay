@@ -18,8 +18,9 @@ export class SdkReconciliationGateway implements A2AReconciliationGateway {
           ...(options?.statusTimestampAfter ? { statusTimestampAfter: options.statusTimestampAfter.toISOString() } : {}),
           ...(options?.historyLength !== undefined ? { historyLength: options.historyLength } : {}) } });
       const result = response.result as { tasks?: JsonValue[]; nextPageToken?: string };
-      if (!Array.isArray(result.tasks) || typeof result.nextPageToken !== "string") throw new Error("Invalid task list.");
-      return { tasks: result.tasks.map((task) => ({ task })), nextPageToken: result.nextPageToken };
+      // The SDK leaves empty fields out of a serialized response, so the last page has no token and an empty list has no `tasks`.
+      if (result.tasks !== undefined && !Array.isArray(result.tasks) || result.nextPageToken !== undefined && typeof result.nextPageToken !== "string") throw new Error("Invalid task list.");
+      return { tasks: (result.tasks ?? []).map((task) => ({ task })), nextPageToken: result.nextPageToken ?? "" };
     } catch (error) {
       if (error instanceof Error && (["MethodNotFoundError", "UnsupportedOperationError", "JsonRpcUnsupportedOperationError"].includes(error.name) || (error as Error & { envelopeCode?: number }).envelopeCode === -32601)) throw new ListTasksUnsupported();
       throw error;
