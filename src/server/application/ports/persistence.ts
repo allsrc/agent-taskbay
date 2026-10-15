@@ -131,5 +131,9 @@ export interface OutboxRepository {
 export interface TaskCommandRepository {
   getOrCreate(command: TaskCommandRecord): Promise<{ command: TaskCommandRecord; created: boolean }>;
   findById(organizationId: string, id: string): Promise<TaskCommandRecord | undefined>;
+  /** The `send` commands for these message ids on one agent and tenant, in one query. */
+  findSendsByMessageIds(organizationId: string, agentId: string, tenant: string, messageIds: string[]): Promise<TaskCommandRecord[]>;
+  /** `send` commands for the agent and tenant created at or after `since` that did not succeed (their message may never have reached the task). Newest first. */
+  listUnsettledSends(organizationId: string, agentId: string, tenant: string, since: Date, limit: number): Promise<TaskCommandRecord[]>;
   update(organizationId: string, id: string, changes: Pick<TaskCommandRecord, "status" | "resultJson" | "lastError" | "updatedAt"> & { errorKind?: string | null }): Promise<void>;
 }

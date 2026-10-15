@@ -28,6 +28,10 @@ A task that another system started reaches the inbox the same way as any other o
 Until then it is not in Taskbay and appears nowhere, so browsing an agent's tasks never fills the inbox. Once stored, a task that waits on a person is under **Needs you** for people with access to the
 whole agent, and ownership, due times, escalation and notes work on it unchanged.
 
+## Steering a running task
+
+A person can also send more input to a task that is already working. Agent Taskbay delivers the message and shows whether the agent accepted it, answered afterwards or refused it. It does not claim the agent used the input: A2A defines no live steering, so the agent decides. To change direction for certain, cancel the task and start a new one in the same context that references the old one (`referenceTaskIds`). The console offers this as **Stop and restart with this**, two ordinary commands shown as two steps; it cannot promise that the agent stops or keeps partial work. See [Sending more input to a running task](../guides/use-the-console.md#sending-more-input-to-a-running-task).
+
 ## Approvals
 
 An approval is a `DecisionRequest` scoped to one A2A task. The agent, tenant and skill come from the task's own row, never from the proposed content. The design goal: the record alone can show who approved exactly what, and what happened next.

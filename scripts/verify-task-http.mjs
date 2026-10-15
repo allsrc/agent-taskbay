@@ -369,7 +369,7 @@ try {
   const cleanOne = await json(`/api/tasks/${ids[0]}`, { headers: { Cookie: "clean-session=one" } });
   const cleanTwo = await json(`/api/tasks/${ids[0]}`, { headers: { Cookie: "clean-session=two" } });
   // Other tasks have joined the context since `initial` was read, so compare everything but the sibling list.
-  const withoutSiblings = ({ task }) => ({ task: Object.fromEntries(Object.entries(task).filter(([key]) => key !== "contextSiblings")) });
+  const withoutSiblings = ({ task }) => ({ task: Object.fromEntries(Object.entries(task).filter(([key]) => key !== "contextSiblings" && key !== "steering")) });
   assert.deepEqual(withoutSiblings(cleanOne), withoutSiblings(initial)); assert.deepEqual(withoutSiblings(cleanTwo), withoutSiblings(initial));
   assert.deepEqual(cleanOne, cleanTwo);
   assert.equal((await json("/api/tasks")).tasks.length, 7);

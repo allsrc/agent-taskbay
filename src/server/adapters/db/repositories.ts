@@ -473,6 +473,17 @@ export class MikroOrmTaskCommandRepository implements TaskCommandRepository {
     const entity = await this.entityManager.findOne(TaskCommandEntity, { organizationId, id }, { refresh: true });
     return entity ? this.record(entity) : undefined;
   }
+  async findSendsByMessageIds(organizationId: string, agentId: string, tenant: string, messageIds: string[]) {
+    if (!messageIds.length) return [];
+    const rows = await this.entityManager.find(TaskCommandEntity, { organizationId, agentId, tenant, action: "send", messageId: { $in: messageIds } }, { refresh: true });
+    return rows.map((row) => this.record(row));
+  }
+  async listUnsettledSends(organizationId: string, agentId: string, tenant: string, since: Date, limit: number) {
+    const rows = await this.entityManager.find(TaskCommandEntity,
+      { organizationId, agentId, tenant, action: "send", createdAt: { $gte: since }, status: { $ne: "succeeded" } },
+      { orderBy: { createdAt: "desc" }, limit, refresh: true });
+    return rows.map((row) => this.record(row));
+  }
   async update(organizationId: string, id: string, changes: Pick<TaskCommandRecord, "status" | "resultJson" | "lastError" | "updatedAt"> & { errorKind?: string | null }) {
     await this.entityManager.nativeUpdate(TaskCommandEntity, { organizationId, id }, changes);
   }

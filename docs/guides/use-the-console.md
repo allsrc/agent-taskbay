@@ -101,6 +101,39 @@ When the conversation has unfinished tasks, a **Send to** row appears above the 
 
 If your access to an agent is limited to one skill, a **Skill** picker appears for new tasks, and each new task starts a new conversation context. See [skill routing](../reference/extensions/skill-routing.md).
 
+### Sending more input to a running task
+
+You can send a message to a task that is still working (state `SUBMITTED` or `WORKING`). The placeholder reads "Send more input to the running task. The agent decides whether to use it." Taskbay delivers the message. A2A has no live steering, so what the agent does with it is the agent's choice.
+
+Under your message a small label says what Taskbay can tell:
+
+| Label | What it means | What it does not mean |
+| --- | --- | --- |
+| **Delivered** | The agent accepted the message and has shown nothing new since (no new message, artifact or state change). | That the agent read it or will use it. |
+| **Agent responded** | The agent accepted the message and later sent a message, an artifact or a status update. | That the response is about your message. |
+| **Agent refused: …** | The agent answered with an error. The reason is one of a few fixed phrases (for example "input not accepted"), never the agent's own text. | That the task stopped or changed. The agent did nothing with the message, so sending again is safe. |
+| **Waiting for a response** | The request is still on its way to the agent. After 60 seconds in your browser it reads **No response yet**. | That anything failed. |
+| **Not sure it arrived** | The connection failed after the request left Taskbay. Taskbay never resends on its own. | That the agent did not get it. Check the task before sending again. |
+
+A message the agent refused, or one Taskbay cannot confirm, never reached the task, so it is shown here with its text but is not part of the task's messages. Only text is shown for those. Answering a task that is waiting for input is an ordinary reply and gets no label. The label is worked out when the page loads from the command and what the agent has sent since, so it is the same after a restart. It is not shown in the Tasks list.
+
+### Stop and restart with this instruction
+
+To change direction, choose **Stop and restart with this** under a message you sent to a task that has not finished. A dialog lists two steps and runs them one after the other:
+
+1. Cancel the task. The agent decides whether it stops.
+2. Start a new task in this conversation with the same message, referencing the old one (`referenceTaskIds`). The old task then lists it under related tasks.
+
+Step 2 runs only after the old task reads back as canceled. If the agent says the task can no longer be canceled and it has in fact finished, step 2 runs too. Partial work may or may not be kept; Taskbay cannot tell.
+
+| What happens | What you see |
+| --- | --- |
+| The agent refuses the cancel, or Taskbay cannot tell whether it did | The error for that failure, "The new task was not started and nothing else changed.", and **Send as extra input instead**, which sends the message to the running task. |
+| The cancel worked but the new task failed | "The old task was canceled, but the new task was not started." and **Try step 2 again**, which repeats step 2 only. |
+| You click again, or reload and restart the same message | The same two commands are used again (their keys come from the message), so no second cancel or second new task is created. |
+
+Both steps are ordinary commands and show on the **Wire** panel. Only text, structured data and files sent by URL are carried to the new task. The message to restart can be one that the agent refused, since its text is still shown.
+
 ### Answer an agent that needs you
 
 When a task is waiting, the agent's message has a coloured border and a label:

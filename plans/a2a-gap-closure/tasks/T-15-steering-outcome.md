@@ -2,12 +2,12 @@
 id: T-15
 title: Show what happened to a message sent to a running task
 phase: 3
-status: todo
+status: done
 depends_on: [T-04, T-11]
 size: M
 gap: G8
 migration: no
-updated:
+updated: 2026-10-15
 ---
 
 # T-15. Steering outcome
@@ -68,3 +68,20 @@ The restart action (T-16).
 ## Notes for later
 
 ## Implementation log
+
+Done on branch `plan/T-15-T-16`.
+
+- **Read model.** `src/server/application/services/steering.ts` (`computeSteering`, `readSteering`) derives `steering` at read time from the ledger and the commands; `TaskQueryService.detail` adds it when given the sources (`withTaskQueries` supplies them). Type `SteeringEntry` in `src/shared/task-types.ts`. List rows and snapshots carry no `steering`. No migration, no new column.
+- **Repository.** `TaskCommandRepository.findSendsByMessageIds` (one query by organization, agent, tenant and message ids) and `listUnsettledSends` (non-succeeded sends since the task was created, newest 50).
+- **UI.** `components/chat/steering-chip.tsx` (outcome pill; "Waiting for a response" becomes "No response yet" after 60 s in the browser). `chat-view.tsx` reads the task detail when a task's version or state changes and after a send, and shows the chip under the message. The composer hint now reads "Send more input to the running task. The agent decides whether to use it."
+- **Tests.** `steering.db.test.ts` (every outcome; a reply to an `INPUT_REQUIRED` task has no entry; another organization sees nothing; the PostgreSQL variant runs when `A2A_TEST_POSTGRES_URL` is set), `steering-chip.test.tsx`, and `scripts/verify-steering-http.mjs` (acceptance 1 to 3 against the scenario agent).
+- **Docs.** use-the-console, human-in-the-loop, http-api, compatibility, cli, development (port variable), CHANGELOG.
+- **Hosting profiles.** Rules 1 (nothing kept in process memory; read from the database per request), 3 (queries filter by organization; tested) and 6 (the db test runs on both databases when configured) apply. Rules 2 and 7 are not affected: no background work was added.
+
+Deviations and decisions:
+
+- A refused, waiting or uncertain command never puts its message in the ledger (the dispatcher records the user message only when the command succeeds), so those entries cannot be found from the ledger. The commands table has no task column, so `listUnsettledSends` reads recent non-succeeded sends for the same agent and tenant and matches the task from the archived payload (`taskId`), then checks against the ledger that the task was `SUBMITTED` or `WORKING` at that time. These entries also carry `text` (first 2000 characters) so the console can still show the message. Cost: one archive read per such command (at most 50) per detail request.
+- "Agent activity after the message" counts: an agent message with an ID not seen before, a new artifact or any artifact event, any streamed status update, and any state change. A repeated task snapshot with nothing new (what an agent that ignores input returns) does not count.
+- Acceptance 5 (rebuild stability) holds by construction (the outcome uses only the ledger and the command rows); it was not checked by running `db:projections:rebuild`.
+
+- 2026-10-15 · done: branch plan/T-15-T-16; tests: steering.db.test.ts, steering-chip.test.tsx, verify-steering-http.mjs

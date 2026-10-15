@@ -20,7 +20,7 @@ import { currentPrincipal } from "../adapters/auth/principal-context";
 
 export const artifactStore = new FilesystemArtifactStore();
 
-export async function withTaskQueries<T>(work: (queries: TaskQueryService, organizationId: string) => Promise<T>, orm?: MikroORM) {
+export async function withTaskQueries<T>(work: (queries: TaskQueryService, organizationId: string) => Promise<T>, orm?: MikroORM, store: ArtifactStore = artifactStore) {
   return withRequestEntityManager(async (em) => {
     const repositories = createPersistenceRepositories(em);
     const principal = currentPrincipal();
@@ -28,7 +28,7 @@ export async function withTaskQueries<T>(work: (queries: TaskQueryService, organ
       await bootstrapDefaultLocalOrganization(repositories.organizations);
     if (!organization) throw new Error("Unknown query organization.");
     const names = async (userIds: string[]) => Object.fromEntries((userIds.length ? await em.find(UserEntity, { id: { $in: userIds } }) : []).map((user) => [user.id, user.displayName]));
-    return work(new TaskQueryService(repositories.tasks, repositories.agents, names), organization.id);
+    return work(new TaskQueryService(repositories.tasks, repositories.agents, names, { events: repositories.taskEvents, commands: repositories.commands, store }), organization.id);
   }, orm);
 }
 

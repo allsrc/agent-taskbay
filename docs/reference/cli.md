@@ -250,7 +250,7 @@ A message to a finished task is always refused, and a message to an `input-requi
 `npm run test:http` runs these in order. Each starts a real production server on a private port (overridable; see
 [Development setup](../contributing/development.md#test-and-verification-variables)) with a temporary database and fixture agents, then asserts behavior over
 HTTP: `verify-service-security`, `verify-task-http`, `verify-identity-http`, `verify-decisions-http`, `verify-workflow-http`,
-`verify-notifications-http`, `verify-forms-http`, `verify-agui-http`, `verify-a2ui-http`, `verify-agent-approvals-http`, `verify-phase6-exit-http` and `verify-discovery-http` (finding, tracking, answering and steering tasks another system started, the modes and the cap, and automatic discovery against the scenario agent).
+`verify-notifications-http`, `verify-forms-http`, `verify-agui-http`, `verify-a2ui-http`, `verify-agent-approvals-http`, `verify-phase6-exit-http` and `verify-steering-http` (what happened to input sent to a working task, and cancel-then-restart at API level), `verify-discovery-http` (finding, tracking, answering and steering tasks another system started, the modes and the cap, and automatic discovery against the scenario agent).
 They need a completed `npm run build` and, for the PostgreSQL variants, `A2A_TEST_POSTGRES_URL`. A non-zero exit means an assertion failed.
 
 ## Limits

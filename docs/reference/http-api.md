@@ -408,6 +408,8 @@ Bad filter: `400 Invalid task filter.`
 
 `contextSiblings` lists the other tasks the same agent holds in this task's context (same tenant and context ID), newest first, at most 20, each `{ localId, taskId, state, title, updatedAt }`, limited to tasks you may read. It is `[]` when the task has no context. A discovered task's view also has `origin: "discovered"`, `discoveredAt`, and, on this route only, `trackedBy` (`{ userId, name }`, or `null` when automatic discovery found it).
 
+`steering` lists what happened to each message a person sent while the task was `SUBMITTED` or `WORKING`, oldest first: `{ messageId, commandId, sentAt, outcome, errorKind?, text? }`. `outcome` is `delivered` (accepted, nothing new from the agent since), `responded` (accepted, and the agent has since sent a message, artifact or status update), `refused` (the agent returned an error; `errorKind` says which), `waiting` (the command is `pending` or `dispatching`) or `unknown` (the command is `uncertain` or `failed`). `text` is the message text, present only for messages that never reached the task (`refused`, `waiting`, `unknown`). It is worked out when you read it, from the command and the task's event history, and is `[]` when there is none. A reply to a task that was waiting for input is not listed. List rows have no `steering`.
+
 `read`. `{taskId}` is the local ID. `{ "task": <view> }` with `messages` (each with `id`, `role` `user` or `agent`, normalized `parts`, `timestamp`,
 `fromStatus` for the agent's question), `artifacts`, `transitions`, `version` and the fields above. `404 Task not found.`
 
