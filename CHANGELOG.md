@@ -23,6 +23,8 @@ the project uses [semantic versioning](https://semver.org/) once it reaches 1.0;
 ### Fixed
 
 
+- Markdown in chat no longer turns bare addresses into links. A URL, `localhost:3000/…`, `www.example.com`, an email or a path mentioned in running text stays as written; only links the author wrote (`[label](url)`, `<url>`) are clickable, and they open in a new tab with `noopener noreferrer nofollow`.
+
 - In chat, the newest message no longer runs into the composer. On desktop the message column was sized to the pane instead of its content, so the last message ended flush against the "Send to" area with its bottom padding lost; on phones and tablets the scroll-to-bottom ran too early and stopped short, leaving the last message, its quick replies or form under the composer and tab bar. The chat now follows new content as it lays out while you are at the bottom, pauses when you scroll up to read, and resumes when you send.
 - In chat, a question the agent asks (input or authorization required) and its final reply stay in the conversation instead of being folded into the Progress log, so quick replies and forms show again.
 - A status update's event metadata (such as Google ADK's `adk_author`) now reaches its message in stored task projections; before, only a direct projection kept it. Stored status messages also record the state they arrived with, so a working update followed by a result is not shown as the reply. Run `npm run db:projections:rebuild` to refresh tasks recorded earlier; they also refresh on their next event.
