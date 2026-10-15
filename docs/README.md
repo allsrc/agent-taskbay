@@ -77,6 +77,6 @@ What happens when it fails?
 
 ## Project and contributing
 
-- [Status and roadmap](project/status-and-roadmap.md), [CHANGELOG](../CHANGELOG.md)
+- [Status and roadmap](project/status-and-roadmap.md), [A2A workflow gap analysis and plan](project/a2a-gap-analysis-and-plan.md), [CHANGELOG](../CHANGELOG.md)
 - [CONTRIBUTING](../CONTRIBUTING.md), [Development](contributing/development.md), [Writing documentation](contributing/documentation.md)
 - [Archive of the earlier planning documents](archive/README.md)

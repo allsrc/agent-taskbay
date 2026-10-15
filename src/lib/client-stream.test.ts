@@ -25,6 +25,16 @@ describe("durable stream delivery", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response('event: error\ndata: {"message":"Persistence failed"}\n\n')));
     const onError = vi.fn();
     await expect(sendAndStream("agent", { text: "Work" }, { onError })).rejects.toThrow("Persistence failed");
-    expect(onError).toHaveBeenCalledWith("Persistence failed");
+    expect(onError).toHaveBeenCalledWith("Persistence failed", undefined);
+  });
+  it("carries the kind of a refused or uncertain command to the caller", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response('event: error\ndata: {"message":"Agent rejected the request: unsupported_operation.","kind":"unsupported_operation"}\n\n')));
+    const onError = vi.fn();
+    await expect(sendAndStream("agent", { text: "Work" }, { onError })).rejects.toMatchObject({ kind: "unsupported_operation", name: "CommandFailureError" });
+    expect(onError).toHaveBeenCalledWith("Agent rejected the request: unsupported_operation.", "unsupported_operation");
+  });
+  it("carries the kind of a refusal made before anything was saved", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: { message: "This task is finished.", kind: "task_terminal" } }), { status: 409 })));
+    await expect(sendAndStream("agent", { text: "Work", taskId: "t" }, {})).rejects.toMatchObject({ kind: "task_terminal", status: 409, message: "This task is finished." });
   });
 });

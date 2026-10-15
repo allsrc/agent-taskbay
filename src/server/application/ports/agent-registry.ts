@@ -4,6 +4,8 @@ export interface RegisteredAgent {
   id: string;
   cardUrl: string;
   source: "env" | "managed";
+  /** True when an administrator allows sending although the card requires an unsupported extension. */
+  extensionOverride?: boolean;
 }
 
 export interface AgentDiscoverySnapshot {

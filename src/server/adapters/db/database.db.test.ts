@@ -12,7 +12,7 @@ import {
   withRequestEntityManager,
 } from "./orm";
 
-const migrationNames = ["Migration0001_Baseline"];
+const migrationNames = ["Migration0001_Baseline", "Migration0002_TaskDiscovery", "Migration0003_CommandErrorKind", "Migration0004_AgentExtensionOverride"];
 
 async function verifyMigrationContract(config: DatabaseConfig) {
   const orm = await createDatabaseOrm(config);
@@ -28,7 +28,7 @@ async function verifyMigrationContract(config: DatabaseConfig) {
     const applied = await orm.migrator.up();
     expect(applied.map((migration) => migration.name)).toEqual(migrationNames);
     expect(await orm.migrator.getPending()).toHaveLength(0);
-    expect(await orm.migrator.getExecuted()).toHaveLength(1);
+    expect(await orm.migrator.getExecuted()).toHaveLength(migrationNames.length);
     expect(await orm.migrator.checkSchema()).toBe(false);
   } finally {
     await orm.close(true);
@@ -54,14 +54,15 @@ describe("PGlite database adapter", () => {
 
     reopenedOrm = await createDatabaseOrm(config);
     expect(await reopenedOrm.migrator.getPending()).toHaveLength(0);
-    expect(await reopenedOrm.migrator.getExecuted()).toHaveLength(1);
+    expect(await reopenedOrm.migrator.getExecuted()).toHaveLength(migrationNames.length);
   });
 
   it("adopts a database created by the migrations that came before the squashed baseline", async () => {
     const legacyDataDir = await mkdtemp(path.join(tmpdir(), "agent-taskbay-pglite-legacy-"));
     try {
       const orm = await createDatabaseOrm({ profile: "pglite", dataDir: legacyDataDir });
-      await orm.migrator.up();
+      // The old chain ended at the schema the baseline describes; later migrations are still to run after adoption.
+      await orm.migrator.up({ to: "Migration0001_Baseline" });
       const connection = orm.em.getConnection();
       await connection.execute(`insert into organizations (id, slug, name, created_at, updated_at) values ('00000000-0000-4000-a000-000000000001', 'kept', 'Kept', now(), now())`);
       // What the old chain left behind: its own names in the migrations table, in place of the baseline's.

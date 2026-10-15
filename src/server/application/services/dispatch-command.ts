@@ -2,6 +2,7 @@ import type { Clock } from "../ports/clock";
 import type { ArtifactStore } from "../ports/artifact-store";
 import type { CommandUnitOfWork, A2ACommandGateway, CommandResponseSink } from "../ports/command-dispatch";
 import { SafeDispatchRetry, PermanentDispatchFailure } from "../ports/command-dispatch";
+import { RemoteRejection } from "../ports/remote-errors";
 import type { JsonValue, OutboxMessageRecord, CommandStatus } from "../../domain/persistence-model";
 import { COMMAND_TOPIC } from "./task-command";
 import { object } from "./task-projection";
@@ -50,7 +51,10 @@ export class CommandDispatcher {
       } as JsonValue : undefined;
       await this.sink.commit(message, command, event, userMessage);
     } catch (error) {
-      if (error instanceof SafeDispatchRetry && message.attempts < 3) {
+      if (error instanceof RemoteRejection) {
+        // The agent said it did not act. The command is settled and safe to resend with a new key; nothing is resent automatically.
+        await this.settle(message, "rejected", error.message, 0, error.kind);
+      } else if (error instanceof SafeDispatchRetry && message.attempts < 3) {
         await this.settle(message, "pending", "Agent discovery failed before dispatch; retry scheduled.", 1000 * 2 ** (message.attempts - 1));
       } else if (error instanceof PermanentDispatchFailure || error instanceof SafeDispatchRetry) {
         await this.settle(message, "failed", error instanceof SafeDispatchRetry ? "Agent discovery failed before dispatch after three attempts." : "Command could not dispatch: unavailable agent or input archive.");
@@ -61,13 +65,13 @@ export class CommandDispatcher {
     return true;
   }
 
-  private async settle(message: OutboxMessageRecord, status: CommandStatus, lastError: string, delay = 0) {
+  private async settle(message: OutboxMessageRecord, status: CommandStatus, lastError: string, delay = 0, errorKind: string | null = null) {
     await this.work.run(async (ports) => {
       const now = this.clock.now();
       const finished = await ports.outbox.finish(message.id, message.organizationId, this.owner, now, {
         status: status === "pending" ? "pending" : "failed", availableAt: new Date(now.getTime() + delay), lastError, processedAt: null,
       });
-      if (finished) await ports.commands.update(message.organizationId, message.aggregateId, { status, resultJson: null, lastError, updatedAt: now });
+      if (finished) await ports.commands.update(message.organizationId, message.aggregateId, { status, resultJson: null, lastError, errorKind, updatedAt: now });
     });
   }
 }

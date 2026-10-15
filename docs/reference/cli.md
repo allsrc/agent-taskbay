@@ -224,6 +224,26 @@ type: Markdown and JSON as `text/plain`, JSON labelled `text/html`, an HTML page
 `reply` (every case in the final reply), `progress` (every case as a status update), `tools` (tool calls, results, reasoning and other JSON in the shapes Google ADK, OpenAI, Anthropic, the Vercel AI SDK and MCP use), `long` (700-line content in a status update, a tool result and a result artifact) or a case id such as `plain-json`. It is a development fixture and
 is not shipped in the package; `src/lib/mislabeled-content.test.tsx` runs the same cases.
 
+`node scripts/fixture-scenario-agent.mjs [port]` (default port `4012`) starts a controllable agent for protocol scenarios and prints its card URL
+(`http://127.0.0.1:<port>/card.json`). It speaks JSON-RPC at `/a2a`, keeps tasks in memory, and answers `SendMessage`, `GetTask`, `ListTasks`,
+`CancelTask`, `SubscribeToTask`, the push configuration operations and `GetExtendedAgentCard`. It is a development fixture and is not shipped in the
+package; `src/lib/fixture-scenario-agent.test.ts` drives it with the A2A SDK client. Change its behavior while it runs with a JSON `POST` to
+`/__control` (accepted from `127.0.0.1` only); `GET /__state` returns its tasks and the requests it received.
+
+| Control body | Effect |
+| --- | --- |
+| `{"seed": [{"id", "contextId", "state", "title", "updatedAt", "tenant", "history"}]}` | Adds tasks that nobody sent a message for, as if another system started them |
+| `{"advance": {"id", "state", "message"}}` | Moves a task to a state and tells subscribers |
+| `{"fail": {"method", "error", "times"}}` | Makes a method return an A2A error (`TaskNotFoundError`, `TaskNotCancelableError`, `UnsupportedOperationError`, `ContentTypeNotSupportedError`, `ExtensionSupportRequiredError`, `VersionNotSupportedError`, `RequestMalformedError`, `InvalidAgentResponseError`, `ExtendedAgentCardNotConfiguredError`, `PushNotificationNotSupportedError`, `InternalError`) or `"drop"` to close the connection |
+| `{"requireExtension": "<uri>"}` | The card lists that extension as required |
+| `{"extendedCard": {"skills": [...]}}` | The card advertises an extended card and `GetExtendedAgentCard` returns it; without this it returns the not-configured error |
+| `{"ignoreInputWhileWorking": true}` / `{"rejectInputWhileWorking": true}` | A message to a working task changes nothing, or is refused |
+| `{"noList": true}` | `ListTasks` is not supported |
+| `{"tenants": ["acme"]}` | The card's interfaces declare these tenants |
+| `{"reset": true}` | Clears tasks, behaviors and the request log |
+
+A message to a finished task is always refused, and a message to an `input-required` task completes it.
+
 ## HTTP verification scripts
 
 `npm run test:http` runs these in order. Each starts a real production server on a private port (overridable; see

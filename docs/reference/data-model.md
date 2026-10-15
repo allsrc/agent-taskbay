@@ -29,7 +29,7 @@ Different agents or tenants can use the same remote task ID without colliding, b
 | Table | Purpose | Notable columns and constraints |
 | --- | --- | --- |
 | `organizations` | Tenancy root | `slug` unique, `name`. A bootstrap organization with slug `local` and name `Local` is created automatically; the catalog's environment seeds, development identity and legacy import belong to it. |
-| `agents` | An agent registered by Agent Card URL | `card_url`, `source` (`env` or `managed`), `enabled`, `display_name`, `description`, `protocol_snapshot_version`, `last_discovery_at`, `last_healthy_at`. Unique `(organization_id, card_url)`. |
+| `agents` | An agent registered by Agent Card URL | `card_url`, `source` (`env` or `managed`), `enabled`, `display_name`, `description`, `protocol_snapshot_version`, `last_discovery_at`, `last_healthy_at`, `extension_override` (an administrator allowed sending although the card requires an unsupported extension; default false), `task_discovery` (`off`, `browse` or `auto`; default `browse`), `task_discovery_history_days` (0 to 90; default 7), `task_discovery_paused_reason`. Unique `(organization_id, card_url)`. |
 | `agent_card_snapshots` | History of discovered cards | `raw_card_json`, `normalized_card_json`, `compliance_json`, `signature_status` (`unsigned`, `verified`, `untrusted`, `invalid`), `digest`, `fetched_at`, `resolved_card_url`. The latest snapshot decides which [extensions](extensions/README.md) are honored. |
 | `agent_credentials` | Encrypted credential binding for one agent | `kind`, `ciphertext` (compact JWE, AES-256-GCM), `key_id`, `enabled`, `revision`. Unique `(organization_id, agent_id)`. The ciphertext authenticates the organization and agent. No plaintext is stored. |
 
@@ -37,7 +37,7 @@ Different agents or tenants can use the same remote task ID without colliding, b
 
 | Table | Purpose | Notable columns and constraints |
 | --- | --- | --- |
-| `tasks` | One row per observed A2A task (or direct message) | `agent_id`, `tenant`, `remote_task_id`, `remote_context_id`, `kind`, `state` (stored as text, for example `TASK_STATE_INPUT_REQUIRED`), `title`, `skill_id`, `projection_version`, `content_json` (legacy projection), `terminal_at`, `version` (optimistic lock), local and remote timestamps. |
+| `tasks` | One row per observed A2A task (or direct message) | `agent_id`, `tenant`, `remote_task_id`, `remote_context_id`, `kind`, `state` (stored as text, for example `TASK_STATE_INPUT_REQUIRED`), `title`, `skill_id`, `origin` (`created` for a task started from Taskbay, `discovered` for one found on the agent; default `created`), `discovered_at`, `tracked_by_user_id` (the person who tracked a discovered task, null when it was found automatically), `projection_version`, `content_json` (legacy projection), `terminal_at`, `version` (optimistic lock), local and remote timestamps. Index `(organization_id, agent_id, origin)`. |
 | `task_events` | Append-only ledger of everything observed | `sequence` (database-generated feed cursor), `source` (`stream`, `webhook`, `reconcile`, `command_response`, `import`), `event_kind`, `source_key`, `payload_digest`, `payload_json`, `session_id`, `request_id`, `trace_id`, `projection_version`. Unique `(task_id, source, source_key)` makes ingestion idempotent. |
 | `task_projections`, `message_projections`, `artifact_projections` | Normalized views rebuilt from the ledger | Keyed by `(task_id, projection_version)`; messages and artifacts carry their remote ID and a position. Projection version 2 is the active one for new events. |
 | `artifact_access` | Which tasks may download which stored artifact | Unique `(task_id, digest)`. A digest download is allowed only through a task the caller can read. |
@@ -49,11 +49,11 @@ Raw events that contain inline binary parts keep their complete original JSON in
 
 | Table | Purpose | Notable columns and constraints |
 | --- | --- | --- |
-| `task_commands` | Durable intent to send or cancel | `action` (`send`, `cancelTask`), `idempotency_key`, `message_id`, `payload_digest`, `payload_object_key`, `status` (`pending`, `dispatching`, `succeeded`, `failed`, `uncertain`), `result_json`, `last_error`, `skill_id`. Unique `(organization_id, idempotency_key)`. |
+| `task_commands` | Durable intent to send or cancel | `action` (`send`, `cancelTask`), `idempotency_key`, `message_id`, `payload_digest`, `payload_object_key`, `status` (`pending`, `dispatching`, `succeeded`, `failed`, `uncertain`, `rejected`), `result_json`, `last_error`, `error_kind` (why an agent refused a `rejected` command), `skill_id`. Unique `(organization_id, idempotency_key)`. |
 | `outbox_messages` | Transactional outbox for background work | `topic`, `aggregate_type`, `aggregate_id`, `status` (`pending`, `processing`, `processed`, `failed`), `attempts`, `available_at`, `lease_owner`, `lease_until`, `last_error`. Written in the same transaction as the state that needs the side effect. |
 | `task_subscriptions` | Worker-owned stream observation per open task | `status` (`pending`, `streaming`, `stopped`), lease fields. Unique per task. |
 | `task_push_registrations` | Push-notification registration per task | `status` (`pending`, `registering`, `active`, `deleting`, `deleted`, `failed`), `desired`, lease fields, a per-registration rate window. Unique per task. No credentials are stored; tokens are derived from the signing key. |
-| `sync_cursors` | Polling reconciliation | `resource_key` empty for a ListTasks sweep or a local task ID for GetTask, `page_token`, `status` (`pending`, `syncing`, `stopped`, `unsupported`). Unique `(organization_id, agent_id, tenant, resource_key)`. |
+| `sync_cursors` | Polling reconciliation | `resource_key` empty for a ListTasks sweep or a local task ID for GetTask, `page_token`, `status` (`pending`, `syncing`, `stopped`, `unsupported`), `last_full_sweep_at` (when the whole agent was last listed without a time filter). Unique `(organization_id, agent_id, tenant, resource_key)`. |
 
 ### People, access and security
 
@@ -67,7 +67,7 @@ Raw events that contain inline binary parts keep their complete original JSON in
 | `teams`, `team_memberships` | Groups of people for grants. |
 | `access_grants` | `subject_type` (`organization`, `membership`, `team`), `subject_id`, `agent_id`, optional `skill_id`, `permission` (`read`, `operate`), `enabled`. |
 | `security_rate_buckets` | Fixed-window counters for rate limits; expire after 60 seconds. |
-| `security_audit_events` | Append-only audit facts: `action`, `actor_type`, `actor_user_id` (null for the system or an agent), `target_id`, unique `event_key`. |
+| `security_audit_events` | Append-only audit facts: `action`, `actor_type`, `actor_user_id` (null for the system or an agent), `target_id`, unique `event_key`. Actions include `access.granted`, `agent.extension.override`, `agent.extension.override.removed` and `task.discovery.tracked` (target: the task's local ID). |
 
 ### Approvals
 

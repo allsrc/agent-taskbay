@@ -57,7 +57,7 @@ These hold for every extension on this page unless its own page says otherwise.
 | Failure is quiet | Malformed or over-limit content is not an error. It stays ordinary message content and the normal composer remains available. |
 | Never executed | Nothing an agent sends is evaluated, and no agent-supplied string is rendered as markup or a URL that the console loads. |
 | Authorization is unchanged | Anything the console sends back (a form submission, an approved action, an A2UI action) goes through the normal command path: same role and grant checks, rate limits, idempotency and audit as a typed reply. |
-| `required` flag | The card's `required` field is not interpreted. Not verified beyond the absence of any code that reads it. |
+| `required` flag | An extension the card marks `required: true` that Taskbay does not understand blocks sending to that agent (`409`, kind `extension_required`) until an administrator allows it. Taskbay understands the sideband extensions (built in or named in `A2A_SIDEBAND_EXTENSION_URIS`), structured form, approval request, A2UI and skill routing. Cancels are never blocked. See [Required extensions](../../guides/connect-an-agent.md#required-extensions). |
 | Unknown extensions | Extensions that the console does not know are ignored. |
 
 ### What is sent to the agent

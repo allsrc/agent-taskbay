@@ -2,6 +2,8 @@ import { agentConnection } from "./agent-connection";
 import { executeOperation } from "../../../lib/gateway";
 import type { A2ACommandGateway } from "../../application/ports/command-dispatch";
 import { SafeDispatchRetry } from "../../application/ports/command-dispatch";
+import { classifyRemoteError } from "./remote-error-map";
+import { RemoteRejection } from "../../application/ports/remote-errors";
 import type { AgentRecord, TaskCommandRecord, JsonValue } from "../../domain/persistence-model";
 
 export class SdkCommandGateway implements A2ACommandGateway {
@@ -15,6 +17,9 @@ export class SdkCommandGateway implements A2ACommandGateway {
       return { [raw.status ? "task" : "message"]: raw } as JsonValue;
     } catch (error) {
       if (!dispatched) throw new SafeDispatchRetry("Discovery failed before remote dispatch.");
+      // A definite A2A refusal means the agent did not act; anything else after dispatch stays uncertain.
+      const refusal = classifyRemoteError(error);
+      if (refusal) throw new RemoteRejection(refusal.kind, refusal.code);
       throw error;
     }
   }

@@ -89,12 +89,12 @@ These are read by the repository's tests and verification scripts, not by the ap
 | `src/server/runtime/` | Wiring of use cases to adapters per request |
 | `src/server/workers/` | Background loops (commands, subscriptions, push, reconciliation, decisions, notifications, freshness) |
 | `bin/` | The `agent-taskbay` launcher |
-| `scripts/` | Operator CLIs (`*.ts`), fixture agent, and `verify-*` end-to-end checks |
+| `scripts/` | Operator CLIs (`*.ts`), fixture agents (including the controllable `fixture-scenario-agent.mjs`, see the [CLI reference](../reference/cli.md#fixture-agent-script)), and `verify-*` end-to-end checks |
 
 ## Boundaries
 
 - Domain and application code never import React, Next.js, MikroORM or a database driver. New persistence goes behind a port with an adapter.
-- Migrations are additive. Create one with `npm run db:migration:create`. Migrations are numbered, not timestamped: the generator names the next one `Migration<nnnn>_<name>`. Raise `DB_SCHEMA_VERSION` in `src/server/adapters/db/schema-version.ts` to that number in the same change (a test fails otherwise). Do not edit a released migration, the baseline included.
+- Migrations are additive. Create one with `npm run db:migration:create`. Migrations are numbered, not timestamped: the generator names the next one `Migration<nnnn>_<name>`. The generator writes a CommonJS `.cjs` file; rename it to `.js` and change it to ESM (`import { Migration } from "@mikro-orm/migrations"` and `export class …`), as `Migration0001_Baseline.js` and `Migration0002_TaskDiscovery.js` are, so migration names are recorded the same way. Raise `DB_SCHEMA_VERSION` in `src/server/adapters/db/schema-version.ts` to that number in the same change (a test fails otherwise). Do not edit a released migration, the baseline included.
 - Browser code never receives agent credentials; credentials are resolved on the server.
 - Security-relevant changes (authentication, credentials, outbound requests, webhooks, artifacts) update the [threat model](../security/threat-model.md) and add a regression test.
 

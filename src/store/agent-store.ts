@@ -11,6 +11,8 @@ export interface CatalogAgent {
   view?: AgentView;
   trust?: string;
   error?: string;
+  /** Required extensions the card declares, which of them Taskbay cannot honor, and the administrator override. */
+  extensions?: { required: string[]; unsupportedRequired: string[]; override: boolean };
 }
 
 interface AgentStoreState {
@@ -30,13 +32,13 @@ export const useAgentStore = create<AgentStoreState>()((set, get) => ({
       const response = await fetch("/api/agents", { cache: "no-store" });
       const body = await response.json();
       if (!response.ok) throw new Error(body?.error?.message ?? "Could not load agents.");
-      const agents: CatalogAgent[] = (body.agents as Array<{ id: string; cardUrl: string; source: "env" | "managed"; card?: unknown; trust?: string; error?: string }>).map(
+      const agents: CatalogAgent[] = (body.agents as Array<{ id: string; cardUrl: string; source: "env" | "managed"; card?: unknown; trust?: string; error?: string; extensions?: CatalogAgent["extensions"] }>).map(
         (entry) => ({
           id: entry.id,
           cardUrl: entry.cardUrl,
           source: entry.source,
           view: entry.card ? viewAgentCard(entry.card) : undefined,
-          error: entry.error, trust: entry.trust,
+          error: entry.error, trust: entry.trust, extensions: entry.extensions,
         }),
       );
       set({ agents, status: "ready" });

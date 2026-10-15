@@ -67,6 +67,7 @@ Errors use one of these shapes. Messages are written for people and may be rewor
 | --- | --- |
 | `{"error":{"message":"..."}}` | Sign-in, role and rate-limit failures; many validation and not-found errors. |
 | `{"error":{"name":"Error","message":"..."}}` | Errors raised by services and caught by the route helper. |
+| `{"error":{"name","message","kind"}}` and optionally `"details"` | Failed commands and the browse and track routes. `kind` tells a client why (`rejected` kinds, `uncertain`, `task_terminal`, `extension_required`, `whole_agent_required`, `discovery_disabled`, …); match on it rather than on `message`. |
 | `{"error":"..."}` | The push webhook only. |
 | Plain text `Not found` | `GET /api/artifacts/{digest}`. |
 
@@ -97,7 +98,7 @@ Fixed 60-second windows in the database, so they hold across web replicas.
 | `GET /api/auth/login` and `/api/auth/callback`, all callers together | 240 each |
 | `POST /api/webhooks/a2a/{id}`, all callers together | 1200 |
 
-When a limit is hit the route answers `429`. The webhook adds `Retry-After: 60`. The limits are not configurable.
+When a limit is hit the route answers `429`. The webhook and the browse and track routes add `Retry-After: 60`. The limits are not configurable.
 
 ## Route index
 
@@ -108,6 +109,9 @@ When a limit is hit the route answers `429`. The webhook adds `Retry-After: 60`.
 | `POST /api/auth/logout` | read | Console | End the session |
 | `GET /api/auth/session` | read | Console | Who am I, and the auth mode |
 | `GET /api/agents` | read | Integration | Catalog with discovered cards |
+| `PATCH /api/agents/{agentId}/settings` | administer | Console | Change an agent's settings (extension override) |
+| `GET /api/agents/{agentId}/remote-tasks` | operate | Console | Browse the agent's tasks now (nothing is stored) |
+| `POST /api/agents/{agentId}/remote-tasks/track` | operate | Console | Store one of the agent's tasks and follow it |
 | `POST /api/agents` | administer | Integration | Register an agent by Agent Card URL |
 | `POST /api/agents/preview` | administer | Console | Fetch and validate a card without registering |
 | `GET /api/agents/{agentId}` | read | Integration | One agent with its card and trust status |
@@ -188,7 +192,7 @@ Rate limited (`429`).
 `read`. Fetches every visible agent's Agent Card (this makes outbound requests and records a card snapshot per agent) and returns
 `{ "agents": [ ... ] }`. Each entry has `id`, `cardUrl`, `source` (`env` or `managed`) and either `name`, `description`, `skills`, `card`, `trust` or, when discovery
 failed, `error`. A failing agent stays in the list. `trust` is `unsigned`, `verified`, `untrusted` or `invalid`. Non-administrators receive a reduced card for agents
-they only partly hold (see [Authentication and roles](#authentication-and-roles)).
+they only partly hold (see [Authentication and roles](#authentication-and-roles)). Each entry also has `extensions`: `{ "required": [...], "unsupportedRequired": [...], "override": false }`, the extensions the card marks required, which of them Taskbay does not support, and whether an administrator allowed sending anyway.
 
 Calling this route is also what stores the card snapshot that [extension](extensions/README.md) negotiation reads; see the note there.
 
@@ -209,6 +213,46 @@ Does not record a snapshot. The card URL may be the card itself (a path ending i
 
 `read`. `{ "id", "cardUrl", "source", "card", "trust", "report" }`. `404` if unknown or not visible. Failures talking to the agent surface as `502` (or the
 status of the underlying error). Records a card snapshot.
+
+### `PATCH /api/agents/{agentId}/settings`
+
+`administer`. Body `{ "extensionOverride": true | false }`; unknown fields and an empty body are `400`. `true` allows sending to an agent whose card requires an extension
+Taskbay does not support; `false` blocks again. Response `200 { "agentId", "extensionOverride" }`. `404` for an unknown agent. Audited as `agent.extension.override` or
+`agent.extension.override.removed`. See [Required extensions](../guides/connect-an-agent.md#required-extensions).
+
+### `GET /api/agents/{agentId}/remote-tasks`
+
+`operate`, and the caller must be an administrator or hold an `operate` grant on the **whole** agent (a skill-scoped grant is not enough). Lists the tasks the agent has
+right now, using the agent's own credential, so people can find work another system started. **Nothing is stored and nothing is cached.**
+Query: `tenant` (default empty), `contextId`, `status` (a task state such as `TASK_STATE_INPUT_REQUIRED`), `pageToken` (the previous response's `nextPageToken`), `pageSize` (1 to 50, default 25).
+
+```json
+{ "rows": [ { "taskId": "3f9a2c1d", "contextId": "77ab12cd", "state": "TASK_STATE_INPUT_REQUIRED", "updatedAt": "2026-10-01T09:30:00.000Z",
+    "title": null, "snippet": "Which ledger should I use?", "tracked": false, "localId": null } ],
+  "nextPageToken": "", "dropped": 0, "tenant": "" }
+```
+
+Rows are display data only: `title` and `snippet` are agent text, stripped of control characters and cut to 200 and 120 characters, to be shown as plain text. `tracked` and `localId`
+say whether Taskbay already stores the task. `dropped` counts entries the agent sent that were not well-formed or belonged to another tenant.
+
+| Status | `error.kind` | Meaning |
+| --- | --- | --- |
+| `400` | `invalid_request` | A filter is too long or `status` is not a task state. |
+| `403` | `whole_agent_required` | The caller has no whole-agent `operate` access (viewers and skill-scoped people included). |
+| `404` | `unknown_agent` | Unknown or not visible. |
+| `409` | `discovery_disabled` | The agent's task discovery mode is `off`, or `A2A_TASK_DISCOVERY=off`. |
+| `429` | | More than 30 browse calls in a minute for this person and agent (kept in the database, so it holds across instances). |
+| `501` | `listing_unsupported` | The agent does not support listing tasks. |
+| `502` | `agent_response_invalid`, `agent_unavailable`, or a refusal kind | The agent returned nothing readable, could not be reached, or refused the request. |
+
+### `POST /api/agents/{agentId}/remote-tasks/track`
+
+`operate`, with the same whole-agent requirement. Body `{ "taskId": "<remote task ID>", "tenant": "<optional>" }`; any other field is `400`. Taskbay **reads the task from the agent itself**
+(`GetTask`), checks that it is the task asked for, in the right tenant and with a valid state, and stores it as a discovered task: `origin` `discovered`, tracked by the caller, no owner, no skill.
+Non-finished tasks are then followed like any other (stream, push, polling); a finished one is stored as read-only history. Tracking does not notify anyone about the task's current state.
+
+`201 { "localId", "created": true }` for a new task, `200 { "localId", "created": false }` when Taskbay already stored it (the agent is not asked again). Audited as `task.discovery.tracked`.
+Errors: as above, plus `404` `task_not_found_on_agent`, `502` `agent_response_invalid` when the agent answers with a different task, another tenant or an invalid state, and `429` after 20 tracks in a minute.
 
 ### `DELETE /api/agents/{agentId}`
 
@@ -259,9 +303,34 @@ Observed: `202 Accepted`, header `Location: /api/commands/<id>`, body:
 Repeating the request with the same key and body returns `202` with the same command and its current state. Same key with different content:
 `409 This idempotency key already belongs to different command content.` Unknown agent: `404 Unknown agent.` Unknown keys or an empty send: `400` with the validation message.
 
-Command `status` values: `pending`, `dispatching`, `succeeded`, `failed`, `uncertain`. `uncertain` means the request may have reached the agent and
-the result is unknown; Agent Taskbay does not resend automatically. When `succeeded`, `result` is `{ event, localId, taskId, tenant }`, where `localId`
+Command `status` values: `pending`, `dispatching`, `succeeded`, `failed`, `uncertain`, `rejected`. `uncertain` means the request may have reached the agent and
+the result is unknown; Agent Taskbay does not resend automatically. `rejected` means the agent returned a definite A2A error saying it did not carry the request
+out; the command carries `errorKind` (below), and sending again with a new idempotency key is safe. When `succeeded`, `result` is `{ event, localId, taskId, tenant }`, where `localId`
 is the task's local ID and `event` is the agent's reply (`task` or `message`).
+
+A send to an agent whose card requires an extension Taskbay does not support is refused before anything is saved: `409` with `error.kind` `extension_required` and
+`error.details.extensions` listing the extension addresses. Cancels are not blocked.
+
+A send to a task, or a cancel, that names a task which is already `COMPLETED`, `FAILED`, `CANCELED` or `REJECTED` is refused before anything is saved:
+`409 This task is finished. Start a new task in the same conversation.` with `error.kind` `task_terminal`. A2A terminal states are final, so Taskbay does not ask the
+agent. To continue the work, send without `taskId` and with the same `contextId`. This applies to `/commands`, `/messages`, `/stream` and `/tasks/{taskId}/cancel`.
+
+`errorKind` values, set only when the status is `rejected`:
+
+| `errorKind` | The agent said |
+| --- | --- |
+| `task_not_found` | It does not know that task (`TaskNotFoundError`). |
+| `task_not_cancelable` | The task cannot be canceled in its current state (`TaskNotCancelableError`). |
+| `push_not_supported` | It does not support push notifications (`PushNotificationNotSupportedError`). |
+| `unsupported_operation` | The operation is not supported, or the method does not exist (`UnsupportedOperationError`, JSON-RPC `-32601`). |
+| `content_type_not_supported` | It does not accept that content type (`ContentTypeNotSupportedError`). |
+| `extended_card_not_configured` | It has no extended Agent Card (`ExtendedAgentCardNotConfiguredError`). |
+| `extension_required` | It requires an extension that the request did not use (`ExtensionSupportRequiredError`). |
+| `version_not_supported` | It does not support the protocol version (`VersionNotSupportedError`). |
+| `invalid_request` | The request was malformed (`RequestMalformedError`, JSON-RPC `-32700`, `-32600`, `-32602`). |
+
+`InvalidAgentResponseError` and JSON-RPC internal errors (`-32603`) are not refusals: the agent may have acted, so the command ends `uncertain`. The stored and returned
+`error` text for a rejection is fixed (`Agent rejected the request: <errorKind>.`); the agent's own message is never stored or returned.
 
 ### `GET /api/commands/{commandId}`
 
@@ -273,7 +342,7 @@ is the task's local ID and `event` is the agent's reply (`task` or `message`).
 the body has one (so retries are safe), otherwise to a random value (retries are **not** safe).
 
 Success `200`: `{ "result": <task or message>, "localId", "commandId", "sessionId", "requestId", "telemetry": [] }`.
-`409` when the command failed or ended `uncertain` (the message carries the reason). `504` when still pending after 50 seconds:
+`409` when the command failed, ended `uncertain` or was `rejected`. The body is `{ "error": { "name", "message", "kind" } }`; `kind` is the `errorKind` for a rejection and `uncertain` for an uncertain outcome (the message carries the reason). `504` when still pending after 50 seconds:
 `Command accepted; waiting stopped. Query /api/commands/<id> for its outcome before submitting again.` The command continues; do not resubmit.
 
 ### `POST /api/agents/{agentId}/tasks/{taskId}/cancel`

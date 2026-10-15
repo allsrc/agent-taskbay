@@ -11,6 +11,7 @@ import { FilesystemArtifactStore } from "../blob/filesystem-artifact-store";
 import { acceptCommand, createCommandDispatcher } from "../../runtime/commands";
 import { TaskCommandService, COMMAND_TOPIC } from "../../application/services/task-command";
 import { SafeDispatchRetry } from "../../application/ports/command-dispatch";
+import { RemoteRejection } from "../../application/ports/remote-errors";
 import type { A2ACommandGateway } from "../../application/ports/command-dispatch";
 import { OutboxMessageEntity, TaskCommandEntity, TaskEventEntity, TaskEntity } from "./entities";
 
@@ -66,6 +67,19 @@ async function contract(config: DatabaseConfig, directory: string) {
     expect(attempts).toBe(1);
     expect(await createPersistenceRepositories(orm.em.fork()).commands.findById(org.id, uncertain.id)).toMatchObject({ status: "uncertain" });
     expect(JSON.stringify(await orm.em.fork().find(TaskCommandEntity, {}))).not.toContain("Secret upstream detail");
+    // A definite refusal by the agent settles the command as rejected with a kind, is never redispatched, and keeps the agent's text out.
+    const refused = await acceptCommand(agent.id, { text: "Refused" }, "refused", { orm, store });
+    let refusals = 0;
+    const refusing = createCommandDispatcher({ orm, store, gateway: { dispatch: async () => { refusals++; throw new RemoteRejection("unsupported_operation", -32004); } } });
+    await refusing.runOne(); await refusing.runOne();
+    expect(refusals).toBe(1);
+    expect(await createPersistenceRepositories(orm.em.fork()).commands.findById(org.id, refused.id))
+      .toMatchObject({ status: "rejected", errorKind: "unsupported_operation", lastError: "Agent rejected the request: unsupported_operation." });
+    expect((await orm.em.fork().findOneOrFail(OutboxMessageEntity, { aggregateId: refused.id })).status).toBe("failed");
+    // The same key answers with the same refusal; a new key is a new command.
+    expect((await acceptCommand(agent.id, { text: "Refused" }, "refused", { orm, store })).id).toBe(refused.id);
+    expect((await acceptCommand(agent.id, { text: "Refused" }, "refused-again", { orm, store })).id).not.toBe(refused.id);
+    await orm.em.fork().nativeUpdate(OutboxMessageEntity, { aggregateId: (await orm.em.fork().findOneOrFail(TaskCommandEntity, { idempotencyKey: "refused-again" })).id }, { status: "processed" });
     // Expired lease recovery is fenced; even a restarted worker does not send again.
     const interrupted = await acceptCommand(agent.id, { text: "Interrupted" }, "interrupted", { orm, store });
     const past = new Date(Date.now() - 120_000);

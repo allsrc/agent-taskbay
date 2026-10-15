@@ -77,6 +77,22 @@ curl -s http://localhost:3002/api/agents
 
 Each entry has the card, a `trust` value, or an `error` string if discovery failed. In local development mode this works without a login; in OIDC mode it needs a session cookie.
 
+## Required extensions
+
+An Agent Card can mark an extension `required: true`. If Taskbay does not understand that extension, the agent cannot be expected to behave correctly, so Taskbay blocks
+**sending** to it. Canceling a task is never blocked. Taskbay understands the sideband extensions (the built-in ones and any in `A2A_SIDEBAND_EXTENSION_URIS`), the
+structured form, approval request and A2UI extensions, and skill routing ([Extensions](../reference/extensions/README.md)).
+
+What you see:
+
+- The agent page shows a red notice, "This agent requires an extension Taskbay does not support", with the extension addresses as text. The compliance report on the card has an error, `extension.required.unsupported`.
+- A send fails with `409` and kind `extension_required`; the response lists the extensions in `error.details.extensions` ([HTTP API](../reference/http-api.md#sending-messages-and-commands)).
+
+To send anyway, an administrator turns on **Allow sending without it (audited)** on the agent page, or calls `PATCH /api/agents/{agentId}/settings` with `{ "extensionOverride": true }`.
+The change is recorded in the security audit as `agent.extension.override` (and `agent.extension.override.removed` when turned off). The agent may not behave as it expects.
+
+The check uses the agent's most recent stored card, which Taskbay records whenever the catalog or the agent page loads. A send made before any card was recorded is not blocked.
+
 ## Restrictions on where agents may live
 
 These apply in production builds. `npm run dev` allows private addresses by default.
@@ -100,6 +116,7 @@ Card trust: a card is "unsigned" or "verified". Verification uses public keys yo
 | "Agent Card exceeds the 2 MB safety limit." | Oversized card | Trim the card. |
 | "Agent credentials are required." | The card lists security requirements and no credential is stored | Store a binding with `npm run security:credentials`. |
 | "Agent Card trust policy rejected this connection." | `A2A_REQUIRE_SIGNED_CARDS=true` and the card is unsigned or its signature does not verify | Pin the signing key, or turn the requirement off. |
+| Sending fails with `extension_required` | The card marks an extension `required: true` that Taskbay does not support | Ask the agent's owner, or have an administrator allow it ([Required extensions](#required-extensions)). |
 | The agent is registered but a member sees nothing | No grant | Add a grant in Settings. |
 | Preview of a protected card fails, though the URL is right | Preview sends no credentials | Use **Register URL**, then store the credential. |
 | Remove is missing | The agent was seeded from `A2A_REGISTERED_AGENTS` | Remove it from the variable. |

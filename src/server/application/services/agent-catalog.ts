@@ -76,6 +76,7 @@ export class AgentCatalogService {
       .map((agent) => ({
         id: agent.id, cardUrl: agent.cardUrl,
         source: this.environmentUrls.has(agent.cardUrl) ? "env" : agent.source,
+        ...(agent.extensionOverride ? { extensionOverride: true } : {}),
       }));
   }
 

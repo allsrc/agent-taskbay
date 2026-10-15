@@ -25,7 +25,7 @@ export interface RunSendInput {
 /** Sends durable intent and reports only committed projections. Wire events are diagnostic. */
 export async function runSend(
   input: RunSendInput,
-  handlers: { onUpdate: (task: DurableTaskView) => void; onError?: (message: string) => void; onRawEvent?: (event: unknown) => void },
+  handlers: { onUpdate: (task: DurableTaskView) => void; onError?: (message: string, kind?: string) => void; onRawEvent?: (event: unknown) => void },
   signal?: AbortSignal,
 ): Promise<DurableTaskView | undefined> {
   let latest: DurableTaskView | undefined;

@@ -7,7 +7,8 @@ import { eventDigest } from "./observe-task";
 
 export const COMMAND_TOPIC = "a2a.command.dispatch";
 export class CommandError extends Error {
-  constructor(message: string, public readonly status: number) { super(message); }
+  /** `kind` tells a client why: an A2A refusal kind, `uncertain`, or a Taskbay code such as `task_terminal`. Never agent text. */
+  constructor(message: string, public readonly status: number, public readonly kind?: string, public readonly details?: Record<string, unknown>) { super(message); }
 }
 export interface CommandIntent {
   skillId?: string | null;

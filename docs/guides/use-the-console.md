@@ -141,6 +141,24 @@ Text can be viewed another way without changing it. Ordinary sentences carry no 
 
 These options stay for the chat you have open. They are not saved.
 
+### When a send or cancel fails
+
+A failed send or cancel stays on screen as a notice under the conversation (or at the top of the task page) until you act on it. What it says depends on what the agent
+answered, not on the agent's own wording:
+
+| Notice | What happened | What to do |
+| --- | --- | --- |
+| The agent no longer knows this task. Start a new one. | The agent answered "task not found". | Start a new task. |
+| This task can no longer be canceled. Its current state is shown above. | The agent refused the cancel; Taskbay read the task again to show its real state. | Nothing; the task has moved on. |
+| This agent does not support that action. | The agent does not support the operation. | Use another route (for example reply instead of cancel), or another agent. |
+| The agent does not accept that kind of content. Try text, or another file type. | The agent rejected the media type of a part. | Send text, or another file type. |
+| The agent needs an extension Taskbay does not support. See the agent page. / The agent does not support this protocol version. See the agent page. | The agent requires something Taskbay cannot do. | Read the [required extensions](connect-an-agent.md#required-extensions) section. |
+| The agent rejected the request as malformed. | The agent could not parse what was sent. | Try again with simpler content; report it if it repeats. |
+| This task is finished. Start a new task in the same conversation. | You sent to, or canceled, a task that already ended. | Choose **Start new task**: the same message is sent as a new task in this conversation. |
+| Taskbay can't tell whether the agent received this. It will not resend automatically. Check the task before trying again. | The request left Taskbay and then the connection failed or the agent answered in a way that does not say it refused. | Open the task, check its state, and send again only if the agent did nothing. |
+
+A refusal by the agent means it did nothing, so sending again is safe. Anything else shows the message Taskbay has, as plain text, with **Try again** where that can help.
+
 ## Tasks
 
 **Tasks** lists the tasks you can read, newest first, 50 per page, with **Previous**, **Refresh** and **Next**. Filters: **All**, **Active**, **Needs you**, **Done**, **Mine**, **Overdue** and **Unassigned**. Each row shows the title, state, short task ID, agent and last change. It also shows the assignee, the due time and "escalated" when they apply.
@@ -241,7 +259,7 @@ These cards load from the server. If you are not an administrator, the server an
 | --- | --- | --- |
 | "This action is not permitted." when sending, cancelling or adding an agent | Your role or grants do not allow it. Viewers never send. | Ask an administrator for an "operate" grant or a different role |
 | The message box is greyed out | The agent's card is still loading. The console waits for it because extensions depend on it. | Wait. If it stays disabled, check the agent on **Agents**. |
-| "Durable task stream unavailable; query task or command status before retrying." | The command failed or has an uncertain outcome, or the live view broke | Open the task under **Tasks** and check its state before sending again. The console never resends on its own. See [Durable tasks](../concepts/durable-tasks.md#uncertain-outcomes). |
+| "Durable task stream unavailable; query task or command status before retrying." | The live view broke before the command finished (a failed, refused or uncertain command shows its own notice; see [When a send or cancel fails](#when-a-send-or-cancel-fails)) | Open the task under **Tasks** and check its state before sending again. The console never resends on its own. See [Durable tasks](../concepts/durable-tasks.md#uncertain-outcomes). |
 | "Request body exceeds the 16 MB limit." | Attached files are too large once base64-encoded | Send smaller files, or a URL part |
 | "Enter a full URL, including https://" | The file URL is not a full URL | Include the scheme |
 | "Invalid JSON: …" | The structured data part does not parse | Fix the JSON |

@@ -1,3 +1,4 @@
+import type { TaskDiscoveryMode, TaskOrigin } from "./discovery-mode";
 export type JsonPrimitive = boolean | number | string | null;
 export type JsonValue =
   | JsonPrimitive
@@ -13,6 +14,14 @@ export interface OrganizationRecord {
 }
 
 export interface AgentRecord {
+  /** An administrator allowed sending to this agent although its card requires an extension Taskbay does not support. */
+  extensionOverride?: boolean;
+  /** How tasks started outside Taskbay are found; absent means the default (`browse`). */
+  taskDiscovery?: TaskDiscoveryMode;
+  /** Automatic discovery only: finished tasks older than this many days are not stored. Absent means the default (7). */
+  taskDiscoveryHistoryDays?: number;
+  /** Set when automatic discovery stopped itself (for example at its limit); null when it is running. */
+  taskDiscoveryPausedReason?: string | null;
   id: string;
   organizationId: string;
   cardUrl: string;
@@ -41,6 +50,12 @@ export interface AgentCardSnapshotRecord {
 
 export interface TaskRecord {
   skillId?: string | null;
+  /** Absent means `created`. */
+  origin?: TaskOrigin;
+  discoveredAt?: Date | null;
+  /** The person who tracked a discovered task; null when automatic discovery found it. */
+  trackedByUserId?: string | null;
+  /** The task row's start, kept for reference. */
   /** Active content projector; absent on legacy callers means version 1. */
   projectionVersion?: number;
   contentJson?: JsonValue;
@@ -109,7 +124,7 @@ export interface SubscriptionRecord {
 
 export type OutboxStatus = "pending" | "processing" | "processed" | "failed";
 
-export type CommandStatus = "pending" | "dispatching" | "succeeded" | "failed" | "uncertain";
+export type CommandStatus = "pending" | "dispatching" | "succeeded" | "failed" | "uncertain" | "rejected";
 export interface TaskCommandRecord {
   skillId?: string | null;
   id: string;
@@ -124,6 +139,8 @@ export interface TaskCommandRecord {
   status: CommandStatus;
   resultJson: JsonValue | null;
   lastError: string | null;
+  /** Set when the status is `rejected`: why the agent refused (see `RemoteErrorKind`). */
+  errorKind?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -171,4 +188,6 @@ export interface SyncCursorRecord {
   pageToken: string; availableAt: Date; attempts: number;
   leaseOwner: string | null; leaseUntil: Date | null; lastError: string | null;
   lastSyncedAt: Date | null; createdAt: Date; updatedAt: Date;
+  /** Automatic discovery: when the whole agent was last listed without a time filter. */
+  lastFullSweepAt?: Date | null;
 }

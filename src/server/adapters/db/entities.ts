@@ -1,6 +1,7 @@
 import { defineEntity, p } from "@mikro-orm/core";
 
 import type { AssignmentEventKind } from "../../domain/workflow-model";
+import type { TaskDiscoveryMode, TaskOrigin } from "../../domain/discovery-mode";
 import type { NotificationKind } from "../../domain/notification-model";
 import type { DecisionOutcome, DecisionPolicy, DecisionRequestStatus, DecisionRisk, ExecutionStatus, ProposedAction } from "../../domain/decision-model";
 import type {
@@ -47,6 +48,10 @@ const AgentSchema = defineEntity({
     protocolSnapshotVersion: p.string().length(100).nullable(),
     lastDiscoveryAt: p.datetime().nullable(),
     lastHealthyAt: p.datetime().nullable(),
+    extensionOverride: p.boolean().default(false),
+    taskDiscovery: p.string().length(16).default("browse").$type<TaskDiscoveryMode>(),
+    taskDiscoveryHistoryDays: p.integer().default(7),
+    taskDiscoveryPausedReason: p.text().nullable(),
     createdAt: p.datetime(),
     updatedAt: p.datetime(),
   },
@@ -115,6 +120,9 @@ const TaskSchema = defineEntity({
     skillId: p.string().length(255).nullable(),
     ownerUserId: p.uuid().nullable(),
     ownerTeamId: p.uuid().nullable(),
+    origin: p.string().length(16).default("created").$type<TaskOrigin>(),
+    discoveredAt: p.datetime().nullable(),
+    trackedByUserId: p.uuid().nullable(),
     createdAt: p.datetime(),
     remoteCreatedAt: p.datetime().nullable(),
     updatedAt: p.datetime(),
@@ -130,6 +138,10 @@ const TaskSchema = defineEntity({
     {
       name: "idx_tasks_organization_state",
       properties: ["organizationId", "state"],
+    },
+    {
+      name: "idx_tasks_origin",
+      properties: ["organizationId", "agentId", "origin"],
     },
   ],
   uniques: [
@@ -248,7 +260,7 @@ const TaskCommandSchema = defineEntity({
     idempotencyKey: p.string().length(255), messageId: p.string().length(255),
     payloadDigest: p.string().length(64), payloadObjectKey: p.text(),
     status: p.string().length(32).$type<CommandStatus>(), resultJson: p.json<JsonValue>().nullable(),
-    lastError: p.text().nullable(), createdAt: p.datetime(), updatedAt: p.datetime(),
+    lastError: p.text().nullable(), errorKind: p.string().length(64).nullable(), createdAt: p.datetime(), updatedAt: p.datetime(),
   },
   uniques: [{ name: "uq_task_commands_org_key", properties: ["organizationId", "idempotencyKey"] }],
   indexes: [{ name: "idx_task_commands_org_created", properties: ["organizationId", "createdAt"] }],
@@ -304,7 +316,7 @@ const SyncCursorSchema = defineEntity({
     status: p.string().length(32).$type<import("../../domain/persistence-model").SyncCursorRecord["status"]>(),
     pageToken: p.text(), availableAt: p.datetime(), attempts: p.integer().default(0),
     leaseOwner: p.string().length(255).nullable(), leaseUntil: p.datetime().nullable(), lastError: p.text().nullable(),
-    lastSyncedAt: p.datetime().nullable(), createdAt: p.datetime(), updatedAt: p.datetime(),
+    lastSyncedAt: p.datetime().nullable(), lastFullSweepAt: p.datetime().nullable(), createdAt: p.datetime(), updatedAt: p.datetime(),
   },
   uniques: [{ name: "uq_sync_cursors_scope_resource", properties: ["organizationId", "agentId", "tenant", "resourceKey"] }],
   indexes: [{ name: "idx_sync_cursors_ready", properties: ["status", "availableAt"] },

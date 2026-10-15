@@ -63,3 +63,35 @@ describe("REL-001/003 versioned ledger projection", () => {
     expect(() => reduceTaskLedger({ ...task, remoteContextId: "context" }, "Agent", [row(1, { task: { id: "remote", contextId: "foreign", status: { state: "TASK_STATE_WORKING" } } })])).toThrow("context");
   });
 });
+
+describe("WF-25 repeated status updates with the same state", () => {
+  const working = (text: string, timestamp?: string): JsonValue => ({ statusUpdate: { taskId: "remote", status: {
+    state: "TASK_STATE_WORKING", ...(timestamp ? { timestamp } : {}), message: { messageId: `m-${text}`, role: "ROLE_AGENT", parts: [{ text }] } } } });
+  const texts = (view: ReturnType<typeof reduceTaskLedger>) => view.messages.map((message) => message.parts.map((part) => String(part.value)).join(""));
+
+  it("keeps every message, in order, when each update carries its own timestamp", () => {
+    const view = reduceTaskLedger(task, "Agent", [
+      row(1, working("Reading documents", "2026-10-03T00:00:01Z")), row(2, working("Analyzing APIs", "2026-10-03T00:00:02Z")),
+      row(3, working("Validating security", "2026-10-03T00:00:03Z")),
+    ]);
+    expect(texts(view)).toEqual(["Reading documents", "Analyzing APIs", "Validating security"]);
+    expect(view.state).toBe("TASK_STATE_WORKING");
+    expect(view.transitions?.filter((transition) => transition.state === "TASK_STATE_WORKING").length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("keeps every message when updates have no timestamp, and records one working transition per turn", () => {
+    const view = reduceTaskLedger(task, "Agent", [row(1, working("Reading documents")), row(2, working("Analyzing APIs")), row(3, working("Validating security"))]);
+    expect(texts(view)).toEqual(["Reading documents", "Analyzing APIs", "Validating security"]);
+    expect(view.transitions?.filter((transition) => transition.state === "TASK_STATE_WORKING")).toHaveLength(1);
+  });
+
+  it("is the same when the ledger is read in another order", () => {
+    const events = [row(1, working("a", "2026-10-03T00:00:01Z")), row(2, working("b", "2026-10-03T00:00:02Z")), row(3, working("c"))];
+    expect(reduceTaskLedger(task, "Agent", events.toReversed())).toEqual(reduceTaskLedger(task, "Agent", events));
+  });
+
+  it("does not let a repeated identical update duplicate its message", () => {
+    const view = reduceTaskLedger(task, "Agent", [row(1, working("same", "2026-10-03T00:00:01Z")), row(2, working("same", "2026-10-03T00:00:01Z"), "webhook")]);
+    expect(texts(view)).toEqual(["same"]);
+  });
+});

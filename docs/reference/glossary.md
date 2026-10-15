@@ -32,7 +32,7 @@ An artifact is an output an agent attaches to a task, made of text, data or file
 A read-only, newest-first timeline of who did what: approvals and their exact content, ownership changes, sign-ins, provisioning, agent and credential changes, and sent messages. Records are append-only by database trigger, which is immutability, not cryptographic tamper evidence. The organization-wide trail is for administrators. See [Human in the loop](../concepts/human-in-the-loop.md#audit-trail).
 
 **Command (durable command)**\
-A send, reply or cancel that Taskbay saves to the database with an outbox row before answering `202 Accepted`; a worker then delivers it to the agent. Its status moves from `pending` through `dispatching` to `succeeded`, or ends `failed` or `uncertain`. An `uncertain` command is never resent automatically. See [Durable tasks](../concepts/durable-tasks.md#the-path-of-a-command).
+A send, reply or cancel that Taskbay saves to the database with an outbox row before answering `202 Accepted`; a worker then delivers it to the agent. Its status moves from `pending` through `dispatching` to `succeeded`, or ends `failed`, `uncertain` or `rejected`. A `rejected` command is one the agent refused with a definite error (it did nothing, so a resend is safe). An `uncertain` command is never resent automatically. See [Durable tasks](../concepts/durable-tasks.md#the-path-of-a-command).
 
 **Context (`contextId`)**\
 The A2A identifier an agent uses to group related tasks and messages. In the console, a conversation is the set of tasks that share one agent, tenant and `contextId`. A person with only skill grants cannot send a `contextId` without a task ID, so each of their new tasks starts a new context. See [Use the console](../guides/use-the-console.md).

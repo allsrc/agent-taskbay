@@ -97,7 +97,7 @@ There is no health endpoint and no metrics export. What you have:
 | Web up, database reachable, auth configured | `curl -i https://YOUR_ORIGIN/api/auth/session` | `401` with `Sign in to continue.` (OIDC). A `503` means configuration or database trouble. |
 | Worker alive | Your process supervisor | Running. A healthy worker is silent; it prints nothing on start. |
 | Worker can reach the database | Worker log | No repeating `... could not access durable state; will retry.` lines. |
-| A send is being processed | `GET /api/commands/<id>` using the ID returned by the send (`202`) | `status` moves from `pending` to `dispatching` to `succeeded`. `failed` and `uncertain` carry a `lastError` text. |
+| A send is being processed | `GET /api/commands/<id>` using the ID returned by the send (`202`) | `status` moves from `pending` to `dispatching` to `succeeded`. `failed`, `uncertain` and `rejected` carry a `lastError` text; `rejected` also carries `errorKind`. |
 | Tasks keep updating | Open a working task and watch it; or leave a task open and stop the agent | Updates arrive; if the agent goes quiet, reconciliation polls it. |
 
 Log lines the loops print on a database or lease problem, one per failed pass:

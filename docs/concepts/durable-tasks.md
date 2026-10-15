@@ -48,10 +48,19 @@ The one dangerous moment is a failure after the request has left the console. Th
 | --- | --- |
 | Agent discovery fails before anything is sent | Retries with backoff, up to three attempts, then marks the command `failed`. Safe, because nothing was sent. |
 | Agent disabled, or the input archive is missing | Marks the command `failed`. |
-| Anything after the request was dispatched (timeout, connection drop, error response) | Marks the command `uncertain`. Does not resend. |
+| The agent answers with a definite A2A error (task not found, not cancelable, unsupported operation, unsupported content type, required extension, unsupported version, malformed request) | Marks the command `rejected` with the kind of error. The agent said it did not act, so sending again with a new idempotency key is safe. Nothing is resent automatically. |
+| Anything else after the request was dispatched (timeout, connection drop, an error that does not say the agent refused, such as an internal error or an invalid response) | Marks the command `uncertain`. Does not resend. |
 | The worker dies mid-dispatch and its lease expires | Marks the command `uncertain`. |
 
+A command that names a finished task (`COMPLETED`, `FAILED`, `CANCELED` or `REJECTED`) is refused with `409` and `task_terminal` before it is saved, because a finished task cannot be restarted in A2A. The console starts a new task in the same context instead.
+
 The console never resends an uncertain command and never declares one successful by guessing. The command status says "Remote outcome is uncertain. Automatic resend is disabled; check the task before submitting new work." A person decides whether to send again. For an initial send, reconciliation cannot tie an arbitrary remote task to a lost send, so it will not adopt one.
+
+## Tasks that Taskbay did not start
+
+Most tasks begin as a command from the console. A person with access to the whole agent can also **browse** the agent's tasks (a live `ListTasks` call; nothing is stored) and **track** one.
+Tracking reads that task from the agent and stores it as a *discovered* task. From then on it is followed like any other: streamed or polled, answered, steered or canceled, shown in the Inbox
+when it needs a person. Tracking does not notify anyone about the state the task is already in, and does not assign it to the person who tracked it.
 
 ## One ingestion path
 

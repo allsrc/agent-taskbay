@@ -6,6 +6,8 @@ import { Plus, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { useShallow } from "zustand/react/shallow";
 import { AgentAvatar } from "@/components/a2a/primitives";
+import { CommandError } from "@/components/a2a/command-error";
+import { CommandFailureError, failureFromError, failureFromResponse, type CommandFailure } from "@/lib/command-failure";
 import { Composer } from "@/components/chat/composer";
 import { StructuredForm } from "@/components/chat/structured-form";
 import { startFormFromCard } from "@/lib/structured-form";
@@ -59,7 +61,9 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
   const [pending, setPending] = useState<ThreadMessage | null>(null);
   const [sending, setSending] = useState(false);
   const [cancelingId, setCancelingId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<CommandFailure | null>(null);
+  // What the person last tried to send, so a finished task can be replaced by a new one in the same conversation.
+  const [lastSend, setLastSend] = useState<OutgoingPart[] | null>(null);
   const [wire, setWire] = useState<WireEntry[]>([]);
   const [seed, setSeed] = useState<{ id: number; text: string } | undefined>();
   const wireId = useRef(0);
@@ -102,9 +106,13 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
     if (cancelingId || !window.confirm("Cancel this task?")) return;
     setCancelingId(task.taskId);
     try {
+      setError(null);
       const response = await fetch(`/api/agents/${task.agentId}/tasks/${encodeURIComponent(task.taskId)}/cancel?tenant=${encodeURIComponent(task.tenant ?? "")}`, { method: "POST" });
+      if (!response.ok) {
+        const failure = await failureFromResponse(response, "Failed to cancel the task.");
+        throw new CommandFailureError(failure.message, failure);
+      }
       const body = await response.json();
-      if (!response.ok) throw new Error(body?.error?.message ?? "Failed to cancel the task.");
       const responseTask = await fetch(`/api/tasks/${task.localId}`, { cache: "no-store" });
       const committed = await responseTask.json();
       if (!responseTask.ok) throw new Error(committed.error?.message ?? "Could not refresh canceled task.");
@@ -113,7 +121,13 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
       pushWire("in", "task", body.result);
       toast.success("Task canceled");
     } catch (cause) {
-      toast.error(cause instanceof Error ? cause.message : "Failed to cancel the task.");
+      const failure = failureFromError(cause, "Failed to cancel the task.");
+      setError(failure);
+      // The agent said the task cannot be canceled: its real state may differ from what we show, so read it again.
+      if (failure.kind === "task_not_cancelable" || failure.kind === "task_terminal") {
+        const refreshed = await fetch(`/api/tasks/${task.localId}`, { cache: "no-store" }).then((reply) => reply.ok ? reply.json() : undefined).catch(() => undefined);
+        if (refreshed?.task) upsertTask(refreshed.task);
+      }
     } finally {
       setCancelingId(null);
     }
@@ -124,8 +138,9 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
    * `contextId` without a `taskId`; the agent then answers with a Message or
    * opens a new Task, and both land in this conversation.
    */
-  async function send(parts: OutgoingPart[], forTask?: TrackedTask) {
-    const effectiveTarget = forTask ?? targetTask;
+  async function send(parts: OutgoingPart[], forTask?: TrackedTask, options?: { forceNew?: boolean }) {
+    const effectiveTarget = options?.forceNew ? undefined : forTask ?? targetTask;
+    setLastSend(parts);
     if (sending || !agentId || discovering) return;
     const skillId = effectiveTarget?.skillId ?? (view?.requiresSkill ? selectedSkill || view.skills[0]?.id : undefined);
     const contextId = view?.requiresSkill ? effectiveTarget?.contextId : tasks.find((task) => task.contextId)?.contextId;
@@ -167,7 +182,6 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
             upsertTask(next);
             if (adoptConversation) setKey(nextKey);
           },
-          onError: setError,
           onRawEvent: (event) => {
             const kind = event && typeof event === "object" ? (Object.keys(event)[0] ?? "event") : "event";
             pushWire("in", kind, event);
@@ -177,7 +191,7 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
       setOverride(null);
       setRefIds([]);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Failed to send the message.");
+      setError(failureFromError(cause, "Failed to send the message."));
     } finally {
       setSending(false);
       setPending(null);
@@ -306,7 +320,8 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
               );
             })}
             {pending && !tasks.some((task) => task.messages.some((message) => message.id === pending.id)) && [...sender("you", pending.id), <UserBubble key={pending.id} message={pending} />]}
-            {error && <p className="border-danger/40 bg-danger/10 text-danger rounded-lg border px-3.5 py-2.5 font-mono text-xs">{error}</p>}
+            {error && <CommandError failure={error}
+              onStartNew={lastSend ? () => { setError(null); void send(lastSend, undefined, { forceNew: true }); } : undefined} />}
           </div>
         </div>
 

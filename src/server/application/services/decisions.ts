@@ -313,7 +313,8 @@ export class DecisionService {
       if (!execution) return undefined;
       const command = await ports.commands.findById(organizationId, execution.commandId);
       if (!command) return execution;
-      const status = command.status;
+      // An approval delivery the agent refused did not execute: it is a definite failure, not an uncertain one.
+      const status = command.status === "rejected" ? "failed" : command.status;
       const now = this.clock.now();
       const result = command.resultJson as { localId?: string } | null;
       const task = status === "succeeded" && result?.localId ? await ports.tasks.findById(organizationId, result.localId) : undefined;

@@ -35,7 +35,8 @@ export function detectCardVersion(card: JsonObject): ComplianceReport["version"]
   return "unknown";
 }
 
-export function validateAgentCard(card: unknown): ComplianceReport {
+/** `understoodExtensions`, when given, lets the report flag required extensions Taskbay cannot honor. */
+export function validateAgentCard(card: unknown, options: { understoodExtensions?: readonly string[] } = {}): ComplianceReport {
   const issues: ComplianceIssue[] = [];
   const passed: string[] = [];
   const add = (severity: ComplianceSeverity, id: string, path: string, message: string, spec?: string) =>
@@ -82,6 +83,13 @@ export function validateAgentCard(card: unknown): ComplianceReport {
   else add("error", "card.version.detect", "$", "Card does not match A2A v1.0 or v0.3 discovery shape.");
 
   validateSecurity(card, add, passed);
+  if (options.understoodExtensions) {
+    const extensions = object(card.capabilities) && Array.isArray(card.capabilities.extensions) ? card.capabilities.extensions : [];
+    for (const extension of extensions) {
+      if (!object(extension) || extension.required !== true || typeof extension.uri !== "string" || options.understoodExtensions.includes(extension.uri)) continue;
+      add("error", "extension.required.unsupported", "$.capabilities.extensions", `The card requires the extension ${extension.uri}, which Agent Taskbay does not support, so messages to this agent are blocked.`);
+    }
+  }
   return report(version, issues, passed);
 }
 

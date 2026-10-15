@@ -1,6 +1,7 @@
 "use client";
 
 import { readSse } from "./sse";
+import { CommandFailureError } from "./command-failure";
 import type { OutgoingPart } from "./message-parts";
 import type { DurableTaskView, SendConfig } from "../shared/task-types";
 
@@ -19,7 +20,7 @@ export interface StreamCallbacks {
   onMeta?: (meta: StreamMeta) => void;
   onEvent?: (event: unknown) => void;
   onSideband?: (event: unknown) => void;
-  onError?: (message: string) => void;
+  onError?: (message: string, kind?: string) => void;
 }
 
 /** Reads committed task snapshots and protocol events from the compatibility stream. */
@@ -53,9 +54,9 @@ export async function sendAndStream(
     else if (event === "a2a") callbacks.onEvent?.(data);
     else if (event === "sideband") callbacks.onSideband?.(data);
     else if (event === "error") {
-      const message = (data as { message?: string } | undefined)?.message ?? "Streaming request failed.";
-      callbacks.onError?.(message);
-      throw new Error(message);
+      const { message = "Streaming request failed.", kind, details } = (data as { message?: string; kind?: string; details?: Record<string, unknown> } | undefined) ?? {};
+      callbacks.onError?.(message, kind);
+      throw new CommandFailureError(message, { kind, details });
     }
   }
 }

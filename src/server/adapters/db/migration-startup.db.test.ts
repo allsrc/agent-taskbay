@@ -58,7 +58,7 @@ describe("migrateOnStartup", () => {
   it("backs up an existing database before upgrading it, and keeps working data", async () => {
     const { root, config } = scratch();
     const old = await createDatabaseOrm(config);
-    await old.migrator.up();
+    await old.migrator.up({ to: "Migration0001_Baseline" });
     const connection = old.em.getConnection();
     await connection.execute(`insert into organizations (id, slug, name, created_at, updated_at) values ('00000000-0000-4000-a000-000000000001', 'kept', 'Kept', now(), now())`);
     // Stand in for a release that predates the current baseline: its history is recorded under another name.

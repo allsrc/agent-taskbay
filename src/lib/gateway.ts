@@ -30,7 +30,7 @@ import { validateAgentCard } from "./compliance";
 import { createSafeFetch, redactSecrets } from "./safe-fetch";
 import { assertSafeAgentCard, assertSafeInterfaceUrl, assertSafeUrl } from "./url-safety";
 import type { ConnectionConfig, DiscoverResponse, OperationAction, OperationResponse, WireEvent } from "./types";
-import { advertisedExtensionUris, negotiateSidebandExtensions } from "../server/sideband/extension";
+import { advertisedExtensionUris, negotiateSidebandExtensions, requiredExtensionUris, understoodExtensionUris, unsupportedRequiredExtensionUris } from "../server/sideband/extension";
 import { extractSidebandEvents } from "../server/sideband/decoder";
 
 const DEFAULT_TIMEOUT = 60_000;
@@ -153,7 +153,7 @@ export async function discoverAgent(config: ConnectionConfig): Promise<DiscoverR
     throw new Error(`Agent Card discovery failed. Tried: ${attempts.join("; ")}.`);
   }
   rawCard = redactSecrets(rawCard, config.secretValues);
-  const report = validateAgentCard(rawCard);
+  const report = validateAgentCard(rawCard, { understoodExtensions: understoodExtensionUris() });
   const resolver = new DefaultAgentCardResolver({ fetchImpl, legacyCompat: { enabled: true } });
   let normalizedCard: AgentCard;
   try {
@@ -177,6 +177,8 @@ export async function discoverAgent(config: ConnectionConfig): Promise<DiscoverR
     sideband: {
       advertisedUris: advertisedExtensionUris(normalizedCard),
       negotiatedUris: negotiateSidebandExtensions(normalizedCard),
+      requiredUris: requiredExtensionUris(normalizedCard),
+      unsupportedRequiredUris: unsupportedRequiredExtensionUris(normalizedCard),
     },
   };
 }
@@ -386,6 +388,11 @@ export async function executeOperation(input: OperationInput): Promise<Operation
     if (error instanceof Error) safe.name = error.name;
     if (error && typeof error === "object" && "envelopeCode" in error && typeof error.envelopeCode === "number")
       Object.assign(safe, {envelopeCode: error.envelopeCode});
+    // The error's machine-readable identity survives; the agent's own message does not.
+    if (error && typeof error === "object" && "reason" in error && typeof error.reason === "string" && /^[A-Z_]{1,64}$/.test(error.reason))
+      Object.assign(safe, { reason: error.reason });
+    if (error && typeof error === "object" && "statusCode" in error && typeof error.statusCode === "number")
+      Object.assign(safe, { statusCode: error.statusCode });
     throw safe;
   }
 }

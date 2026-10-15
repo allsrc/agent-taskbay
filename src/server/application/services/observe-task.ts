@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { DurableTaskView } from "../../../shared/task-types";
 import type { JsonValue, TaskRecord, TaskEventSource } from "../../domain/persistence-model";
+import type { TaskOrigin } from "../../domain/discovery-mode";
 import type { AgentRepository, TaskRepository, TaskEventRepository, OutboxRepository } from "../ports/persistence";
 import { enqueueTaskFreshness } from "./task-freshness";
 import { enqueueNotificationEvent } from "./notification-fanout";
@@ -14,6 +15,10 @@ import { reduceTaskLedger, TASK_PROJECTOR_VERSION } from "./versioned-task-proje
 
 export interface TaskObservation {
   skillId?: string | null;
+  /** `discovered` for a task that was started outside Taskbay; absent means `created`. Only used when the task row is first stored. */
+  origin?: TaskOrigin;
+  /** The person who tracked a discovered task; null when automatic discovery found it. */
+  trackedByUserId?: string | null;
   organizationId: string;
   agentId: string;
   tenant: string;
@@ -59,6 +64,7 @@ export class ObserveTaskService {
       kind: remoteTaskId ? "task" : "message", state: remoteTaskId ? "TASK_STATE_UNSPECIFIED" : "MESSAGE_ONLY",
       title: null, skillId: input.skillId ?? null, ownerUserId: null, ownerTeamId: null, createdAt: now, remoteCreatedAt: null,
       updatedAt: now, remoteUpdatedAt: null, terminalAt: null, version: 1, contentJson: {},
+      ...(input.origin === "discovered" ? { origin: "discovered" as const, discoveredAt: now, trackedByUserId: input.trackedByUserId ?? null } : {}),
     });
     if (input.source === "command_response" && (input.skillId ?? null) !== (task.skillId ?? null))
       throw new Error("Agent response crossed a task skill boundary.");
@@ -123,7 +129,9 @@ export class ObserveTaskService {
         INPUT_REQUIRED: { kind: "task.needs_input", detail: "input" }, AUTH_REQUIRED: { kind: "task.needs_input", detail: "auth" },
         COMPLETED: { kind: "task.finished" }, FAILED: { kind: "task.failed" },
       };
-      if (task.kind === "task" && task.state !== view.state && NOTIFY[next])
+      // A task someone just chose to track, or that was just discovered, is not news: only its later changes notify.
+      const firstSightOfDiscovered = input.origin === "discovered" && task.state === "TASK_STATE_UNSPECIFIED";
+      if (task.kind === "task" && task.state !== view.state && NOTIFY[next] && !firstSightOfDiscovered)
         await enqueueNotificationEvent(this.outbox, input.organizationId, { ...NOTIFY[next], taskId: task.id }, now);
     }
     return view;

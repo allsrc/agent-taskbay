@@ -4,6 +4,7 @@ import { MikroOrmSyncCursorRepository } from "./sync-repository";
 import { MikroOrmPushRepository } from "./push-repository";
 import { LockMode, type EntityManager, type QueryResult } from "@mikro-orm/core";
 import { randomUUID } from "node:crypto";
+import { DEFAULT_TASK_DISCOVERY_HISTORY_DAYS, DEFAULT_TASK_DISCOVERY_MODE, MAX_TASK_DISCOVERY_HISTORY_DAYS, isTaskDiscoveryMode, type TaskDiscoveryMode } from "../../domain/discovery-mode";
 import { observationPaused } from "../../application/services/subscription-state";
 import type { EntityManager as SqlEntityManager } from "@mikro-orm/sql";
 
@@ -59,6 +60,10 @@ function agentRecord(entity: AgentEntity): AgentRecord {
     protocolSnapshotVersion: entity.protocolSnapshotVersion ?? null,
     lastDiscoveryAt: entity.lastDiscoveryAt ?? null,
     lastHealthyAt: entity.lastHealthyAt ?? null,
+    extensionOverride: entity.extensionOverride ?? false,
+    taskDiscovery: entity.taskDiscovery ?? DEFAULT_TASK_DISCOVERY_MODE,
+    taskDiscoveryHistoryDays: entity.taskDiscoveryHistoryDays ?? DEFAULT_TASK_DISCOVERY_HISTORY_DAYS,
+    taskDiscoveryPausedReason: entity.taskDiscoveryPausedReason ?? null,
     createdAt: entity.createdAt,
     updatedAt: entity.updatedAt,
   };
@@ -96,6 +101,9 @@ function taskRecord(entity: TaskEntity): TaskRecord {
     title: entity.title ?? null,
     ownerUserId: entity.ownerUserId ?? null,
     ownerTeamId: entity.ownerTeamId ?? null,
+    origin: entity.origin ?? "created",
+    discoveredAt: entity.discoveredAt ?? null,
+    trackedByUserId: entity.trackedByUserId ?? null,
     createdAt: entity.createdAt,
     remoteCreatedAt: entity.remoteCreatedAt ?? null,
     updatedAt: entity.updatedAt,
@@ -207,6 +215,23 @@ export class MikroOrmAgentRepository implements AgentRepository {
     registration: Pick<AgentRecord, "source" | "enabled" | "updatedAt">,
   ) {
     return (await this.entityManager.nativeUpdate(AgentEntity, { organizationId, id }, registration)) > 0;
+  }
+
+  async setExtensionOverride(organizationId: string, id: string, extensionOverride: boolean, now: Date) {
+    return (await this.entityManager.nativeUpdate(AgentEntity, { organizationId, id }, { extensionOverride, updatedAt: now })) > 0;
+  }
+
+  async setTaskDiscovery(
+    organizationId: string,
+    id: string,
+    change: { taskDiscovery?: TaskDiscoveryMode; taskDiscoveryHistoryDays?: number; taskDiscoveryPausedReason?: string | null },
+    now: Date,
+  ) {
+    if (change.taskDiscovery !== undefined && !isTaskDiscoveryMode(change.taskDiscovery)) throw new Error("Invalid task discovery mode.");
+    const days = change.taskDiscoveryHistoryDays;
+    if (days !== undefined && (!Number.isInteger(days) || days < 0 || days > MAX_TASK_DISCOVERY_HISTORY_DAYS))
+      throw new Error(`Task discovery history must be a whole number of days from 0 to ${MAX_TASK_DISCOVERY_HISTORY_DAYS}.`);
+    return (await this.entityManager.nativeUpdate(AgentEntity, { organizationId, id }, { ...change, updatedAt: now })) > 0;
   }
 
   async updateDiscovery(
@@ -339,6 +364,17 @@ export class MikroOrmTaskRepository implements TaskRepository {
     return entity ? this.withContent(entity) : undefined;
   }
 
+  async findManyByRemoteIds(identity: { organizationId: string; agentId: string; tenant: string; remoteTaskIds: string[] }) {
+    if (!identity.remoteTaskIds.length) return [];
+    const rows = await this.entityManager.find(TaskEntity, { organizationId: identity.organizationId, agentId: identity.agentId, tenant: identity.tenant,
+      remoteTaskId: { $in: identity.remoteTaskIds }, $and: [await taskAccessFilter(this.entityManager)] }, { fields: ["id", "remoteTaskId", "state"] });
+    return rows.map((row) => ({ id: row.id, remoteTaskId: row.remoteTaskId ?? null, state: row.state }));
+  }
+
+  async countDiscovered(organizationId: string, agentId: string) {
+    return this.entityManager.count(TaskEntity, { organizationId, agentId, origin: "discovered" });
+  }
+
   async insert(task: TaskRecord) {
     const entity = this.entityManager.create(TaskEntity, task);
     this.entityManager.persist(entity);
@@ -432,14 +468,14 @@ export class MikroOrmTaskCommandRepository implements TaskCommandRepository {
     const entity = await this.entityManager.findOne(TaskCommandEntity, { organizationId, id }, { refresh: true });
     return entity ? this.record(entity) : undefined;
   }
-  async update(organizationId: string, id: string, changes: Pick<TaskCommandRecord, "status" | "resultJson" | "lastError" | "updatedAt">) {
+  async update(organizationId: string, id: string, changes: Pick<TaskCommandRecord, "status" | "resultJson" | "lastError" | "updatedAt"> & { errorKind?: string | null }) {
     await this.entityManager.nativeUpdate(TaskCommandEntity, { organizationId, id }, changes);
   }
   private record(entity: TaskCommandEntity): TaskCommandRecord {
     return { skillId: entity.skillId ?? null, id: entity.id, organizationId: entity.organizationId, agentId: entity.agentId, tenant: entity.tenant,
       action: entity.action, idempotencyKey: entity.idempotencyKey, messageId: entity.messageId,
       payloadDigest: entity.payloadDigest, payloadObjectKey: entity.payloadObjectKey, status: entity.status,
-      resultJson: entity.resultJson ?? null, lastError: entity.lastError ?? null, createdAt: entity.createdAt, updatedAt: entity.updatedAt };
+      resultJson: entity.resultJson ?? null, lastError: entity.lastError ?? null, errorKind: entity.errorKind ?? null, createdAt: entity.createdAt, updatedAt: entity.updatedAt };
   }
 }
 

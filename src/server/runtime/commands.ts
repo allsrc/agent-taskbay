@@ -16,6 +16,8 @@ import { artifactStore, createTaskObserver } from "./task-persistence";
 import { eventDigest } from "../application/services/observe-task";
 import { currentPrincipal } from "../adapters/auth/principal-context";
 import { authorize } from "../application/services/authorization";
+import { terminalTask } from "../application/ports/reconciliation";
+import { unsupportedRequiredExtensionUris } from "../sideband/extension";
 import { DatabaseIdentityRepository } from "../adapters/db/identity-repository";
 
 export function compatibilityCommandKey(agentId: string, tenant = "", messageId?: string) {
@@ -37,7 +39,7 @@ export const commandInputSchema = z.object({ action: z.enum(["send", "cancelTask
 
 export function commandView(command: TaskCommandRecord) {
   return { id: command.id, agentId: command.agentId, tenant: command.tenant, action: command.action,
-    messageId: command.messageId, status: command.status, result: command.resultJson, error: command.lastError,
+    messageId: command.messageId, status: command.status, result: command.resultJson, error: command.lastError, errorKind: command.errorKind ?? null,
     createdAt: command.createdAt.toISOString(), updatedAt: command.updatedAt.toISOString() };
 }
 
@@ -60,7 +62,8 @@ export async function acceptCommandWithin(transaction: EntityManager, scope: Acc
   const principal = currentPrincipal();
   const organization = { id: organizationId };
   const ports = createPersistenceRepositories(transaction);
-  if (!(await ports.agents.findById(organization.id, agentId))?.enabled) throw new CommandError("Unknown agent.", 404);
+  const agentRecord = await ports.agents.findById(organization.id, agentId);
+  if (!agentRecord?.enabled) throw new CommandError("Unknown agent.", 404);
   let skillId = requestedSkillId ?? null;
   const policy = await requestAccessPolicy(transaction);
   const task = input.taskId ? await ports.tasks.findByRemoteIdentity({organizationId: organization.id, agentId, tenant, remoteTaskId: input.taskId}) : undefined;
@@ -69,8 +72,15 @@ export async function acceptCommandWithin(transaction: EntityManager, scope: Acc
     if (requestedSkillId && requestedSkillId !== task.skillId) throw new CommandError("Task skill cannot be changed.", 403);
     skillId = task.skillId ?? null;
     if (input.contextId && input.contextId !== task.remoteContextId) throw new CommandError("Task context mismatch.", 403);
+    // A2A terminal states are final, so the stored state cannot be stale in a way that matters: a finished task is never continued or canceled.
+    if (terminalTask(task.state)) throw new CommandError("This task is finished. Start a new task in the same conversation.", 409, "task_terminal");
   }
   policy?.require(agentId, "operate", skillId);
+  // A card can require an extension Taskbay cannot honor. Sending is blocked unless an administrator allowed it (audited).
+  if (action === "send" && !agentRecord.extensionOverride) {
+    const missing = unsupportedRequiredExtensionUris((await ports.agents.findLatestCardSnapshot(agentId))?.normalizedCardJson);
+    if (missing.length) throw new CommandError("This agent requires an extension Agent Taskbay does not support, so sending is blocked.", 409, "extension_required", { extensions: missing });
+  }
   for (const remoteTaskId of config?.referenceTaskIds ?? []) {
     if (!await ports.tasks.findByRemoteIdentity({ organizationId: organization.id, agentId, tenant, remoteTaskId }))
       throw new CommandError("Referenced task not found.", 404);
@@ -160,7 +170,8 @@ export async function waitForCommand(id: string, signal?: AbortSignal) {
     const command = await readCommand(id);
     if (!command) throw new CommandError("Command not found.", 404);
     if (command.status === "succeeded") return command;
-    if (["failed", "uncertain"].includes(command.status)) throw new CommandError(command.lastError ?? "Command failed.", 409);
+    if (["failed", "uncertain", "rejected"].includes(command.status))
+      throw new CommandError(command.lastError ?? "Command failed.", 409, command.status === "rejected" ? command.errorKind ?? undefined : command.status === "uncertain" ? "uncertain" : undefined);
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
   throw new CommandError(`Command accepted; waiting stopped. Query /api/commands/${id} for its outcome before submitting again.`, 504);

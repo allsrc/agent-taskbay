@@ -15,6 +15,7 @@ import { createPersistenceRepositories } from "../adapters/db/repositories";
 import { withRequestEntityManager } from "../adapters/db/orm";
 import type { JsonValue, TaskEventSource } from "../domain/persistence-model";
 import type { StreamMetadata } from "../application/ports/subscriptions";
+import type { TaskOrigin } from "../domain/discovery-mode";
 import { currentPrincipal } from "../adapters/auth/principal-context";
 
 export const artifactStore = new FilesystemArtifactStore();
@@ -32,6 +33,8 @@ export async function withTaskQueries<T>(work: (queries: TaskQueryService, organ
 
 export interface ObservationSession {
   skillId?: string | null;
+  origin?: TaskOrigin;
+  trackedByUserId?: string | null;
   organizationId?: string;
   agentId: string;
   tenant?: string;

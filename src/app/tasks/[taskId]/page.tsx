@@ -5,6 +5,8 @@ import Link from "next/link";
 import { CircleStop, Download, ListChecks, Loader2, MessageSquare, Radio, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Chip, EmptyState, InfoCard, StateChip } from "@/components/a2a/primitives";
+import { CommandError } from "@/components/a2a/command-error";
+import { CommandFailureError, failureFromError, failureFromResponse, type CommandFailure } from "@/lib/command-failure";
 import { Page, PageMessage } from "@/components/console/page";
 import { Callout } from "@/components/patterns/data-display";
 import { DefinitionList } from "@/components/patterns/layout";
@@ -28,6 +30,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ taskId: s
   const task = resource.data?.task;
   const upsertTask = useTaskStore((state) => state.upsertTask);
   const [busy, setBusy] = useState<"subscribe" | "cancel" | null>(null);
+  const [failure, setFailure] = useState<CommandFailure | null>(null);
 
   if (resource.loading) return <PageMessage>Loading task…</PageMessage>;
   if (!task) {
@@ -62,17 +65,22 @@ export default function TaskDetailPage({ params }: { params: Promise<{ taskId: s
   async function cancel() {
     if (!task || !window.confirm("Cancel this task?")) return;
     setBusy("cancel");
+    setFailure(null);
     try {
       const response = await fetch(`/api/agents/${task.agentId}/tasks/${encodeURIComponent(task.taskId)}/cancel?tenant=${encodeURIComponent(task.tenant)}`, { method: "POST" });
+      if (!response.ok) {
+        const refusal = await failureFromResponse(response, "Failed to cancel the task.");
+        throw new CommandFailureError(refusal.message, refusal);
+      }
       const body = await response.json();
-      if (!response.ok) throw new Error(body?.error?.message ?? "Failed to cancel the task.");
       const state = (body?.result as { status?: { state?: string } } | undefined)?.status?.state ?? "TASK_STATE_CANCELED";
       const timestamp = new Date().toISOString();
       upsertTask({ ...task, state, updatedAt: timestamp, transitions: [...(task.transitions ?? []), { state, timestamp }] });
       resource.refresh();
       toast.success("Task canceled");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to cancel the task.");
+      // The page reads the task again below, so a refused cancel shows the agent's real state next to the explanation.
+      setFailure(failureFromError(error, "Failed to cancel the task."));
     } finally {
       resource.refresh();
       setBusy(null);
@@ -100,6 +108,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ taskId: s
       }
     >
       {resource.error && <Callout tone="danger" className="mb-4">{resource.error}</Callout>}
+      {failure && <CommandError failure={failure} className="mb-4" />}
 
       <div className="grid gap-4 2xl:grid-cols-3 2xl:items-start">
         <div className="space-y-4 2xl:col-span-2">

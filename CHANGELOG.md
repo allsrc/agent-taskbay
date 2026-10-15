@@ -7,6 +7,11 @@ the project uses [semantic versioning](https://semver.org/) once it reaches 1.0;
 
 ### Changed
 
+- An Agent Card that marks an extension `required: true` which Taskbay does not support now blocks sending to that agent (`409`, `extension_required`) until an administrator allows it on the agent page or with `PATCH /api/agents/{agentId}/settings`. Canceling is not blocked. The override is audited. Schema version 4.
+- Sending to, or canceling, a task that has already finished is refused with `409` and `task_terminal` instead of being forwarded to the agent. Start a new task in the same conversation.
+- Failed sends and cancels now explain themselves in chat and on the task page: what the agent refused, whether it is safe to send again, and a **Start new task** action when the task has finished. Refused and uncertain commands carry their kind through the streaming route.
+- Tasks started outside Taskbay can be found and taken over: `GET /api/agents/{agentId}/remote-tasks` lists an agent's tasks live (nothing is stored) and `POST …/remote-tasks/track` stores one and follows it, so it can be answered, steered, canceled and shown in the Inbox. Needs an administrator or a whole-agent `operate` grant. The console screens for this follow.
+- A definite A2A error from an agent (task not found, task not cancelable, unsupported operation, unsupported content type, required extension, unsupported version, malformed request) now ends a command as `rejected` with an `errorKind`, instead of `uncertain`. A rejected command is safe to send again; the agent's own error text is not stored or returned. Schema version 3.
 - Migrations are numbered (`Migration0001_Baseline`, …) instead of timestamped, and each release declares the schema version it needs. Startup messages and backup names say which schema version the database is at, and a database newer than the release is refused. The sixteen development-period migrations are squashed into one baseline. Databases that applied all of them are adopted unchanged; ones missing some are refused with instructions to start `agent-taskbay@0.2.0` once.
 - On start, `npx agent-taskbay` and `npm run dev` say whether they are creating a new database or upgrading an existing one. An existing PGlite database is copied to `<dir>.backup-v<schema version>-<timestamp>` before it is upgraded (newest 3 kept), and nothing is printed when it is already current.
 - Sent messages use a soft brand surface instead of the primary action color.
@@ -20,6 +25,8 @@ the project uses [semantic versioning](https://semver.org/) once it reaches 1.0;
 
 ### Added
 
+- `A2A_TASK_DISCOVERY` (`off`, `browse` or `auto`, default `browse`), the highest task discovery mode any agent may use, and the stored fields behind it (an agent's discovery mode, where a task came from, who tracked it). Schema version 2.
+- `scripts/fixture-scenario-agent.mjs`, a controllable sample agent for protocol scenarios (development only; not in the npm package).
 - `scripts/fixture-content-agent.mjs`, a streaming sample agent that sends content under the wrong media type (cases in `scripts/fixtures/mislabeled-content.json`, shared by its tests) and, with `tools` and `long`, tool calls, results, reasoning and other JSON in common framework shapes, and 700-line content.
 
 ### Fixed

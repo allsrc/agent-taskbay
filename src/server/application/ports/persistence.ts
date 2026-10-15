@@ -1,3 +1,4 @@
+import type { TaskDiscoveryMode } from "../../domain/discovery-mode";
 import type {
   AgentCardSnapshotRecord,
   AgentRecord,
@@ -23,6 +24,14 @@ export interface AgentRepository {
     organizationId: string,
     id: string,
     registration: Pick<AgentRecord, "source" | "enabled" | "updatedAt">,
+  ): Promise<boolean>;
+  setExtensionOverride(organizationId: string, id: string, extensionOverride: boolean, now: Date): Promise<boolean>;
+  /** Changes an agent's task discovery settings. Rejects an unknown mode or a history outside 0 to 90 days. */
+  setTaskDiscovery(
+    organizationId: string,
+    id: string,
+    change: { taskDiscovery?: TaskDiscoveryMode; taskDiscoveryHistoryDays?: number; taskDiscoveryPausedReason?: string | null },
+    now: Date,
   ): Promise<boolean>;
   updateDiscovery(
     organizationId: string,
@@ -66,6 +75,10 @@ export interface TaskRepository {
     tenant: string;
     remoteTaskId: string;
   }): Promise<TaskRecord | undefined>;
+  /** The stored tasks among these remote IDs for one agent and tenant, restricted to what the caller may see. */
+  findManyByRemoteIds(identity: { organizationId: string; agentId: string; tenant: string; remoteTaskIds: string[] }): Promise<Array<Pick<TaskRecord, "id" | "remoteTaskId" | "state">>>;
+  /** Tasks stored because someone tracked them or automatic discovery found them. */
+  countDiscovered(organizationId: string, agentId: string): Promise<number>;
   insert(task: TaskRecord): Promise<TaskRecord>;
 }
 
@@ -102,5 +115,5 @@ export interface OutboxRepository {
 export interface TaskCommandRepository {
   getOrCreate(command: TaskCommandRecord): Promise<{ command: TaskCommandRecord; created: boolean }>;
   findById(organizationId: string, id: string): Promise<TaskCommandRecord | undefined>;
-  update(organizationId: string, id: string, changes: Pick<TaskCommandRecord, "status" | "resultJson" | "lastError" | "updatedAt">): Promise<void>;
+  update(organizationId: string, id: string, changes: Pick<TaskCommandRecord, "status" | "resultJson" | "lastError" | "updatedAt"> & { errorKind?: string | null }): Promise<void>;
 }

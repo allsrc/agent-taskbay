@@ -60,6 +60,10 @@ export interface DiscoverResponse {
   sideband?: {
     advertisedUris: string[];
     negotiatedUris: string[];
+    /** Extensions the card marks `required: true`. */
+    requiredUris?: string[];
+    /** Required extensions Taskbay does not support. */
+    unsupportedRequiredUris?: string[];
   };
 }
 

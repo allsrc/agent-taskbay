@@ -11,6 +11,8 @@ import { Callout } from "@/components/patterns/data-display";
 import { DefinitionList } from "@/components/patterns/layout";
 import { Eyebrow, Pill } from "@/components/patterns/status";
 import { ConnectAgentDialog } from "@/components/agents/connect-agent-dialog";
+import { RequiredExtensionsNotice } from "@/components/agents/required-extensions-notice";
+import { useServerResource } from "@/lib/use-server-resource";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { useAgentStore } from "@/store/agent-store";
 
@@ -22,6 +24,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ agentId:
   const refresh = useAgentStore((state) => state.refresh);
   const [connectOpen, setConnectOpen] = useState(false);
   const [removing, setRemoving] = useState(false);
+  const session = useServerResource<{ user: { role: string } }>("/api/auth/session");
 
   if (!agent) {
     return status === "loading" || status === "idle" ? (
@@ -69,6 +72,12 @@ export default function AgentDetailPage({ params }: { params: Promise<{ agentId:
         </>
       }
     >
+      {view && agent.extensions && (
+        <div className="mb-4">
+          <RequiredExtensionsNotice agentId={agent.id} unsupported={agent.extensions.unsupportedRequired} override={agent.extensions.override}
+            admin={session.data?.user.role === "admin"} onChanged={refresh} />
+        </div>
+      )}
       {view ? (
         <div className="grid gap-4 xl:grid-cols-2">
           <InfoCard label="Capabilities">

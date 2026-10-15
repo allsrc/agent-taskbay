@@ -1,9 +1,11 @@
+import { CommandFailureError, failureFromResponse } from "./command-failure";
+
 export interface ParsedSseEvent { event: string; data: unknown }
 
 export async function* readSse(response: Response, signal?: AbortSignal): AsyncGenerator<ParsedSseEvent> {
   if (!response.ok) {
-    const body = await response.json().catch(() => ({}));
-    throw new Error((body as { error?: { message?: string } }).error?.message ?? `HTTP ${response.status}`);
+    const failure = await failureFromResponse(response, `HTTP ${response.status}`);
+    throw new CommandFailureError(failure.message, failure);
   }
   if (!response.body) throw new Error("Streaming response has no body.");
   const reader = response.body.getReader();

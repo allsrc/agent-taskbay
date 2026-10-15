@@ -41,6 +41,7 @@ The gateway uses the official `@a2a-js/sdk` for protocol handling.
 | Polling (`GetTask`, `ListTasks`) | Yes | Reconciliation polls open tasks. An agent that cannot list tasks falls back to `GetTask` only. |
 | `SendMessage`, `CancelTask` | Yes | Always sent as "return immediately"; progress is observed separately. |
 | Push notifications | Optional | Worker-managed registration. Only for agents whose card sets `capabilities.pushNotifications`. The worker calls get (to check for an existing config), create and delete of task push configs; it never lists them. Needs `A2A_PUSH_CALLBACK_ORIGIN` and a callback reachable by the agent. Off by default. See [Agent push callbacks](../guides/agent-push-callbacks.md). |
+| Task browsing and tracking (`ListTasks`, `GetTask`) | Yes: `ListTasks` pages are shown live and never stored; a task is stored only when a person tracks it. Agents without `ListTasks` can still be tracked by ID. | `discovery.db.test.ts`, `verify-task-http` |
 | Extended Agent Card | Display only | The agent page shows whether the card advertises it. No route fetches the extended card in this version. |
 | Multi-tenancy | Yes | The `tenant` field is part of task identity. |
 | Parts | `text`, `raw`, `url`, `data` | Binary parts are stored in the artifact store; remote URLs are shown as provenance and are not loaded by the console. |
@@ -103,6 +104,7 @@ Credentials are bound to origins: a credential is sent only to the origins liste
 | Structured form extension | Experimental | `verify-forms-http`; no automated browser suite ([#14](https://github.com/allsrc/agent-taskbay/issues/14)) |
 | Agent approval-request extension | Experimental | `verify-agent-approvals-http` |
 | Skill routing extension | Experimental | `scoped-security` tests |
+| Required extensions (`required: true` on the card) | Implemented: an unsupported required extension blocks sends until an administrator allows it | `required-extensions.db.test.ts`, `verify-task-http` |
 | A2UI renderer (v0.9 subset) | Experimental | `verify-a2ui-http`; no third-party agent test ([#25](https://github.com/allsrc/agent-taskbay/issues/25)) |
 | AG-UI adapter | Experimental, off by default | `verify-agui-http`; no real client test ([#13](https://github.com/allsrc/agent-taskbay/issues/13)) |
 | Local launcher (`npx agent-taskbay`) | Implemented, single user | `verify:package` |

@@ -23,6 +23,7 @@ const pushDeletes = [];
 let pushCreateResponseLost = true;
 let pollState = "TASK_STATE_WORKING";
 let pollGets = 0;
+let refuseCancel = false;
 const pollTokens = [];
 const pollSnapshot = () => ({ id: "poll-task", contextId, status: { state: pollState, timestamp: pollState === "TASK_STATE_COMPLETED" ? "2026-10-03T03:00:02Z" : "2026-10-03T03:00:01Z" },
   history: pollState === "TASK_STATE_WORKING" ? [] : [{ messageId: "poll-prompt", role: "ROLE_AGENT", parts: [{ text: "Recovered without streaming" }] }],
@@ -34,7 +35,8 @@ const fixture = createServer(async (request, response) => {
     response.setHeader("Content-Type", "application/json");
     response.end(JSON.stringify({ name: `Fixture ${agent}`, description: "Durable task fixture", version: "1.0.0",
       supportedInterfaces: [{ url: `http://127.0.0.1:${fixturePort}/${agent}/a2a`, protocolBinding: "JSONRPC", protocolVersion: "1.0" }],
-      capabilities: { streaming: !["push", "poll"].includes(agent), pushNotifications: agent === "push" }, defaultInputModes: ["text/plain"], defaultOutputModes: ["text/plain"], skills: [] }));
+      capabilities: { streaming: !["push", "poll"].includes(agent), pushNotifications: agent === "push",
+        extensions: agent === "extreq" ? [{ uri: "https://example.test/extensions/needed/v1", required: true }] : [] }, defaultInputModes: ["text/plain"], defaultOutputModes: ["text/plain"], skills: [] }));
     return;
   }
   let input = "";
@@ -80,11 +82,16 @@ const fixture = createServer(async (request, response) => {
     response.end(JSON.stringify({ jsonrpc: "2.0", id: rpc.id, result: {} }));
   } else if (rpc.method === "CancelTask") {
     response.setHeader("Content-Type", "application/json");
+    if (refuseCancel) { response.end(JSON.stringify({ jsonrpc: "2.0", id: rpc.id, error: { code: -32002, message: "Remote detail that must not reach the client" } })); return; }
     response.end(JSON.stringify({ jsonrpc: "2.0", id: rpc.id, result: status("TASK_STATE_CANCELED", "2026-10-03T00:00:03Z") }));
   } else if (rpc.method === "SendMessage") {
     sends++;
     requestHistory.set(key, rpc.params.message);
     const text = rpc.params.message.parts?.[0]?.text;
+    if (text === "Refuse send") {
+      response.setHeader("Content-Type", "application/json");
+      response.end(JSON.stringify({ jsonrpc: "2.0", id: rpc.id, error: { code: -32004, message: "Remote detail that must not reach the client" } })); return;
+    }
     if (agent === "poll") {
       response.setHeader("Content-Type", "application/json");
       response.end(JSON.stringify({ jsonrpc: "2.0", id: rpc.id, result: { task: pollSnapshot() } })); return;
@@ -388,7 +395,66 @@ try {
   await json(`/api/agents/${one.id}/tasks/${remoteId}/cancel?tenant=tenant-b`, { method: "POST" });
   assert.equal((await json(`/api/tasks/${ids[2]}`)).task.state, "TASK_STATE_CANCELED");
   assert.equal((await json("/api/task-views")).tasks.find((task) => task.localId === ids[2]).state, "TASK_STATE_CANCELED");
+  // A finished task is never continued or canceled again; the caller is told to start a new task.
+  for (const attempt of [
+    fetch(`${base}/api/agents/${one.id}/tasks/${remoteId}/cancel?tenant=tenant-b`, { method: "POST", headers: { Origin: base } }),
+    fetch(`${base}/api/agents/${one.id}/messages`, { method: "POST", headers: { "Content-Type": "application/json", Origin: base },
+      body: JSON.stringify({ text: "More", taskId: remoteId, tenant: "tenant-b", messageId: "after-finish" }) }),
+  ]) {
+    const response = await attempt;
+    assert.equal(response.status, 409);
+    assert.equal((await response.json()).error.kind, "task_terminal");
+  }
   assert.equal((await json(`/api/tasks/${ids[0]}`)).task.state, "TASK_STATE_INPUT_REQUIRED");
+  // A definite refusal by the agent is a rejected command with a kind, not an uncertain one, and carries none of the agent's text.
+  const waiting = (await json(`/api/tasks/${ids[0]}`)).task;
+  refuseCancel = true;
+  const refused = await fetch(`${base}/api/agents/${waiting.agentId}/tasks/${waiting.taskId}/cancel?tenant=${encodeURIComponent(waiting.tenant)}`,
+    { method: "POST", headers: { Origin: base, "Idempotency-Key": "refused-cancel" } });
+  refuseCancel = false;
+  assert.equal(refused.status, 409);
+  const refusal = await refused.json();
+  assert.equal(refusal.error.kind, "task_not_cancelable");
+  assert.equal(refusal.error.message, "Agent rejected the request: task_not_cancelable.");
+  assert.ok(!JSON.stringify(refusal).includes("Remote detail"));
+  // The streaming send reports the same refusal, with its kind, so the console can explain it.
+  const streamed = await fetch(`${base}/api/agents/${waiting.agentId}/stream`, { method: "POST", headers: { "Content-Type": "application/json", Origin: base },
+    body: JSON.stringify({ text: "Refuse send", tenant: waiting.tenant, messageId: "refused-send" }) });
+  const streamedBody = await streamed.text();
+  assert.match(streamedBody, /event: error\ndata: .*"kind":"unsupported_operation"/);
+  assert.ok(!streamedBody.includes("Remote detail"));
+  assert.equal((await json(`/api/tasks/${ids[0]}`)).task.state, "TASK_STATE_INPUT_REQUIRED");
+  // A card that requires an extension Taskbay does not support blocks sends until an administrator allows it (audited); cancel is never blocked.
+  const needed = "https://example.test/extensions/needed/v1";
+  const extreq = (await json("/api/agents", { method: "POST", body: JSON.stringify({ cardUrl: `http://127.0.0.1:${fixturePort}/extreq/card.json` }) })).agent;
+  const listed = (await json("/api/agents")).agents.find((entry) => entry.id === extreq.id);
+  assert.deepEqual(listed.extensions, { required: [needed], unsupportedRequired: [needed], override: false });
+  const sendExt = (id) => fetch(`${base}/api/agents/${extreq.id}/messages`, { method: "POST", headers: { "Content-Type": "application/json", Origin: base }, body: JSON.stringify({ text: "Hello", messageId: id }) });
+  const blocked = await sendExt("ext-1");
+  assert.equal(blocked.status, 409);
+  const blockedBody = await blocked.json();
+  assert.equal(blockedBody.error.kind, "extension_required");
+  assert.deepEqual(blockedBody.error.details, { extensions: [needed] });
+  const settings = (body, id = extreq.id) => fetch(`${base}/api/agents/${id}/settings`, { method: "PATCH", headers: { "Content-Type": "application/json", Origin: base }, body: JSON.stringify(body) });
+  assert.equal((await settings({ unknown: true })).status, 400);
+  assert.equal((await settings({})).status, 400);
+  assert.equal((await settings({ extensionOverride: true }, randomUUID())).status, 404);
+  assert.equal((await settings({ extensionOverride: true })).status, 200);
+  assert.equal((await json("/api/agents")).agents.find((entry) => entry.id === extreq.id).extensions.override, true);
+  assert.equal((await sendExt("ext-2")).status, 200);
+  assert.equal((await settings({ extensionOverride: false })).status, 200);
+  assert.equal((await sendExt("ext-3")).status, 409);
+  // Browsing and tracking an agent's tasks: this fixture agent cannot list tasks and does not know the task, and bad input is refused.
+  const browsed = await fetch(`${base}/api/agents/${one.id}/remote-tasks`, { headers: { Origin: base } });
+  assert.equal(browsed.status, 501);
+  assert.equal((await browsed.json()).error.kind, "listing_unsupported");
+  const trackCall = (body, id = one.id) => fetch(`${base}/api/agents/${id}/remote-tasks/track`, { method: "POST", headers: { "Content-Type": "application/json", Origin: base }, body: JSON.stringify(body) });
+  const untracked = await trackCall({ taskId: "no-such-task" });
+  assert.equal(untracked.status, 404);
+  assert.equal((await untracked.json()).error.kind, "task_not_found_on_agent");
+  assert.equal((await trackCall({ taskId: "x", content: "from the browser" })).status, 400);
+  assert.equal((await trackCall({ taskId: "x" }, randomUUID())).status, 404);
+  assert.equal((await fetch(`${base}/api/agents/${one.id}/remote-tasks?status=nonsense`, { headers: { Origin: base } })).status, 400);
   // TSK-003/REL-001: SDK-managed push and actual authenticated production route.
   const pushAgent = (await json("/api/agents", { method: "POST", body: JSON.stringify({ cardUrl: `http://127.0.0.1:${fixturePort}/push/card.json` }) })).agent;
   const pushCommand = await json(`/api/agents/${pushAgent.id}/commands`, { method: "POST", headers: { "Idempotency-Key": "push-command" },

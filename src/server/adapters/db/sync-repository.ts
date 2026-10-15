@@ -57,6 +57,6 @@ export class MikroOrmSyncCursorRepository implements SyncCursorRepository {
   }
   private record(row: SyncCursorEntity): SyncCursorRecord {
     return { ...row, taskId: row.taskId ?? null, leaseOwner: row.leaseOwner ?? null,
-      leaseUntil: row.leaseUntil ?? null, lastError: row.lastError ?? null, lastSyncedAt: row.lastSyncedAt ?? null };
+      leaseUntil: row.leaseUntil ?? null, lastError: row.lastError ?? null, lastSyncedAt: row.lastSyncedAt ?? null, lastFullSweepAt: row.lastFullSweepAt ?? null };
   }
 }

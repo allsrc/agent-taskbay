@@ -3,6 +3,7 @@ import { agentRegistry } from "@/lib/agent-registry";
 import { readJsonRequest } from "@/lib/request-guard";
 import { acceptCommand, waitForCommand, compatibilityCommandKey } from "@/server/runtime/commands";
 import { apiError } from "@/lib/api-response";
+import { CommandError } from "@/server/application/services/task-command";
 import { ensureTaskSubscription, readTaskFeed } from "@/server/runtime/subscriptions";
 import { observationPaused } from "@/server/application/services/subscription-state";
 import { object } from "@/server/application/services/task-projection";
@@ -104,8 +105,11 @@ async function handlePOST(request: Request, context: { params: Promise<{ agentId
           await new Promise((resolve) => setTimeout(resolve, 250));
         }
         emit("end", { sessionId, requestId });
-      } catch {
-        emit("error", { sessionId, requestId, commandId, message: "Durable task stream unavailable; query task or command status before retrying." });
+      } catch (error) {
+        // A command the agent refused, or one with an uncertain outcome, reports its own fixed text and kind; anything else is a stream failure.
+        const kind = error instanceof CommandError ? error.kind : undefined;
+        emit("error", { sessionId, requestId, commandId, ...(kind && error instanceof CommandError ? { kind, message: error.message } :
+          { message: "Durable task stream unavailable; query task or command status before retrying." }) });
       } finally {
         if (!disconnected) controller.close();
       }
