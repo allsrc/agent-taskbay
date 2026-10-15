@@ -66,7 +66,7 @@ export class MikroOrmSyncCursorRepository implements SyncCursorRepository {
         id: randomUUID(), organizationId, agentId, tenant, resourceKey: "", taskId: null, status: "pending", pageToken: "", availableAt: now, attempts: 0,
         leaseOwner: null, leaseUntil: null, lastError: null, lastSyncedAt: null, createdAt: now, updatedAt: now,
       }, { onConflictFields: ["organizationId", "agentId", "tenant", "resourceKey"], onConflictAction: "ignore", disableIdentityMap: true });
-      if (reset) await this.em.nativeUpdate(SyncCursorEntity, { organizationId, agentId, tenant, resourceKey: "", status: { $in: ["stopped", "unsupported"] } },
+      if (reset) await this.em.nativeUpdate(SyncCursorEntity, { organizationId, agentId, tenant, resourceKey: "", status: { $in: ["stopped", "unsupported", "pending"] } },
         { status: "pending", pageToken: "", availableAt: now, attempts: 0, lastError: null, sweepStartedAt: null, sweepFound: 0, sweepAfter: null, updatedAt: now });
     }
   }

@@ -14,7 +14,7 @@ export interface SyncCursorRepository {
   knownTasks(cursor: SyncCursorRecord): Promise<TaskRecord[]>;
   /** The agent's whole-agent list cursors (one per tenant), for status display. */
   listCursors(organizationId: string, agentId: string): Promise<SyncCursorRecord[]>;
-  /** Creates the agent's whole-agent list cursors for these tenants, so automatic discovery has something to claim. `reset` also restarts stopped or unsupported ones (used when the mode changes). */
+  /** Creates the agent's whole-agent list cursors for these tenants, so automatic discovery has something to claim. `reset` also restarts stopped, unsupported or waiting ones, so the first sweep happens now (used when the mode changes). */
   startDiscovery(organizationId: string, agentId: string, tenants: string[], now: Date, reset: boolean): Promise<void>;
   /** Tenants of the agent's stored tasks. */
   taskTenants(organizationId: string, agentId: string): Promise<string[]>;
