@@ -106,7 +106,51 @@ try {
   assert.equal(fresh.related.references[0].state, "TASK_STATE_CANCELED");
   assert.ok((await call("/api/tasks")).body.tasks.every((task) => task.related === undefined));
 
-  console.log("Steering HTTP verification passed (pglite, embedded worker).");
+  // Three linked tasks: select two, leave the third alone. Every request is an ordinary cancel.
+  const makeWorking = async (key, references = []) => {
+    const result = await command(key, { text: key, contextId: `ctx-${key}`, config: { referenceTaskIds: references } });
+    assert.equal(result.status, "succeeded");
+    return (await call("/api/tasks")).body.tasks.find((task) => task.contextId === `ctx-${key}`);
+  };
+  const relatedFirst = await makeWorking("related-first");
+  const relatedUntouched = await makeWorking("related-untouched");
+  const relatedSource = await makeWorking("related-source", [relatedFirst.taskId, relatedUntouched.taskId]);
+  const relatedView = await detail(relatedSource.localId);
+  assert.equal(relatedView.canOperate, true);
+  assert.equal(relatedView.cancelable, true);
+  assert.equal(relatedView.related.references.length, 2);
+  assert.ok(relatedView.related.references.every((task) => task.canOperate && task.cancelable));
+  for (const task of [relatedSource, relatedFirst]) {
+    const result = await call(`/api/agents/${task.agentId}/tasks/${task.taskId}/cancel`, { method: "POST", headers: { "Idempotency-Key": `related-${task.localId}` } });
+    assert.equal(result.status, 200, result.text);
+    assert.equal(result.body.result.status.state, "TASK_STATE_CANCELED");
+  }
+  assert.equal((await detail(relatedUntouched.localId)).state, "TASK_STATE_WORKING");
+  assert.equal((await detail(relatedSource.localId)).related.references.find((task) => task.localId === relatedFirst.localId).cancelable, false);
+  const summary = { runId: crypto.randomUUID(), requested: 2, canceled: 2, refused: 0, failed: 0 };
+  const auditPath = `/api/tasks/${relatedSource.localId}/workflow/cancel-related/audit`;
+  for (let retry = 0; retry < 2; retry++) assert.equal((await call(auditPath, { method: "POST", body: JSON.stringify(summary) })).status, 200);
+  const trail = await call(`/api/audit?taskId=${relatedSource.localId}&group=commands`);
+  assert.equal(trail.status, 200, trail.text);
+  const summaries = trail.body.entries.filter((entry) => entry.kind === "task.cancel.related");
+  assert.equal(summaries.length, 1);
+  assert.equal(summaries[0].data.canceled, 2);
+  assert.equal((await call(auditPath, { method: "POST", body: JSON.stringify({ ...summary, requested: 3 }) })).status, 400);
+  const terminal = await call(`/api/agents/${relatedFirst.agentId}/tasks/${relatedFirst.taskId}/cancel`, { method: "POST", headers: { "Idempotency-Key": "related-after-reload" } });
+  assert.equal(terminal.status, 409);
+  assert.equal(terminal.body.error.kind, "task_terminal");
+  // A refusal does not stop the next selected task, and has its own result.
+  const mixedFirst = await makeWorking("mixed-first");
+  const mixedLast = await makeWorking("mixed-last", [mixedFirst.taskId]);
+  await agent.control({ fail: { method: "CancelTask", error: "TaskNotCancelableError", times: 1 } });
+  const mixedResults = [];
+  for (const task of [mixedFirst, mixedLast]) mixedResults.push(await call(`/api/agents/${task.agentId}/tasks/${task.taskId}/cancel`, { method: "POST", headers: { "Idempotency-Key": `mixed-${task.localId}` } }));
+  assert.equal(mixedResults[0].body.error.kind, "task_not_cancelable");
+  assert.equal(mixedResults[1].status, 200);
+  assert.equal((await detail(mixedFirst.localId)).state, "TASK_STATE_WORKING");
+  assert.equal((await detail(mixedLast.localId)).state, "TASK_STATE_CANCELED");
+
+  console.log("Steering and related cancel HTTP verification passed (pglite, embedded worker).");
 } finally {
   if (app?.exitCode === null) { const exited = new Promise((resolve) => app.once("exit", resolve)); app.kill("SIGTERM"); await exited; }
   await agent.close();

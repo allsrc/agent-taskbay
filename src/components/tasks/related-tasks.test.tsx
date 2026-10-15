@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { RelatedTasks } from "./related-tasks";
 import type { RelatedTask } from "@/shared/task-types";
 
-const task: RelatedTask = { localId: "00000000-0000-4000-a000-000000000001", taskId: "remote-task-id", agentName: "Agent", state: "TASK_STATE_WORKING", title: "Referenced work" };
+const task: RelatedTask = { agentId: "agent", tenant: "", canOperate: true, cancelable: true, localId: "00000000-0000-4000-a000-000000000001", taskId: "remote-task-id", agentName: "Agent", state: "TASK_STATE_WORKING", title: "Referenced work" };
 describe("related task section", () => {
   it("is hidden without readable relationships", () => {
     expect(renderToStaticMarkup(<RelatedTasks />)).toBe("");

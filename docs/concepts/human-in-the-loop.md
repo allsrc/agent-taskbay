@@ -36,7 +36,7 @@ A person can also send more input to a task that is already working. Agent Taskb
 
 An agent can describe work that builds on another task by putting its ID in a message's `referenceTaskIds`. A person can also send references, including when restarting a task with a new instruction. The task page shows the known links in both directions under **Related tasks**, so someone following delegated work can move between it and the work that referenced it.
 
-A2A defines no parent-child hierarchy here. Taskbay resolves references only for tasks it already knows in the same organization, agent and tenant; it does not discover tasks or follow cross-agent URLs from a reference. Each linked task needs its own read permission. Canceling one does not cancel another. See [Related tasks](../guides/use-the-console.md#related-tasks).
+A2A defines no parent-child hierarchy here. Taskbay resolves references only for tasks it already knows in the same organization, agent and tenant; it does not discover tasks or follow cross-agent URLs from a reference. Each linked task needs its own read permission. Canceling one does not cancel another. **Cancel this task and related tasks** lets a person choose several tasks they may operate and request each cancel separately. Only the current task starts selected, unless opened with **Cancel this and related**. Each task shows its own result, and the agent may refuse a cancel without stopping the remaining requests. See [Related tasks](../guides/use-the-console.md#related-tasks).
 
 ## Approvals
 
@@ -108,6 +108,7 @@ Approval requests keep their own assignee and `delegate` outcome. They are not m
 The audit view is a read-only, newest-first timeline built from the sources of truth: approval requests, revisions and decisions with exact content, digest, rationale, reviewer and delivery result, ownership events, note existence, and facts such as login, provisioning, agent registration, credential changes and sent messages. A database test cross-checks that nothing is missing or invented.
 
 - The organization-wide trail is for administrators. A member who can read a task can read that task's trail, minus identity, access and credential facts.
+- A completed assisted cancel run records `task.cancel.related` with browser-reported counts (`requested`, `canceled`, `refused`, `failed`). Each cancel also keeps its ordinary command audit fact; the summary does not prove execution. Retrying the summary uses the same run ID and writes it once. Closing the browser before the summary is saved can leave only the individual command facts.
 - Note text is never included, only that a note was added, by whom and when.
 - Pages are at most 200 rows. Administrators can export one page as CSV (cells starting with a formula character are neutralized). Reading the audit trail is not itself audited.
 - Audit facts are append-only by database trigger. This is immutability, not cryptographic tamper evidence. There is no hash chain or external anchor.

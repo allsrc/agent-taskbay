@@ -11,9 +11,10 @@ import { AGENT_HISTORY_NOTE, AgentHistoryDivider, LoadAgentHistoryButton, splitA
 import { DiscoveredMarker } from "@/components/chat/discovered-marker";
 import { SteeringChip } from "@/components/chat/steering-chip";
 import { RestartDialog } from "@/components/chat/restart-dialog";
+import { CancelTasksDialog } from "@/components/tasks/cancel-tasks-dialog";
 import { cancelOverHttp, initialRestart, outgoingFromParts, runRestart, type RestartProgress } from "@/lib/restart-task";
 import { Pill } from "@/components/patterns/status";
-import { CommandFailureError, failureFromError, failureFromResponse, type CommandFailure } from "@/lib/command-failure";
+import { failureFromError, type CommandFailure } from "@/lib/command-failure";
 import { Composer } from "@/components/chat/composer";
 import { StructuredForm } from "@/components/chat/structured-form";
 import { startFormFromCard } from "@/lib/structured-form";
@@ -83,7 +84,7 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
   const [override, setOverride] = useState<string | null>(null);
   const [pending, setPending] = useState<ThreadMessage | null>(null);
   const [sending, setSending] = useState(false);
-  const [cancelingId, setCancelingId] = useState<string | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<string | null>(null);
   const [error, setError] = useState<CommandFailure | null>(null);
   const [renderedAt] = useState(() => Date.now());
   // What the person last tried to send, so a finished task can be replaced by a new one in the same conversation.
@@ -152,35 +153,9 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
   };
   const railVisible = desktop ? railOpen : sheetOpen;
 
-  async function cancelTask(task: TrackedTask) {
-    if (cancelingId || !window.confirm("Cancel this task?")) return;
-    setCancelingId(task.taskId);
-    try {
-      setError(null);
-      const response = await fetch(`/api/agents/${task.agentId}/tasks/${encodeURIComponent(task.taskId)}/cancel?tenant=${encodeURIComponent(task.tenant ?? "")}`, { method: "POST" });
-      if (!response.ok) {
-        const failure = await failureFromResponse(response, "Failed to cancel the task.");
-        throw new CommandFailureError(failure.message, failure);
-      }
-      const body = await response.json();
-      const responseTask = await fetch(`/api/tasks/${task.localId}`, { cache: "no-store" });
-      const committed = await responseTask.json();
-      if (!responseTask.ok) throw new Error(committed.error?.message ?? "Could not refresh canceled task.");
-      upsertTask(committed.task);
-      pushWire("out", "CancelTask", { method: "CancelTask", params: { id: task.taskId } });
-      pushWire("in", "task", body.result);
-      toast.success("Task canceled");
-    } catch (cause) {
-      const failure = failureFromError(cause, "Failed to cancel the task.");
-      setError(failure);
-      // The agent said the task cannot be canceled: its real state may differ from what we show, so read it again.
-      if (failure.kind === "task_not_cancelable" || failure.kind === "task_terminal") {
-        const refreshed = await fetch(`/api/tasks/${task.localId}`, { cache: "no-store" }).then((reply) => reply.ok ? reply.json() : undefined).catch(() => undefined);
-        if (refreshed?.task) upsertTask(refreshed.task);
-      }
-    } finally {
-      setCancelingId(null);
-    }
+  function cancelTask(task: TrackedTask) {
+    if (task.localId) setCancelTarget(task.localId);
+    else setError({ message: "The task has not been stored yet. Wait for it to appear, then try canceling again." });
   }
 
   /**
@@ -394,7 +369,7 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
                       onSubmitForm={(submission) => send([{ data: submission, mediaType: "application/json" }])} />
                   ),
                 ]),
-                ...(index === cardAt ? [<TaskCard key={`card-${task.taskId}`} task={task} canceling={cancelingId === task.taskId} onCancel={() => void cancelTask(task)} />] : []),
+                ...(index === cardAt ? [<TaskCard key={`card-${task.taskId}`} task={task} canceling={false} onCancel={() => void cancelTask(task)} />] : []),
                 ...(runs.has(index) ? [...sender("agent", `log-${message.id}`), <ProgressLog key={`log-${message.id}`} messages={runs.get(index)!} active={isOpenTask(task)} agentName={name} />] : []),
               ]);
               // Messages that never reached the task (the agent refused them, or Taskbay cannot tell) are not in its history, so they are shown here.
@@ -417,7 +392,7 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
                       interactive={!sending && isOpenTask(task)} onAction={(message) => send([{ data: message, mediaType: "application/a2ui+json" }], task)} />
                   )}
                   {task.kind !== "message" && task.messages.length === 0 && (
-                    <TaskCard task={task} canceling={cancelingId === task.taskId} onCancel={() => void cancelTask(task)} />
+                    <TaskCard task={task} canceling={false} onCancel={() => void cancelTask(task)} />
                   )}
                   {(activity.length > 0 || activityMessages.length > 0) && [...sender("agent", `act-${task.taskId}`), <ActivityLog key="activity" artifacts={activity} messages={activityMessages} active={isOpenTask(task)} />]}
                   {results.flatMap((artifact) => [...sender("agent", artifact.artifactId), <ArtifactCard key={artifact.artifactId} artifact={artifact} />])}
@@ -499,6 +474,7 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
         </div>
       </div>
 
+      {cancelTarget && <CancelTasksDialog taskId={cancelTarget} onClose={() => setCancelTarget(null)} onUpdated={upsertTask} onWire={pushWire} />}
       {restart && (
         <RestartDialog
           open

@@ -62,6 +62,8 @@ export function describeEntry(entry: AuditEntryView, people: Record<string, stri
     case "decision.delegate": return { summary: `${actor} handed ${quoted} to ${member(entry.data.delegateMembershipId)}`, facts };
     case "decision.expired": return { summary: `${quoted} expired without a decision`, facts };
     case "decision.superseded": return { summary: `${quoted} was superseded and can no longer authorize anything`, facts };
+    case "task.cancel.related": return { summary: `${actor} finished a cancel run`, facts:
+      (["requested", "canceled", "refused", "failed"] as const).map((key) => [key[0].toUpperCase() + key.slice(1), String(num(entry.data[key]) ?? 0)]) };
     case "task.claimed": return { summary: `${actor} claimed the task`, facts: [] };
     case "task.released": return { summary: `${actor} released the task${entry.data.fromMembershipId ? ` (was ${member(entry.data.fromMembershipId)})` : ""}`, facts: [] };
     case "task.assigned": return { summary: `${actor} assigned the task to ${member(entry.data.toMembershipId)}${entry.data.fromMembershipId ? ` (was ${member(entry.data.fromMembershipId)})` : ""}`, facts: [] };

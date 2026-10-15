@@ -16,6 +16,7 @@ import { withRequestEntityManager } from "../adapters/db/orm";
 import type { JsonValue, TaskEventSource } from "../domain/persistence-model";
 import type { StreamMetadata } from "../application/ports/subscriptions";
 import type { TaskOrigin } from "../domain/discovery-mode";
+import { requestAccessPolicy } from "../adapters/db/security-repository";
 import { currentPrincipal } from "../adapters/auth/principal-context";
 
 export const artifactStore = new FilesystemArtifactStore();
@@ -28,7 +29,8 @@ export async function withTaskQueries<T>(work: (queries: TaskQueryService, organ
       await bootstrapDefaultLocalOrganization(repositories.organizations);
     if (!organization) throw new Error("Unknown query organization.");
     const names = async (userIds: string[]) => Object.fromEntries((userIds.length ? await em.find(UserEntity, { id: { $in: userIds } }) : []).map((user) => [user.id, user.displayName]));
-    return work(new TaskQueryService(repositories.tasks, repositories.agents, names, { events: repositories.taskEvents, commands: repositories.commands, store }, repositories.taskLinks), organization.id);
+    const policy = await requestAccessPolicy(em);
+    return work(new TaskQueryService(repositories.tasks, repositories.agents, names, { events: repositories.taskEvents, commands: repositories.commands, store }, repositories.taskLinks, (task) => policy?.allows(task.agentId, "operate", task.skillId ?? null) ?? false), organization.id);
   }, orm);
 }
 

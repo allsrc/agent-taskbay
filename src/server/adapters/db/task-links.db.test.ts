@@ -9,11 +9,14 @@ import { createPersistenceRepositories } from "./repositories";
 import { DatabaseAgentRegistry } from "./agent-registry";
 import { provisionIdentity } from "./identity-repository";
 import { createGrant } from "./security-repository";
-import { TaskLinkEntity } from "./entities";
+import { SecurityAuditEntity, TaskLinkEntity } from "./entities";
 import { withPrincipal } from "../auth/principal-context";
 import { createTaskObserver, withTaskQueries } from "../../runtime/task-persistence";
 import { createProjectionRebuilder } from "../../runtime/projection-rebuild";
 import { FilesystemArtifactStore } from "../blob/filesystem-artifact-store";
+import { recordCancelRelatedAudit } from "../../runtime/audit";
+import { createAuditService } from "../../runtime/audit";
+import { acceptCommand } from "../../runtime/commands";
 import type { JsonValue, TaskRecord } from "../../domain/persistence-model";
 
 async function contract(config: DatabaseConfig, directory: string) {
@@ -104,11 +107,51 @@ async function contract(config: DatabaseConfig, directory: string) {
     const row = (await repos().tasks.findById(org.id, b.localId))!;
     await repos().taskLinks.recordReferences({ ...row, organizationId: foreignOrg.id }, ["foreign-only"], now);
     expect(await orm.em.fork().count(TaskLinkEntity, { organizationId: foreignOrg.id })).toBe(0);
+    // Cancellation permissions use the caller's role and agent/skill grants, independent of read visibility.
+    expect((await withPrincipal(admin, () => read(b.localId)))?.canOperate).toBe(true);
+    expect((await withPrincipal(admin, () => read(b.localId)))?.related?.references.every((task) => task.canOperate && task.cancelable)).toBe(true);
+    expect(restricted?.canOperate).toBe(false);
+    expect(restricted?.related?.references.every((task) => !task.canOperate && task.cancelable)).toBe(true);
+    await orm.em.fork().transactional((tx) => createGrant(tx, admin, { subjectType: "membership", subjectId: member.membershipId, agentId: agent.id, skillId: "public", permission: "operate" }));
+    await orm.em.fork().transactional((tx) => createGrant(tx, admin, { subjectType: "membership", subjectId: member.membershipId, agentId: agent.id, skillId: "private", permission: "read" }));
+    const scoped = await withPrincipal(member, () => read(b.localId));
+    expect(scoped?.canOperate).toBe(true);
+    expect(scoped?.related?.references.map(({ taskId, canOperate }) => ({ taskId, canOperate }))).toEqual([{ taskId: "A", canOperate: false }, { taskId: "C", canOperate: true }]);
+    // A forged client choice still cannot cancel a task with only read permission.
+    await expect(withPrincipal(member, () => acceptCommand(agent.id, { action: "cancelTask", taskId: "A" }, randomUUID(), { orm, store }))).rejects.toMatchObject({ status: 403 });
+    const viewer = await provisionIdentity(orm.em.fork(), { issuer: "links-idp", subject: "viewer", organizationId: org.id, displayName: "Viewer", role: "viewer" });
+    await orm.em.fork().transactional((tx) => createGrant(tx, admin, { subjectType: "membership", subjectId: viewer.membershipId, agentId: agent.id, skillId: null, permission: "operate" }));
+    expect((await withPrincipal(viewer, () => read(b.localId)))?.related?.references.every((task) => !task.canOperate)).toBe(true);
+    await expect(withPrincipal(viewer, () => acceptCommand(agent.id, { action: "cancelTask", taskId: "C" }, randomUUID(), { orm, store }))).rejects.toMatchObject({ status: 403 });
+    const whole = await provisionIdentity(orm.em.fork(), { issuer: "links-idp", subject: "whole", organizationId: org.id, displayName: "Whole agent", role: "operator" });
+    await orm.em.fork().transactional((tx) => createGrant(tx, admin, { subjectType: "membership", subjectId: whole.membershipId, agentId: agent.id, skillId: null, permission: "operate" }));
+    expect((await withPrincipal(whole, () => read(b.localId)))?.related?.references.every((task) => task.canOperate)).toBe(true);
+    // A terminal task stays visible but is never eligible on reload.
+    await observe("public")({ task: { id: "C", contextId: "ctx-C", status: { state: "TASK_STATE_CANCELED" } } });
+    expect((await withPrincipal(admin, () => read(b.localId)))?.related?.references.find((task) => task.taskId === "C")).toMatchObject({ canOperate: true, cancelable: false });
+    expect((await withPrincipal(admin, () => read(c.localId)))?.cancelable).toBe(false);
+    await expect(withPrincipal(admin, () => acceptCommand(agent.id, { action: "cancelTask", taskId: "C" }, randomUUID(), { orm, store }))).rejects.toMatchObject({ status: 409, kind: "task_terminal" });
+    // Even a stored cross-agent edge is read-only for someone without an operate grant on that agent.
+    await orm.em.fork().insert(TaskLinkEntity, { id: randomUUID(), organizationId: org.id, fromTaskId: b.localId, toTaskId: agentTarget.localId, kind: "references", createdAt: now });
+    await orm.em.fork().transactional((tx) => createGrant(tx, admin, { subjectType: "membership", subjectId: member.membershipId, agentId: otherAgent.id, skillId: null, permission: "read" }));
+    expect((await withPrincipal(member, () => read(b.localId)))?.related?.references.find((task) => task.localId === agentTarget.localId)).toMatchObject({ canOperate: false, cancelable: true });
+    await expect(withPrincipal(member, () => acceptCommand(otherAgent.id, { action: "cancelTask", taskId: "agent-only" }, randomUUID(), { orm, store }))).rejects.toMatchObject({ status: 403 });
+    // Counts-only summaries are scoped, immutable, and idempotent across retries and instances.
+    const summary = { runId: randomUUID(), requested: 3, canceled: 1, refused: 1, failed: 1 };
+    await withPrincipal(member, () => recordCancelRelatedAudit(member, b.localId, summary, { orm }));
+    await withPrincipal(member, () => recordCancelRelatedAudit(member, b.localId, summary, { orm }));
+    expect(await orm.em.fork().count(SecurityAuditEntity, { action: "task.cancel.related" })).toBe(1);
+    const audit = await withPrincipal(member, () => createAuditService({ orm }).page(member, { taskId: b.localId, group: "commands", limit: 10 }));
+    expect(audit.entries.find((entry) => entry.kind === "task.cancel.related")).toMatchObject({ taskId: b.localId, data: { requested: 3, canceled: 1, refused: 1, failed: 1 } });
+    expect(JSON.stringify(audit.entries)).not.toContain("Hidden task title");
+    await expect(withPrincipal(outsider, () => recordCancelRelatedAudit(outsider, b.localId, summary, { orm }))).rejects.toMatchObject({ status: 404 });
+    await expect(withPrincipal(viewer, () => recordCancelRelatedAudit(viewer, b.localId, summary, { orm }))).rejects.toMatchObject({ status: 403 });
+    await expect(withPrincipal(admin, () => recordCancelRelatedAudit(admin, b.localId, { ...summary, requested: 2 }, { orm }))).rejects.toMatchObject({ status: 400 });
     // Removing an agent disables it; historical tasks and their links remain readable.
     await registry().remove(agent.id);
     const disabled = await read(b.localId);
-    expect(disabled?.related?.references.map((task) => task.taskId).sort()).toEqual(["A", "C"]);
-    expect(disabled?.related?.references.every((task) => task.state === "TASK_STATE_WORKING")).toBe(true);
+    expect(disabled?.related?.references.map((task) => task.taskId).sort()).toEqual(["A", "C", "agent-only"]);
+    expect(disabled?.related?.references.find((task) => task.taskId === "C")?.state).toBe("TASK_STATE_CANCELED");
     await orm.close(true); orm = await createDatabaseOrm(config);
     expect((await read(b.localId))?.related).toEqual(disabled?.related);
     const summaries = await withTaskQueries((query, organizationId) => query.list(organizationId), orm, store);

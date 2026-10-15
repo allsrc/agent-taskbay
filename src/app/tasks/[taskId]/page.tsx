@@ -5,11 +5,10 @@ import Link from "next/link";
 import { CircleStop, Download, ListChecks, Loader2, MessageSquare, Radio, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Chip, EmptyState, InfoCard, StateChip } from "@/components/a2a/primitives";
-import { CommandError } from "@/components/a2a/command-error";
+import { CancelTasksDialog } from "@/components/tasks/cancel-tasks-dialog";
 import { ContextSiblings } from "@/components/tasks/context-siblings";
 import { RelatedTasks } from "@/components/tasks/related-tasks";
 import { DiscoveredTaskNotice } from "@/components/tasks/discovered-task-notice";
-import { CommandFailureError, failureFromError, failureFromResponse, type CommandFailure } from "@/lib/command-failure";
 import { Page, PageMessage } from "@/components/console/page";
 import { Callout } from "@/components/patterns/data-display";
 import { DefinitionList } from "@/components/patterns/layout";
@@ -32,8 +31,8 @@ export default function TaskDetailPage({ params }: { params: Promise<{ taskId: s
   const resource = useServerResource<{ task: DurableTaskView }>(`/api/tasks/${encodeURIComponent(taskId)}`);
   const task = resource.data?.task;
   const upsertTask = useTaskStore((state) => state.upsertTask);
-  const [busy, setBusy] = useState<"subscribe" | "cancel" | null>(null);
-  const [failure, setFailure] = useState<CommandFailure | null>(null);
+  const [busy, setBusy] = useState<"subscribe" | null>(null);
+  const [cancelSelection, setCancelSelection] = useState<"current" | "related" | null>(null);
 
   if (resource.loading) return <PageMessage>Loading task…</PageMessage>;
   if (!task) {
@@ -65,31 +64,6 @@ export default function TaskDetailPage({ params }: { params: Promise<{ taskId: s
     }
   }
 
-  async function cancel() {
-    if (!task || !window.confirm("Cancel this task?")) return;
-    setBusy("cancel");
-    setFailure(null);
-    try {
-      const response = await fetch(`/api/agents/${task.agentId}/tasks/${encodeURIComponent(task.taskId)}/cancel?tenant=${encodeURIComponent(task.tenant)}`, { method: "POST" });
-      if (!response.ok) {
-        const refusal = await failureFromResponse(response, "Failed to cancel the task.");
-        throw new CommandFailureError(refusal.message, refusal);
-      }
-      const body = await response.json();
-      const state = (body?.result as { status?: { state?: string } } | undefined)?.status?.state ?? "TASK_STATE_CANCELED";
-      const timestamp = new Date().toISOString();
-      upsertTask({ ...task, state, updatedAt: timestamp, transitions: [...(task.transitions ?? []), { state, timestamp }] });
-      resource.refresh();
-      toast.success("Task canceled");
-    } catch (error) {
-      // The page reads the task again below, so a refused cancel shows the agent's real state next to the explanation.
-      setFailure(failureFromError(error, "Failed to cancel the task."));
-    } finally {
-      resource.refresh();
-      setBusy(null);
-    }
-  }
-
   return (
     <Page
       detail
@@ -103,8 +77,8 @@ export default function TaskDetailPage({ params }: { params: Promise<{ taskId: s
           <Button variant="outline" onClick={subscribe} disabled={!active || busy !== null}>
             {busy === "subscribe" ? <Loader2 className="animate-spin" /> : <Radio />} Subscribe
           </Button>
-          <Button variant="destructive" onClick={cancel} disabled={!active || busy !== null}>
-            {busy === "cancel" ? <Loader2 className="animate-spin" /> : <CircleStop />} Cancel task
+          <Button variant="destructive" onClick={() => setCancelSelection("current")} disabled={!active || !task.canOperate || busy !== null}>
+            <CircleStop /> Cancel task
           </Button>
           <Link href={`/chat/${conversationKey(task)}`} onClick={() => upsertTask(task)} className={buttonVariants()}><MessageSquare /> Open in chat</Link>
         </>
@@ -112,7 +86,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ taskId: s
     >
       {resource.error && <Callout tone="danger" className="mb-4">{resource.error}</Callout>}
       <DiscoveredTaskNotice task={task} />
-      {failure && <CommandError failure={failure} className="mb-4" />}
+      {cancelSelection && <CancelTasksDialog taskId={task.localId} selectRelated={cancelSelection === "related"} onClose={() => { setCancelSelection(null); resource.refresh(); }} onUpdated={(updated) => { upsertTask(updated); resource.refresh(); }} />}
 
       <div className="grid grid-cols-1 gap-4 2xl:grid-cols-3 2xl:items-start">
         <div className="space-y-4 2xl:col-span-2">
@@ -148,7 +122,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ taskId: s
           </InfoCard>
 
           <ContextSiblings siblings={task.contextSiblings} contextId={task.contextId} agentId={task.agentId} />
-          <RelatedTasks related={task.related} />
+          <RelatedTasks related={task.related} onCancelRelated={() => setCancelSelection("related")} />
 
           {task.kind !== "message" && <TaskAudit taskId={task.localId} />}
         </div>

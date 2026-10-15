@@ -2,7 +2,7 @@ import type { EntityManager } from "@mikro-orm/core";
 import type { AuditGroup, AuditQuery, AuditRepository, AuditRow } from "../../application/ports/audit";
 
 const OWNERSHIP_ACTIONS = ["task.claimed", "task.released", "task.assigned", "task.due_set", "task.due_cleared", "task.escalated", "task.note_added"];
-const COMMAND_ACTIONS = ["task.send.accepted", "task.cancel.accepted"];
+const COMMAND_ACTIONS = ["task.send.accepted", "task.cancel.accepted", "task.cancel.related"];
 const quoted = (values: string[]) => values.map((value) => `'${value}'`).join(", ");
 
 /**
@@ -38,7 +38,10 @@ const TIMELINE = `
   select n.created_at, 'note:' || n.id, 'task.note_added', n.author_user_id, n.task_id, n.task_id::text, '{}'::jsonb
   from task_notes n where n.organization_id = :org
   union all
-  select a.created_at, 'aud:' || a.id, a.action, a.actor_user_id, null::uuid, a.target_id, jsonb_build_object('actorType', a.actor_type)
+  select a.created_at, 'aud:' || a.id, a.action, a.actor_user_id,
+    case when a.action = 'task.cancel.related' then (a.target_id::jsonb->>'taskId')::uuid else null::uuid end,
+    case when a.action = 'task.cancel.related' then a.target_id::jsonb->>'taskId' else a.target_id end,
+    case when a.action = 'task.cancel.related' then a.target_id::jsonb - 'taskId' else '{}'::jsonb end || jsonb_build_object('actorType', a.actor_type)
   from security_audit_events a where a.organization_id = :org and a.action not like 'decision.%' and a.action not in (${quoted(OWNERSHIP_ACTIONS)})`;
 
 const GROUP_PREDICATE: Record<AuditGroup, string | null> = {

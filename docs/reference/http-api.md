@@ -135,6 +135,7 @@ When a limit is hit the route answers `429`. The webhook, extended card refresh,
 | `POST /api/tasks/{taskId}/workflow/assign` | operate | Integration | Assign to a person |
 | `POST /api/tasks/{taskId}/workflow/due` | operate | Integration | Set or clear the due time |
 | `POST /api/tasks/{taskId}/workflow/notes` | operate | Integration | Add an internal note |
+| `POST /api/tasks/{taskId}/workflow/cancel-related/audit` | operate role, read on source | Console | Record an assisted cancel run summary |
 | `GET /api/inbox` | read | Integration | Tasks and approvals the caller may act on |
 | `GET /api/decisions` | read | Integration | List approval requests |
 | `POST /api/decisions` | operate | Integration | Open an approval request |
@@ -418,7 +419,9 @@ Bad filter: `400 Invalid task filter.`
 
 `contextSiblings` lists the other tasks the same agent holds in this task's context (same tenant and context ID), newest first, at most 20, each `{ localId, taskId, state, title, updatedAt }`, limited to tasks you may read. It is `[]` when the task has no context. A discovered task's view also has `origin: "discovered"`, `discoveredAt`, and, on this route only, `trackedBy` (`{ userId, name }`, or `null` when automatic discovery found it).
 
-`related` is `{ "references": [...], "referencedBy": [...] }`. Each entry is `{ localId, taskId, agentName, state, title? }`, using current stored summaries and limited to tasks the caller may read. Both arrays are empty when there are no visible links. Relationships are derived from user and agent messages' `referenceTaskIds`, resolved within the same organization, agent and tenant; unknown references are ignored. The graph can contain cycles. List rows have no `related`. The existing `referenceLinks` mapping remains available.
+`related` is `{ "references": [...], "referencedBy": [...] }`. Each entry is `{ localId, taskId, agentId, tenant, agentName, state, title?, canOperate, cancelable }`, using current stored summaries and limited to tasks the caller may read. Both arrays are empty when there are no visible links. Relationships are derived from user and agent messages' `referenceTaskIds`, resolved within the same organization, agent and tenant; unknown references are ignored. The graph can contain cycles. List rows have no `related`. The existing `referenceLinks` mapping remains available.
+
+`canOperate` on the detail and each related entry is computed on the server from the caller’s role and agent/skill grants; viewers always receive `false`. `cancelable` means a stored A2A task is non-terminal; it does not guarantee the agent will accept a cancel. Each ordinary cancel rechecks permissions and terminal state.
 
 `steering` lists what happened to each message a person sent while the task was `SUBMITTED` or `WORKING`, oldest first: `{ messageId, commandId, sentAt, outcome, errorKind?, text? }`. `outcome` is `delivered` (accepted, nothing new from the agent since), `responded` (accepted, and the agent has since sent a message, artifact or status update), `refused` (the agent returned an error; `errorKind` says which), `waiting` (the command is `pending` or `dispatching`) or `unknown` (the command is `uncertain` or `failed`). `text` is the message text, present only for messages that never reached the task (`refused`, `waiting`, `unknown`). It is worked out when you read it, from the command and the task's event history, and is `[]` when there is none. A reply to a task that was waiting for input is not listed. List rows have no `steering`.
 
@@ -457,7 +460,7 @@ A message that reached Taskbay only because the agent's history was loaded has `
 
 ## Task workflow
 
-Ownership is local to Agent Taskbay and independent of the remote task state. All routes need `operate` on the task's agent and skill, and apply only to A2A tasks
+Ownership is local to Agent Taskbay and independent of the remote task state. Ownership routes need `operate` on the task's agent and skill, and apply only to A2A tasks
 (not direct-message threads: `409 Only A2A tasks can be assigned.`). Responses are `{ "assignment": { assigneeMembershipId, claimedAt, dueAt, escalationLevel, escalatedAt, updatedAt } }`
 (or `null` fields). Rules: anyone with access may claim an unowned task; only the owner or an administrator may release, reassign or change the due time of an
 owned task (`403`); a claim on a task owned by someone else is `409 This task is already owned by someone else.`; claiming, assigning and setting a due time need an unfinished
@@ -473,6 +476,12 @@ task (`409 The task is already finished.`).
 | `POST .../workflow/notes` | `{ "body": "<1-4000 chars>", "noteKey": "<1-255 chars>" }` | `201 { "note": { id, authorUserId, body, createdAt } }`. Repeating a `noteKey` with the same body returns the same note; a different body is `409`. Notes are internal and never sent to the agent. |
 
 Every change is recorded in the audit trail. Observed: claim returned `{"assignment":{"assigneeMembershipId":"89254850-...","claimedAt":"...","dueAt":null,"escalationLevel":0,"escalatedAt":null,"updatedAt":"..."}}`.
+
+### `POST /api/tasks/{taskId}/workflow/cancel-related/audit`
+
+Records a browser-reported summary after sequential ordinary cancel commands. Requires an operator or administrator role and read permission on the source task (individual cancels require operate permission on their own task). `{taskId}` is the local UUID. Body: `{ "runId": "<uuid>", "requested": 2, "canceled": 1, "refused": 1, "failed": 0 }`. Counts are integers from 0 to 1000, `requested` is at least 1 and equals the other three counts combined. Unknown fields are refused.
+
+`200 { "recorded": true }`, `Cache-Control: no-store`. Writes one `task.cancel.related` event per organization, caller, source task and run ID; repeating that ID preserves the first summary. The audit entry contains counts only, linked to the source task. It does not submit any cancels or prove their outcomes; individual command records are authoritative. Invalid body or task UUID: `400 Invalid cancel summary.`; viewer: `403`; unknown or unreadable task: `404 Task not found.`.
 
 ### Escalation policy
 

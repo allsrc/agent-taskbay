@@ -31,6 +31,8 @@ the project uses [semantic versioning](https://semver.org/) once it reaches 1.0;
 
 ### Added
 
+- **Cancel this task and related tasks** in task pages and chat lets you select tasks to cancel separately. Only the current task starts selected; **Cancel this and related** selects all eligible tasks. Each result appears separately, refusals do not stop other selections, and finished or non-operable tasks are disabled. Completed runs record `task.cancel.related` with counts only.
+
 - Task pages show **Related tasks** in both directions (**References** and **Referenced by**) from user and agent messages’ `referenceTaskIds`. Links persist across restarts and projection rebuilds, resolve only within the same organization, agent and tenant, and reveal only tasks the reader may access. Schema version 8.
 
 - Administrators can **Fetch** and **Refresh** an extended Agent Card using the stored agent credential. Extra skills appear as **Authenticated** for whole-agent readers; public skills, routing, grants and extension negotiation remain unchanged. Extended snapshots use schema version 7. Upgrade all instances before the first extended-card fetch.

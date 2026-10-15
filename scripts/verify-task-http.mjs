@@ -368,8 +368,8 @@ try {
   assert.deepEqual(await json(`/api/commands/${accepted.command.id}`), completed);
   const cleanOne = await json(`/api/tasks/${ids[0]}`, { headers: { Cookie: "clean-session=one" } });
   const cleanTwo = await json(`/api/tasks/${ids[0]}`, { headers: { Cookie: "clean-session=two" } });
-  // Compare durable content separately from the detail-only sibling, steering and relationship queries.
-  const withoutSiblings = ({ task }) => ({ task: Object.fromEntries(Object.entries(task).filter(([key]) => !["contextSiblings", "steering", "related"].includes(key))) });
+  // Compare durable content separately from the detail-only sibling, steering, relationship and caller-permission fields.
+  const withoutSiblings = ({ task }) => ({ task: Object.fromEntries(Object.entries(task).filter(([key]) => !["contextSiblings", "steering", "related", "canOperate", "cancelable"].includes(key))) });
   assert.deepEqual(withoutSiblings(cleanOne), withoutSiblings(initial)); assert.deepEqual(withoutSiblings(cleanTwo), withoutSiblings(initial));
   assert.deepEqual(cleanOne, cleanTwo);
   assert.equal((await json("/api/tasks")).tasks.length, 7);

@@ -5,13 +5,14 @@ import type { TaskOrigin } from "../../domain/discovery-mode";
 import { encodeTaskCursor } from "../../domain/task-cursor";
 import { object } from "./task-projection";
 import { readSteering, type SteeringSources } from "./steering";
+import { terminalTask } from "../ports/reconciliation";
 import type { TaskLinkRepository } from "../ports/task-links";
 
 export class TaskQueryService {
   /** `names` resolves people for display (who tracked a task); without it that field is left out. */
   constructor(private readonly tasks: TaskRepository, private readonly agents: AgentRepository, private readonly names?: (userIds: string[]) => Promise<Record<string, string>>,
     /** Where the steering outcome of messages sent to a working task is read from; without it `detail` leaves `steering` out. */
-    private readonly steering?: SteeringSources, private readonly links?: TaskLinkRepository) {}
+    private readonly steering?: SteeringSources, private readonly links?: TaskLinkRepository, private readonly canOperate?: (task: TaskRecord) => boolean) {}
 
   async contentPage(organizationId: string, limit = 100, after?: string) {
     const rows = await this.tasks.listContentPage(organizationId, limit + 1, after);
@@ -49,6 +50,8 @@ export class TaskQueryService {
     const task = await this.tasks.findById(organizationId, localId);
     if (!task) return undefined;
     const view = await this.view(organizationId, task);
+    view.canOperate = this.canOperate?.(task) ?? false;
+    view.cancelable = task.kind === "task" && !task.terminalAt && !terminalTask(task.state);
     if (task.origin === "discovered") {
       const people = task.trackedByUserId && this.names ? await this.names([task.trackedByUserId]) : {};
       view.trackedBy = task.trackedByUserId && people[task.trackedByUserId] ? { userId: task.trackedByUserId, name: people[task.trackedByUserId] } : null;

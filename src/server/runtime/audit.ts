@@ -1,3 +1,4 @@
+import { authorize } from "../application/services/authorization";
 import type { MikroORM } from "@mikro-orm/core";
 import { z } from "zod";
 import { withJobEntityManager } from "../adapters/db/orm";
@@ -52,4 +53,25 @@ export function auditCsv(page: AuditPage) {
   const rows = page.entries.map((row) => [row.at.toISOString(), row.kind, row.actorUserId ? page.people[row.actorUserId] ?? row.actorUserId : "system",
     row.taskId ?? "", row.subjectId ?? "", row.data]);
   return [header, ...rows].map((line) => line.map(csvCell).join(",")).join("\r\n") + "\r\n";
+}
+
+/** A browser-reported run summary. Individual command facts remain the execution authority. */
+export const cancelRelatedAuditSchema = z.object({
+  runId: z.string().uuid(), requested: z.number().int().min(1).max(1000),
+  canceled: z.number().int().min(0).max(1000), refused: z.number().int().min(0).max(1000), failed: z.number().int().min(0).max(1000),
+}).strict().refine((value) => value.requested === value.canceled + value.refused + value.failed, "Result counts must equal requested.");
+
+export async function recordCancelRelatedAudit(principal: Principal, taskId: string, input: unknown, options: { orm?: MikroORM } = {}) {
+  const parsed = cancelRelatedAuditSchema.safeParse(input);
+  if (!parsed.success || !z.string().uuid().safeParse(taskId).success) throw new AuditError("Invalid cancel summary.", 400);
+  authorize(principal, "operate");
+  return withJobEntityManager((em) => em.transactional(async (tx) => {
+    const shared = sharedPorts(tx);
+    const task = await shared.tasks.findById(principal.organizationId, taskId);
+    if (!task || !await shared.canRead(principal, task.agentId, task.skillId ?? null)) throw new AuditError("Task not found.", 404);
+    const { runId, ...counts } = parsed.data;
+    // Existing immutable audit storage accepts a text target. This fixed JSON holds only the subject and counts.
+    await shared.audit(principal, principal.organizationId, "task.cancel.related", JSON.stringify({ taskId, ...counts }),
+      `cancel-related:${principal.organizationId}:${principal.membershipId}:${taskId}:${runId}`);
+  }), options.orm);
 }

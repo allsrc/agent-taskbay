@@ -1,10 +1,11 @@
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { InfoCard, StateChip } from "@/components/a2a/primitives";
 import { Eyebrow } from "@/components/patterns/status";
 import type { RelatedTasks as RelatedTasksView } from "@/shared/task-types";
 
 /** Only authorized summaries reach this component; remote IDs and titles never choose the destination. */
-export function RelatedTasks({ related }: { related?: RelatedTasksView }) {
+export function RelatedTasks({ related, onCancelRelated }: { related?: RelatedTasksView; onCancelRelated?: () => void }) {
   if (!related || !related.references.length && !related.referencedBy.length) return null;
   return <InfoCard label="Related tasks">
     <div className="space-y-4">
@@ -23,6 +24,7 @@ export function RelatedTasks({ related }: { related?: RelatedTasksView }) {
             </li>)}
           </ul>
         </section>)}
+      {onCancelRelated && <Button variant="outline" className="max-w-full whitespace-normal" onClick={onCancelRelated}>Cancel this and related</Button>}
     </div>
   </InfoCard>;
 }

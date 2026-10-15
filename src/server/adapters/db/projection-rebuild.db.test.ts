@@ -39,10 +39,10 @@ async function contract(config: DatabaseConfig, directory: string) {
     await orm.em.getConnection().execute(`insert into task_events (id, organization_id, agent_id, task_id, source, event_kind, received_at, remote_timestamp, source_key, payload_digest, payload_json, projection_version) values (?, ?, ?, ?, 'stream', 'task', ?, ?, 'legacy', ?, ?, 1)`,
       [randomUUID(), org.id, agent.id, legacyId, new Date(legacyView.createdAt), new Date(legacyView.createdAt), eventDigest(raw), JSON.stringify(safe)]);
     const ports = () => createPersistenceRepositories(orm.em.fork());
-    // Operational revision changes on rebuild; deterministic content excludes it.
+    // Operational revisions and caller-specific detail fields are not part of the rebuilt content.
     const read = async (id: string = legacyId, organizationId: string = org.id) => {
       const view = await withTaskQueries((queries) => queries.detail(organizationId, id), orm);
-      if (view) { delete view.version; delete view.contextSiblings; delete view.steering; delete view.related; }
+      if (view) { delete view.version; delete view.contextSiblings; delete view.steering; delete view.related; delete view.canOperate; delete view.cancelable; }
       return view;
     };
     expect(await read()).toMatchObject({ messages: [], artifacts: [] });

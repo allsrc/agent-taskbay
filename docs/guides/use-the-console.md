@@ -187,7 +187,7 @@ Text can be viewed another way without changing it. Ordinary sentences carry no 
 
 **Preview HTML** opens an isolated iframe in a dialog on desktop or a sheet on phones. Inline sanitized HTML strips styles; the rich preview retains CSS inside the iframe. Neither view runs scripts or loads remote resources; links, forms and embedded active content are removed. Viewing choices are local to that message and reset when it is remounted. They never edit the stored content, its media type, or anything sent to an agent.
 
-**Cancel** on the task card appears while the task is active. It asks "Cancel this task?" and then asks the agent to cancel. A toast says "Task canceled" on success. The agent decides whether it can cancel.
+**Cancel** on the task card appears while the task is active. It opens **Cancel this task and related tasks**, with only the current task selected. Confirming sends the selected cancel requests. A toast reports how many tasks were canceled. The agent decides whether it can cancel.
 
 ### Per-request options
 
@@ -237,12 +237,18 @@ These links come from `referenceTaskIds` on user or agent messages. They do not 
 
 You see only tasks you may read; an empty group is hidden, and the entire section is hidden when neither group has readable tasks. Removing an agent from the catalog disables it and keeps its task history and links. Links use stored task state and do not need a live connection to the agent.
 
+Choose **Cancel this and related** to open **Cancel this task and related tasks** with every eligible task selected. Opening it from **Cancel task** or chat's **Cancel** selects only the current task. Check or uncheck tasks before confirming **Cancel N tasks**. Finished tasks and tasks you can read but cannot operate are disabled, with a reason.
+
+Taskbay sends one cancel request at a time, with a separate idempotency key for each task. Each row shows **Canceled**, a refusal such as **Agent refused: not cancelable**, or **Failed**, with the same failure explanation used for other commands. A refusal or failure does not stop the remaining selected tasks. Cancellation is a request: the agent may refuse it, and Taskbay does not promise that partial work is kept.
+
+Keep the dialog open until the run finishes. Closing or reloading the browser stops submitting further selections; already accepted commands continue. Reopening reads current permissions and states, so finished tasks cannot be selected again. After an uncertain result, check the task before requesting another cancel. The completed dialog saves a counts-only summary in the audit trail. If saving fails, **Save summary again** retries only the summary, using the same run ID.
+
 Open a task to see its detail page. The header shows the title, state, full task ID, context ID and agent. The buttons are:
 
 - **Refresh** reloads the task.
 - **Open in chat** opens the conversation the task belongs to.
 - **SubscribeToTask** asks the server for the task's latest state from the agent's stream. It only works while the task is active and the agent supports it.
-- **CancelTask** asks the agent to cancel, after the same "Cancel this task?" prompt.
+- **Cancel task** opens **Cancel this task and related tasks**, with only the current task selected.
 
 The cards are:
 
