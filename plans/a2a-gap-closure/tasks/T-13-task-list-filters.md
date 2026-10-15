@@ -2,12 +2,12 @@
 id: T-13
 title: ListTasks-style filters and cursor paging on /api/tasks
 phase: 3
-status: todo
+status: done
 depends_on: [T-11]
 size: M
 gap: G7
-migration: no
-updated:
+migration: yes
+updated: 2026-10-15
 ---
 
 # T-13. Task list filters
@@ -57,3 +57,10 @@ Context UI (T-14).
 ## Notes for later
 
 ## Implementation log
+
+- 2026-10-15 · done: branch plan/T-13-T-14; migration 0006 idx_tasks_context; tests: task-cursor, task-list-query, task-list.db, verify-task-http
+Done. `GET /api/tasks` takes `contextId`, `agentId`, `updatedAfter`, `origin` and `after`, and returns `next`. Cursor code is in `domain/task-cursor.ts`; filters and the cursor condition are in `MikroOrmTaskRepository.listByOrganization` (now takes a `TaskListQuery`), inside `taskAccessFilter`. `TaskQueryService.listPage` returns `{ tasks, next }`; the positional `list` stays for existing callers. The Tasks list pages with a cursor stack.
+
+Index evidence: PGlite (the PostgreSQL planner) with 50 000 tasks, `analyze`d: the context query used `Seq Scan on tasks` (cost 1938) before and `Index Scan using idx_tasks_context` (cost 37) after. A real PostgreSQL server was not available here, so this was not repeated there. This made T-13 a migration task: `Migration0006_TaskContextIndex`, `DB_SCHEMA_VERSION` 6 (the number after 0005; reconcile if another task also took 0006).
+
+Tests: `task-cursor.test.ts`, `task-list-query.test.ts`, `task-list.db.test.ts` (130 tasks with tied update times, every filter alone and combined, a skill-scoped member, a second organization; added to `test:db`), HTTP cases in `verify-task-http.mjs`. Hosting rules: no process state (cursor is in the request), organization and grant filters on every query, additive index only (rolling-upgrade safe), dev unchanged. The PostgreSQL variant of the DB test is written but skipped without `A2A_TEST_POSTGRES_URL`. Docs: `http-api.md`, `data-model.md`, `use-the-console.md`, CHANGELOG. Deviation: none. Not checked in a browser (phone width reviewed from the markup only).

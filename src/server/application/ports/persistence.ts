@@ -1,4 +1,5 @@
 import type { TaskDiscoveryMode, TaskOrigin } from "../../domain/discovery-mode";
+import type { TaskListCursor } from "../../domain/task-cursor";
 import type {
   AgentCardSnapshotRecord,
   AgentRecord,
@@ -55,6 +56,21 @@ export interface AgentRepository {
   ): Promise<AgentCardSnapshotRecord | undefined>;
 }
 
+/** Filters apply inside the caller's visibility and can only narrow it. `after` replaces `offset`. */
+export interface TaskListQuery {
+  limit: number;
+  offset?: number;
+  filter?: string;
+  restriction?: { include?: string[]; exclude?: string[] };
+  origin?: TaskOrigin;
+  contextId?: string;
+  agentId?: string;
+  /** Not exposed on the HTTP list; used with `contextId` to find the tasks of one context. */
+  tenant?: string;
+  updatedAfter?: Date;
+  after?: TaskListCursor;
+}
+
 export interface TaskRepository {
   /** Stable local-ID pagination includes direct Messages, without reading the ledger. */
   listContentPage(organizationId: string, limit: number, after?: string): Promise<TaskRecord[]>;
@@ -62,7 +78,7 @@ export interface TaskRepository {
   getOrCreate(task: TaskRecord): Promise<TaskRecord>;
   saveProjection(task: TaskRecord): Promise<TaskRecord>;
   /** Workflow views (mine, overdue, unassigned) are active-only and narrowed by task IDs supplied by the caller. */
-  listByOrganization(organizationId: string, limit: number, offset: number, filter?: string, restriction?: { include?: string[]; exclude?: string[] }, origin?: TaskOrigin): Promise<TaskSummaryRecord[]>;
+  listByOrganization(organizationId: string, query: TaskListQuery): Promise<TaskSummaryRecord[]>;
   findById(
     organizationId: string,
     id: string,

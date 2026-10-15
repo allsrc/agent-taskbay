@@ -2,12 +2,12 @@
 id: T-14
 title: Show the other tasks in a context
 phase: 3
-status: todo
+status: done
 depends_on: [T-13]
 size: S
 gap: G7
 migration: no
-updated:
+updated: 2026-10-15
 ---
 
 # T-14. Context views
@@ -53,3 +53,6 @@ Grouping rows in the list by context.
 ## Notes for later
 
 ## Implementation log
+
+- 2026-10-15 · done: branch plan/T-13-T-14; tests: task-list.db (siblings), context-siblings, context-filter-chip, verify-task-http
+Done (same branch as T-13). `TaskQueryService.detail` adds `contextSiblings` using the list query (same agent, tenant and context, excluding itself, 20 newest, through `taskAccessFilter`); `components/tasks/context-siblings.tsx` is the task page section; `components/tasks/context-filter-chip.tsx` is the removable chip. The Tasks list layout reads `contextId` and `agentId` with `useSearchParams` inside a `Suspense` boundary (read the Next.js `use-search-params` guide first), keeps the narrowing in state so it survives opening a task, and clears it with the chip. Tests: sibling query and visibility in `task-list.db.test.ts`; component tests `context-siblings.test.tsx` and `context-filter-chip.test.tsx`; HTTP checks in `verify-task-http.mjs`. Docs: `use-the-console.md`, `http-api.md`, `glossary.md`, CHANGELOG. Deviation: `verify-task-http.mjs` and `projection-rebuild.db.test.ts` compared full detail views, so they now ignore `contextSiblings` (it changes as other tasks join the context). Not checked in a browser.

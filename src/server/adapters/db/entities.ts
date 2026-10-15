@@ -143,6 +143,10 @@ const TaskSchema = defineEntity({
       name: "idx_tasks_origin",
       properties: ["organizationId", "agentId", "origin"],
     },
+    {
+      name: "idx_tasks_context",
+      properties: ["organizationId", "agentId", "tenant", "remoteContextId"],
+    },
   ],
   uniques: [
     {

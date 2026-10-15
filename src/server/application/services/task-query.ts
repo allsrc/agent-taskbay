@@ -1,7 +1,8 @@
 import type { DurableTaskView } from "../../../shared/task-types";
-import type { AgentRepository, TaskRepository } from "../ports/persistence";
+import type { AgentRepository, TaskListQuery, TaskRepository } from "../ports/persistence";
 import type { TaskRecord } from "../../domain/persistence-model";
 import type { TaskOrigin } from "../../domain/discovery-mode";
+import { encodeTaskCursor } from "../../domain/task-cursor";
 import { object } from "./task-projection";
 
 export class TaskQueryService {
@@ -15,10 +16,20 @@ export class TaskQueryService {
     return { tasks, next: rows.length > limit ? tasks.at(-1)!.localId : null };
   }
 
+  /** The newest tasks, positional form for callers that need only the rows. See `listPage` for filters and cursors. */
   async list(organizationId: string, limit = 50, offset = 0, filter = "all", restriction?: { include?: string[]; exclude?: string[] }, origin?: TaskOrigin) {
-    const rows = await this.tasks.listByOrganization(organizationId, limit, offset, filter, restriction, origin);
+    return (await this.listPage(organizationId, { limit, offset, filter, restriction, origin })).tasks;
+  }
+
+  /** One page of summaries plus `next`, a cursor for the following page (null on the last page). */
+  async listPage(organizationId: string, query: TaskListQuery) {
+    const limit = query.limit;
+    const fetched = await this.tasks.listByOrganization(organizationId, { ...query, limit: limit + 1 });
+    const rows = fetched.slice(0, limit);
+    const last = rows.at(-1);
+    const next = fetched.length > limit && last ? encodeTaskCursor({ updatedAt: last.updatedAt, id: last.id }) : null;
     const agents = new Map((await this.agents.listByOrganization(organizationId)).map((agent) => [agent.id, agent]));
-    return rows.map((task) => ({
+    const tasks = rows.map((task) => ({
       localId: task.id, taskId: task.remoteTaskId!, tenant: task.tenant,
       agentId: task.agentId, agentName: agents.get(task.agentId)?.displayName ?? "Agent",
       state: task.state, kind: "task" as const, title: task.title ?? undefined,
@@ -26,6 +37,7 @@ export class TaskQueryService {
       createdAt: task.createdAt.toISOString(), updatedAt: task.updatedAt.toISOString(),
       messages: [], artifacts: [], referenceLinks: {},
     }));
+    return { tasks, next };
   }
 
   async detail(organizationId: string, localId: string): Promise<DurableTaskView | undefined> {
@@ -37,6 +49,13 @@ export class TaskQueryService {
       const people = task.trackedByUserId && this.names ? await this.names([task.trackedByUserId]) : {};
       view.trackedBy = task.trackedByUserId && people[task.trackedByUserId] ? { userId: task.trackedByUserId, name: people[task.trackedByUserId] } : null;
     }
+    if (task.remoteContextId) {
+      // Same visibility rules as the list: the repository applies the caller's access filter.
+      const siblings = await this.tasks.listByOrganization(organizationId, {
+        limit: 20, contextId: task.remoteContextId, agentId: task.agentId, tenant: task.tenant, restriction: { exclude: [task.id] },
+      });
+      view.contextSiblings = siblings.map((sibling) => ({ localId: sibling.id, taskId: sibling.remoteTaskId ?? sibling.id, state: sibling.state, title: sibling.title ?? undefined, updatedAt: sibling.updatedAt.toISOString() }));
+    } else view.contextSiblings = [];
     return view;
   }
 
