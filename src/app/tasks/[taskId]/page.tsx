@@ -6,6 +6,7 @@ import { CircleStop, Download, ListChecks, Loader2, MessageSquare, Radio, Refres
 import { toast } from "sonner";
 import { Chip, EmptyState, InfoCard, StateChip } from "@/components/a2a/primitives";
 import { CommandError } from "@/components/a2a/command-error";
+import { ContextSiblings } from "@/components/tasks/context-siblings";
 import { DiscoveredTaskNotice } from "@/components/tasks/discovered-task-notice";
 import { CommandFailureError, failureFromError, failureFromResponse, type CommandFailure } from "@/lib/command-failure";
 import { Page, PageMessage } from "@/components/console/page";
@@ -144,6 +145,8 @@ export default function TaskDetailPage({ params }: { params: Promise<{ taskId: s
               {task.artifacts.length === 0 && <li className="text-sm text-muted-foreground">No artifacts yet.</li>}
             </ul>
           </InfoCard>
+
+          <ContextSiblings siblings={task.contextSiblings} contextId={task.contextId} agentId={task.agentId} />
 
           {task.kind !== "message" && <TaskAudit taskId={task.localId} />}
         </div>

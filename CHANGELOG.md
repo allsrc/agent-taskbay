@@ -30,6 +30,8 @@ the project uses [semantic versioning](https://semver.org/) once it reaches 1.0;
 
 ### Added
 
+- `GET /api/tasks` filters by `contextId`, `agentId` and `updatedAfter` (besides `origin`), pages with an opaque `after` cursor and returns `next`; `offset` still works. The Tasks list pages with the cursor. Schema version 6 adds an index for context lookups.
+- A task's page shows **Other tasks in this context** (`contextSiblings` on `GET /api/tasks/{taskId}`), and the Tasks list can be narrowed to one context from there, with a removable **Context** chip.
 - `A2A_TASK_DISCOVERY` (`off`, `browse` or `auto`, default `browse`), the highest task discovery mode any agent may use, and the stored fields behind it (an agent's discovery mode, where a task came from, who tracked it). Schema version 2.
 - `scripts/fixture-scenario-agent.mjs`, a controllable sample agent for protocol scenarios (development only; not in the npm package).
 - `scripts/fixture-content-agent.mjs`, a streaming sample agent that sends content under the wrong media type (cases in `scripts/fixtures/mislabeled-content.json`, shared by its tests) and, with `tools` and `long`, tool calls, results, reasoning and other JSON in common framework shapes, and 700-line content.

@@ -2,12 +2,12 @@
 id: T-13
 title: ListTasks-style filters and cursor paging on /api/tasks
 phase: 3
-status: todo
+status: in_progress
 depends_on: [T-11]
 size: M
 gap: G7
-migration: no
-updated:
+migration: yes
+updated: 2026-10-15
 ---
 
 # T-13. Task list filters
@@ -57,3 +57,5 @@ Context UI (T-14).
 ## Notes for later
 
 ## Implementation log
+
+WIP handoff (not final): code, tests, docs and migration 0006 (`idx_tasks_context`, EXPLAIN at 50 000 tasks showed a sequential scan without it) are written, and T-14 server and UI pieces are in the same branch. Passing so far: tsc, lint, `npm test`, `npm run build`, `verify-task-http.mjs`, `task-list.db.test.ts`. Still to run: full `npm run test:db` (after fixing `database.db.test.ts` and `projection-rebuild.db.test.ts` for the new migration and `contextSiblings`), `db:migrate`, `db:schema:check`; then mark T-13 and T-14 done with the tracker.

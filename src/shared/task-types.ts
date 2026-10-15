@@ -70,7 +70,12 @@ export interface TrackedTask {
 }
 
 
+/** Another task in the same context (same agent, tenant and context id). */
+export interface ContextSibling { localId: string; taskId: string; state: string; title?: string; updatedAt: string }
+
 export interface DurableTaskView extends TrackedTask {
+  /** Other tasks in this task's context the caller may read, newest first, at most 20. Only on a task's detail. */
+  contextSiblings?: ContextSibling[];
   /** Optimistic database version; fences delayed committed snapshots in the UI. */
   version?: number;
   localId: string;

@@ -368,7 +368,10 @@ try {
   assert.deepEqual(await json(`/api/commands/${accepted.command.id}`), completed);
   const cleanOne = await json(`/api/tasks/${ids[0]}`, { headers: { Cookie: "clean-session=one" } });
   const cleanTwo = await json(`/api/tasks/${ids[0]}`, { headers: { Cookie: "clean-session=two" } });
-  assert.deepEqual(cleanOne, initial); assert.deepEqual(cleanTwo, initial);
+  // Other tasks have joined the context since `initial` was read, so compare everything but the sibling list.
+  const withoutSiblings = ({ task: { contextSiblings, ...task } }) => ({ task });
+  assert.deepEqual(withoutSiblings(cleanOne), withoutSiblings(initial)); assert.deepEqual(withoutSiblings(cleanTwo), withoutSiblings(initial));
+  assert.deepEqual(cleanOne, cleanTwo);
   assert.equal((await json("/api/tasks")).tasks.length, 7);
   // TSK-002/005: both clean browsers rebuild Chat/flows/alerts without visiting
   // task detail first, including direct Messages absent from the task-only inbox.
@@ -386,7 +389,7 @@ try {
   assert.deepEqual(browserOne, browserTwo);
   assert.equal(browserOne.length, 8);
   assert.equal(new Set(browserOne.map((task) => task.localId)).size, 8);
-  assert.deepEqual(browserOne.find((task) => task.localId === initial.task.localId), initial.task);
+  assert.deepEqual(browserOne.find((task) => task.localId === initial.task.localId), withoutSiblings(initial).task);
   assert.ok(browserOne.some((task) => task.kind === "message" && task.messages.some((message) => message.parts.some((part) => part.value === "Direct answer"))));
   assert.deepEqual((await json("/api/task-views?organizationId=foreign&tenant=foreign")).tasks, browserOne);
   assert.equal((await fetch(base + "/api/task-views?limit=0")).status, 400);
@@ -474,6 +477,37 @@ try {
   assert.equal((await fetch(`${base}/api/tasks?origin=bogus`, { headers: { Origin: base } })).status, 400);
   assert.deepEqual((await json("/api/tasks?origin=discovered")).tasks, []);
   assert.ok((await json("/api/tasks?origin=created")).tasks.every((task) => task.origin === "created"));
+  // Cursor paging and filters on the list (every task exactly once, newest first, `next` null at the end).
+  const everything = (await json("/api/tasks?limit=100")).tasks;
+  assert.ok(everything.length >= 7);
+  assert.equal((await json("/api/tasks?limit=100")).next, null);
+  const walked = [];
+  for (let cursor = null, pages = 0; pages < 50; pages += 1) {
+    const page = await json(`/api/tasks?limit=3${cursor ? `&after=${encodeURIComponent(cursor)}` : ""}`);
+    assert.ok(page.tasks.length <= 3);
+    walked.push(...page.tasks.map((task) => task.localId));
+    if (!(cursor = page.next)) break;
+    assert.equal(page.tasks.length, 3);
+  }
+  assert.deepEqual(walked, everything.map((task) => task.localId));
+  assert.deepEqual((await json("/api/tasks?limit=3&offset=3")).tasks.map((task) => task.localId), walked.slice(3, 6));
+  const firstPage = await json("/api/tasks?limit=2");
+  assert.equal((await fetch(`${base}/api/tasks?after=${encodeURIComponent(firstPage.next)}&offset=1`, { headers: { Origin: base } })).status, 400);
+  for (const bad of ["after=not-a-cursor", "agentId=nope", "updatedAfter=yesterday", `contextId=${"x".repeat(256)}`, "contextId="]) {
+    const refused = await fetch(`${base}/api/tasks?${bad}`, { headers: { Origin: base } });
+    assert.equal(refused.status, 400, bad);
+    assert.ok((await refused.json()).error.message.length > 0);
+  }
+  const sample = everything.find((task) => task.contextId);
+  if (sample) {
+    const inContext = (await json(`/api/tasks?contextId=${encodeURIComponent(sample.contextId)}&agentId=${sample.agentId}`)).tasks;
+    assert.ok(inContext.length >= 1 && inContext.every((task) => task.contextId === sample.contextId && task.agentId === sample.agentId));
+    assert.ok(Array.isArray((await json(`/api/tasks/${sample.localId}`)).task.contextSiblings));
+  }
+  assert.deepEqual((await json(`/api/tasks?agentId=${randomUUID()}`)).tasks, []);
+  assert.deepEqual((await json("/api/tasks?updatedAfter=2999-01-01")).tasks, []);
+  assert.equal((await json("/api/tasks?updatedAfter=2000-01-01&limit=100")).tasks.length, everything.length);
+  assert.ok(Array.isArray((await json(`/api/tasks/${everything[0].localId}`)).task.contextSiblings));
   // TSK-003/REL-001: SDK-managed push and actual authenticated production route.
   const pushAgent = (await json("/api/agents", { method: "POST", body: JSON.stringify({ cardUrl: `http://127.0.0.1:${fixturePort}/push/card.json` }) })).agent;
   const pushCommand = await json(`/api/agents/${pushAgent.id}/commands`, { method: "POST", headers: { "Idempotency-Key": "push-command" },
