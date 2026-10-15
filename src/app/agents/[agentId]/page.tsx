@@ -11,6 +11,7 @@ import { Callout } from "@/components/patterns/data-display";
 import { DefinitionList } from "@/components/patterns/layout";
 import { Eyebrow, Pill } from "@/components/patterns/status";
 import { ConnectAgentDialog } from "@/components/agents/connect-agent-dialog";
+import { ConnectionCard } from "@/components/agents/connection-card";
 import { RequiredExtensionsNotice } from "@/components/agents/required-extensions-notice";
 import { BrowseTasksDialog } from "@/components/agents/browse-tasks-dialog";
 import { TaskDiscoveryCard } from "@/components/agents/task-discovery-card";
@@ -110,17 +111,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ agentId:
             )}
           </InfoCard>
 
-          <InfoCard label="Interfaces">
-            <ul className="space-y-2">
-              {(view.bindings.length ? view.bindings : ["—"]).map((binding) => (
-                <li key={binding} className="flex items-center gap-2">
-                  <Chip>{binding}</Chip>
-                  <span className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground">{view.url}</span>
-                </li>
-              ))}
-            </ul>
-            <p className="mt-3 font-mono text-xs text-muted-foreground">tenant: <span className="text-foreground">{view.tenant ?? "—"}</span></p>
-          </InfoCard>
+          {agent.connection && <ConnectionCard connection={agent.connection} bindings={view.bindings} />}
 
           <InfoCard label="Skills">
             {view.skills.length === 0 && <p className="text-sm text-muted-foreground">No skills advertised.</p>}
@@ -154,7 +145,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ agentId:
       ) : (
         <Callout tone="danger" title="This agent could not be reached"><span className="font-mono">{agent.error}</span></Callout>
       )}
-      {view && <BrowseTasksDialog agentId={agent.id} agentName={view.name} tenants={view.tenant ? [view.tenant] : []} open={browseOpen} onOpenChange={setBrowseOpen} />}
+      {view && <BrowseTasksDialog agentId={agent.id} agentName={view.name} tenants={agent.connection?.tenants ?? (view.tenant ? [view.tenant] : [])} open={browseOpen} onOpenChange={setBrowseOpen} />}
       <ConnectAgentDialog open={connectOpen} onOpenChange={setConnectOpen} initialUrl={agent.cardUrl} />
     </Page>
   );

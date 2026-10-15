@@ -43,7 +43,7 @@ Opening the console root (`/`) takes you to **Chat**.
 Select an agent to see its card:
 
 - **Capabilities**: streaming, push notifications, extended card, and the advertised extension URIs.
-- **Interfaces**: protocol bindings, URL and tenant.
+- **Connection**: the binding, interface URL, protocol version, tenant or tenants, and how each advertised extension is used (negotiated, ignored, or required but not supported). See [Reading the Connection card](connect-an-agent.md#reading-the-connection-card).
 - **Task discovery**: how Taskbay finds tasks other systems started on this agent (**Browse only**, **Off**), with **Browse tasks** for people who may use it. Only administrators can change the mode; the choices a deployment forbids are disabled and say so. See [Task discovery](connect-an-agent.md#task-discovery).
 - **Skills**: name and description of each advertised skill.
 - **Security**: the card signature result, advertised security schemes, and default input and output modes.
@@ -159,6 +159,7 @@ Text can be viewed another way without changing it. Ordinary sentences carry no 
 | **returnImmediately** | Ask the agent to return the task as soon as it exists instead of waiting. Starts on for agents whose card advertises streaming; otherwise starts from your **Settings** value. Taskbay then follows active tasks over the agent's stream. |
 | **historyLength** | How many history messages the agent returns. Empty means no limit. Starts from your **Settings** value. |
 | **acceptedOutputModes** | Media types you accept. Starts from the agent card's output modes, or your **Settings** defaults if the card declares none. A star marks modes the card declares. |
+| **tenant** | Shown only when the agent card declares more than one tenant. Picks the tenant for a **new** conversation (it starts on the card's default). An existing conversation shows its own tenant and cannot change it. |
 | **referenceTaskIds** | Earlier tasks in this conversation that the next message builds on. Cleared after each send. |
 
 These options stay for the chat you have open. They are not saved.

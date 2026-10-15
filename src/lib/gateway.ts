@@ -27,6 +27,7 @@ import {
 } from "@a2a-js/sdk/client";
 import { verifyCardTrust } from "../server/adapters/auth/card-trust";
 import { validateAgentCard } from "./compliance";
+import { chooseConnectionInterface, selectAdvertisedInterface } from "./connection-interface";
 import { createSafeFetch, redactSecrets } from "./safe-fetch";
 import { assertSafeAgentCard, assertSafeInterfaceUrl, assertSafeUrl } from "./url-safety";
 import type { ConnectionConfig, DiscoverResponse, OperationAction, OperationResponse, WireEvent } from "./types";
@@ -107,16 +108,7 @@ function requestOptions(config: ConnectionConfig, extensions: string[] = [], tra
   };
 }
 
-export function selectAdvertisedInterface(
-  interfaces: AgentCard["supportedInterfaces"],
-  config: Pick<ConnectionConfig, "interfaceUrl" | "protocolBinding" | "protocolVersion">,
-) {
-  return interfaces.find((item) =>
-    (!config.interfaceUrl || item.url === config.interfaceUrl) &&
-    (!config.protocolBinding || item.protocolBinding.toUpperCase() === config.protocolBinding.toUpperCase()) &&
-    (!config.protocolVersion || item.protocolVersion === config.protocolVersion),
-  );
-}
+export { selectAdvertisedInterface };
 
 export async function discoverAgent(config: ConnectionConfig): Promise<DiscoverResponse & { normalizedCard: AgentCard }> {
   await assertSafeUrl(config.cardUrl);
@@ -195,8 +187,9 @@ async function createClient(config: ConnectionConfig): Promise<{ client: Client;
     new RestTransportFactory({ fetchImpl, legacyCompat: { enabled: true } }),
   ];
   let card = { ...discovery.normalizedCard, supportedInterfaces: discovery.normalizedCard.supportedInterfaces.filter((item) => item.protocolBinding.toUpperCase() !== "GRPC") };
-  if (config.interfaceUrl || config.protocolBinding || config.protocolVersion) {
-    const selected = selectAdvertisedInterface(card.supportedInterfaces, config);
+  const choice = chooseConnectionInterface(card.supportedInterfaces, config);
+  if (choice.pinned) {
+    const selected = choice.selected;
     if (!selected) throw new Error("The selected interface is no longer advertised by the Agent Card.");
     await assertSafeInterfaceUrl(selected.url, selected.protocolBinding);
     card = { ...card, supportedInterfaces: [selected] };

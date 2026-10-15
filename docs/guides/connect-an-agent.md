@@ -66,8 +66,23 @@ Viewers cannot operate even if a grant says "operate". A grant for one skill onl
 
 ### 5. Confirm it works
 
-1. On the agent's page, check the cards: **Capabilities** (streaming, push, extended card, extensions), **Interfaces** (binding and URL), **Skills**, **Security** (the card signature status and security schemes).
+1. On the agent's page, check the cards: **Capabilities** (streaming, push, extended card, extensions), **Connection** (the interface, protocol version, tenant and extensions this connection uses; see below), **Skills**, **Security** (the card signature status and security schemes).
 2. Choose **Start chat** and send a message. The task appears under **Tasks** and in **Inbox**.
+
+#### Reading the Connection card
+
+The **Connection** card shows what Taskbay will use when it talks to the agent. It is read-only and is built from the Agent Card and your saved connection settings.
+
+| Row | Meaning |
+| --- | --- |
+| **Binding**, **Interface**, **Protocol** | The interface Taskbay connects to. If your connection settings pin a binding, interface URL or protocol version, the card says "Pinned by your connection settings." and shows the matching interface. Otherwise it shows the interface the A2A SDK picks: bindings in card order, and for each binding the last 1.0 interface, else the first. gRPC is never used. |
+| **Tenant** | `(default)` when the card declares no tenant, the tenant when it declares one, or the list when it declares several. |
+| **Required** | `All supported`, `None`, or a red `N not supported` pill when the card marks an extension `required: true` that Taskbay does not support (sending is then blocked; see the notice at the top of the page). |
+| **Extensions** | Expand it to see each URI as `negotiated` (Taskbay uses it), `ignored` (advertised, not used) or `required, not supported`. |
+
+If **Interface** is `—`, no usable interface is advertised: the card lists only gRPC, or a pinned interface is no longer on the card. Agent-supplied values are shown as text and never as links.
+
+**Tenants.** A tenant is part of a task's identity. When the card declares exactly one tenant, new conversations use it without asking. When it declares several, choose the tenant for a new conversation in the chat **Options** ([Per-request options](use-the-console.md#per-request-options)); an existing conversation keeps the tenant it started with. Taskbay sends the tenant explicitly and stores it with the task. Conversations started before this release may have an empty stored tenant; they keep working, and the agent fills in its default.
 
 From a terminal you can check what the catalog sees:
 

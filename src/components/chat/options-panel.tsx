@@ -1,5 +1,6 @@
 "use client";
 
+import { NativeSelect } from "@/components/ui/native-select";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
@@ -17,6 +18,8 @@ export interface OptionsPanelProps {
   tasks: Array<{ taskId: string }>;
   refIds: string[];
   onRefIds: (ids: string[]) => void;
+  /** Present when the agent's card declares more than one tenant. A conversation keeps the tenant it started with. */
+  tenant?: { options: string[]; value: string; onChange: (tenant: string) => void; locked: boolean };
 }
 
 /** Per-request `SendMessageConfiguration`, applied to the next message only. */
@@ -59,6 +62,18 @@ export function OptionsPanel(props: OptionsPanelProps) {
         </div>
         <span className="text-muted-foreground text-xs">★ = declared by the Agent Card. Tap to override for this request.</span>
       </div>
+
+      {props.tenant && (
+        <label className="flex flex-col gap-1.5">
+          <span className="font-mono text-xs font-semibold">tenant</span>
+          <NativeSelect value={props.tenant.value} disabled={props.tenant.locked} onChange={(event) => props.tenant?.onChange(event.target.value)} aria-label="Tenant" className="w-56 font-mono text-xs">
+            {[...new Set([props.tenant.value, ...props.tenant.options])].map((name) => <option key={name} value={name}>{name || "(default)"}</option>)}
+          </NativeSelect>
+          <span className="text-muted-foreground text-xs">
+            {props.tenant.locked ? "This conversation keeps the tenant it started with." : "The agent offers several tenants. This applies to a new conversation."}
+          </span>
+        </label>
+      )}
 
       {props.tasks.length > 0 && (
         <div className="flex flex-col gap-1.5">
