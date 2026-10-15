@@ -10,6 +10,7 @@ import {
   loadDatabaseConfig,
   type DatabaseConfig,
 } from "./config";
+import { migrateOnStartup } from "./migration-startup";
 import { createPersistenceRepositories } from "./repositories";
 
 type DatabaseGlobal = typeof globalThis & {
@@ -47,9 +48,10 @@ export function shouldAutoMigrate(environment: Readonly<Record<string, string | 
 }
 
 async function createRuntimeDatabaseOrm(): Promise<MikroORM> {
-  const orm = await createDatabaseOrm();
+  const config = loadDatabaseConfig();
+  let orm = await createDatabaseOrm(config);
   try {
-    if (shouldAutoMigrate()) await orm.migrator.up();
+    if (shouldAutoMigrate()) orm = await migrateOnStartup(orm, config, () => createDatabaseOrm(config));
     await bootstrapRuntimeDatabase(orm);
     return orm;
   } catch (error) {

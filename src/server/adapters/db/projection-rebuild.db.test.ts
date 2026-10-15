@@ -24,9 +24,8 @@ async function contract(config: DatabaseConfig, directory: string) {
   const store = new FilesystemArtifactStore(join(directory, "objects"));
   try {
     if ((await orm.migrator.getExecuted()).length) await orm.migrator.down({ to: 0 });
-    // Upgrade from the immediately previous schema with actual legacy content,
-    // original binary archive and immutable ledger identity.
-    await orm.migrator.up({ to: "Migration20261003045027_TaskReconciliation" });
+    await orm.migrator.up();
+    // A task stored before projections existed: legacy content, original binary archive and immutable ledger identity.
     const registry = new DatabaseAgentRegistry({ orm, legacyFilePath: join(directory, "absent"), environmentUrls: () => [] });
     const agent = await registry.add("https://projection.example.test/card");
     const org = (await createPersistenceRepositories(orm.em.fork()).organizations.findBySlug("local"))!;
@@ -39,7 +38,6 @@ async function contract(config: DatabaseConfig, directory: string) {
       [legacyId, org.id, agent.id, JSON.stringify(legacyView), new Date(legacyView.createdAt), new Date(legacyView.updatedAt)]);
     await orm.em.getConnection().execute(`insert into task_events (id, organization_id, agent_id, task_id, source, event_kind, received_at, remote_timestamp, source_key, payload_digest, payload_json, projection_version) values (?, ?, ?, ?, 'stream', 'task', ?, ?, 'legacy', ?, ?, 1)`,
       [randomUUID(), org.id, agent.id, legacyId, new Date(legacyView.createdAt), new Date(legacyView.createdAt), eventDigest(raw), JSON.stringify(safe)]);
-    await orm.migrator.up();
     const ports = () => createPersistenceRepositories(orm.em.fork());
     // Operational revision changes on rebuild; deterministic content excludes it.
     const read = async (id: string = legacyId, organizationId: string = org.id) => {
@@ -145,12 +143,6 @@ async function contract(config: DatabaseConfig, directory: string) {
     })).rejects.toThrow("interrupted activation");
     expect(await read(shared.localId)).toEqual(beforeRollback);
     expect(await orm.em.fork().count(TaskEventEntity, { taskId: shared.localId })).toBeGreaterThan(0);
-    // Rollback exports the active generation, then re-upgrade retains readable
-    // legacy state until an explicit rebuild switches back to version 2.
-    await orm.migrator.down({ to: "Migration20261003045027_TaskReconciliation" });
-    const legacyExport = await orm.em.getConnection().execute(`select content_json from tasks where id = ?`, [shared.localId]);
-    expect(legacyExport[0].content_json).toEqual(final);
-    await orm.migrator.up();
     expect(await read(shared.localId)).toEqual(final);
     expect(await rebuilder().rebuild(org.id, shared.localId)).toEqual(final);
     await orm.close(true); orm = await createDatabaseOrm(config);

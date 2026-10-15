@@ -1,13 +1,14 @@
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 
-import type { Options } from "@mikro-orm/core";
+import { UnderscoreNamingStrategy, type Options } from "@mikro-orm/core";
 import { Migrator } from "@mikro-orm/migrations";
 import { PgliteDriver } from "@mikro-orm/pglite";
 import { PostgreSqlDriver } from "@mikro-orm/postgresql";
 import { z } from "zod";
 
 import { persistenceEntities } from "./entities";
+import { nextMigrationName } from "./schema-version";
 
 const databaseEnvironmentSchema = z
   .object({
@@ -83,14 +84,25 @@ export function loadDatabaseConfig(
   };
 }
 
+const migrationsDirectory = "./src/server/adapters/db/migrations";
+
+/** Generated migrations get the next number, not a timestamp: `Migration0002_<name>` in the class and the file. */
+class NumberedMigrationNaming extends UnderscoreNamingStrategy {
+  override classToMigrationName(_timestamp: string, customMigrationName?: string): string {
+    return nextMigrationName(path.resolve(process.cwd(), migrationsDirectory), customMigrationName);
+  }
+}
+
 const commonOptions = {
+  namingStrategy: NumberedMigrationNaming,
   baseDir: process.cwd(),
   entities: persistenceEntities,
   extensions: [Migrator],
   migrations: {
     emit: "cjs" as const,
-    path: "./src/server/adapters/db/migrations",
-    pathTs: "./src/server/adapters/db/migrations",
+    path: migrationsDirectory,
+    pathTs: migrationsDirectory,
+    fileName: (timestamp: string, name?: string) => nextMigrationName(path.resolve(process.cwd(), migrationsDirectory), name),
     snapshot: false,
     tableName: "agent_taskbay_migrations",
     transactional: true,

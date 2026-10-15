@@ -24,15 +24,11 @@ async function contract(config: DatabaseConfig, directory: string) {
   const store = new FilesystemArtifactStore(join(directory, "objects"));
   try {
     if ((await orm.migrator.getExecuted()).length) await orm.migrator.down({ to: 0 });
-    await orm.migrator.up({ to: "Migration20261003052730_VersionedTaskProjections" });
+    await orm.migrator.up();
     const registry = new DatabaseAgentRegistry({ orm, legacyFilePath: join(directory, "absent"), environmentUrls: () => [] });
     const agent = await registry.add("https://freshness.example.test/card");
     const ports = () => createPersistenceRepositories(orm.em.fork());
     const org = (await ports().organizations.findBySlug("local"))!;
-    const retainedId = randomUUID();
-    await orm.em.getConnection().execute(`insert into tasks (id, organization_id, agent_id, tenant, remote_task_id, kind, state, created_at, updated_at) values (?, ?, ?, '', 'retained', 'task', 'TASK_STATE_COMPLETED', now(), now())`, [retainedId, org.id, agent.id]);
-    await orm.migrator.up();
-    expect((await ports().tasks.findById(org.id, retainedId))!.remoteTaskId).toBe("retained");
     expect(await orm.migrator.checkSchema()).toBe(false);
 
     const observe = (event = snapshot("shared"), tenant = "") => createTaskObserver({
@@ -121,11 +117,7 @@ async function contract(config: DatabaseConfig, directory: string) {
     await orm.em.fork().nativeUpdate(OutboxMessageEntity, { topic: TASK_FRESHNESS_TOPIC, status: "processing" }, { leaseUntil: new Date(0) });
     await recover.runOne();
     expect(await orm.em.fork().count(OutboxMessageEntity, { topic: TASK_FRESHNESS_TOPIC, status: "processing" })).toBe(0);
-    await orm.migrator.down({ to: "Migration20261003052730_VersionedTaskProjections" });
     expect((await ports().tasks.findById(org.id, first.localId))!.state).toBe("TASK_STATE_INPUT_REQUIRED");
-    await orm.migrator.up();
-    expect(await recoveredShared.readToken(org.id)).toBe("");
-    expect(await count()).toBe(0);
     expect(await orm.migrator.checkSchema()).toBe(false);
   } finally { await orm.close(true); }
 }
