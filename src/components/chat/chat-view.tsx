@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
@@ -14,6 +14,7 @@ import { A2UI_EXTENSION_URI, a2uiClientMetadata, surfacesFromParts } from "@/lib
 import { isActivityArtifact, planMessages, settleArtifacts } from "@/lib/chat-activity";
 import { ActivityLog, AgentBubble, ArtifactCard, ProgressLog, SenderLabel, TaskCard, UserBubble } from "@/components/chat/timeline";
 import { SideRail, useIsDesktop, type RailTab } from "@/components/chat/side-rail";
+import { useStickToBottom } from "@/components/chat/use-stick-to-bottom";
 import { Button } from "@/components/ui/button";
 import { NativeSelect } from "@/components/ui/native-select";
 import { conversationKey, findConversation, groupConversations, isOpenTask, shouldAdoptConversationKey } from "@/lib/conversations";
@@ -62,7 +63,9 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
   const [wire, setWire] = useState<WireEntry[]>([]);
   const [seed, setSeed] = useState<{ id: number; text: string } | undefined>();
   const wireId = useRef(0);
-  const bottom = useRef<HTMLDivElement>(null);
+  const scroller = useRef<HTMLDivElement>(null);
+  const column = useRef<HTMLDivElement>(null);
+  const composerBar = useRef<HTMLDivElement>(null);
 
   const outputModes = outOverride ?? (view?.outputModes.length ? view.outputModes : settings.acceptedOutputModes);
   const openTasks = tasks.filter(isOpenTask);
@@ -77,10 +80,8 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
   const liveTask = [...tasks].reverse().find((task) => task.kind !== "message");
   const stateLabel = liveTask ? stateName(liveTask.state) : tasks.length ? "MESSAGE" : "idle";
 
-  const activity = tasks.reduce((sum, task) => sum + task.messages.length + task.artifacts.length + (task.transitions?.length ?? 0), 0);
-  useEffect(() => {
-    bottom.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [activity, pending]);
+  // Follow new content while you are at the bottom, however it grows; scrolling up to read pauses it.
+  const { follow } = useStickToBottom({ scroller, watch: [column, composerBar] });
 
   const pushWire = (dir: WireEntry["dir"], kind: string, json: unknown) =>
     setWire((entries) => [...entries.slice(-199), { id: wireId.current++, at: Date.now(), dir, kind, json }]);
@@ -140,6 +141,7 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
 
     setSending(true);
     setError(null);
+    follow();
     const userMessage = userThreadMessage(parts, { contextId, taskId: effectiveTarget?.taskId }, config);
     const base = effectiveTarget;
     setPending(userMessage);
@@ -230,8 +232,10 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
           </Button>
         </header>
 
-        <div className="flex flex-1 flex-col md:min-h-0 md:overflow-auto">
-          <div className={cn(messageColumn, "flex min-h-[40dvh] flex-1 flex-col gap-4 p-4 md:min-h-full md:p-6")}>
+        <div ref={scroller} className="flex flex-1 flex-col md:min-h-0 md:overflow-auto">
+          {/* Sized to its content (flex-basis auto, no shrink). With a zero basis the column is capped at the pane height, the
+              messages overflow it, and the bottom padding that should separate the last message from the composer is lost. */}
+          <div ref={column} className={cn(messageColumn, "flex min-h-[40dvh] flex-[1_0_auto] flex-col gap-4 p-4 pb-6 md:min-h-full md:p-6")}>
             {empty && (
               <div className="m-auto flex max-w-[440px] flex-col items-center gap-3.5 text-center">
                 <h2 className="font-heading text-2xl font-semibold tracking-tight">
@@ -303,11 +307,10 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
             })}
             {pending && !tasks.some((task) => task.messages.some((message) => message.id === pending.id)) && [...sender("you", pending.id), <UserBubble key={pending.id} message={pending} />]}
             {error && <p className="border-danger/40 bg-danger/10 text-danger rounded-lg border px-3.5 py-2.5 font-mono text-xs">{error}</p>}
-            <div ref={bottom} />
           </div>
         </div>
 
-        <div className="sticky bottom-[calc(3.75rem+env(safe-area-inset-bottom))] z-30 shrink-0 border-t bg-background md:static">
+        <div ref={composerBar} className="sticky bottom-[calc(3.75rem+env(safe-area-inset-bottom))] z-30 shrink-0 border-t bg-background md:static">
           <div className={messageColumn}>
             {openTasks.length > 0 && (
               <div className="flex flex-wrap items-center gap-1.5 px-4 pt-2.5 md:px-6" role="radiogroup" aria-label="Send to">
