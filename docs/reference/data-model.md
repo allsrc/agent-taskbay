@@ -67,7 +67,7 @@ Raw events that contain inline binary parts keep their complete original JSON in
 | `teams`, `team_memberships` | Groups of people for grants. |
 | `access_grants` | `subject_type` (`organization`, `membership`, `team`), `subject_id`, `agent_id`, optional `skill_id`, `permission` (`read`, `operate`), `enabled`. |
 | `security_rate_buckets` | Fixed-window counters for rate limits; expire after 60 seconds. |
-| `security_audit_events` | Append-only audit facts: `action`, `actor_type`, `actor_user_id` (null for the system or an agent), `target_id`, unique `event_key`. Actions include `access.granted`, `agent.extension.override`, `agent.extension.override.removed` and `task.discovery.mode_changed.<mode>`, `task.discovery.found` (a sweep stored tasks) and `task.discovery.paused` (the lifetime limit was reached), all with the agent as target and the system as actor, and `task.discovery.tracked` (target: the task's local ID). |
+| `security_audit_events` | Append-only audit facts: `action`, `actor_type`, `actor_user_id` (null for the system or an agent), `target_id`, unique `event_key`. Actions include `access.granted`, `agent.extension.override`, `agent.extension.override.removed` and `task.discovery.mode_changed.<mode>`, `task.discovery.found` (a sweep stored tasks) and `task.discovery.paused` (the lifetime limit was reached), all with the agent as target and the system as actor, `task.discovery.tracked` (target: the task's local ID), and `push.cleanup.<count>` (the push worker deleted that many leftover push configurations from the agent; target: the agent, system actor). |
 
 ### Approvals
 

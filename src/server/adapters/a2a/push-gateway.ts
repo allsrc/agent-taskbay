@@ -1,6 +1,6 @@
 import { agentConnection } from "./agent-connection";
 import { executeOperation, discoverAgent } from "../../../lib/gateway";
-import type { A2APushGateway } from "../../application/ports/push";
+import type { A2APushGateway, PushConfigSummary } from "../../application/ports/push";
 import { PushUnsupported } from "../../application/ports/push";
 import type { AgentRecord, TaskRecord } from "../../domain/persistence-model";
 
@@ -36,5 +36,27 @@ export class SdkPushGateway implements A2APushGateway {
       if (error instanceof Error && error.name === "TaskNotFoundError") return;
       throw error;
     }
+  }
+  async list(agent: AgentRecord, task: TaskRecord, signal: AbortSignal): Promise<PushConfigSummary[]> {
+    const connection = await this.connection(agent);
+    if (!(await discoverAgent(connection)).normalizedCard.capabilities?.pushNotifications) return [];
+    const found: PushConfigSummary[] = [];
+    let pageToken = "";
+    try {
+      for (let page = 0; page < 5; page++) {
+        const response = await executeOperation({ connection, signal, action: "listPushConfigs",
+          params: { taskId: task.remoteTaskId, tenant: task.tenant, pageSize: 100, pageToken } });
+        const body = response.result as { configs?: Array<{ id?: unknown; url?: unknown }>; nextPageToken?: unknown };
+        for (const config of Array.isArray(body.configs) ? body.configs : [])
+          if (typeof config?.id === "string" && typeof config.url === "string") found.push({ id: config.id, url: config.url });
+        pageToken = typeof body.nextPageToken === "string" ? body.nextPageToken : "";
+        if (!pageToken) break;
+      }
+    } catch (error) {
+      // An agent that cannot list (or has no such task any more) has nothing for us to clean.
+      if (error instanceof Error && ["PushNotificationNotSupportedError", "UnsupportedOperationError", "TaskNotFoundError", "MethodNotFoundError"].includes(error.name)) return [];
+      throw error;
+    }
+    return found;
   }
 }

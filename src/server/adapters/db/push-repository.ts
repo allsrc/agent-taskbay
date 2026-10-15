@@ -1,10 +1,11 @@
 import { LockMode, type EntityManager } from "@mikro-orm/core";
 import type { EntityManager as SqlEntityManager } from "@mikro-orm/sql";
 import { randomUUID } from "node:crypto";
-import type { PushRepository } from "../../application/ports/push";
+import type { CleanupWindow, PushRepository } from "../../application/ports/push";
 import type { PushRegistrationRecord, TaskRecord } from "../../domain/persistence-model";
-import { PushRegistrationEntity } from "./entities";
+import { PushRegistrationEntity, RateBucketEntity } from "./entities";
 
+import { DatabaseIdentityRepository } from "./identity-repository";
 import { pushTerminal } from "../../application/services/push-lifecycle";
 
 export class MikroOrmPushRepository implements PushRepository {
@@ -77,6 +78,38 @@ export class MikroOrmPushRepository implements PushRepository {
     if (now.getTime() - row.rateWindow.getTime() >= 60_000) { row.rateWindow = now; row.rateCount = 0; }
     if (row.rateCount >= limit) return false;
     row.rateCount++; await this.em.flush(); return true;
+  }
+  async cleanupAgents(now: Date, window: CleanupWindow, limit: number) {
+    const rows = await (this.em as SqlEntityManager).execute(`select distinct t.organization_id, t.agent_id
+      from task_push_registrations p join tasks t on t.id = p.task_id and t.organization_id = p.organization_id
+      join agents a on a.id = t.agent_id and a.organization_id = t.organization_id
+      where a.enabled = true and p.status = 'deleted' and p.updated_at <= ? and p.updated_at > ? limit ?`,
+      [window.recheckBefore, window.since, limit]) as Array<{ organization_id: string; agent_id: string }>;
+    return rows.map((row) => ({ organizationId: row.organization_id, agentId: row.agent_id }));
+  }
+  async cleanupBatch(organizationId: string, agentId: string, _now: Date, window: CleanupWindow, limit: number) {
+    const rows = await (this.em as SqlEntityManager).execute(`select p.id from task_push_registrations p
+      join tasks t on t.id = p.task_id and t.organization_id = p.organization_id
+      where p.organization_id = ? and t.agent_id = ? and p.status = 'deleted' and p.updated_at <= ? and p.updated_at > ?
+      order by p.updated_at asc, p.id asc limit ?`, [organizationId, agentId, window.recheckBefore, window.since, limit]) as Array<{ id: string }>;
+    if (!rows.length) return [];
+    const found = await this.em.find(PushRegistrationEntity, { organizationId, id: { $in: rows.map((row) => row.id) } }, { refresh: true });
+    const order = new Map(rows.map((row, index) => [row.id, index]));
+    return found.map((row) => this.record(row)).sort((a, b) => order.get(a.id)! - order.get(b.id)!);
+  }
+  async markChecked(organizationId: string, ids: string[], now: Date) {
+    if (ids.length) await this.em.nativeUpdate(PushRegistrationEntity, { organizationId, id: { $in: ids } }, { updatedAt: now });
+  }
+  async claimCleanup(agentId: string, now: Date, intervalMs: number) {
+    const id = `push-cleanup:${agentId}`;
+    await this.em.upsert(RateBucketEntity, { id, count: 0, expiresAt: new Date(0) }, { onConflictFields: ["id"], onConflictAction: "ignore" });
+    const bucket = await this.em.findOneOrFail(RateBucketEntity, { id }, { lockMode: LockMode.PESSIMISTIC_WRITE, refresh: true });
+    if (bucket.expiresAt > now) return false;
+    bucket.expiresAt = new Date(now.getTime() + intervalMs); bucket.count += 1;
+    await this.em.flush(); return true;
+  }
+  async auditCleanup(organizationId: string, agentId: string, cleaned: number) {
+    await new DatabaseIdentityRepository(this.em).appendSystemAudit(organizationId, `push.cleanup.${cleaned}`, agentId);
   }
   private fence(lease: PushRegistrationRecord, now: Date) {
     return { id: lease.id, organizationId: lease.organizationId, status: lease.status,

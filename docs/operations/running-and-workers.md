@@ -69,7 +69,7 @@ All loops are idempotent and retry after a database error, logging a single line
 |---|---|---|
 | Command dispatch | Takes a saved send or cancel and delivers it to the agent with the same message ID. Retries agent discovery failures up to three attempts (1 s, then 2 s apart); after that the command is `failed`. A crash or lease expiry mid-delivery leaves it `uncertain` and it is **never resent automatically**. | Polls every 250 ms, up to 10 commands per pass. Lease 60 s. |
 | Subscriptions | Holds streaming connections to agents for active tasks, renews its lease, reconnects with backoff (1 s doubling to 30 s) and writes events. Stops at input-required, auth-required or a terminal state; a new reply re-arms it. | Up to 8 concurrent streams per worker process. Lease 15 s. |
-| Push | Registers webhook callbacks with agents that advertise push, and keeps them in step. Does nothing unless `A2A_PUSH_CALLBACK_ORIGIN` is set. | Idle poll 500 ms. Lease 15 s. |
+| Push | Registers webhook callbacks with agents that advertise push, and keeps them in step. When idle it also removes configurations it left behind for finished tasks (see [Leftover configurations](../guides/agent-push-callbacks.md#leftover-configurations)). Does nothing unless `A2A_PUSH_CALLBACK_ORIGIN` is set. | Idle poll 500 ms. Lease 15 s. Cleanup looks about once a minute, one agent per 5 minutes, 50 tasks at most. |
 | Reconciliation | Polls each known unfinished task with `GetTask` and lists tasks with `ListTasks` per agent, so missed events heal even without streaming or push. For an agent set to automatic task discovery it also stores tasks the agent has that Taskbay does not (see [Task discovery](../guides/connect-an-agent.md#task-discovery)); a sweep keeps its progress on the cursor, so any worker can continue it. | `GetTask` about every 15 s per task, `ListTasks` about every 60 s per scope. Two concurrent readers. Lease 15 s. Failures back off from 1 s to 60 s. |
 | Freshness | Publishes a content-free "something changed" signal that wakes open browsers. | Polls every 250 ms. |
 | Approvals and escalation | Expires overdue approval requests, marks requests superseded when their task finished, refreshes in-flight approved deliveries, and escalates overdue owned tasks. | Every `A2A_DECISION_SWEEP_MS` (default 15000; values below 100, or not a number, fall back to 15000). |
@@ -100,12 +100,15 @@ There is no health endpoint and no metrics export. What you have:
 | A send is being processed | `GET /api/commands/<id>` using the ID returned by the send (`202`) | `status` moves from `pending` to `dispatching` to `succeeded`. `failed`, `uncertain` and `rejected` carry a `lastError` text; `rejected` also carries `errorKind`. |
 | Tasks keep updating | Open a working task and watch it; or leave a task open and stop the agent | Updates arrive; if the agent goes quiet, reconciliation polls it. |
 
+When a push cleanup pass deletes configurations the push worker prints one status line, for example `Push cleanup removed 2 leftover configurations.`, and the security audit gets a `push.cleanup.<count>` entry.
+
 Log lines the loops print on a database or lease problem, one per failed pass:
 
 ```text
 Command dispatcher could not access durable state; will retry.
 Subscription worker could not access durable state; will retry.
 Push worker could not access durable state; will retry.
+Push cleanup could not access durable state; will retry.
 Reconciliation worker could not access durable state; will retry.
 Freshness dispatcher could not access durable state; will retry.
 Decision sweeper could not access durable state; will retry.
