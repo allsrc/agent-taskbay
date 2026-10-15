@@ -122,8 +122,9 @@ Only `Migration0001_Baseline` exists. The order below is indicative: each task t
 | 1 | T-03 | `task_commands.error_kind` nullable string (length 64). Also extend a check constraint on `status` if the baseline has one. |
 | 2 | T-06 | `agents.extension_override` boolean not null default false |
 | 3 | T-07 | `tasks.origin` text not null default `'created'`; `tasks.discovered_at` timestamptz null; `tasks.tracked_by_user_id` uuid null; `agents.task_discovery` text not null default `'browse'`; `agents.task_discovery_history_days` int not null default 7; `agents.task_discovery_paused_reason` text null; `sync_cursors.last_full_sweep_at` timestamptz null; index `(organization_id, agent_id, origin)` on `tasks`. Existing rows get the defaults (`browse`). Every new column is nullable or has a default, so an older running instance keeps working against the new schema. |
-| 4 | T-17 | `agent_card_snapshots.kind` text not null default `'public'` |
-| 5 | T-19 | New table `task_links(id, organization_id, from_task_id, to_task_id, kind, created_at)`, unique `(from_task_id, to_task_id, kind)`, index on `to_task_id` |
+| 4 | T-25 | `sync_cursors.sweep_started_at` timestamptz null, `sweep_found` int not null default 0, `sweep_after` timestamptz null (progress of an automatic sweep, so any worker can continue it) |
+| 5 | T-17 | `agent_card_snapshots.kind` text not null default `'public'` |
+| 6 | T-19 | New table `task_links(id, organization_id, from_task_id, to_task_id, kind, created_at)`, unique `(from_task_id, to_task_id, kind)`, index on `to_task_id` |
 
 Each also updates `docs/reference/data-model.md`, and the baseline-to-latest upgrade must pass `npm run db:migrate` and `npm run db:schema:check` on PGlite and PostgreSQL.
 

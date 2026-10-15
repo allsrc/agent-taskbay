@@ -173,7 +173,9 @@ A refusal by the agent means it did nothing, so sending again is safe. Anything 
 
 ## Tasks
 
-**Tasks** lists the tasks you can read, newest first, 50 per page, with **Previous**, **Refresh** and **Next**. Filters: **All**, **Active**, **Needs you**, **Done**, **Mine**, **Overdue** and **Unassigned**. Each row shows the title, state, short task ID, agent and last change. It also shows the assignee, the due time and "escalated" when they apply.
+**Tasks** lists the tasks you can read, newest first, 50 per page, with **Previous**, **Refresh** and **Next**. Filters: **All**, **Active**, **Needs you**, **Done**, **Mine**, **Overdue** **Unassigned** and **Discovered** (tasks another system started that someone tracked, or that were found automatically). Each row shows the title, state, short task ID, agent and last change. It also shows the assignee, the due time and "escalated" when they apply.
+
+A task another system started carries a **Discovered** tag in the list. Its page opens with a note, "Started outside Taskbay", saying who tracked it and when; **Dismiss** hides the note on this browser. In chat the conversation shows the same tag, and, since no person wrote the first message, is named after the task's title or the first thing the agent said (or a short task ID), never just the agent's name. You answer, steer and cancel it exactly like a task you started.
 
 Open a task to see its detail page. The header shows the title, state, full task ID, context ID and agent. The buttons are:
 

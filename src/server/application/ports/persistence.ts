@@ -1,4 +1,4 @@
-import type { TaskDiscoveryMode } from "../../domain/discovery-mode";
+import type { TaskDiscoveryMode, TaskOrigin } from "../../domain/discovery-mode";
 import type {
   AgentCardSnapshotRecord,
   AgentRecord,
@@ -62,7 +62,7 @@ export interface TaskRepository {
   getOrCreate(task: TaskRecord): Promise<TaskRecord>;
   saveProjection(task: TaskRecord): Promise<TaskRecord>;
   /** Workflow views (mine, overdue, unassigned) are active-only and narrowed by task IDs supplied by the caller. */
-  listByOrganization(organizationId: string, limit: number, offset: number, filter?: string, restriction?: { include?: string[]; exclude?: string[] }): Promise<TaskSummaryRecord[]>;
+  listByOrganization(organizationId: string, limit: number, offset: number, filter?: string, restriction?: { include?: string[]; exclude?: string[] }, origin?: TaskOrigin): Promise<TaskSummaryRecord[]>;
   findById(
     organizationId: string,
     id: string,

@@ -1,4 +1,4 @@
-import { ArtifactAccessEntity } from "../adapters/db/entities";
+import { ArtifactAccessEntity, UserEntity } from "../adapters/db/entities";
 import { openAgentApprovalIfRequested } from "./agent-approvals";
 import { externalizeBinary } from "../application/services/protocol-archive";
 import { loadPushCredentials } from "./push-config";
@@ -27,7 +27,8 @@ export async function withTaskQueries<T>(work: (queries: TaskQueryService, organ
     const organization = principal ? await repositories.organizations.findById(principal.organizationId) :
       await bootstrapDefaultLocalOrganization(repositories.organizations);
     if (!organization) throw new Error("Unknown query organization.");
-    return work(new TaskQueryService(repositories.tasks, repositories.agents), organization.id);
+    const names = async (userIds: string[]) => Object.fromEntries((userIds.length ? await em.find(UserEntity, { id: { $in: userIds } }) : []).map((user) => [user.id, user.displayName]));
+    return work(new TaskQueryService(repositories.tasks, repositories.agents, names), organization.id);
   }, orm);
 }
 

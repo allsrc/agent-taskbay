@@ -10,6 +10,8 @@ async function handleGET(request: Request) {
     const url = new URL(request.url);
     const filter = url.searchParams.get("filter") ?? "all";
     if (!["all", "active", "needs-input", "done", "mine", "overdue", "unassigned"].includes(filter)) return Response.json({ error: { message: "Invalid task filter." } }, { status: 400 });
+    const origin = url.searchParams.get("origin");
+    if (origin !== null && origin !== "created" && origin !== "discovered") return Response.json({ error: { message: "origin must be created or discovered." } }, { status: 400 });
     const limit = Number(url.searchParams.get("limit") ?? 50);
     const offset = Number(url.searchParams.get("offset") ?? 0);
     if (!Number.isInteger(limit) || limit < 1 || limit > 100 || !Number.isInteger(offset) || offset < 0) {
@@ -19,7 +21,7 @@ async function handleGET(request: Request) {
     const workflowFilter = ["mine", "overdue", "unassigned"].includes(filter) ? filter as "mine" | "overdue" | "unassigned" : undefined;
     const ids = workflowFilter ? await workflowTaskIds(workflowFilter) : undefined;
     const restriction = !workflowFilter ? undefined : workflowFilter === "unassigned" ? { exclude: ids } : { include: ids };
-    const rows = await withTaskQueries((queries, organizationId) => queries.list(organizationId, limit, offset, filter, restriction));
+    const rows = await withTaskQueries((queries, organizationId) => queries.list(organizationId, limit, offset, filter, restriction, origin ?? undefined));
     // Ownership and due time ride along so the list can show who has each task without a request per row.
     const summaries = await workflowSummaries(rows.map((task) => task.localId));
     const tasks = rows.map((task) => ({ ...task, workflow: summaries.get(task.localId) ?? null }));

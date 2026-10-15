@@ -1,6 +1,6 @@
 import { LockMode, type EntityManager } from "@mikro-orm/core";
 import { randomUUID } from "node:crypto";
-import type { SyncCursorRepository } from "../../application/ports/reconciliation";
+import type { CursorFinish, SyncCursorRepository } from "../../application/ports/reconciliation";
 import { terminalTask } from "../../application/ports/reconciliation";
 import type { SyncCursorRecord, TaskRecord } from "../../domain/persistence-model";
 import { AgentEntity, SyncCursorEntity, TaskEntity } from "./entities";
@@ -40,7 +40,7 @@ export class MikroOrmSyncCursorRepository implements SyncCursorRepository {
   async renew(cursor: SyncCursorRecord, now: Date, until: Date) {
     return (await this.em.nativeUpdate(SyncCursorEntity, this.fence(cursor, now), { leaseUntil: until, updatedAt: now })) === 1;
   }
-  async finish(cursor: SyncCursorRecord, now: Date, changes: Pick<SyncCursorRecord, "status" | "availableAt" | "lastError" | "pageToken" | "lastSyncedAt">) {
+  async finish(cursor: SyncCursorRecord, now: Date, changes: CursorFinish) {
     return (await this.em.nativeUpdate(SyncCursorEntity, this.fence(cursor, now),
       { ...changes, leaseOwner: null, leaseUntil: null, updatedAt: now })) === 1;
   }
@@ -55,11 +55,27 @@ export class MikroOrmSyncCursorRepository implements SyncCursorRepository {
       remoteCreatedAt: row.remoteCreatedAt ?? null, remoteUpdatedAt: row.remoteUpdatedAt ?? null, terminalAt: row.terminalAt ?? null,
     }));
   }
+  async taskTenants(organizationId: string, agentId: string) {
+    const rows: Array<{ tenant: string }> = await this.em.getConnection().execute(
+      "select distinct tenant from tasks where organization_id = ? and agent_id = ? and kind = 'task'", [organizationId, agentId], "all", this.em.getTransactionContext());
+    return rows.map((row) => row.tenant);
+  }
+  async startDiscovery(organizationId: string, agentId: string, tenants: string[], now: Date, reset: boolean) {
+    for (const tenant of new Set(tenants)) {
+      await this.em.upsert(SyncCursorEntity, {
+        id: randomUUID(), organizationId, agentId, tenant, resourceKey: "", taskId: null, status: "pending", pageToken: "", availableAt: now, attempts: 0,
+        leaseOwner: null, leaseUntil: null, lastError: null, lastSyncedAt: null, createdAt: now, updatedAt: now,
+      }, { onConflictFields: ["organizationId", "agentId", "tenant", "resourceKey"], onConflictAction: "ignore", disableIdentityMap: true });
+      if (reset) await this.em.nativeUpdate(SyncCursorEntity, { organizationId, agentId, tenant, resourceKey: "", status: { $in: ["stopped", "unsupported"] } },
+        { status: "pending", pageToken: "", availableAt: now, attempts: 0, lastError: null, sweepStartedAt: null, sweepFound: 0, sweepAfter: null, updatedAt: now });
+    }
+  }
   async listCursors(organizationId: string, agentId: string) {
     return (await this.em.find(SyncCursorEntity, { organizationId, agentId, resourceKey: "" }, { refresh: true })).map((row) => this.record(row));
   }
   private record(row: SyncCursorEntity): SyncCursorRecord {
     return { ...row, taskId: row.taskId ?? null, leaseOwner: row.leaseOwner ?? null,
-      leaseUntil: row.leaseUntil ?? null, lastError: row.lastError ?? null, lastSyncedAt: row.lastSyncedAt ?? null, lastFullSweepAt: row.lastFullSweepAt ?? null };
+      leaseUntil: row.leaseUntil ?? null, lastError: row.lastError ?? null, lastSyncedAt: row.lastSyncedAt ?? null, lastFullSweepAt: row.lastFullSweepAt ?? null,
+      sweepStartedAt: row.sweepStartedAt ?? null, sweepFound: row.sweepFound ?? 0, sweepAfter: row.sweepAfter ?? null };
   }
 }

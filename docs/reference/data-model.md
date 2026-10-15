@@ -53,7 +53,7 @@ Raw events that contain inline binary parts keep their complete original JSON in
 | `outbox_messages` | Transactional outbox for background work | `topic`, `aggregate_type`, `aggregate_id`, `status` (`pending`, `processing`, `processed`, `failed`), `attempts`, `available_at`, `lease_owner`, `lease_until`, `last_error`. Written in the same transaction as the state that needs the side effect. |
 | `task_subscriptions` | Worker-owned stream observation per open task | `status` (`pending`, `streaming`, `stopped`), lease fields. Unique per task. |
 | `task_push_registrations` | Push-notification registration per task | `status` (`pending`, `registering`, `active`, `deleting`, `deleted`, `failed`), `desired`, lease fields, a per-registration rate window. Unique per task. No credentials are stored; tokens are derived from the signing key. |
-| `sync_cursors` | Polling reconciliation | `resource_key` empty for a ListTasks sweep or a local task ID for GetTask, `page_token`, `status` (`pending`, `syncing`, `stopped`, `unsupported`), `last_full_sweep_at` (when the whole agent was last listed without a time filter). Unique `(organization_id, agent_id, tenant, resource_key)`. |
+| `sync_cursors` | Polling reconciliation | `resource_key` empty for a ListTasks sweep or a local task ID for GetTask, `page_token`, `status` (`pending`, `syncing`, `stopped`, `unsupported`), `last_full_sweep_at` (when the whole agent was last listed without a time filter), and for a sweep in progress `sweep_started_at`, `sweep_found` and `sweep_after` (the time filter it uses; null means it lists everything). Unique `(organization_id, agent_id, tenant, resource_key)`. |
 
 ### People, access and security
 
@@ -67,7 +67,7 @@ Raw events that contain inline binary parts keep their complete original JSON in
 | `teams`, `team_memberships` | Groups of people for grants. |
 | `access_grants` | `subject_type` (`organization`, `membership`, `team`), `subject_id`, `agent_id`, optional `skill_id`, `permission` (`read`, `operate`), `enabled`. |
 | `security_rate_buckets` | Fixed-window counters for rate limits; expire after 60 seconds. |
-| `security_audit_events` | Append-only audit facts: `action`, `actor_type`, `actor_user_id` (null for the system or an agent), `target_id`, unique `event_key`. Actions include `access.granted`, `agent.extension.override`, `agent.extension.override.removed` and `task.discovery.mode_changed.<mode>` (target: the agent) and `task.discovery.tracked` (target: the task's local ID). |
+| `security_audit_events` | Append-only audit facts: `action`, `actor_type`, `actor_user_id` (null for the system or an agent), `target_id`, unique `event_key`. Actions include `access.granted`, `agent.extension.override`, `agent.extension.override.removed` and `task.discovery.mode_changed.<mode>`, `task.discovery.found` (a sweep stored tasks) and `task.discovery.paused` (the lifetime limit was reached), all with the agent as target and the system as actor, and `task.discovery.tracked` (target: the task's local ID). |
 
 ### Approvals
 

@@ -61,18 +61,19 @@ async function contract(config: DatabaseConfig, directory: string) {
     await expect(changeAgentSettings(admin, agent.id, { taskDiscovery: "browse" }, orm)).rejects.toMatchObject({ status: 409, kind: "discovery_capped" });
     await changeAgentSettings(admin, agent.id, { taskDiscovery: "off" }, orm);
     delete process.env.A2A_TASK_DISCOVERY;
-    // By default the deployment does not allow automatic discovery at all; once it does, the mode is still refused until its background sweep exists.
+    // By default the deployment does not allow automatic discovery at all; once it does, switching it on gives the worker cursors to claim.
     await expect(changeAgentSettings(admin, agent.id, { taskDiscovery: "auto" }, orm)).rejects.toMatchObject({ status: 409, kind: "discovery_capped" });
     process.env.A2A_TASK_DISCOVERY = "auto";
-    await expect(changeAgentSettings(admin, agent.id, { taskDiscovery: "auto" }, orm)).rejects.toMatchObject({ status: 409, kind: "not_available" });
+    await changeAgentSettings(admin, agent.id, { taskDiscovery: "auto" }, orm);
+    expect((await status(admin))!).toMatchObject({ mode: "auto", effectiveMode: "auto", auto: { lastCheckedAt: null, foundTotal: 0 } });
+    expect((await orm.em.fork().find(SyncCursorEntity, { agentId: agent.id, resourceKey: "" })).map((cursor) => cursor.tenant)).toEqual([""]);
     delete process.env.A2A_TASK_DISCOVERY;
     await changeAgentSettings(admin, agent.id, { taskDiscovery: "browse" }, orm);
     // Another organization's agent is unknown.
     await expect(changeAgentSettings({ ...admin, organizationId: randomUUID() }, agent.id, { taskDiscovery: "off" }, orm)).rejects.toMatchObject({ status: 404 });
 
     // An agent that cannot list tasks is remembered from its list cursor.
-    await orm.em.fork().insert(SyncCursorEntity, { id: randomUUID(), organizationId: org.id, agentId: agent.id, tenant: "", resourceKey: "", taskId: null, status: "unsupported",
-      pageToken: "", availableAt: new Date(), attempts: 1, lastError: null, lastSyncedAt: null, createdAt: new Date(), updatedAt: new Date() } as never);
+    await orm.em.fork().nativeUpdate(SyncCursorEntity, { organizationId: org.id, agentId: agent.id, resourceKey: "" }, { status: "unsupported" });
     expect((await status(admin))!.listing).toBe("unsupported");
   } finally { await orm.close(true); }
 }

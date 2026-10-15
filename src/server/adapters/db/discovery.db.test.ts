@@ -103,6 +103,13 @@ async function contract(config: DatabaseConfig, directory: string) {
     expect(gateway.calls.get).toBe(reads);
     expect(await orm.em.fork().count(SecurityAuditEntity, { action: "task.discovery.tracked", targetId: tracked.localId })).toBe(1);
     expect((await browse(whole)).rows.find((row) => row.taskId === "ask")).toMatchObject({ tracked: true, localId: tracked.localId });
+    // The task list can show only discovered tasks, and the detail says who tracked it (a person's name, never a free-form field).
+    const listedBy = (who: typeof admin, origin?: "created" | "discovered") => withPrincipal(who, () => withTaskQueries((q, id) => q.list(id, 50, 0, "all", undefined, origin), orm));
+    expect((await listedBy(whole, "discovered")).map((row) => row.localId)).toEqual([tracked.localId]);
+    expect((await listedBy(whole, "created")).map((row) => row.localId)).toEqual([]);
+    expect((await listedBy(whole))[0]).toMatchObject({ origin: "discovered" });
+    expect(await withPrincipal(whole, () => withTaskQueries((q, id) => q.detail(id, tracked.localId), orm))).toMatchObject({ origin: "discovered", trackedBy: { userId: whole.userId, name: "whole" } });
+    expect(await listedBy(skillScoped, "discovered")).toEqual([]);
     // A finished task can be tracked as read-only history, and is not followed.
     const finished = await track(whole, "done");
     expect((await orm.em.fork().findOneOrFail(SubscriptionEntity, { taskId: finished.localId })).status).toBe("stopped");

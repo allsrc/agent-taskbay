@@ -316,7 +316,7 @@ const SyncCursorSchema = defineEntity({
     status: p.string().length(32).$type<import("../../domain/persistence-model").SyncCursorRecord["status"]>(),
     pageToken: p.text(), availableAt: p.datetime(), attempts: p.integer().default(0),
     leaseOwner: p.string().length(255).nullable(), leaseUntil: p.datetime().nullable(), lastError: p.text().nullable(),
-    lastSyncedAt: p.datetime().nullable(), lastFullSweepAt: p.datetime().nullable(), createdAt: p.datetime(), updatedAt: p.datetime(),
+    lastSyncedAt: p.datetime().nullable(), lastFullSweepAt: p.datetime().nullable(), sweepStartedAt: p.datetime().nullable(), sweepFound: p.integer().default(0), sweepAfter: p.datetime().nullable(), createdAt: p.datetime(), updatedAt: p.datetime(),
   },
   uniques: [{ name: "uq_sync_cursors_scope_resource", properties: ["organizationId", "agentId", "tenant", "resourceKey"] }],
   indexes: [{ name: "idx_sync_cursors_ready", properties: ["status", "availableAt"] },

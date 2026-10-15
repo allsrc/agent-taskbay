@@ -2,12 +2,12 @@
 id: T-12
 title: End-to-end proof and guide for finding and steering tasks started elsewhere
 phase: 2
-status: todo
+status: in_progress
 depends_on: [T-03, T-09, T-10, T-11, T-25, T-26]
 size: M
 gap: G5
 migration: no
-updated:
+updated: 2026-10-15
 ---
 
 # T-12. Discovery end to end

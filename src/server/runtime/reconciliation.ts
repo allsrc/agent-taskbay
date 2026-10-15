@@ -7,6 +7,12 @@ import { SdkReconciliationGateway } from "../adapters/a2a/reconciliation-gateway
 import { createPersistenceRepositories } from "../adapters/db/repositories";
 import { withJobEntityManager } from "../adapters/db/orm";
 import { createTaskObserver } from "./task-persistence";
+import { DatabaseIdentityRepository } from "../adapters/db/identity-repository";
+import { effectiveTaskDiscovery, DEFAULT_TASK_DISCOVERY_MODE } from "../domain/discovery-mode";
+import { taskDiscoveryCap } from "./runtime-config";
+
+/** What mode an agent is in now: its own setting under the deployment cap, read each time so a change takes effect without a restart. */
+export const discoveryPolicy = () => ({ mode: (agent: { taskDiscovery?: "off" | "browse" | "auto" }) => effectiveTaskDiscovery(agent.taskDiscovery ?? DEFAULT_TASK_DISCOVERY_MODE, taskDiscoveryCap()) });
 
 class ConcurrentTaskUpdate extends Error {}
 export function createReconciliationWorker(options: { orm?: MikroORM; store?: ArtifactStore; gateway?: A2AReconciliationGateway } = {}) {
@@ -45,5 +51,29 @@ export function createReconciliationWorker(options: { orm?: MikroORM; store?: Ar
         return true;
       } catch (error) { if (error instanceof ConcurrentTaskUpdate) return false; throw error; }
     },
-  });
+    // Automatic discovery: a task found on the agent is stored by no one in particular, under the same lease fence as any read.
+    discover: async (cursor, event) => {
+      await createTaskObserver({ organizationId: cursor.organizationId, agentId: cursor.agentId, tenant: cursor.tenant,
+        sessionId: cursor.leaseOwner!, requestId: cursor.id, source: "reconcile", origin: "discovered", trackedByUserId: null }, {
+        orm: options.orm, store: options.store,
+        beforeObserve: async (transaction) => {
+          const ports = createPersistenceRepositories(transaction);
+          const agent = await ports.agents.findById(cursor.organizationId, cursor.agentId);
+          if (!agent?.enabled) throw new Error("Agent disabled.");
+          const now = new Date();
+          if (!await ports.syncCursors.renew(cursor, now, new Date(now.getTime() + SYNC_LEASE_MS))) throw new Error("Read lease lost.");
+        },
+      })(event);
+      return true;
+    },
+    report: async (cursor) => {
+      await withJobEntityManager((em) => new DatabaseIdentityRepository(em).appendSystemAudit(cursor.organizationId, "task.discovery.found", cursor.agentId), options.orm);
+    },
+    pause: async (cursor, reason) => {
+      await withJobEntityManager((em) => em.transactional(async (transaction) => {
+        await createPersistenceRepositories(transaction).agents.setTaskDiscovery(cursor.organizationId, cursor.agentId, { taskDiscoveryPausedReason: reason }, new Date());
+        await new DatabaseIdentityRepository(transaction).appendSystemAudit(cursor.organizationId, "task.discovery.paused", cursor.agentId);
+      }), options.orm);
+    },
+  }, undefined, discoveryPolicy());
 }

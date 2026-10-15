@@ -2,6 +2,7 @@ import { registeredAgentConnection, filterAgentCard } from "./security";
 import { createHash } from "node:crypto";
 
 import { discoverAgent } from "../../lib/gateway";
+import { ensureDiscoveryCursorsFor } from "./discovery-cursors";
 import { agentRegistry } from "../../lib/agent-registry";
 import type { AgentRegistry, RegisteredAgent } from "../application/ports/agent-registry";
 import type { JsonValue } from "../domain/persistence-model";
@@ -24,6 +25,8 @@ export async function discoverRegisteredAgent(
     description: typeof card.description === "string" ? card.description : null,
     protocolSnapshotVersion: discovery.report.version,
   });
+  // An agent in automatic discovery needs list cursors; the first card is what tells us its tenants. Best effort: the worker also does this at start.
+  await ensureDiscoveryCursorsFor(agent.id).catch(() => undefined);
   const filtered = await filterAgentCard(agent.id, discovery.card);
   const partial = filtered !== discovery.card;
   return { ...discovery, card: filtered, report: partial ? {...discovery.report, issues: [], passed: []} : discovery.report, telemetry: [] };

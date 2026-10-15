@@ -6,6 +6,7 @@ import { CircleStop, Download, ListChecks, Loader2, MessageSquare, Radio, Refres
 import { toast } from "sonner";
 import { Chip, EmptyState, InfoCard, StateChip } from "@/components/a2a/primitives";
 import { CommandError } from "@/components/a2a/command-error";
+import { DiscoveredTaskNotice } from "@/components/tasks/discovered-task-notice";
 import { CommandFailureError, failureFromError, failureFromResponse, type CommandFailure } from "@/lib/command-failure";
 import { Page, PageMessage } from "@/components/console/page";
 import { Callout } from "@/components/patterns/data-display";
@@ -108,6 +109,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ taskId: s
       }
     >
       {resource.error && <Callout tone="danger" className="mb-4">{resource.error}</Callout>}
+      <DiscoveredTaskNotice task={task} />
       {failure && <CommandError failure={failure} className="mb-4" />}
 
       <div className="grid gap-4 2xl:grid-cols-3 2xl:items-start">

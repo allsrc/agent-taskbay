@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { StateChip } from "@/components/a2a/primitives";
 import { ListPane, ListRow, ListStatus, MasterDetail } from "@/components/console/master-detail";
 import { FilterChips } from "@/components/patterns/filter-chips";
+import { Pill } from "@/components/patterns/status";
 import { Button } from "@/components/ui/button";
 import { isActiveState, needsYou, relativeTime, taskTitle } from "@/lib/task-view";
 import { dueLabel, isOverdue } from "@/lib/workflow";
@@ -19,8 +20,9 @@ const FILTERS = {
   Mine: () => true,
   Overdue: () => true,
   Unassigned: () => true,
+  Discovered: () => true,
 } as const;
-const API_FILTER = { All: "all", Active: "active", "Needs you": "needs-input", Done: "done", Mine: "mine", Overdue: "overdue", Unassigned: "unassigned" } as const;
+const API_FILTER = { All: "all", Active: "active", "Needs you": "needs-input", Done: "done", Mine: "mine", Overdue: "overdue", Unassigned: "unassigned", Discovered: "all" } as const;
 
 const FILTER_NAMES = Object.keys(FILTERS) as Array<keyof typeof FILTERS>;
 
@@ -30,7 +32,7 @@ export default function TasksLayout({ children }: { children: React.ReactNode })
   const [filter, setFilter] = useState<keyof typeof FILTERS>("All");
   const [offset, setOffset] = useState(0);
   const apiFilter = API_FILTER[filter];
-  const resource = useServerResource<{ tasks: DurableTaskView[] }>(`/api/tasks?filter=${apiFilter}&limit=50&offset=${offset}`);
+  const resource = useServerResource<{ tasks: DurableTaskView[] }>(`/api/tasks?filter=${apiFilter}${filter === "Discovered" ? "&origin=discovered" : ""}&limit=50&offset=${offset}`);
   const rows = resource.data?.tasks ?? [];
 
   return (
@@ -73,6 +75,7 @@ export default function TasksLayout({ children }: { children: React.ReactNode })
               <div className="truncate font-mono text-[11px] text-muted-foreground">
                 {task.taskId.slice(0, 8)} · {task.agentName} · {relativeTime(task.updatedAt)}
               </div>
+              {task.origin === "discovered" && <Pill tone="neutral">Discovered</Pill>}
               {task.workflow && (task.workflow.assigneeName || task.workflow.dueAt) && (
                 <div className="flex flex-wrap items-center gap-x-2 font-mono text-[11px]">
                   {task.workflow.assigneeName && <span className="text-muted-foreground">→ {task.workflow.assigneeName}</span>}

@@ -78,7 +78,7 @@ export interface TaskRecord {
   version: number;
 }
 
-export type TaskSummaryRecord = Pick<TaskRecord, "id" | "organizationId" | "agentId" | "tenant" | "remoteTaskId" | "remoteContextId" | "kind" | "skillId" | "state" | "title" | "createdAt" | "updatedAt" | "version">;
+export type TaskSummaryRecord = Pick<TaskRecord, "id" | "organizationId" | "agentId" | "tenant" | "remoteTaskId" | "remoteContextId" | "kind" | "skillId" | "state" | "title" | "createdAt" | "updatedAt" | "version" | "origin">;
 
 export type TaskEventSource =
   | "stream"
@@ -190,4 +190,8 @@ export interface SyncCursorRecord {
   lastSyncedAt: Date | null; createdAt: Date; updatedAt: Date;
   /** Automatic discovery: when the whole agent was last listed without a time filter. */
   lastFullSweepAt?: Date | null;
+  /** Automatic discovery: when the sweep in progress began, how many tasks it has stored, and the time filter it uses (null: it lists everything). */
+  sweepStartedAt?: Date | null;
+  sweepFound?: number;
+  sweepAfter?: Date | null;
 }

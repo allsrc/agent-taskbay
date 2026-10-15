@@ -46,6 +46,12 @@ export const MESSAGE_ONLY_STATE = "MESSAGE_ONLY";
 
 export interface TrackedTask {
   skillId?: string;
+  /** `discovered` for a task that was started outside Taskbay and then stored; absent means it was started from Taskbay. */
+  origin?: "created" | "discovered";
+  /** When Taskbay first stored a discovered task. */
+  discoveredAt?: string;
+  /** Who tracked a discovered task; null when automatic discovery found it. Only on a task's detail. */
+  trackedBy?: { userId: string; name: string } | null;
   taskId: string;
   localId?: string;
   tenant?: string;

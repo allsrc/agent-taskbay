@@ -16,7 +16,7 @@ defaults may change between minor versions, so check the [CHANGELOG](../../CHANG
 | [6. Protected agents](#6-protected-agents) | Adds to any | | Yes |
 | [7. Notification webhook and agent push](#7-notification-webhook-and-agent-push) | Adds to 3 or 4 | | Yes |
 | [8. The experimental AG-UI adapter](#8-the-experimental-ag-ui-adapter) | Adds to any | | Experimental |
-| [9. Limit or turn off task discovery](#9-limit-or-turn-off-task-discovery) | Adds to any | | Yes |
+| [9. Limit, allow or turn off task discovery](#9-limit-allow-or-turn-off-task-discovery) | Adds to any | | Yes |
 
 ## Before you start
 
@@ -394,7 +394,7 @@ An event stream that starts with `RUN_STARTED` means it works. `404` with `The A
 `404` with `Unknown agent.` means the adapter is on and the agent ID is wrong (observed on a local build). With OIDC, the request also needs a session cookie and an
 `Origin` header equal to `A2A_AUTH_ORIGIN`. A full first run, including answering an interrupt, is in [Try the AG-UI adapter](enable-ag-ui.md).
 
-## 9. Limit or turn off task discovery
+## 9. Limit, allow or turn off task discovery
 
 Use this when people should not be able to see tasks other systems started on an agent, because the agent's credential is shared and can list more than they should see.
 By default Taskbay lets people with access to the whole agent **browse** an agent's tasks and track the ones they choose ([Task discovery](connect-an-agent.md#task-discovery)).
@@ -405,6 +405,15 @@ A2A_TASK_DISCOVERY=off
 
 - `off` forbids listing agent tasks anywhere in the deployment. `browse` (the default) allows browsing and tracking. `auto` also allows an administrator to set an agent to automatic discovery.
 - The value is the highest mode any agent may use; an agent's own setting is lowered to it, never raised ([Catalog and extensions](../reference/configuration.md#catalog-and-extensions)). Anything else stops start-up with `Invalid task discovery configuration: A2A_TASK_DISCOVERY must be one of off, browse, auto.`
+
+To let administrators switch agents to **automatic** discovery (opt-in, per agent), set the cap to `auto`:
+
+```bash
+A2A_TASK_DISCOVERY=auto
+```
+
+Nothing starts by itself: each agent stays on Browse only until an administrator chooses **Automatic** on its page. The worker (embedded, or `npm run worker:tasks`) does the sweeping,
+so it needs the same variable ([Workers](../reference/configuration.md#workers)).
 
 Add the line to `.env.local` (recipe 2), your shell (recipe 1) or `taskbay.env` (recipes 3 and 4), then restart the web process (and the worker, if you run one).
 

@@ -37,7 +37,9 @@ export function firstText(messages: ThreadMessage[], role?: ThreadMessage["role"
 
 /** A task's display title: what the user first asked for. */
 export function taskTitle(task: TrackedTask, max = 60): string {
-  const text = task.title ?? firstText(task.messages, "user") ?? task.agentName;
+  // A task another system started has no message from a person to name it: use what the agent said, then a short ID, never the agent's name.
+  const fallback = task.origin === "discovered" ? firstText(task.messages) ?? `Task ${task.taskId.slice(0, 8)}` : task.agentName;
+  const text = task.title ?? firstText(task.messages, "user") ?? fallback;
   return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 }
 

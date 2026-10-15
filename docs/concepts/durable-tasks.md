@@ -62,6 +62,8 @@ Most tasks begin as a command from the console. A person with access to the whol
 Tracking reads that task from the agent and stores it as a *discovered* task. From then on it is followed like any other: streamed or polled, answered, steered or canceled, shown in the Inbox
 when it needs a person. Tracking does not notify anyone about the state the task is already in, and does not assign it to the person who tracked it.
 
+An administrator can instead let a worker find them: in **automatic** discovery the reconciliation worker lists the agent's tasks, asks only for what changed after the first full read, and stores unknown ones within fixed limits ([Task discovery](../guides/connect-an-agent.md#task-discovery)).
+
 ## One ingestion path
 
 Task state can arrive by four routes:

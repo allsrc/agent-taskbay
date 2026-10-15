@@ -2,7 +2,7 @@
 id: T-11
 title: Show, answer and steer discovered tasks
 phase: 2
-status: in_progress
+status: done
 depends_on: [T-08, T-02]
 size: L
 gap: G5
@@ -69,3 +69,5 @@ Context filters (T-13, T-14), steering outcome (T-15), restart action (T-16).
 ## Notes for later
 
 ## Implementation log
+
+- 2026-10-15 · done: Backend: TaskSummaryRecord/origin, GET /api/tasks?origin=created|discovered (400 otherwise), views carry origin/discoveredAt, detail carries trackedBy (name resolved in withTaskQueries). UI: Discovered filter chip and pill in the Tasks list, DiscoveredTaskNotice on the task page (useSyncExternalStore, dismissal in localStorage with in-memory fallback), Discovered pill and DiscoveredMarker in chat, taskTitle/conversationTitle fallbacks (title, first message of any role, short ID; never the agent's name). Skill routing: no change needed (T-02). Deviation: the Discovered chip is part of the existing single-select chip row (API still composes filter + origin). Tests: discovered-title.test.ts, discovered-task-notice.test.tsx (static), discovery.db.test.ts additions (origin filter, trackedBy, skill-scoped sees none), verify-task-http (origin 400/empty). Docs: use-the-console, http-api, glossary (Discovered task, Steer), CHANGELOG. Not done: browser check.

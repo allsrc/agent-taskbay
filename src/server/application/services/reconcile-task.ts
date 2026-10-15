@@ -1,5 +1,6 @@
 import type { Clock } from "../ports/clock";
-import type { A2AReconciliationGateway, ReconciliationSink, ReconciliationUnitOfWork } from "../ports/reconciliation";
+import type { A2AReconciliationGateway, DiscoveryPolicy, ReconciliationSink, ReconciliationUnitOfWork } from "../ports/reconciliation";
+import { AGENT_LIMIT, DISCOVERED_HISTORY_PAGE, FIRST_SWEEP_LIMIT, SWEEP_LIMIT, judgeDiscovered, planSweep } from "./discover-tasks";
 import { ListTasksUnsupported, SYNC_LEASE_MS } from "../ports/reconciliation";
 import type { JsonValue, SyncCursorRecord, TaskRecord } from "../../domain/persistence-model";
 import { eventSubject } from "./task-projection";
@@ -14,7 +15,7 @@ export function validateReconciledTask(event: JsonValue, task: TaskRecord) {
 
 export class ReconciliationWorker {
   constructor(private readonly work: ReconciliationUnitOfWork, private readonly gateway: A2AReconciliationGateway,
-    private readonly sink: ReconciliationSink, private readonly clock: Clock = { now: () => new Date() }) {}
+    private readonly sink: ReconciliationSink, private readonly clock: Clock = { now: () => new Date() }, private readonly discovery?: DiscoveryPolicy) {}
   async runOne(owner: string, shutdown: AbortSignal): Promise<boolean> {
     const now = this.clock.now();
     const cursor = await this.work.run((ports) => ports.syncCursors.claim(owner, now, new Date(now.getTime() + SYNC_LEASE_MS)));
@@ -43,7 +44,12 @@ export class ReconciliationWorker {
         await this.sink.ingest(cursor, task, event);
         await this.finish(cursor, "pending", null, 15_000, "", this.clock.now());
       } else {
-        const page = await this.gateway.list(agent, cursor, signal);
+        const auto = this.discovery?.mode(agent) === "auto" && !agent.taskDiscoveryPausedReason;
+        const now = this.clock.now();
+        // A sweep spans pages. Its filter and its progress are kept on the cursor so another worker can take it over.
+        const starting = cursor.pageToken === "";
+        const plan = !auto ? { full: false, after: null } : starting ? planSweep(cursor, now) : { full: cursor.sweepAfter == null, after: cursor.sweepAfter ?? null };
+        const page = await this.gateway.list(agent, cursor, signal, auto ? { statusTimestampAfter: plan.after, historyLength: DISCOVERED_HISTORY_PAGE } : undefined);
         if (signal.aborted) throw new Error("Read aborted.");
         if (page.nextPageToken.length > 4096 || page.nextPageToken && page.nextPageToken === cursor.pageToken || page.tasks.length > 100)
           throw new Error("Invalid pagination.");
@@ -59,7 +65,33 @@ export class ReconciliationWorker {
           if (signal.aborted) throw new Error("Read aborted.");
           await this.sink.ingest(cursor, task, event);
         }
-        await this.finish(cursor, "pending", null, page.nextPageToken ? 0 : 60_000, page.nextPageToken, this.clock.now());
+        let found = starting ? 0 : cursor.sweepFound ?? 0;
+        let foundHere = 0;
+        if (auto && this.sink.discover) {
+          // Anything Taskbay already stores, finished or not, is not new.
+          const ids = page.tasks.map((event) => eventSubject(event).remoteTaskId).filter((id): id is string => Boolean(id));
+          const stored = new Set((await this.work.run((ports) => ports.tasks.findManyByRemoteIds({ organizationId: cursor.organizationId, agentId: cursor.agentId, tenant: cursor.tenant, remoteTaskIds: ids }))).map((task) => task.remoteTaskId));
+          let total = await this.work.run((ports) => ports.tasks.countDiscovered(cursor.organizationId, cursor.agentId));
+          const sweepLimit = cursor.lastFullSweepAt ? SWEEP_LIMIT : FIRST_SWEEP_LIMIT;
+          for (const event of page.tasks) {
+            const id = eventSubject(event).remoteTaskId;
+            if (!id || stored.has(id)) continue;
+            if (signal.aborted) throw new Error("Read aborted.");
+            const verdict = judgeDiscovered(event, { tenant: cursor.tenant, now, historyDays: agent.taskDiscoveryHistoryDays ?? 7, sweepFound: found, sweepLimit, total });
+            if (!verdict.store) {
+              if (verdict.reason === "agent_limit") { await this.sink.pause?.(cursor, `Reached the limit of ${AGENT_LIMIT.toLocaleString("en-US")} discovered tasks.`); break; }
+              continue;
+            }
+            if (await this.sink.discover(cursor, event)) { found++; foundHere++; total++; stored.add(id); }
+          }
+          if (foundHere) await this.sink.report?.(cursor, foundHere);
+        }
+        const done = !page.nextPageToken;
+        await this.finish(cursor, "pending", null, page.nextPageToken ? 0 : 60_000, page.nextPageToken,
+          // The next incremental read starts from where this sweep began, so tasks that changed while it ran are not missed.
+          auto && done ? cursor.sweepStartedAt ?? now : now,
+          auto ? { sweepStartedAt: done ? null : starting ? now : cursor.sweepStartedAt ?? now, sweepFound: done ? 0 : found, sweepAfter: done ? null : plan.after,
+            ...(done && plan.full ? { lastFullSweepAt: now } : {}) } : undefined);
       }
     } catch (error) {
       const unsupported = !cursor.taskId && error instanceof ListTasksUnsupported;
@@ -71,10 +103,10 @@ export class ReconciliationWorker {
     return true;
   }
   private finish(cursor: SyncCursorRecord, status: SyncCursorRecord["status"], lastError: string | null, delay = 0,
-    pageToken = cursor.pageToken, lastSyncedAt = cursor.lastSyncedAt) {
+    pageToken = cursor.pageToken, lastSyncedAt = cursor.lastSyncedAt, sweep?: Partial<Pick<SyncCursorRecord, "lastFullSweepAt" | "sweepStartedAt" | "sweepFound" | "sweepAfter">>) {
     const now = this.clock.now();
     return this.work.run((ports) => ports.syncCursors.finish(cursor, now, {
-      status, lastError, pageToken, lastSyncedAt, availableAt: new Date(now.getTime() + delay),
+      status, lastError, pageToken, lastSyncedAt, availableAt: new Date(now.getTime() + delay), ...sweep,
     }));
   }
 }

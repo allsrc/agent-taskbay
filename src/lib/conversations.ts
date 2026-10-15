@@ -1,4 +1,5 @@
 import { taskBucket, type TaskBucket, type TrackedTask } from "../store/task-store";
+import { taskTitle } from "./task-view";
 
 /** A2A groups tasks and messages by `contextId`; a direct reply with no context stands alone under its own id. */
 export const conversationKey = (task: TrackedTask) => {
@@ -36,7 +37,11 @@ function conversationBucket(tasks: TrackedTask[]): TaskBucket {
 function conversationTitle(tasks: TrackedTask[]): string {
   const first = tasks[0]?.messages.find((message) => message.role === "user");
   const text = first?.parts.find((part) => part.kind === "text");
-  return text ? String(text.value).trim().slice(0, 80) : (tasks[0]?.agentName ?? "Conversation");
+  if (text) return String(text.value).trim().slice(0, 80);
+  // A conversation another system started has no message from a person: name it after the task, not the agent.
+  const started = tasks.find((task) => task.origin === "discovered");
+  if (started) return taskTitle(started, 80);
+  return tasks[0]?.agentName ?? "Conversation";
 }
 
 export function groupConversations(tasks: TrackedTask[]): Conversation[] {

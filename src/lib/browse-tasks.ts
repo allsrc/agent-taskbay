@@ -24,8 +24,8 @@ export const DISCOVERY_MODES = [
   { value: "off", label: "Off", help: "Taskbay never lists this agent's tasks." },
 ] as const;
 export type DiscoveryModeValue = (typeof DISCOVERY_MODES)[number]["value"];
-/** Automatic discovery arrives with its background sweep; until then the option is not offered. */
-export const AUTOMATIC_DISCOVERY_AVAILABLE = false;
+/** Whether the console offers the Automatic mode. */
+export const AUTOMATIC_DISCOVERY_AVAILABLE = true;
 const MODE_RANK: Record<DiscoveryModeValue, number> = { off: 0, browse: 1, auto: 2 };
 export const modeAllowedByCap = (mode: DiscoveryModeValue, cap: DiscoveryModeValue) => MODE_RANK[mode] <= MODE_RANK[cap];
 

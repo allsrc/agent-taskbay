@@ -100,6 +100,12 @@ The recipient of a grant: the whole organization, one person (a membership) or o
 **Task and task state**\
 A task is a unit of A2A work that Taskbay keeps as a database record, keyed by its own ID, so it survives a closed browser. Its state comes from the agent: `SUBMITTED`, `WORKING`, `INPUT_REQUIRED` (the agent asks a question), `AUTH_REQUIRED` (the agent needs authorization resolved out of band), or a terminal `COMPLETED`, `FAILED`, `CANCELED` or `REJECTED`. See [Durable tasks](../concepts/durable-tasks.md) and [Identity and access](../concepts/identity-and-access.md#in-task-auth_required-and-input_required).
 
+**Discovered task**\
+A task that exists on an agent but was not started from Taskbay, and that Taskbay now stores because a person tracked it from the agent's task list or automatic discovery found it. It is marked `origin: discovered`, has no owner and no skill, and is visible only to people with access to the whole agent. See [Task discovery](../guides/connect-an-agent.md#task-discovery).
+
+**Steer**\
+Send more input to a task that is already working. A2A carries the message; the agent decides whether and how to use it. See [Send a message](../guides/use-the-console.md#send-a-message).
+
 **Team**\
 A named group of memberships that an administrator creates in **Settings** so one grant can cover several people. Teams cannot be renamed or deleted, cannot be escalation targets, and are not synced from identity-provider groups. See [Give people access to agents and skills](../guides/teams-and-grants.md).
 

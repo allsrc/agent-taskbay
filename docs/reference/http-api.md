@@ -220,7 +220,7 @@ status of the underlying error). Records a card snapshot.
 `administer`. Body `{ "extensionOverride": true | false }`; unknown fields and an empty body are `400`. `true` allows sending to an agent whose card requires an extension
 Taskbay does not support; `false` blocks again. Response `200 { "agentId", "extensionOverride" }`.
 
-The same route also takes `taskDiscovery` (`off`, `browse` or `auto`) and `taskDiscoveryHistoryDays` (a whole number from 0 to 90, used by automatic discovery). A mode above the deployment's `A2A_TASK_DISCOVERY` is `409` with `error.kind` `discovery_capped`; `auto` is `409` `not_available` until automatic discovery exists. A change of mode is audited as `task.discovery.mode_changed.<mode>`. `404` for an unknown agent. Audited as `agent.extension.override` or
+The same route also takes `taskDiscovery` (`off`, `browse` or `auto`) and `taskDiscoveryHistoryDays` (a whole number from 0 to 90, used by automatic discovery). A mode above the deployment's `A2A_TASK_DISCOVERY` is `409` with `error.kind` `discovery_capped`. Switching a mode to `auto` starts the worker's sweep for the agent. A change of mode is audited as `task.discovery.mode_changed.<mode>`. `404` for an unknown agent. Audited as `agent.extension.override` or
 `agent.extension.override.removed`. See [Required extensions](../guides/connect-an-agent.md#required-extensions).
 
 ### `GET /api/agents/{agentId}/discovery`
@@ -389,15 +389,18 @@ with `resubscribe`. Pre-stream problems are ordinary HTTP errors (`400`, `403`, 
 | Parameter | Default | Values |
 | --- | --- | --- |
 | `filter` | `all` | `all`, `active`, `needs-input`, `done`, `mine`, `overdue`, `unassigned`. `active` is any non-terminal state; `needs-input` is input-required or auth-required; `done` is terminal; the last three use ownership. |
+| `origin` | none | `created` (started from Taskbay) or `discovered` (started elsewhere, then tracked or found). Anything else is `400 origin must be created or discovered.` Combines with `filter`. |
 | `limit` | `50` | Integer 1 to 100. |
 | `offset` | `0` | Integer 0 or more. |
 
 Response `{ "tasks": [ ... ] }`, newest first. Rows carry `localId`, `taskId`, `tenant`, `agentId`, `agentName`, `state` (`TASK_STATE_*`), `kind`,
-`title`, `contextId`, `createdAt`, `updatedAt`, `referenceLinks`, `workflow` (`null` or `{ assigneeMembershipId, assigneeName, dueAt, escalationLevel }`), and empty
+`title`, `contextId`, `origin` (`created` or `discovered`), `createdAt`, `updatedAt`, `referenceLinks`, `workflow` (`null` or `{ assigneeMembershipId, assigneeName, dueAt, escalationLevel }`), and empty
 `messages` and `artifacts` arrays; use the detail route for content. Observed: `{"tasks":[{"localId":"7470c984-...","taskId":"form-task-0","state":"TASK_STATE_INPUT_REQUIRED","kind":"task","title":"hello", ...,"workflow":null}]}`.
 Bad filter: `400 Invalid task filter.`
 
 ### `GET /api/tasks/{taskId}`
+
+A discovered task's view also has `origin: "discovered"`, `discoveredAt`, and, on this route only, `trackedBy` (`{ userId, name }`, or `null` when automatic discovery found it).
 
 `read`. `{taskId}` is the local ID. `{ "task": <view> }` with `messages` (each with `id`, `role` `user` or `agent`, normalized `parts`, `timestamp`,
 `fromStatus` for the agent's question), `artifacts`, `transitions`, `version` and the fields above. `404 Task not found.`

@@ -1,8 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { createReconciliationWorker } from "../runtime/reconciliation";
+import { ensureAutomaticDiscoveryCursors } from "../runtime/discovery-cursors";
 
 export function startReconciliationLoop(concurrency = 2) {
   const worker = createReconciliationWorker();
+  // Agents set to automatic discovery need list cursors before there is anything to claim.
+  void ensureAutomaticDiscoveryCursors().catch(() => console.error("Could not prepare automatic task discovery; it will be retried when an agent page is opened."));
   const shutdown = new AbortController();
   const loops = Array.from({ length: concurrency }, async () => {
     while (!shutdown.signal.aborted) {

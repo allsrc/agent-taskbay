@@ -471,6 +471,9 @@ try {
   assert.equal((await settings({ taskDiscoveryHistoryDays: 200 }, one.id)).status, 400);
   assert.equal((await settings({ taskDiscovery: "everything" }, one.id)).status, 400);
   assert.equal((await fetch(`${base}/api/agents/${randomUUID()}/discovery`, { headers: { Origin: base } })).status, 404);
+  assert.equal((await fetch(`${base}/api/tasks?origin=bogus`, { headers: { Origin: base } })).status, 400);
+  assert.deepEqual((await json("/api/tasks?origin=discovered")).tasks, []);
+  assert.ok((await json("/api/tasks?origin=created")).tasks.every((task) => task.origin === "created"));
   // TSK-003/REL-001: SDK-managed push and actual authenticated production route.
   const pushAgent = (await json("/api/agents", { method: "POST", body: JSON.stringify({ cardUrl: `http://127.0.0.1:${fixturePort}/push/card.json` }) })).agent;
   const pushCommand = await json(`/api/agents/${pushAgent.id}/commands`, { method: "POST", headers: { "Idempotency-Key": "push-command" },

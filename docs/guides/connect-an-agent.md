@@ -88,13 +88,20 @@ Each agent has a mode, set on its page by an administrator:
 | --- | --- | --- |
 | **Browse only** | Lists the agent's tasks live when someone asks (**Browse tasks**). Nothing is stored. A task is stored, and followed, only when a person **tracks** it. | Yes |
 | **Off** | Never lists the agent's tasks. | |
-| **Automatic** | Also stores and follows tasks started elsewhere in the background. Not available yet. | |
+| **Automatic** | Also stores and follows tasks started elsewhere, in the background. Opt-in; allowed only when `A2A_TASK_DISCOVERY=auto`. | |
 
 Who may browse and track: an administrator, or an operator with an `operate` grant on the **whole** agent. A grant limited to one skill never lets someone browse, and never shows a tracked task.
 Viewers cannot. A tracked task has no owner and nobody is notified about the state it is already in; see [Browse an agent's tasks](use-the-console.md#browse-an-agents-tasks).
 
 The deployment can lower the highest mode with `A2A_TASK_DISCOVERY` (`off`, `browse` or `auto`, default `browse`; [Configuration](../reference/configuration.md)). The agent page shows "This deployment allows up to …" for modes it forbids.
 Every change of mode and every tracked task is recorded in the security audit (`task.discovery.mode_changed.<mode>`, `task.discovery.tracked`).
+
+**Automatic mode** lists the agent's tasks on a schedule and stores the ones Taskbay does not know, so work an automated process started appears (and notifies, see
+[Notifications](notifications.md#tasks-that-were-started-outside-taskbay)) without anyone browsing. It is deliberately limited: finished tasks are stored only if the agent updated them within
+the last **7 days** (an administrator can set 0 to 90 on the agent page; waiting and running tasks are always eligible); at most **500** tasks on the first sweep and **200** on each later one; and at most
+**5,000** discovered tasks per agent, after which it **pauses itself** and says so on the agent page until an administrator switches it back on. After the first full read it asks the agent only for what changed
+(with a five-minute margin for clock differences) and reads everything again at least once an hour. Tasks it finds have no owner, no skill, and are visible only to people with access to the whole agent.
+It needs a worker with a database that several processes can share, like the rest of background work; see [Running and workers](../operations/running-and-workers.md).
 
 If the agent does not support listing tasks, browsing says so; you can still track a task by its ID.
 

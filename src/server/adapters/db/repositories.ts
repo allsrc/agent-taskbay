@@ -4,7 +4,7 @@ import { MikroOrmSyncCursorRepository } from "./sync-repository";
 import { MikroOrmPushRepository } from "./push-repository";
 import { LockMode, type EntityManager, type QueryResult } from "@mikro-orm/core";
 import { randomUUID } from "node:crypto";
-import { DEFAULT_TASK_DISCOVERY_HISTORY_DAYS, DEFAULT_TASK_DISCOVERY_MODE, MAX_TASK_DISCOVERY_HISTORY_DAYS, isTaskDiscoveryMode, type TaskDiscoveryMode } from "../../domain/discovery-mode";
+import { DEFAULT_TASK_DISCOVERY_HISTORY_DAYS, DEFAULT_TASK_DISCOVERY_MODE, MAX_TASK_DISCOVERY_HISTORY_DAYS, isTaskDiscoveryMode, type TaskDiscoveryMode, type TaskOrigin } from "../../domain/discovery-mode";
 import { observationPaused } from "../../application/services/subscription-state";
 import type { EntityManager as SqlEntityManager } from "@mikro-orm/sql";
 
@@ -329,19 +329,19 @@ export class MikroOrmTaskRepository implements TaskRepository {
     return this.withContent(entity);
   }
 
-  async listByOrganization(organizationId: string, limit: number, offset: number, filter = "all", restriction?: { include?: string[]; exclude?: string[] }) {
+  async listByOrganization(organizationId: string, limit: number, offset: number, filter = "all", restriction?: { include?: string[]; exclude?: string[] }, origin?: TaskOrigin) {
     const terminal = ["TASK_STATE_COMPLETED", "TASK_STATE_FAILED", "TASK_STATE_CANCELED", "TASK_STATE_REJECTED"];
     const ids = [...(restriction?.include ? [{ id: { $in: restriction.include } }] : []), ...(restriction?.exclude?.length ? [{ id: { $nin: restriction.exclude } }] : [])];
     const state = filter === "active" || ["mine", "overdue", "unassigned"].includes(filter) ? { $nin: terminal } : filter === "needs-input" ? { $in: ["TASK_STATE_INPUT_REQUIRED", "TASK_STATE_AUTH_REQUIRED"] } : filter === "done" ? { $in: terminal } : undefined;
-    const entities = await this.entityManager.find(TaskEntity, { organizationId, $and: [await taskAccessFilter(this.entityManager), ...ids], kind: "task", ...(state ? { state } : {}) }, {
+    const entities = await this.entityManager.find(TaskEntity, { organizationId, $and: [await taskAccessFilter(this.entityManager), ...ids], kind: "task", ...(state ? { state } : {}), ...(origin ? { origin } : {}) }, {
       orderBy: { updatedAt: "desc", id: "asc" }, limit, offset,
-      fields: ["id", "organizationId", "agentId", "tenant", "remoteTaskId", "remoteContextId", "kind", "skillId", "state", "title", "createdAt", "updatedAt", "version"],
+      fields: ["id", "organizationId", "agentId", "tenant", "remoteTaskId", "remoteContextId", "kind", "skillId", "state", "title", "createdAt", "updatedAt", "version", "origin"],
     });
     return entities.map((entity) => ({
       id: entity.id, organizationId: entity.organizationId, agentId: entity.agentId,
       tenant: entity.tenant, remoteTaskId: entity.remoteTaskId ?? null, remoteContextId: entity.remoteContextId ?? null,
       kind: entity.kind, skillId: entity.skillId ?? null, state: entity.state, title: entity.title ?? null,
-      createdAt: entity.createdAt, updatedAt: entity.updatedAt, version: entity.version,
+      createdAt: entity.createdAt, updatedAt: entity.updatedAt, version: entity.version, origin: entity.origin ?? "created",
     }));
   }
 

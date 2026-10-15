@@ -7,6 +7,8 @@ import { toast } from "sonner";
 import { useShallow } from "zustand/react/shallow";
 import { AgentAvatar } from "@/components/a2a/primitives";
 import { CommandError } from "@/components/a2a/command-error";
+import { DiscoveredMarker } from "@/components/chat/discovered-marker";
+import { Pill } from "@/components/patterns/status";
 import { CommandFailureError, failureFromError, failureFromResponse, type CommandFailure } from "@/lib/command-failure";
 import { Composer } from "@/components/chat/composer";
 import { StructuredForm } from "@/components/chat/structured-form";
@@ -62,6 +64,7 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
   const [sending, setSending] = useState(false);
   const [cancelingId, setCancelingId] = useState<string | null>(null);
   const [error, setError] = useState<CommandFailure | null>(null);
+  const [renderedAt] = useState(() => Date.now());
   // What the person last tried to send, so a finished task can be replaced by a new one in the same conversation.
   const [lastSend, setLastSend] = useState<OutgoingPart[] | null>(null);
   const [wire, setWire] = useState<WireEntry[]>([]);
@@ -224,7 +227,7 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
         <header className="top-chrome sticky z-30 flex shrink-0 items-center gap-2.5 border-b bg-background/90 px-4 py-2.5 backdrop-blur-xl md:static md:px-6 md:py-3">
           <AgentAvatar name={name} id={agentId} size="sm" />
           <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-medium">{name}</div>
+            <div className="flex items-center gap-2"><span className="truncate text-sm font-medium">{name}</span>{tasks.some((task) => task.origin === "discovered") && <Pill tone="neutral">Discovered</Pill>}</div>
             <div className="truncate font-mono text-[11px] text-muted-foreground">
               {(tasks.find((task) => task.contextId)?.contextId ?? "new conversation").slice(0, 18)} · {stateLabel}
             </div>
@@ -306,6 +309,7 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
               ]);
               return (
                 <div key={task.taskId} className="flex flex-col gap-3.5">
+                  {task.origin === "discovered" && <DiscoveredMarker task={task} now={renderedAt} />}
                   {rows}
                   {a2uiOn && (
                     <A2uiSurfaces state={surfacesFromParts(task.messages.filter((message) => message.role === "agent").flatMap((message) => message.parts))}

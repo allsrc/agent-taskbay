@@ -12,16 +12,25 @@ const render = (props: Partial<Parameters<typeof TaskDiscoveryView>[0]> = {}) =>
 
 // The repository has no browser test environment, so these check what the card shows in each state.
 describe("TaskDiscoveryView", () => {
-  it("offers Browse only and Off, with what each does, and leaves Automatic out until it exists", () => {
+  it("offers the three modes and what each does", () => {
     const html = render();
     expect(html).toContain("Browse only");
     expect(html).toContain("Nothing is stored until a task is tracked.");
+    expect(html).toContain("Automatic");
+    expect(html).toContain("also stores and follows tasks other systems started");
     expect(html).toContain("Taskbay never lists this agent&#x27;s tasks.");
-    expect(html).not.toContain("Automatic");
   });
 
-  it("shows Automatic when the agent is already set to it", () => {
-    expect(render({ status: status({ mode: "auto", effectiveMode: "auto" }) })).toContain("Automatic");
+  it("explains that the deployment does not allow Automatic by default", () => {
+    expect(render()).toContain("This deployment allows up to browse.");
+  });
+
+  it("asks how many days of finished tasks to include only in Automatic mode", () => {
+    expect(render()).not.toContain("Days of finished tasks to include");
+    const html = render({ status: status({ mode: "auto", effectiveMode: "auto", cap: "auto", historyDays: 14 }) });
+    expect(html).toContain("Include finished tasks from the last");
+    expect(html).toContain('value="14"');
+    expect(html).toContain('aria-label="Days of finished tasks to include"');
   });
 
   it("offers Browse tasks only to people who may browse", () => {

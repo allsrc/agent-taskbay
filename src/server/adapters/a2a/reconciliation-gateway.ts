@@ -1,7 +1,7 @@
 import { agentConnection } from "./agent-connection";
 import { executeOperation } from "../../../lib/gateway";
 import type { A2AReconciliationGateway } from "../../application/ports/reconciliation";
-import { ListTasksUnsupported } from "../../application/ports/reconciliation";
+import { ListTasksUnsupported, type ListOptions } from "../../application/ports/reconciliation";
 import type { AgentRecord, JsonValue, SyncCursorRecord, TaskRecord } from "../../domain/persistence-model";
 
 export class SdkReconciliationGateway implements A2AReconciliationGateway {
@@ -11,10 +11,12 @@ export class SdkReconciliationGateway implements A2AReconciliationGateway {
       params: { taskId: task.remoteTaskId, tenant: task.tenant } });
     return { task: response.result as JsonValue };
   }
-  async list(agent: AgentRecord, cursor: SyncCursorRecord, signal: AbortSignal) {
+  async list(agent: AgentRecord, cursor: SyncCursorRecord, signal: AbortSignal, options?: ListOptions) {
     try {
       const response = await executeOperation({ connection: await this.connection(agent), signal, action: "listTasks",
-        params: { tenant: cursor.tenant, pageToken: cursor.pageToken, pageSize: 100, includeArtifacts: true } });
+        params: { tenant: cursor.tenant, pageToken: cursor.pageToken, pageSize: 100, includeArtifacts: true,
+          ...(options?.statusTimestampAfter ? { statusTimestampAfter: options.statusTimestampAfter.toISOString() } : {}),
+          ...(options?.historyLength !== undefined ? { historyLength: options.historyLength } : {}) } });
       const result = response.result as { tasks?: JsonValue[]; nextPageToken?: string };
       if (!Array.isArray(result.tasks) || typeof result.nextPageToken !== "string") throw new Error("Invalid task list.");
       return { tasks: result.tasks.map((task) => ({ task })), nextPageToken: result.nextPageToken };

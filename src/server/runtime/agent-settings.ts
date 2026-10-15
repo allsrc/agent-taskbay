@@ -8,6 +8,7 @@ import type { Principal } from "../application/ports/identity";
 import { DEFAULT_TASK_DISCOVERY_HISTORY_DAYS, DEFAULT_TASK_DISCOVERY_MODE, MAX_TASK_DISCOVERY_HISTORY_DAYS, TASK_DISCOVERY_MODES, effectiveTaskDiscovery,
   type TaskDiscoveryMode } from "../domain/discovery-mode";
 import { taskDiscoveryCap } from "./runtime-config";
+import { startAutomaticDiscovery } from "./discovery-cursors";
 
 /** Per-agent settings an administrator can change. Fields are added as features need them; unknown fields are refused. */
 export const agentSettingsSchema = z.object({
@@ -41,7 +42,6 @@ export async function changeAgentSettings(principal: Principal, agentId: string,
       if (change.taskDiscovery !== undefined && rank[change.taskDiscovery] > rank[cap])
         throw new AgentSettingsError(`This deployment allows task discovery up to “${cap}” (A2A_TASK_DISCOVERY).`, 409, "discovery_capped");
       const enteringAuto = change.taskDiscovery === "auto" && agent.taskDiscovery !== "auto";
-      if (change.taskDiscovery === "auto") throw new AgentSettingsError("Automatic discovery is not available yet.", 409, "not_available");
       const mode = change.taskDiscovery ?? agent.taskDiscovery ?? DEFAULT_TASK_DISCOVERY_MODE;
       await ports.agents.setTaskDiscovery(principal.organizationId, agentId, {
         ...(change.taskDiscovery !== undefined ? { taskDiscovery: change.taskDiscovery } : {}),
@@ -49,6 +49,8 @@ export async function changeAgentSettings(principal: Principal, agentId: string,
         // Entering automatic mode clears a pause left by its limit.
         ...(enteringAuto ? { taskDiscoveryPausedReason: null } : {}),
       }, now);
+      // Switching automatic discovery on gives the worker something to claim, and restarts anything that had stopped.
+      if (enteringAuto) await startAutomaticDiscovery(transaction, principal.organizationId, agentId, true);
       if (change.taskDiscovery !== undefined && change.taskDiscovery !== (agent.taskDiscovery ?? DEFAULT_TASK_DISCOVERY_MODE))
         await audit.appendAudit(principal, `task.discovery.mode_changed.${mode}`, agentId, `discovery-mode:${agentId}:${crypto.randomUUID()}`);
     }

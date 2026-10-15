@@ -2,12 +2,12 @@
 id: T-25
 title: Automatic discovery sweep (opt-in)
 phase: 2
-status: todo
+status: done
 depends_on: [T-08, T-09]
 size: L
 gap: G5
-migration: no
-updated:
+migration: yes
+updated: 2026-10-15
 ---
 
 # T-25. Automatic discovery
@@ -71,3 +71,5 @@ Browse and track (T-08), the settings UI (T-10).
 ## Notes for later
 
 ## Implementation log
+
+- 2026-10-15 · done: Migration0005_DiscoverySweepProgress (sync_cursors sweep_started_at/sweep_found/sweep_after; spec said no migration, the per-sweep caps and a filter that stays constant across pages need the state on the cursor so any worker can continue), DB_SCHEMA_VERSION=5. Application: discover-tasks.ts (planSweep: full on first/hourly, else lastSyncedAt minus 5 min; judgeDiscovered: history window, 500/200 per sweep, 5,000 per agent, tenant and shape), ReconciliationWorker list branch splits known (ingest) from unknown (discover) against ALL stored identities, keeps sweep progress on the cursor, DiscoveryPolicy injected, sink.discover/report/pause (lease-fenced; audit task.discovery.found/paused as system, with the agent as target; counts are not stored in the audit row). Runtime: discovery-cursors.ts (startAutomaticDiscovery per tenant of card and stored tasks; ensureAutomaticDiscoveryCursors at worker start; ensureDiscoveryCursorsFor after an agent card is recorded), changeAgentSettings starts cursors on entering auto (guard removed), AUTOMATIC_DISCOVERY_AVAILABLE=true, history-days input in the card. Tests: discover-tasks.test.ts, auto-discovery.db.test.ts (added to test:db: off/browse does nothing, auto stores within window, incremental asks only for changes, known tasks refresh, cap lowering stops it, two workers one cursor, hostile lists, unsupported, caps 500 then 200 then pause at 5,000, startup cursors), agent-settings test updated. Docs: connect-an-agent, durable-tasks, running-and-workers, configuration-recipes (recipe 9), data-model, threat-model, http-api, CHANGELOG. Not done: PostgreSQL profile; multi-tenant sweep per card tenant is covered by cursor creation but not by an end-to-end test against a tenant-declaring agent (T-12 can add).
