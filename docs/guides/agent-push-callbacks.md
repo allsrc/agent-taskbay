@@ -9,7 +9,7 @@ When push is on, a worker registers a callback with each agent that advertises p
 ## Before you start
 
 - The agent must advertise `capabilities.pushNotifications: true` in its Agent Card. The agent's page shows this under **Capabilities** as **Push notifications: Yes**. Taskbay checks the card's capability before it registers a callback.
-- The agent must support the A2A push config operations `GetTaskPushNotificationConfig`, `CreateTaskPushNotificationConfig` and `DeleteTaskPushNotificationConfig`, and must send the bearer credential it was given.
+- The agent must support the A2A push config operations `GetTaskPushNotificationConfig`, `CreateTaskPushNotificationConfig` and `DeleteTaskPushNotificationConfig`, and must send the bearer credential it was given. `ListTaskPushNotificationConfigs` is optional: Taskbay uses it only to remove leftovers (see [Leftover configurations](#leftover-configurations)).
 - The agent must be able to reach Taskbay's public origin over the network. Callbacks go to the web process, at `POST /api/webhooks/a2a/<registration id>`.
 - The callback origin must be HTTPS. Plain HTTP is accepted only for `localhost`, `127.0.0.1` or `[::1]`, and only when you opt in. This holds in every mode, not just production.
 - The agent must already be connectable. Taskbay calls the agent to register and delete callbacks through the same connection rules as any other call, including `A2A_ALLOWED_AGENT_ORIGINS`. The callback origin itself is Taskbay's own address and does not go into that allowlist.
@@ -103,6 +103,18 @@ node scripts/verify-task-http.mjs
 
 On success, its last line starts with `Production HTTP task/command/subscription/push/reconciliation/rebuild/freshness smoke passed`.
 
+## Leftover configurations
+
+A crash between creating a callback on the agent and recording it, or a task that finished while Taskbay was down, can leave a callback on the agent that nothing will use. The push worker looks for these on its own:
+
+- It checks tasks whose registration is `deleted`, from the last 30 days, each at most once a day, at most 50 tasks per agent every 5 minutes. Only agents that are enabled are checked.
+- It asks the agent for the task's push configurations (`ListTaskPushNotificationConfigs`, up to 5 pages of 100) and deletes a configuration only if its ID is the registration ID Taskbay issued for that task, or its URL starts with `<A2A_PUSH_CALLBACK_ORIGIN>/api/webhooks/a2a/`. Any other configuration, including ones other systems registered for the same task, is never touched.
+- An agent that does not support push or listing, or no longer knows the task, is skipped without an error. An agent that is unreachable is tried again at the next interval.
+- Any number of workers can run; a database claim lets one of them check an agent per interval, and a second pass finds nothing left to do.
+- Each pass that deletes something writes a `push.cleanup.<count>` entry to the security audit, with the agent as target. Only the count is recorded.
+
+There is no separate switch: cleanup runs whenever push is turned on.
+
 ## When it fails
 
 | Symptom | Cause | Fix |
@@ -129,7 +141,7 @@ On success, its last line starts with `Production HTTP task/command/subscription
 - Registrations exist only for real tasks. A direct `Message` reply without a task gets none.
 - Taskbay deletes the callback on the agent when the task reaches `COMPLETED`, `FAILED`, `CANCELED` or `REJECTED`, or when the agent is disabled. A callback that arrives after the task finished, but before cleanup, gets `204` and changes nothing.
 - An agent that does not support push is marked `failed` once and not retried for that task.
-- There is no push status in the UI, no metrics, and no command to list or clean up registrations.
+- There is no push status in the UI, no metrics, and no command to list registrations. Cleanup of leftover configurations is automatic and is limited as described in [Leftover configurations](#leftover-configurations); it does not cover tasks older than 30 days.
 - Rotating `A2A_PUSH_SIGNING_KEY`, or unsetting the origin, does not remove the callbacks agents already hold. Their callbacks then get `401` (new key) or `503` (origin unset). No command in this repository does that cleanup, so avoid rotating the key unless you must ([Troubleshooting](../operations/troubleshooting.md)).
 - The callback URL uses one origin for all agents. Per-agent callback origins are not supported.
 - Behavior was checked against the test agent in `verify-task-http.mjs` and the contract in [`push.db.test.ts`](../../src/server/adapters/db/push.db.test.ts), not against third-party agents.

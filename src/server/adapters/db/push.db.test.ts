@@ -51,7 +51,7 @@ async function contract(config: DatabaseConfig, directory: string) {
       register: async (_agent, task, id, url, token) => {
         expect(task.remoteTaskId).toBe("shared"); expect(url).toBe(credentials.callbackUrl(registration));
         calls.push({ id, token }); opened(); await hold;
-      }, remove: async (_agent, _task, id) => { removed.push(id); },
+      }, list: async () => [], remove: async (_agent, _task, id) => { removed.push(id); },
     };
     const worker = () => createPushWorker({ orm, store, credentials, gateway });
     const shutdown = new AbortController();
@@ -141,7 +141,7 @@ async function contract(config: DatabaseConfig, directory: string) {
       { status: "active", availableAt: new Date(), lastError: null }))).toBe(false);
     let recoveredId: string | undefined;
     await createPushWorker({ orm, store, credentials, gateway: {
-      register: async (_agent, _task, id, _url, token) => { recoveredId = id; expect(token).toBe(credentials.token(adopted)); }, remove: gateway.remove,
+      register: async (_agent, _task, id, _url, token) => { recoveredId = id; expect(token).toBe(credentials.token(adopted)); }, remove: gateway.remove, list: gateway.list,
     } }).runOne("recovered", shutdown.signal);
     expect(recoveredId).toBe(adopted.id);
     // Agent disablement rejects callbacks and schedules remote deletion without a task event.
@@ -154,7 +154,7 @@ async function contract(config: DatabaseConfig, directory: string) {
     const inFlightTask = await observe(snapshot("terminal-during-create"));
     const inFlight = (await ports().push.findByTaskId(org.id, inFlightTask.localId))!;
     await createPushWorker({ orm, store, credentials, gateway: {
-      register: async () => { await observe(snapshot("terminal-during-create", "TASK_STATE_CANCELED")); }, remove: gateway.remove,
+      register: async () => { await observe(snapshot("terminal-during-create", "TASK_STATE_CANCELED")); }, remove: gateway.remove, list: gateway.list,
     } }).runOne("cancel-during-create", shutdown.signal);
     expect(await ports().push.findById(inFlight.id)).toMatchObject({ status: "deleting", desired: false, leaseOwner: null });
     await worker().runOne("clean-canceled", shutdown.signal);
@@ -162,10 +162,10 @@ async function contract(config: DatabaseConfig, directory: string) {
     // Transient failures redact remote errors and retry, unsupported peers stop.
     const failedTask = await observe(snapshot("retry"));
     const failed = (await ports().push.findByTaskId(org.id, failedTask.localId))!;
-    await createPushWorker({ orm, store, credentials, gateway: { register: async () => { throw new Error("Authorization: Bearer secret"); }, remove: gateway.remove } }).runOne("retry", shutdown.signal);
+    await createPushWorker({ orm, store, credentials, gateway: { register: async () => { throw new Error("Authorization: Bearer secret"); }, remove: gateway.remove, list: gateway.list } }).runOne("retry", shutdown.signal);
     expect(await ports().push.findById(failed.id)).toMatchObject({ status: "pending", lastError: "Push configuration unavailable; retry scheduled." });
     await orm.em.fork().nativeUpdate(PushRegistrationEntity, { id: failed.id }, { availableAt: new Date(0) });
-    await createPushWorker({ orm, store, credentials, gateway: { register: async () => { throw new PushUnsupported(); }, remove: gateway.remove } }).runOne("unsupported", shutdown.signal);
+    await createPushWorker({ orm, store, credentials, gateway: { register: async () => { throw new PushUnsupported(); }, remove: gateway.remove, list: gateway.list } }).runOne("unsupported", shutdown.signal);
     expect(await ports().push.findById(failed.id)).toMatchObject({ status: "failed", lastError: "Agent does not support task push notifications." });
     stored = (await ports().tasks.findById(org.id, firstTask.localId))!;
     const serialized = JSON.stringify([stored, await ports().push.findById(registration.id), await ports().taskEvents.findByTaskId(org.id, firstTask.localId)]);

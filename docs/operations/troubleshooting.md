@@ -106,6 +106,8 @@ Agents call `POST /api/webhooks/a2a/<registration id>` with a bearer credential 
 | 409 `Unexpected push task identity.` / `Unexpected push scope.` | The event names a different task, tenant or context than the registration. | Fix the agent. |
 | 429 `Push rate limit exceeded.` | More than 120 callbacks a minute for one registration. | Batch events; honour `Retry-After`. |
 
+An agent that keeps sending callbacks to a finished task: the worker removes Taskbay's own leftover configurations within a day (checks run per agent every 5 minutes, up to 50 tasks, for tasks finished in the last 30 days). Look for `Push cleanup removed N leftover configurations.` in the worker log or `push.cleanup.<N>` in the security audit. If neither appears, check that the agent is enabled, supports `ListTaskPushNotificationConfigs`, and that the registration row is `deleted`. Configurations Taskbay did not create are never removed; delete those on the agent. See [Leftover configurations](../guides/agent-push-callbacks.md#leftover-configurations).
+
 Changing `A2A_PUSH_SIGNING_KEY`, or unsetting the origin, does not clean up callbacks that agents already hold. The previous guidance was: stop workers, delete the old remote configurations and local
 registrations, configure every process with the new values, then resume. No command in this repository does that cleanup, so avoid rotating the key unless you have to. Unsetting `A2A_PUSH_CALLBACK_ORIGIN` turns
 push off; streaming and reconciliation continue.

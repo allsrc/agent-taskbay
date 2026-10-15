@@ -11,7 +11,19 @@ export interface PushRepository {
   renew(lease: PushRegistrationRecord, now: Date, until: Date): Promise<boolean>;
   finish(lease: PushRegistrationRecord, now: Date, changes: Pick<PushRegistrationRecord, "status" | "availableAt" | "lastError">): Promise<boolean>;
   consumeRate(id: string, now: Date, limit: number): Promise<boolean>;
+  /** Agents with enabled push whose finished registrations are due a leftover-configuration check. */
+  cleanupAgents(now: Date, window: CleanupWindow, limit: number): Promise<{ organizationId: string; agentId: string }[]>;
+  /** The next registrations of one agent due a check, least recently checked first. */
+  cleanupBatch(organizationId: string, agentId: string, now: Date, window: CleanupWindow, limit: number): Promise<PushRegistrationRecord[]>;
+  /** Records that these registrations were checked, so each is looked at once per recheck period. */
+  markChecked(organizationId: string, ids: string[], now: Date): Promise<void>;
+  /** A database-backed "at most once per interval" claim, shared by every worker and instance. */
+  claimCleanup(agentId: string, now: Date, intervalMs: number): Promise<boolean>;
+  auditCleanup(organizationId: string, agentId: string, cleaned: number): Promise<void>;
 }
+/** Registrations last touched between `since` and `recheckBefore` are due. */
+export interface CleanupWindow { since: Date; recheckBefore: Date }
+export interface PushConfigSummary { id: string; url: string }
 export interface PushUnitOfWork {
   run<T>(work: (ports: { push: PushRepository; tasks: TaskRepository; agents: AgentRepository }) => Promise<T>): Promise<T>;
 }
@@ -23,6 +35,8 @@ export interface PushCredentials {
 export interface A2APushGateway {
   register(agent: AgentRecord, task: TaskRecord, id: string, url: string, credential: string, signal: AbortSignal): Promise<void>;
   remove(agent: AgentRecord, task: TaskRecord, id: string, signal: AbortSignal): Promise<void>;
+  /** The configurations the agent holds for the task; empty when the agent has no push support. */
+  list(agent: AgentRecord, task: TaskRecord, signal: AbortSignal): Promise<PushConfigSummary[]>;
 }
 export class PushUnsupported extends Error {}
 export class PushReceiptError extends Error {

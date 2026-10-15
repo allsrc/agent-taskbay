@@ -2,12 +2,12 @@
 id: T-21
 title: Clean up push configurations left behind on agents
 phase: 4
-status: todo
+status: done
 depends_on: [T-01]
 size: M
 gap: G10
 migration: no
-updated:
+updated: 2026-10-15
 ---
 
 # T-21. Push configuration cleanup
@@ -60,4 +60,19 @@ Signed notifications, user-configurable destinations, multiple configs per task.
 
 ## Notes for later
 
+- Step 0 (spec v1.0.1 section 3.1.9, SDK `ListTaskPushNotificationConfigsResponse` in `@a2a-js/sdk`): request `{ tenant?, taskId, pageSize?, pageToken? }`; response `{ configs: TaskPushNotificationConfig[] (optional), nextPageToken: string (empty when no more) }`. Paginated. Errors: `PushNotificationNotSupportedError` when push is unsupported; a missing task is `TaskNotFoundError`. The gateway reads up to 5 pages of 100.
+- Cleanup only looks at registrations in status `deleted` (last 30 days, at most one check per day). Terminal tasks that never had a registration row, or whose row is `failed`, are not checked.
+- The audit entry carries the count in the action (`push.cleanup.<count>`) because audit rows have no data column; the per-agent "once per 5 minutes" claim is a row in `security_rate_buckets` (key `push-cleanup:<agentId>`), so no table was added.
+
 ## Implementation log
+
+- 2026-10-15 · done: branch plan/T-21, tests: push-cleanup.db.test.ts, push-lifecycle.test.ts
+Done on branch plan/T-21, no migration.
+
+- Gateway: `A2APushGateway.list` (`adapters/a2a/push-gateway.ts`), unsupported / unknown task / method-not-found give an empty list.
+- `PushLifecycleWorker.cleanupOne` and `isTaskbayPushConfig` (`services/push-lifecycle.ts`); repository methods `cleanupAgents`, `cleanupBatch`, `markChecked`, `claimCleanup`, `auditCleanup` (`adapters/db/push-repository.ts`, port `ports/push.ts`); loop wiring and the `Push cleanup removed N ...` status line in `workers/push-loop.ts` (runs when idle, at most once a minute per process; embedded and separate workers share this loop).
+- Tests: `push-lifecycle.test.ts` (matching table), new `push-cleanup.db.test.ts` (added to `test:db`; own-id, own-URL and foreign configs, two organizations, rerun is a no-op, three racing workers, unsupported and unreachable agents; PostgreSQL variant runs when A2A_TEST_POSTGRES_URL is set, not run here).
+- Docs: agent-push-callbacks, running-and-workers, troubleshooting, compatibility, data-model, threat-model, CHANGELOG.
+- Hosting rules: 1 (state is in the database), 2 (database claim), 3 (org-scoped queries, two-org test), 4 (no schema change), 6 (PGlite run; PostgreSQL not run), 7 (the loop is shared with scripts/command-worker.ts), 8 (status line, audit, troubleshooting row; no separate off switch per the spec).
+- Deviation: the audit action is `push.cleanup.<count>` rather than bare `push.cleanup`, to carry the count.
+- Ran: lint, tsc, npm test, npm run test:db (PGlite), npm run build, verify-task-http (port 3141).
