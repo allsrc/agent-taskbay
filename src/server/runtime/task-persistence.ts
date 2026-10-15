@@ -36,6 +36,8 @@ export interface ObservationSession {
   skillId?: string | null;
   origin?: TaskOrigin;
   trackedByUserId?: string | null;
+  /** The event is the agent's history for the task, loaded on request. */
+  historyRefresh?: boolean;
   organizationId?: string;
   agentId: string;
   tenant?: string;

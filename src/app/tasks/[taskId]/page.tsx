@@ -120,7 +120,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ taskId: s
                 const text = message.parts.map((part) => (part.kind === "text" ? String(part.value) : `[${part.kind} · ${part.mediaType}]`)).join(" ");
                 return (
                   <li key={message.id} className="space-y-1 py-3 first:pt-0 last:pb-0">
-                    <Eyebrow className={message.role === "user" ? "text-brand-text" : undefined}>{message.role === "user" ? "You" : task.agentName}</Eyebrow>
+                    <Eyebrow className={message.role === "user" ? "text-brand-text" : undefined}>{message.role === "user" ? "You" : task.agentName}{message.origin === "agent-history" ? " · from the agent's history" : ""}</Eyebrow>
                     <div className="line-clamp-6 text-sm break-words whitespace-pre-wrap">{text}</div>
                   </li>
                 );

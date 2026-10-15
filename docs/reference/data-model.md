@@ -121,7 +121,7 @@ Because audit and decision rows cannot be deleted, removing a person's transcrip
 
 The ledger (`task_events`) is the record of what the agent said; projections are derived and disposable. Reads use the active projection version, never the raw ledger. A rebuild replays the ledger with the
 current projector into a new generation, then swaps it in under a lock. If the task changed meanwhile it retries; a missing or corrupt original archive, or an empty ledger, refuses to activate rather than
-losing content. See [`npm run db:projections:rebuild`](cli.md#npm-run-dbprojectionsrebuild) and [Durable tasks](../concepts/durable-tasks.md).
+losing content. Message provenance is not a column: a ledger row written by "Load agent history" carries `historyRefresh: true` in the `projectionContext` of its `payload_json` (source `reconcile`), and the projector labels messages only that row carries `origin: "agent-history"` in the projected message, so a rebuild reproduces the labels. See [`npm run db:projections:rebuild`](cli.md#npm-run-dbprojectionsrebuild) and [Durable tasks](../concepts/durable-tasks.md).
 
 ## Migrations
 

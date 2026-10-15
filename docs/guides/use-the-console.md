@@ -128,6 +128,16 @@ Long content is folded rather than cut: a long message, result or update shows i
 
 When the agent stops working, to ask you something or because the task ended, its last message is the agent speaking to you and stays in the conversation: an **Input required** question with its quick replies or form, the final reply, or the reason a task failed or was rejected. The reply can arrive in any of the ways A2A allows: a direct message, the task history, a status message or a standalone message in the task. Two exceptions keep the conversation clean: a status update the agent sent while still working ("Summarizing…") stays in Progress when a result follows it, and a last message that only repeats a finished text result is shown once. Artifacts appear as a highlighted **Result** card below the task, so the outcome stands out from the progress. A text result reads as prose (Markdown is formatted); other result parts render as tables, trees, media or download cards, following the rules in [Rich content](../concepts/rich-content.md).
 
+### Load the agent's own history
+
+The conversation shows what Taskbay received: every message that reached it by a send, a stream, a push notification or a read of the task. An agent may also keep a history that Taskbay never saw, for example for a task another system started or messages from before Taskbay followed the task. To see it, choose **Load agent history** at the top of the task's part of the conversation.
+
+- Taskbay asks the agent for up to 50 of its most recent history messages once, and stores the answer like any other read of the task. Messages Taskbay already has are not repeated or relabelled.
+- New messages appear below, under **History the agent returned**, with the note "The agent chooses what history to keep. It may be incomplete." What Taskbay received stays above, under **What Taskbay received**. The task page marks them "from the agent's history" in its **History** card.
+- Loading again adds nothing unless the agent has more. The button is not shown for a direct message (no task on the agent), and it needs the **operate** permission on the task's agent (and skill).
+
+When it fails, the message says why: "The agent no longer knows this task" when the agent has forgotten it (nothing changes), "The agent could not be reached", or "Too many requests" after six loads for one task in a minute (wait a minute). The API is in [HTTP API](../reference/http-api.md#post-apitaskstaskidhistoryrefresh).
+
 ### Change the content view
 
 Text can be viewed another way without changing it. Ordinary sentences carry no controls. When text has another useful view, small controls appear under it:

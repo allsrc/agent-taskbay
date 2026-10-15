@@ -25,7 +25,8 @@ export interface ReconciliationUnitOfWork {
 /** Automatic discovery asks only for what changed, with a little history so a newly found task reads well. */
 export interface ListOptions { statusTimestampAfter?: Date | null; historyLength?: number }
 export interface A2AReconciliationGateway {
-  get(agent: AgentRecord, task: TaskRecord, signal: AbortSignal): Promise<JsonValue>;
+  /** One `GetTask`. `historyLength` asks the agent for that many of its most recent history messages; omitted, the agent decides. */
+  get(agent: AgentRecord, task: TaskRecord, signal: AbortSignal, historyLength?: number): Promise<JsonValue>;
   list(agent: AgentRecord, cursor: SyncCursorRecord, signal: AbortSignal, options?: ListOptions): Promise<{ tasks: JsonValue[]; nextPageToken: string }>;
 }
 export interface ReconciliationSink {

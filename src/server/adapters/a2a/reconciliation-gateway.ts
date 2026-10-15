@@ -6,9 +6,9 @@ import type { AgentRecord, JsonValue, SyncCursorRecord, TaskRecord } from "../..
 
 export class SdkReconciliationGateway implements A2AReconciliationGateway {
   private connection(agent: AgentRecord) { return agentConnection(agent); }
-  async get(agent: AgentRecord, task: TaskRecord, signal: AbortSignal): Promise<JsonValue> {
+  async get(agent: AgentRecord, task: TaskRecord, signal: AbortSignal, historyLength?: number): Promise<JsonValue> {
     const response = await executeOperation({ connection: await this.connection(agent), signal, action: "getTask",
-      params: { taskId: task.remoteTaskId, tenant: task.tenant } });
+      params: { taskId: task.remoteTaskId, tenant: task.tenant, ...(historyLength !== undefined ? { historyLength } : {}) } });
     return { task: response.result as JsonValue };
   }
   async list(agent: AgentRecord, cursor: SyncCursorRecord, signal: AbortSignal, options?: ListOptions) {

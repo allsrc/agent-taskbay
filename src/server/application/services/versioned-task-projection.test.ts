@@ -95,3 +95,40 @@ describe("WF-25 repeated status updates with the same state", () => {
     expect(texts(view)).toEqual(["same"]);
   });
 });
+
+describe("messages that only the agent's loaded history carries", () => {
+  const msg = (id: string, role = "ROLE_AGENT") => ({ messageId: id, role, parts: [{ text: `text ${id}` }] });
+  const snapshot = (ids: string[], state = "TASK_STATE_WORKING"): JsonValue => ({ task: { id: "remote", status: { state }, history: ids.map((id) => msg(id, id.startsWith("u") ? "ROLE_USER" : "ROLE_AGENT")) } });
+  const loaded = (sequence: number, event: JsonValue): TaskEventRecord => {
+    const base = row(sequence, event, "reconcile");
+    return { ...base, payloadJson: { event, projectionContext: { turnId: "no-user", historyRefresh: true } } };
+  };
+  const origins = (view: ReturnType<typeof reduceTaskLedger>) => Object.fromEntries(view.messages.map((message) => [message.id, message.origin ?? "received"]));
+
+  it("labels only the messages nothing else carried, and leaves what was received live alone", () => {
+    const live: JsonValue = { statusUpdate: { taskId: "remote", status: { state: "TASK_STATE_WORKING", message: msg("a3") } } };
+    const view = reduceTaskLedger(task, "Agent", [row(1, { message: { ...msg("u1", "ROLE_USER"), taskId: "remote" } }, "command_response"), row(2, live, "stream"),
+      loaded(3, snapshot(["u1", "a1", "a2", "a3", "a4"]))]);
+    expect(origins(view)).toEqual({ u1: "received", a3: "received", a1: "agent-history", a2: "agent-history", a4: "agent-history" });
+  });
+
+  it("is stable when the history is loaded again and when the ledger is rebuilt in another order", () => {
+    const events = [row(1, snapshot(["a1"])), loaded(2, snapshot(["a1", "a2", "a3"])), loaded(3, snapshot(["a1", "a2", "a3"], "TASK_STATE_COMPLETED"))];
+    const view = reduceTaskLedger(task, "Agent", events);
+    expect(origins(view)).toEqual({ a1: "received", a2: "agent-history", a3: "agent-history" });
+    expect(reduceTaskLedger(task, "Agent", events.toReversed())).toEqual(view);
+  });
+
+  it("does not relabel a message when Taskbay's own re-read carries it, but a live delivery makes it received", () => {
+    const base = [loaded(1, snapshot(["a1", "a2"]))];
+    const reread = reduceTaskLedger(task, "Agent", [...base, row(2, snapshot(["a1", "a2"], "TASK_STATE_COMPLETED"), "reconcile")]);
+    expect(origins(reread)).toEqual({ a1: "agent-history", a2: "agent-history" });
+    const delivered = reduceTaskLedger(task, "Agent", [...base, row(2, { message: { ...msg("a2"), taskId: "remote" } }, "stream")]);
+    expect(origins(delivered)).toEqual({ a1: "agent-history", a2: "received" });
+  });
+
+  it("does not label the status message of the task, which the agent is saying now", () => {
+    const current: JsonValue = { task: { id: "remote", status: { state: "TASK_STATE_INPUT_REQUIRED", message: msg("ask") }, history: [msg("a1")] } };
+    expect(origins(reduceTaskLedger(task, "Agent", [loaded(1, current)]))).toEqual({ a1: "agent-history", ask: "received" });
+  });
+});

@@ -15,6 +15,8 @@ export interface ThreadMessage {
   fromStatus?: boolean;
   /** The task state of the status that carried this message, when it came from one. */
   statusState?: string;
+  /** `agent-history` when the message reached Taskbay only because a person loaded the agent's own history for the task. Absent for everything Taskbay received itself. */
+  origin?: "agent-history";
 }
 
 export interface StatusTransition {
