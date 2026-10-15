@@ -21,6 +21,8 @@ Created and maintained by [Shashi Kanth G S](https://shashikanth.me), part of [A
 > minor versions. It has not been independently security-reviewed. See [Status and roadmap](docs/project/status-and-roadmap.md) for what
 > works, what is partial and what is planned.
 
+This README describes the current checkout; features under **Unreleased** in the [changelog](CHANGELOG.md#unreleased) require a source checkout until included in a published release.
+
 ## The gap it fills
 
 A2A gives agents a common way to accept a task, report progress, ask for input and return results. It describes how agents talk to each
@@ -92,6 +94,7 @@ The `automation` card is a sample agent that already has tasks another system st
 | Capability | In short |
 | --- | --- |
 | Agent catalog | Connect agents by Agent Card URL. Taskbay discovers their skills, interfaces and security schemes, and shows discovery errors and card signature status. |
+| Tasks started elsewhere | Browse an agent’s tasks live and track the ones you need to answer, steer or cancel. Automatic discovery is opt-in and bounded. See [the guide](docs/guides/find-and-steer-tasks-started-elsewhere.md). |
 | Durable tasks | Every command is saved before it is sent. Each task is followed by stream, push callback and polling, so work continues with no browser open and after a restart. |
 | Selective human decisions | Agents ask for input or approval when they need a person. Approvals execute against the exact reviewed revision, once, with expiry and separation of duties on by default. |
 | Ownership and escalation | Claim and assign tasks, set due times, escalate overdue work, and work from one inbox across agents and teams. |

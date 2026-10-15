@@ -30,7 +30,7 @@ This means signing in to your identity provider is not enough. An operator must 
 
 The session is an opaque random cookie named `__Host-a2a-session` (Secure, HttpOnly, SameSite=Lax, no Domain). Only its SHA-256 hash is stored, with an absolute expiry. The default lifetime is 8 hours (`A2A_AUTH_SESSION_SECONDS`, allowed range 60 to 86400). Every request re-resolves the session and the current membership, so disabling a user takes effect on their next request. Requests already running may finish. Browser mutations must carry an `Origin` that exactly matches the configured external origin (`A2A_AUTH_ORIGIN`).
 
-There are no API tokens or service accounts. A program outside the browser cannot call the API as a person.
+There are no API tokens or service accounts. External programs would need the same session cookie and matching `Origin` as the browser; there is no supported service-token integration.
 
 ## Organizations, roles, teams and grants
 
@@ -58,6 +58,8 @@ A new non-admin membership starts with no agent access at all. An administrator 
 
 An advertised A2A skill is a description. It does not limit what an agent will do if you send it a message. So a skill-only grant works only for agents that advertise the skill-routing extension. The console then sets the skill in request metadata, and the agent must enforce it and keep new contexts inside it. Without that extension, a person needs a grant on the whole agent. The console does not guess skill routing from prompts or tags. See [skill routing](../reference/extensions/skill-routing.md).
 
+An extended Agent Card is fetched only by an administrator using the agent’s stored credential. Its extra skill descriptions are visible only to whole-agent readers. Public-card skills remain the basis for grants and routing; an extended-only skill cannot be granted or selected for a bounded send.
+
 ### What access checks do not cover
 
 - Work already accepted into the queue continues after the person logs out or loses access. It is system work.
@@ -77,7 +79,7 @@ Outbound requests to agents go through a network policy: HTTPS and an exact orig
 
 These are task states set by the agent. They put the task in a person's queue. They are not a login and not an approval.
 
-- `AUTH_REQUIRED` means the agent needs some authorization. The console does not exchange credentials in the message stream.
+- `AUTH_REQUIRED` means the agent needs some authorization. Today the console asks the person to complete it elsewhere and reply to resume; it has no guided authorization link or dedicated completion action, and rechecks on the normal polling schedule. Credentials never enter the message stream. The proposed handoff is described in [Status and roadmap](../project/status-and-roadmap.md#planned).
 - `INPUT_REQUIRED` means the agent is asking a question. Anyone with operate access can answer it with a normal reply.
 - An approval is a different object with its own record. See [Human in the loop](human-in-the-loop.md).
 

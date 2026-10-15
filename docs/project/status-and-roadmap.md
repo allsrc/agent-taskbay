@@ -4,9 +4,11 @@
 
 Agent Taskbay is **pre-1.0**. The package version is `0.2.0` and it is published to npm (see [CHANGELOG.md](../../CHANGELOG.md)). Interfaces, HTTP routes and stored data shapes may change between minor versions. There is no stable `/api/v1` yet. It has not been independently security-reviewed, and the only operating system the launcher package has been exercised on is Linux.
 
+This page describes the current checkout. Features listed under **Unreleased** in the [changelog](../../CHANGELOG.md#unreleased) require a source checkout until they are included in a published release.
+
 ## How to read "works"
 
-"Works" here means an automated test in this repository exercises it. Each row names the npm script that runs that test. `npm run check` runs all of them (lint, unit, database, build and HTTP suites). Tests are not proof of production fitness: they use fixture agents written for this repository, not a range of real agents.
+"Works" here means an automated test in this repository exercises it. Each row names the npm script that runs that test. `npm run check` runs lint, unit and database tests, migrations, the schema check, the build and HTTP suites. Package-install verification is separate: `npm run verify:package`. Tests are not proof of production fitness: they use fixture agents written for this repository, not a range of real agents.
 
 ## Works today
 
@@ -18,7 +20,14 @@ Agent Taskbay is **pre-1.0**. The package version is `0.2.0` and it is published
 | Definite refusals by an agent are recorded as rejected with a kind; finished tasks are not continued; an unsupported required extension blocks sending until an administrator allows it | `npm run test:db` (`commands.db.test.ts`, `terminal-guard.db.test.ts`, `required-extensions.db.test.ts`) and `npm run test:http` (`verify-task-http.mjs`) |
 | Send a task, stream it, cancel it, and see it again after the browser closes and the server restarts | `npm run test:db` and `npm run test:http` (`verify-task-http.mjs`) |
 | Webhook (push) and polling reconciliation feeding the same idempotent ingestion path | `npm run test:db` (`push.db.test.ts`, `reconciliation.db.test.ts`) |
+| Fetch and refresh an extended Agent Card as an administrator; display extra skills to whole-agent readers without changing routing or grants | `npm run test:db` (`extended-card.db.test.ts`) and `npm run test:http` (`verify-extended-card-http.mjs`) |
+| Show the selected binding, interface, protocol version, tenant and extension negotiation; choose a tenant for a new conversation | `npm test` (`connection-interface.test.ts`, `connection-card.test.tsx`, `gateway-tenant.test.ts`) and `npm run test:http` (`verify-discovery-http.mjs`) |
+| Task filters by context, agent, update time and origin; cursor paging and other tasks in the same context | `npm run test:db` (`task-list.db.test.ts`) and `npm run test:http` (`verify-task-http.mjs`) |
+| Show whether extra input was delivered, followed by agent activity, refused or remains unknown; stop and restart with a new instruction as two separate commands | `npm test` (`steering-chip.test.tsx`, `restart-task.test.ts`, `restart-dialog.test.tsx`), `npm run test:db` (`steering.db.test.ts`) and `npm run test:http` (`verify-steering-http.mjs`) |
 | Related tasks in both directions from message references, filtered by read grants; same agent and tenant only | `npm run test:db` (`task-links.db.test.ts`), `npm test` (`related-tasks.test.tsx`) and `npm run test:http` (`verify-steering-http.mjs`) |
+| Select related tasks to cancel sequentially, with per-task permission checks and results, and a counts-only audit summary | `npm test` (`cancel-tasks-dialog.test.tsx`), `npm run test:db` (`task-links.db.test.ts`) and `npm run test:http` (`verify-steering-http.mjs`) |
+| Load the agent's retained history on demand, label newly found messages and preserve that provenance across projection rebuilds | `npm run test:db` (`task-history.db.test.ts`) and `npm run test:http` (`verify-history-http.mjs`) |
+| Remove Taskbay's leftover push configurations for finished tasks, leaving other callbacks alone | `npm test` (`push-lifecycle.test.ts`) and `npm run test:db` (`push-cleanup.db.test.ts`) |
 | Rebuilding task projections from retained events | `npm run test:db` (`projection-rebuild.db.test.ts`); CLI `npm run db:projections:rebuild` |
 | OIDC sign-in, roles, teams, per-agent and per-skill grants | `npm run test:http` (`verify-identity-http.mjs`), `npm run test:db` (`identity.db.test.ts`, `scoped-security.db.test.ts`) |
 | Encrypted agent credentials (API key, bearer, OAuth client credentials, mTLS), origin allowlist, SSRF controls, signed-card trust | `npm run test:http` (`verify-service-security.mjs`) |
@@ -44,7 +53,7 @@ Databases: embedded PGlite for local use and PostgreSQL for real deployments. CI
 | AG-UI adapter | Basic runs, interrupts and resume | Thread-to-context mapping ([#8](https://github.com/allsrc/agent-taskbay/issues/8)), skill-scoped principals ([#9](https://github.com/allsrc/agent-taskbay/issues/9)), tools, context and state ([#10](https://github.com/allsrc/agent-taskbay/issues/10)), cross-origin browsers ([#11](https://github.com/allsrc/agent-taskbay/issues/11)), runs over 50 seconds ([#12](https://github.com/allsrc/agent-taskbay/issues/12)), real-client verification ([#13](https://github.com/allsrc/agent-taskbay/issues/13)), approval interrupts ([#20](https://github.com/allsrc/agent-taskbay/issues/20)) |
 | Browser tests | HTTP-level suites and fixture agents | A committed browser end-to-end suite ([#14](https://github.com/allsrc/agent-taskbay/issues/14)); UI behavior was checked by hand, not in CI |
 | Distribution | Published to npm from GitHub Actions with trusted publishing and provenance; the package installs and launches on Linux | Verification on macOS and Windows |
-| Agent authentication | Service credentials | User-delegated OAuth ([#1](https://github.com/allsrc/agent-taskbay/issues/1)) |
+| Agent authentication | Service credentials and visible `AUTH_REQUIRED` tasks; a person can authorize elsewhere and reply to resume | A guided authorization handoff and dedicated resume action; user-delegated OAuth ([#1](https://github.com/allsrc/agent-taskbay/issues/1)) |
 | Identifier naming | Some persisted and wire identifiers use the older `a2a-ops` slug in places | Rename ([#27](https://github.com/allsrc/agent-taskbay/issues/27)) |
 
 ## Planned
@@ -57,6 +66,8 @@ Not started. Order and scope may change.
 - Backup, restore and upgrade-rollback runbooks that have been exercised, plus load and failure testing.
 - Extension plugin contract and compatibility fixtures ([#26](https://github.com/allsrc/agent-taskbay/issues/26)).
 - gRPC transport, which needs a connection-bound resolver adapter.
+- **Authorization handoff for `AUTH_REQUIRED` tasks** ([#1](https://github.com/allsrc/agent-taskbay/issues/1)): today Taskbay shows the state and asks the person to authorize elsewhere, then reply to resume. There is no dedicated authorization link or completion action. The intended approach is to show an agent-supplied HTTPS authorization address as text with an explicit open action, send an explicit resume message on the same task, and recheck promptly after authorization. Taskbay would never receive or forward the user's credential through this handoff.
+- **Signed incoming push notifications:** Taskbay currently verifies a per-registration bearer token. The bundled A2A SDK's default sender sends the configured authentication header or legacy token; it does not sign JWTs or provide JWKS. Signed-JWT verification is deferred until there is evidence that agents outside that SDK need it. This is separate from Taskbay's existing signed outgoing notification webhook.
 
 ## Parked
 

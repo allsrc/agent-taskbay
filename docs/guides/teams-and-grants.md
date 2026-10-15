@@ -141,7 +141,7 @@ Errors from **Settings** appear as a red message above the forms.
 ## Limits
 
 - A skill grant relies on the agent. Taskbay picks the skill and sends it, but cannot check that the agent enforces it. Use skill grants only for agents whose enforcement you have reviewed. See the [skill routing reference](../reference/extensions/skill-routing.md).
-- The skill id is not checked when you create the grant. A grant for a skill the card does not list is accepted, and sends under it fail with `This agent does not support bounded skill routing.`
+- When a card snapshot is available, a skill grant must name a skill on the public Agent Card; an extended-only or unknown skill is refused with `Only skills on the public Agent Card can be granted.` Without any stored card snapshot, grant creation can accept the ID, but sending still checks the public skill and skill-routing support.
 - The same grant can be created twice. Each copy is a separate row, and revoking one leaves the other in force. Check the list before granting again.
 - Teams cannot be renamed, deleted or re-enabled. Disabling is API-only. A disabled team still appears in the grant and member rows in **Settings**, but its grants do not apply.
 - A grant on an `admin` is accepted and has no effect.

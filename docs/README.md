@@ -35,6 +35,9 @@ How do I...
 - **...pick the right environment variables** for my setup? [Configuration recipes](guides/configuration-recipes.md)
 - **...deploy with PostgreSQL** and separate workers? [Production deployment](guides/production-deployment.md)
 - **...upgrade, back up and restore?** [Upgrading and backups](guides/upgrading-and-backups.md)
+- **...understand a failed send or cancel?** [Command failures](guides/use-the-console.md#when-a-send-or-cancel-fails)
+- **...send more input, restart with an instruction, or cancel related tasks?** [Steering](guides/use-the-console.md#sending-more-input-to-a-running-task), [related tasks](guides/use-the-console.md#related-tasks)
+- **...load the history an agent kept before Taskbay followed it?** [Agent history](guides/use-the-console.md#load-the-agents-own-history)
 - **...find and take over tasks another system started?** [Find and steer tasks started elsewhere](guides/find-and-steer-tasks-started-elsewhere.md)
 - **...try the experimental AG-UI adapter?** [Try the AG-UI adapter](guides/enable-ag-ui.md)
 
@@ -78,6 +81,6 @@ What happens when it fails?
 
 ## Project and contributing
 
-- [Status and roadmap](project/status-and-roadmap.md), [A2A workflow gap analysis and plan](project/a2a-gap-analysis-and-plan.md), [CHANGELOG](../CHANGELOG.md)
+- [Status and roadmap](project/status-and-roadmap.md), [CHANGELOG](../CHANGELOG.md)
 - [CONTRIBUTING](../CONTRIBUTING.md), [Development](contributing/development.md), [Writing documentation](contributing/documentation.md)
 - [Archive of the earlier planning documents](archive/README.md)

@@ -6,6 +6,15 @@
 Agent Taskbay is **pre-1.0** (package version `0.2.0`) and published to npm. Interfaces may change between minor versions. "Tested" in this page means what
 the repository's own CI runs; nothing here is a claim about other versions or environments.
 
+## On this page
+
+- [Runtime versions](#runtime-versions)
+- [A2A protocol support](#a2a-protocol-support)
+- [Sign-in (people)](#sign-in-people)
+- [Experimental and stable](#experimental-and-stable)
+- [Steering a running task](#steering-a-running-task)
+- [Known limitations](#known-limitations)
+
 ## Runtime versions
 
 | Component | Version | Source |
@@ -37,16 +46,20 @@ The gateway uses the official `@a2a-js/sdk` for protocol handling.
 | Transports | JSON-RPC and HTTP+JSON (REST) | The SDK's JSON-RPC and REST transports are registered, with legacy compatibility on. You can pin a binding, interface URL and version in the connection; by default the SDK picks. |
 | gRPC | **Not supported.** | gRPC interfaces are removed from the card before a client is built, and an explicitly selected gRPC interface fails with `gRPC transport is unavailable under the hardened network policy; advertise an HTTP binding.` (the SDK's gRPC client cannot be bound to the connection-time address check). |
 | Other transports | Not supported | Only the two above are registered. Behavior for an unknown binding was not tested. |
-| Streaming (`SendStreamingMessage`, `SubscribeToTask`) | Yes, when `capabilities.streaming` is true | Workers own the stream. If the card does not advertise streaming the task is not streamed (`STREAMING_UNSUPPORTED` internally) and Agent Taskbay relies on polling. |
-| Polling (`GetTask`, `ListTasks`) | Yes | Reconciliation polls open tasks. An agent that cannot list tasks falls back to `GetTask` only. |
-| `SendMessage`, `CancelTask` | Yes | Always sent as "return immediately"; progress is observed separately. |
+| Streaming observation (`SubscribeToTask`) | Yes, when `capabilities.streaming` is true | Commands use `SendMessage`; the durable dispatch path does not use `SendStreamingMessage`. Workers subscribe separately and own the stream. If the card does not advertise streaming the task is not streamed (`STREAMING_UNSUPPORTED` internally) and Agent Taskbay relies on polling. |
+| Polling (`GetTask`, `ListTasks`) | Yes | `GetTask` refreshes known unfinished tasks about every 15 seconds; `ListTasks` sweeps per agent and tenant refresh known tasks. Automatic discovery can also store unknown tasks within limits. Without `ListTasks`, known tasks still use `GetTask`. |
+| `SendMessage`, `CancelTask` | Yes | Each is a durable idempotent command. `SendMessage` defaults to `returnImmediately: true`, which request configuration can override; progress is observed separately. Finished tasks are refused locally with `task_terminal`. |
 | Push notifications | Optional | Worker-managed registration. Only for agents whose card sets `capabilities.pushNotifications`. The worker calls get (to check for an existing config), create and delete of task push configs. It also lists a finished task's configs to delete leftovers that match its own ID or callback path, and never touches others; an agent without list support is skipped. Needs `A2A_PUSH_CALLBACK_ORIGIN` and a callback reachable by the agent. Off by default. See [Agent push callbacks](../guides/agent-push-callbacks.md). |
-| Task browsing and tracking (`ListTasks`, `GetTask`) | Yes: `ListTasks` pages are shown live and never stored; a task is stored only when a person tracks it. Agents without `ListTasks` can still be tracked by ID. | `discovery.db.test.ts`, `verify-task-http` |
+| Task browsing and tracking (`ListTasks`, `GetTask`) | Yes, with whole-agent operate access | Browsing stores nothing; **Track** re-reads and stores one task with `GetTask`. **Browse only** is the default. Without `ListTasks`, a known task ID can still be tracked. Viewers and skill-only grants cannot browse or track. |
+| Automatic task discovery | Opt-in | Requires `A2A_TASK_DISCOVERY=auto` and **Automatic** on the agent. Stores at most 500 new tasks on the first sweep, 200 on later sweeps and 5,000 discovered tasks per agent before pausing; finished history defaults to 7 days (0–90). **Off** disables discovery; already stored tasks continue to be followed. |
+| Incoming push verification | Per-registration bearer token | Timing-safe comparison, task/agent/tenant checks, durable rate budgets and duplicate-safe ingestion. No JWT/JWKS verification; the bundled SDK sender does not sign JWTs. The signed outgoing notification webhook is separate. |
 | Extended Agent Card | Fetch, validate and display | Administrator-triggered fetch with the stored agent credential; separate durable snapshots. Whole-agent readers see extra skills marked **Authenticated**. Extended skills and capabilities never change public routing, grants or extension negotiation. A failed refresh keeps the last valid card. |
-| Related tasks (`referenceTaskIds`) | Yes, within the same agent and tenant | Known references on user or agent messages become durable links, shown as **References** and **Referenced by** on task pages. Unknown IDs are ignored; each linked task needs read access. No hierarchy, cross-agent resolution or cascading cancel. |
-| Multi-tenancy | Yes | The `tenant` field is part of task identity. A card with one tenant is used silently; with several, you choose the tenant for a new conversation in the chat options, and Taskbay stores the tenant that was sent. A conversation cannot change tenant. Taskbay does not read tenants from anywhere but the card's interfaces. |
+| Related tasks (`referenceTaskIds`) | Yes, within the same agent and tenant | Known references on user or agent messages become durable links, shown as **References** and **Referenced by** on task pages. Unknown IDs are ignored; each linked task needs read access. No hierarchy or cross-agent resolution. **Cancel this and related** offers explicit selection and sequential ordinary cancels; nothing cascades automatically. |
+| Agent history (`GetTask` with `historyLength`) | On demand | **Load agent history** in chat requests 1–200 messages (default 50); newly found messages are labelled separately and do not replace Taskbay’s record. The agent decides what history it retains. |
+| Multi-tenancy | Yes | The `tenant` field is part of task identity. A card with one tenant is used silently; with several, you choose the tenant for a new conversation in the chat options, and Taskbay stores the tenant that was sent. A conversation cannot change tenant. New conversation choices come from the card's interfaces; existing tasks and conversations retain their stored tenant. |
 | Parts | `text`, `raw`, `url`, `data` | Binary parts are stored in the artifact store; remote URLs are shown as provenance and are not loaded by the console. |
-| Task states | The A2A set | `AUTH_REQUIRED` is displayed; Agent Taskbay does not perform the authorization the agent needs ([#1](https://github.com/allsrc/agent-taskbay/issues/1)). |
+| Command refusals | Classified | Definite A2A refusals settle as `rejected` with `errorKind`; unknown failures after dispatch stay `uncertain` and are not resent automatically. Console notices use the kind to explain what to do. |
+| Task states | The A2A set | `AUTH_REQUIRED` is displayed with instructions to authorize elsewhere and reply to resume; no guided authorization handoff is implemented ([#1](https://github.com/allsrc/agent-taskbay/issues/1)). |
 
 Network limits that apply to every outbound call: redirects are never followed; responses over 25 MiB and Agent Cards over 2 MiB are rejected; the default timeout is 60 seconds; private,
 loopback and reserved addresses are blocked unless allowed; the destination must be on the origin allowlist when one is configured or in production ([Configuration](configuration.md#outbound-network-policy)).
@@ -101,7 +114,8 @@ Credentials are bound to origins: a credential is sent only to the origins liste
 | Streaming observation, push, polling reconciliation, projections, rebuild | Implemented | `*.db.test.ts`, `verify-task-http` |
 | OIDC sign-in, roles, grants, credential vault, card trust | Implemented | `verify-identity-http`, `verify-service-security` |
 | Approvals as decisions on an exact revision, ownership, escalation, audit, notifications, unified inbox | Implemented | `verify-decisions-http`, `verify-workflow-http`, `verify-notifications-http` |
-| Saved views, search, advanced filters, bulk triage | Not implemented | [#5](https://github.com/allsrc/agent-taskbay/issues/5) |
+| Task discovery, extended-card display, context filters, related tasks, assisted cancellation, steering outcomes and remote history | Implemented | `discovery.db.test.ts`, `extended-card.db.test.ts`, `task-list.db.test.ts`, `task-links.db.test.ts`, `steering.db.test.ts`, `task-history.db.test.ts`, `verify-discovery-http.mjs`, `verify-steering-http.mjs` |
+| Saved views, search, arbitrary filters, bulk triage | Not implemented | [#5](https://github.com/allsrc/agent-taskbay/issues/5) |
 | Structured form extension | Experimental | `verify-forms-http`; no automated browser suite ([#14](https://github.com/allsrc/agent-taskbay/issues/14)) |
 | Agent approval-request extension | Experimental | `verify-agent-approvals-http` |
 | Skill routing extension | Experimental | `scoped-security` tests |
@@ -121,8 +135,12 @@ A2A defines no way to steer a task that is already working: a `SendMessage` with
 
 | Limitation | Consequence | Issue |
 | --- | --- | --- |
-| No user-delegated OAuth for agents | One shared credential per agent; the agent cannot tell which person acted, and in-task `AUTH_REQUIRED` flows are not completed by Agent Taskbay | [#1](https://github.com/allsrc/agent-taskbay/issues/1) |
-| No saved views, search, advanced filters or bulk triage | Inbox and task lists have fixed views; large queues are slow to triage | [#5](https://github.com/allsrc/agent-taskbay/issues/5) |
+| No user-delegated OAuth for agents | The agent authenticates Taskbay with a shared service credential; it does not receive the signed-in person’s delegated credential | [#1](https://github.com/allsrc/agent-taskbay/issues/1) |
+| No saved views, search, arbitrary filter builder or bulk triage | Context, agent, update-time and origin filters exist; large queues still lack saved searches and bulk ownership or approval actions | [#5](https://github.com/allsrc/agent-taskbay/issues/5) |
+| No guided `AUTH_REQUIRED` handoff | A person authorizes outside Taskbay and replies manually; there is no dedicated resume action or faster authorization recheck | [#1](https://github.com/allsrc/agent-taskbay/issues/1) |
+| Related links resolve only within one organization, agent and tenant | Unknown IDs are ignored until a later projection or rebuild can resolve them; no cross-agent task graph or automatic cascade | [Related tasks](../guides/use-the-console.md#related-tasks) |
+| Automatic discovery has history, sweep and lifetime caps | Older finished tasks and tasks beyond the cap need manual browsing and tracking; disabling discovery does not remove stored tasks or stop their refreshes | [Task discovery](../guides/connect-an-agent.md#task-discovery) |
+| Incoming push supports bearer verification only | An agent requiring JWT/JWKS verification is unsupported; outgoing HMAC-signed notifications are unaffected | [Push callbacks](../guides/agent-push-callbacks.md) |
 | AG-UI `threadId` used as the A2A `contextId` verbatim | Thread IDs are not isolated per agent | [#8](https://github.com/allsrc/agent-taskbay/issues/8) |
 | AG-UI refuses skill-scoped principals | Skill-scoped people cannot use the adapter | [#9](https://github.com/allsrc/agent-taskbay/issues/9) |
 | AG-UI ignores tools, context, state and non-text content | Only plain text prompts work | [#10](https://github.com/allsrc/agent-taskbay/issues/10) |

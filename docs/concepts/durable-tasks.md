@@ -11,11 +11,11 @@ When you send a message, reply, or cancel a task, the console does this:
 1. Checks your session and your permission for that agent (and skill).
 2. Validates the input and assigns a command ID and a fixed A2A `messageId`.
 3. In one database transaction, saves the command and a row in a transactional outbox. The request body is archived in the artifact store. The database row holds its digest.
-4. Returns `202 Accepted`. Nothing has been sent to the agent yet.
+4. Returns `202 Accepted` from the command endpoint. Convenience endpoints wait for that command’s outcome. Dispatch can begin as soon as the transaction commits.
 5. A worker claims the outbox row under a lease and calls the agent.
 6. The agent's response goes through the same ingestion path as every other source (below).
 
-You can close the browser at step 4. The worker carries on.
+Once the transaction commits, you can close the browser. The worker carries on.
 
 ```mermaid
 sequenceDiagram
@@ -58,9 +58,11 @@ The console never resends an uncertain command and never declares one successful
 
 ## Tasks that Taskbay did not start
 
-Most tasks begin as a command from the console. A person with access to the whole agent can also **browse** the agent's tasks (a live `ListTasks` call; nothing is stored) and **track** one.
+Most tasks begin as a command from the console. An administrator or operator with operate access to the whole agent can also **browse** the agent's tasks (a live `ListTasks` call; nothing is stored) and **track** one.
 Tracking reads that task from the agent and stores it as a *discovered* task. From then on it is followed like any other: streamed or polled, answered, steered or canceled, shown in the Inbox
 when it needs a person. Tracking does not notify anyone about the state the task is already in, and does not assign it to the person who tracked it.
+
+Turning discovery Off blocks browsing and tracking and prevents automatic storage of unknown tasks. It does not delete stored tasks or stop their streams, push callbacks or reconciliation; existing list cursors can still refresh known tasks.
 
 An administrator can instead let a worker find them: in **automatic** discovery the reconciliation worker lists the agent's tasks, asks only for what changed after the first full read, and stores unknown ones within fixed limits ([Task discovery](../guides/connect-an-agent.md#task-discovery)).
 
@@ -77,7 +79,7 @@ The task's current status message is not labelled, because the agent is saying i
 Task state can arrive by four routes:
 
 - the response to a command,
-- a stream (`SendStreamingMessage` or `SubscribeToTask`),
+- a worker-owned `SubscribeToTask` stream (commands are dispatched with `SendMessage`),
 - a push webhook from the agent,
 - polling with `GetTask` and `ListTasks`.
 
@@ -91,7 +93,7 @@ Known gap: if an agent sends identical append chunks of an artifact with no deli
 | --- | --- |
 | Subscription (stream) | One per active task. Workers hold up to 8 concurrent streams each. Reconnect uses `SubscribeToTask`, so it observes and never resends. Backoff is exponential, capped at 30 s. Stops at a terminal, input-required or auth-required state, and is re-armed when a new command makes the task active again. Needs the agent to advertise streaming. |
 | Push webhook | Opt-in. Needs `A2A_PUSH_CALLBACK_ORIGIN` and `A2A_PUSH_SIGNING_KEY`. Each task gets a registration ID and a derived bearer credential. Callbacks are authenticated, rate-limited per registration, and checked against the expected task. Without these settings, push is simply not used. How to turn it on: [Receive push callbacks from agents](../guides/agent-push-callbacks.md). |
-| Reconciliation | `GetTask` for each open known task every 15 s, including tasks waiting for input. `ListTasks` sweeps per agent and tenant, repeating 60 s after a sweep finishes. It only updates tasks the console already knows. Agents without `ListTasks` fall back to `GetTask`. |
+| Reconciliation | `GetTask` for each open known task every 15 s, including tasks waiting for input. `ListTasks` sweeps per agent and tenant, repeating 60 s after a sweep finishes. It updates known tasks; in automatic discovery mode it also stores unknown tasks within the history, sweep and lifetime limits. Browse only and Off do not add unknown tasks automatically. Agents without `ListTasks` fall back to `GetTask`. |
 
 If every stream and webhook fails, reconciliation still converges the state. A reconciliation read that arrives after a concurrent update loses to it, and a terminal task is never reopened by a late response.
 
@@ -107,7 +109,7 @@ To tell browsers something changed, every accepted projection write queues a `ta
 
 Agents issue task, context and message IDs, and two agents can issue the same string. The console therefore keys remote tasks by `(agentId, tenant, remoteTaskId)` and uses its own UUIDs for every URL and permission check. Remote IDs are shown for diagnosis only. A direct `Message` reply (no task) is kept as a message and is never turned into a fake task.
 
-The design intends a way to link tasks across agents with local relations, and never to pass one agent's task ID to another. No link table exists in the code yet.
+Known `referenceTaskIds` on user and agent messages create durable local links within the same organization, agent and tenant. Each linked task requires its own read permission; unknown IDs are not fetched. Context siblings share a context, while related tasks carry explicit message references. Neither implies a parent-child hierarchy, dependency order or automatic cancellation. See [Related work](human-in-the-loop.md#related-work).
 
 ## When it fails
 

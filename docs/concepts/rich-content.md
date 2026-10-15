@@ -23,11 +23,11 @@ Agents send messages and artifacts made of parts: text, structured data, files, 
 | Text whose content does not fit its declared type (for example JSON labelled `text/html`) | The view that fits the content, as described above |
 | `application/json` and other JSON | Table when it is a list of objects, otherwise a collapsible tree. A "Structured" toggle is available |
 | JSON in progress and activity logs | A one-line summary (kind, name or title, id, preview) that opens to the table or tree. See `src/lib/data-part.ts` for the recognized tool-call, result and reasoning shapes |
-
-Long content is folded, never cut. Text over about 20 lines or 2,400 characters (6 lines or 600 characters in progress steps, reasoning and JSON values) shows to a fixed height with a fade and a **Show all N lines** toggle. A multi-line string inside JSON keeps its line breaks. JSON trees and tables show the first 100 entries or rows with **Show more**, and an expanded data card scrolls inside a capped height. The full content stays in the page.
 | CSV | Table |
 | Images, audio, video, PDF | Shown inline only when the bytes were archived by the server. Remote media URLs are not loaded |
 | Anything else | A download card |
+
+Long content is folded, never cut. Text over about 20 lines or 2,400 characters (6 lines or 600 characters in progress steps, reasoning and JSON values) shows to a fixed height with a fade and a **Show all N lines** toggle. A multi-line string inside JSON keeps its line breaks. JSON trees and tables show the first 100 entries or rows with **Show more**, and an expanded data card scrolls inside a capped height. The full content stays in the page.
 
 Each part shows its media type and a view switcher. A "Raw" view appears only where the screen enables it. An "Experimental" rich-JSON view exists in the component code, but no current screen switches it on, so you will not see it.
 
@@ -105,7 +105,7 @@ Frontend `tools`, `context`, `state` and `forwardedProps` are ignored. Non-text 
 ## Limits
 
 - Rich content support is a closed list in code. A new component or form feature is a code change and a new extension version, not something the console infers.
-- A2UI and forms are not rendered on task or approval pages (forms are rendered in approvals).
+- A2UI surfaces and input-request forms are rendered in chat. Task pages show their underlying content; approval pages can render a pinned structured form for an approval action.
 - Rendering is tested in unit tests and HTTP scenarios. Verification against third-party real-world agents is open ([#13](https://github.com/allsrc/agent-taskbay/issues/13), [#25](https://github.com/allsrc/agent-taskbay/issues/25)).
 
 ## Further reading

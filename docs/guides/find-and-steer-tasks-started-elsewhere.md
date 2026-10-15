@@ -10,7 +10,7 @@ Agents do not only work for people at a Taskbay screen. A nightly job can start 
 - You are an administrator, or an operator with an `operate` grant on the **whole** agent. A grant limited to one skill is not enough, and viewers cannot ([Teams and grants](teams-and-grants.md)).
 - Task discovery is not `off` for the agent or for the deployment (`A2A_TASK_DISCOVERY`).
 
-What Taskbay does, in one paragraph: it uses **the agent's own credential** to ask the agent what tasks it has. By default it only does this when you open the list, and it stores nothing. You choose which task to **track**; only then is that one task stored and followed. An administrator can instead switch the agent to **Automatic**, where a worker stores tasks started elsewhere in the background.
+What Taskbay does, in one paragraph: it uses **the agent's own credential** to ask the agent what tasks it has. By default the browse list is read only when you open it, and browsing stores nothing. Background reconciliation can still list tasks to refresh work Taskbay already stores. You choose which task to **track**; only then is that one task stored and followed. An administrator can instead switch the agent to **Automatic**, where a worker stores tasks started elsewhere in the background.
 
 ## Find a task and track it
 
@@ -41,7 +41,7 @@ On the agent page an administrator sets the mode:
 | --- | --- |
 | **Browse only** (default) | People with access to the whole agent can browse and track. Nothing else is stored. |
 | **Automatic** | A worker also stores tasks started elsewhere. Finished tasks only if the agent updated them in the last 7 days (0 to 90, your choice); at most 500 on the first sweep, 200 on later ones and 5,000 per agent, then it pauses and says so. Tasks waiting on input that the agent updated in the last 24 hours notify people. |
-| **Off** | Taskbay never lists the agent's tasks. |
+| **Off** | Browsing, tracking and automatic discovery are disabled. Stored tasks remain visible under their existing grants and continue to refresh. |
 
 A deployment can lower the highest mode with `A2A_TASK_DISCOVERY` ([recipe](configuration-recipes.md#9-limit-allow-or-turn-off-task-discovery)). The card shows "This deployment allows up to …" for modes it forbids.
 

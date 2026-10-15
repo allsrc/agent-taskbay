@@ -11,7 +11,7 @@ This page explains the model. To do the work in the console (find items in the i
 | Situation | What it is | How a person resolves it |
 | --- | --- | --- |
 | Input required | The agent's task is in `INPUT_REQUIRED` and asks a question. | Reply in the task chat, or fill in a structured form if the agent offers one. Anyone with `operate` access can answer. |
-| Auth required | The task is in `AUTH_REQUIRED`. | Resolve the authorization out of band. The console does not carry credentials in messages. |
+| Auth required | The task is in `AUTH_REQUIRED`. | Authorize outside Taskbay, then reply to resume. There is no dedicated authorization handoff or completion action; credentials never travel in messages. |
 | Approval | A reviewer must authorize a specific proposed action. | A decision on an exact revision of that action, with a recorded rationale. |
 
 Input and auth requests land in the inbox. An approval is a separate object with a stricter lifecycle. `AUTH_REQUIRED` is never treated as an approval.

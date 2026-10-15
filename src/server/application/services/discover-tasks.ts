@@ -1,7 +1,7 @@
 import type { JsonValue, SyncCursorRecord } from "../../domain/persistence-model";
 import { eventSubject, object } from "./task-projection";
 
-/** Limits of automatic discovery (plan decision D-12): constants, documented, not configurable. */
+/** Automatic discovery limits are documented constants, not runtime settings. */
 export const FIRST_SWEEP_LIMIT = 500;
 export const SWEEP_LIMIT = 200;
 export const AGENT_LIMIT = 5000;

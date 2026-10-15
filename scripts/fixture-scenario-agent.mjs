@@ -11,7 +11,7 @@ import { createServer } from "node:http";
 
 export const SCENARIO_EXTENSION_URI = "https://example.test/extensions/scenario/v1";
 const TERMINAL = ["TASK_STATE_COMPLETED", "TASK_STATE_FAILED", "TASK_STATE_CANCELED", "TASK_STATE_REJECTED"];
-// Codes and names match @a2a-js/sdk/errors (see plans decision D-03).
+// Codes and names match @a2a-js/sdk/errors.
 const ERRORS = {
   TaskNotFoundError: [-32001, "Task not found"],
   TaskNotCancelableError: [-32002, "Task cannot be canceled"],

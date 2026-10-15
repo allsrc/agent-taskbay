@@ -2,7 +2,7 @@
 
 > Who this is for: someone who wants to see Agent Taskbay work on their own machine. At the end you will have run the console, connected a sample A2A agent, sent it a task, approved an action as a reviewer, and seen the result recorded.
 
-Agent Taskbay is pre-1.0 (package version `0.2.0`). It is published to npm, so there are two ways to run it: `npx agent-taskbay`, which needs no checkout, or from a git checkout, which is also how you develop it. Steps 1 and 2 show both paths; from step 3 on they are the same.
+Agent Taskbay is pre-1.0 (package version `0.2.0`). It is published to npm, so there are two ways to run it: `npx agent-taskbay`, which needs no checkout, or from a git checkout, which is also how you develop it. Steps 1 and 2 show both paths. This guide describes the current checkout; features marked **Unreleased** in the [changelog](../CHANGELOG.md#unreleased), including browsing and tracking tasks started elsewhere, require the source path until included in a published release.
 
 ## Before you start
 

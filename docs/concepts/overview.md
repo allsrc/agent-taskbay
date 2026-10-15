@@ -13,6 +13,7 @@ A2A agent tasks can run for minutes or days. A chat window that holds a stream o
 Taskbay's answer is to treat the console's own database as the record, not the browser connection:
 
 - A task you start is written to the database first, then sent to the agent by a background worker.
+- Tasks started by other systems can be browsed live and deliberately tracked. Automatic discovery is a separate opt-in mode, bounded by history and task limits.
 - Everything that comes back (stream events, webhook pushes, polling results) goes through one path into the database.
 - The screens read the database. They never read from a live pipe to the agent.
 
@@ -51,13 +52,13 @@ The web process and the workers never talk to each other directly. They coordina
 
 Taskbay is an A2A client. It reads an agent's Agent Card, picks one of the interfaces the card advertises, authenticates with credentials the console holds, and sends A2A requests with the official `@a2a-js/sdk`. It speaks A2A over JSON-RPC and HTTP+JSON/REST. It rejects gRPC interfaces. It accepts A2A 1.0 and, through the SDK's compatibility mode, v0.3 agents. The supported matrix is in [Compatibility](../reference/compatibility.md).
 
-An agent needs nothing special to be usable: any A2A agent can be registered, given a task and watched. Three optional extensions let an agent do more:
+An agent with a supported HTTP binding can be registered, given a task and watched, provided its credentials are configured and Taskbay supports its required extensions. An unsupported required extension blocks sending until an administrator explicitly allows it. Three optional extensions let an agent do more:
 
 - a structured form for input,
 - an approval request the console shows to a reviewer (an operator or admin),
 - skill routing, so a person can be granted one skill of an agent rather than the whole agent.
 
-Extensions are opt-in by URI in the Agent Card. See [Build an agent for Taskbay](../guides/build-an-agent-for-taskbay.md).
+Extensions are advertised by URI in the Agent Card. An administrator can also fetch an extended card for display; its extra skills do not change routing or grants. See [Build an agent for Taskbay](../guides/build-an-agent-for-taskbay.md).
 
 ## Who does what
 

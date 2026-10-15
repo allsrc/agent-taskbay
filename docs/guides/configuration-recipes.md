@@ -396,14 +396,14 @@ An event stream that starts with `RUN_STARTED` means it works. `404` with `The A
 
 ## 9. Limit, allow or turn off task discovery
 
-Use this when people should not be able to see tasks other systems started on an agent, because the agent's credential is shared and can list more than they should see.
+Use this to prevent people from discovering more tasks through an agent’s shared credential, which can list more than they should see elsewhere. Existing stored tasks keep their current read grants; revoke grants separately if access must end.
 By default Taskbay lets people with access to the whole agent **browse** an agent's tasks and track the ones they choose ([Task discovery](connect-an-agent.md#task-discovery)).
 
 ```bash
 A2A_TASK_DISCOVERY=off
 ```
 
-- `off` forbids listing agent tasks anywhere in the deployment. `browse` (the default) allows browsing and tracking. `auto` also allows an administrator to set an agent to automatic discovery.
+- `off` disables browsing, tracking and automatic discovery throughout the deployment. Known tasks continue to refresh, including through existing reconciliation list cursors. `browse` (the default) allows browsing and tracking. `auto` also allows an administrator to set an agent to automatic discovery.
 - The value is the highest mode any agent may use; an agent's own setting is lowered to it, never raised ([Catalog and extensions](../reference/configuration.md#catalog-and-extensions)). Anything else stops start-up with `Invalid task discovery configuration: A2A_TASK_DISCOVERY must be one of off, browse, auto.`
 
 To let administrators switch agents to **automatic** discovery (opt-in, per agent), set the cap to `auto`:
