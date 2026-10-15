@@ -4,10 +4,13 @@ import type { TaskRecord } from "../../domain/persistence-model";
 import type { TaskOrigin } from "../../domain/discovery-mode";
 import { encodeTaskCursor } from "../../domain/task-cursor";
 import { object } from "./task-projection";
+import { readSteering, type SteeringSources } from "./steering";
 
 export class TaskQueryService {
   /** `names` resolves people for display (who tracked a task); without it that field is left out. */
-  constructor(private readonly tasks: TaskRepository, private readonly agents: AgentRepository, private readonly names?: (userIds: string[]) => Promise<Record<string, string>>) {}
+  constructor(private readonly tasks: TaskRepository, private readonly agents: AgentRepository, private readonly names?: (userIds: string[]) => Promise<Record<string, string>>,
+    /** Where the steering outcome of messages sent to a working task is read from; without it `detail` leaves `steering` out. */
+    private readonly steering?: SteeringSources) {}
 
   async contentPage(organizationId: string, limit = 100, after?: string) {
     const rows = await this.tasks.listContentPage(organizationId, limit + 1, after);
@@ -56,6 +59,7 @@ export class TaskQueryService {
       });
       view.contextSiblings = siblings.map((sibling) => ({ localId: sibling.id, taskId: sibling.remoteTaskId ?? sibling.id, state: sibling.state, title: sibling.title ?? undefined, updatedAt: sibling.updatedAt.toISOString() }));
     } else view.contextSiblings = [];
+    if (this.steering) view.steering = await readSteering(task, this.steering);
     return view;
   }
 

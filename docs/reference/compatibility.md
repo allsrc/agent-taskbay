@@ -112,6 +112,10 @@ Credentials are bound to origins: a credential is sent only to the origins liste
 | Client SDK and stable `/api/v1` | Not implemented | [#31](https://github.com/allsrc/agent-taskbay/issues/31) |
 | Container images, Helm chart | Not provided | See [Production deployment](../guides/production-deployment.md) |
 
+## Steering a running task
+
+A2A defines no way to steer a task that is already working: a `SendMessage` with the task's ID to a `WORKING` task is accepted or refused at the agent's discretion. Agent Taskbay reports only what it can observe (the agent accepted or refused the message, and whether anything arrived afterwards), never that the agent used it. "Stop and restart with this" is a cancel followed by a new task that references the old one; the cancel is a request, and the agent decides whether it stops. See [Sending more input to a running task](../guides/use-the-console.md#sending-more-input-to-a-running-task).
+
 ## Known limitations
 
 | Limitation | Consequence | Issue |

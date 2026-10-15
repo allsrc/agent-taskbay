@@ -2,12 +2,12 @@
 id: T-16
 title: Stop and restart a task with a new instruction
 phase: 3
-status: todo
+status: done
 depends_on: [T-15, T-05]
 size: M
 gap: G8
 migration: no
-updated:
+updated: 2026-10-15
 ---
 
 # T-16. Restart with this instruction
@@ -56,3 +56,18 @@ Server-side macro endpoint. Preserving partial work.
 ## Notes for later
 
 ## Implementation log
+
+- 2026-10-15 · done: branch plan/T-15-T-16; tests: restart-task.test.ts, restart-dialog.test.tsx, verify-steering-http.mjs
+Done on branch `plan/T-15-T-16`.
+
+- `src/lib/restart-task.ts`: `runRestart` (the two steps, injectable for tests), `cancelOverHttp` (fixed idempotency key), `outgoingFromParts`.
+- `components/chat/restart-dialog.tsx`: `RestartSteps` and `RestartDialog` (`ResponsiveDialog`, buttons only, so keyboard operable). `chat-view.tsx`: **Stop and restart with this** under a steered message of an unfinished task; `send` takes `restartOf`, `messageId` and `rethrow` options.
+- Idempotency: the cancel key is `restart-cancel-<messageId>-<attempt>` and the new task's message id is `restart-<messageId>`, so a double click or a reload repeats the same commands. A cancel that failed is retried with the next attempt number, because a settled command's key returns its old result.
+- Tests: `restart-task.test.ts` (every branch with injected steps, and a mocked `fetch` for the cancel key), `restart-dialog.test.tsx`, and the two-command sequence in `scripts/verify-steering-http.mjs`.
+- Docs: use-the-console, human-in-the-loop, compatibility, CHANGELOG.
+- Hosting profiles: no server change and no background work; only existing routes and commands are used (rules 1 and 3 hold).
+
+Deviations:
+
+- The API-level HTTP check is in the new `scripts/verify-steering-http.mjs`, not `verify-task-http.mjs`, because that script does not use the scenario agent (which is what can refuse a cancel or ignore input). It is in the `test:http` chain.
+- Component tests drive `runRestart` with injected steps and `cancelOverHttp` with a mocked `fetch`, not the dialog through a DOM (the repository has no jsdom).

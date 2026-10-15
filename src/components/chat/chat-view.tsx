@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
@@ -9,6 +9,9 @@ import { AgentAvatar } from "@/components/a2a/primitives";
 import { CommandError } from "@/components/a2a/command-error";
 import { AGENT_HISTORY_NOTE, AgentHistoryDivider, LoadAgentHistoryButton, splitAgentHistory } from "@/components/chat/agent-history";
 import { DiscoveredMarker } from "@/components/chat/discovered-marker";
+import { SteeringChip } from "@/components/chat/steering-chip";
+import { RestartDialog } from "@/components/chat/restart-dialog";
+import { cancelOverHttp, initialRestart, outgoingFromParts, runRestart, type RestartProgress } from "@/lib/restart-task";
 import { Pill } from "@/components/patterns/status";
 import { CommandFailureError, failureFromError, failureFromResponse, type CommandFailure } from "@/lib/command-failure";
 import { Composer } from "@/components/chat/composer";
@@ -27,13 +30,23 @@ import type { OutgoingPart } from "@/lib/message-parts";
 import type { WireEntry } from "@/lib/wire-sequence";
 import { defaultReturnImmediately } from "@/lib/agent-card";
 import { runSend, userThreadMessage } from "@/lib/run-message";
-import { isActiveState, stateName } from "@/lib/task-view";
+import { normalizeParts } from "@/lib/content";
+import type { SteeringEntry } from "@/shared/task-types";
+import { isActiveState, stateName, taskTitle } from "@/lib/task-view";
 import { useAgentStore } from "@/store/agent-store";
 import { useSettingsStore } from "@/store/settings-store";
 import { useTaskStore, type SendConfig, type ThreadMessage, type TrackedTask } from "@/store/task-store";
+import type { DurableTaskView } from "@/shared/task-types";
 import { cn } from "@/lib/utils";
 
 const NEW_TASK = "new";
+
+/** A message can be restarted while its task has not finished. */
+const canRestart = (task: TrackedTask) => task.kind !== "message" && isOpenTask(task);
+
+function RestartButton({ onClick }: { onClick: () => void }) {
+  return <div className="flex justify-end"><Button variant="ghost" size="xs" onClick={onClick}>Stop and restart with this</Button></div>;
+}
 
 export function ChatView({ conversationKey: initialKey, agentId: initialAgentId }: { conversationKey?: string; agentId?: string }) {
   const router = useRouter();
@@ -75,6 +88,10 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
   const [renderedAt] = useState(() => Date.now());
   // What the person last tried to send, so a finished task can be replaced by a new one in the same conversation.
   const [lastSend, setLastSend] = useState<OutgoingPart[] | null>(null);
+  // What happened to each message sent to a working task, by task. Read from the task's detail: list rows and snapshots do not carry it.
+  const [steering, setSteering] = useState<Record<string, SteeringEntry[]>>({});
+  // "Stop and restart with this instruction" in progress: which message, and how far the two steps got.
+  const [restart, setRestart] = useState<{ task: TrackedTask; messageId: string; parts: OutgoingPart[]; progress: RestartProgress; attempt: number } | null>(null);
   const [wire, setWire] = useState<WireEntry[]>([]);
   const [seed, setSeed] = useState<{ id: number; text: string } | undefined>();
   const wireId = useRef(0);
@@ -97,6 +114,28 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
 
   // Follow new content while you are at the bottom, however it grows; scrolling up to read pauses it.
   const { follow } = useStickToBottom({ scroller, watch: [column, composerBar] });
+
+  const refreshSteering = useCallback(async (localId: string) => {
+    try {
+      const response = await fetch(`/api/tasks/${localId}`, { cache: "no-store" });
+      if (!response.ok) return;
+      const body = (await response.json()) as { task?: { steering?: SteeringEntry[] } };
+      setSteering((current) => ({ ...current, [localId]: body.task?.steering ?? [] }));
+    } catch { /* The chip is a convenience; the task itself is unaffected. */ }
+  }, []);
+  // Read again whenever a task of this conversation changes: the agent may have answered since.
+  const taskVersions = tasks.filter((task) => task.kind !== "message" && task.localId).map((task) => `${task.localId}:${(task as { version?: number }).version ?? ""}:${task.state}`).join("|");
+  useEffect(() => {
+    const controller = new AbortController();
+    for (const entry of taskVersions ? taskVersions.split("|") : []) {
+      const localId = entry.split(":")[0];
+      fetch(`/api/tasks/${localId}`, { cache: "no-store", signal: controller.signal })
+        .then((response) => (response.ok ? response.json() : undefined))
+        .then((body: { task?: { steering?: SteeringEntry[] } } | undefined) => { if (body) setSteering((current) => ({ ...current, [localId]: body.task?.steering ?? [] })); })
+        .catch(() => undefined);
+    }
+    return () => controller.abort();
+  }, [taskVersions]);
 
   const pushWire = (dir: WireEntry["dir"], kind: string, json: unknown) =>
     setWire((entries) => [...entries.slice(-199), { id: wireId.current++, at: Date.now(), dir, kind, json }]);
@@ -149,16 +188,21 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
    * `contextId` without a `taskId`; the agent then answers with a Message or
    * opens a new Task, and both land in this conversation.
    */
-  async function send(parts: OutgoingPart[], forTask?: TrackedTask, options?: { forceNew?: boolean }) {
+  async function send(parts: OutgoingPart[], forTask?: TrackedTask, options?: { forceNew?: boolean; restartOf?: TrackedTask; messageId?: string; rethrow?: boolean }) {
     const effectiveTarget = options?.forceNew ? undefined : forTask ?? targetTask;
     setLastSend(parts);
-    if (sending || !agentId || discovering) return;
-    const skillId = effectiveTarget?.skillId ?? (view?.requiresSkill ? selectedSkill || view.skills[0]?.id : undefined);
-    const contextId = view?.requiresSkill ? effectiveTarget?.contextId : tasks.find((task) => task.contextId)?.contextId;
+    if (sending || !agentId || discovering) {
+      if (options?.rethrow) throw new Error("Taskbay is still sending another message. Try again in a moment.");
+      return;
+    }
+    // A restart starts a new task but keeps the old one's skill and context.
+    const like = options?.restartOf ?? effectiveTarget;
+    const skillId = like?.skillId ?? (view?.requiresSkill ? selectedSkill || view.skills[0]?.id : undefined);
+    const contextId = options?.restartOf?.contextId ?? (view?.requiresSkill ? effectiveTarget?.contextId : tasks.find((task) => task.contextId)?.contextId);
     const config: SendConfig = {
       returnImmediately,
       acceptedOutputModes: outputModes,
-      referenceTaskIds: refIds.length ? refIds : undefined,
+      referenceTaskIds: options?.restartOf ? [options.restartOf.taskId] : refIds.length ? refIds : undefined,
       extensions: [...new Set([...settings.extensions.filter((item) => item.enabled).map((item) => item.uri), ...(a2uiOn ? [A2UI_EXTENSION_URI] : [])])],
       // An agent that advertises A2UI learns which catalog this console renders on every message (extension spec).
       ...(a2uiOn ? { metadata: a2uiClientMetadata() } : {}),
@@ -168,7 +212,7 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
     setSending(true);
     setError(null);
     follow();
-    const userMessage = userThreadMessage(parts, { contextId, taskId: effectiveTarget?.taskId }, config);
+    const userMessage = { ...userThreadMessage(parts, { contextId, taskId: effectiveTarget?.taskId }, config), ...(options?.messageId ? { id: options.messageId } : {}) };
     const base = effectiveTarget;
     setPending(userMessage);
     pushWire("out", "SendMessage", {
@@ -202,15 +246,42 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
       setOverride(null);
       setRefIds([]);
     } catch (cause) {
+      if (options?.rethrow) throw cause;
       setError(failureFromError(cause, "Failed to send the message."));
     } finally {
       setSending(false);
       setPending(null);
+      if (effectiveTarget?.localId) void refreshSteering(effectiveTarget.localId);
       if (landed && landed !== key) {
         // Reflect the new conversation in the URL without remounting (keeps wire log and options).
         window.history.replaceState(null, "", `/chat/${landed}`);
       }
     }
+  }
+
+  /** The two steps of a restart. The ids derive from the message being restarted, so a second click or a reload repeats the same commands instead of creating new ones. */
+  const restartSteps = (current: NonNullable<typeof restart>) => ({
+    cancel: () => {
+      pushWire("out", "CancelTask", { method: "CancelTask", params: { id: current.task.taskId } });
+      return cancelOverHttp(current.task, `restart-cancel-${current.messageId}-${current.attempt}`);
+    },
+    readState: async () => {
+      const reply = await fetch(`/api/tasks/${current.task.localId}`, { cache: "no-store" });
+      if (!reply.ok) return undefined;
+      const body = (await reply.json()) as { task?: DurableTaskView };
+      if (body.task) upsertTask(body.task);
+      return body.task?.state;
+    },
+    start: () => send(current.parts, undefined, { forceNew: true, restartOf: current.task, messageId: `restart-${current.messageId}`, rethrow: true }),
+  });
+  async function runRestartFrom(from: "cancel" | "start") {
+    if (!restart || sending) return;
+    // A cancel that failed is tried again as a new command; one that is done is never repeated.
+    const current = from === "cancel" && restart.progress.cancel.status === "failed" ? { ...restart, attempt: restart.attempt + 1 } : restart;
+    if (current !== restart) setRestart(current);
+    const result = await runRestart(restartSteps(current), from, (progress) => setRestart((now) => (now ? { ...now, progress } : now)), current.progress);
+    void refreshSteering(current.task.localId ?? "");
+    if (result.start.status === "done") toast.success("New task started");
   }
 
   if (!agentId) return null;
@@ -308,7 +379,15 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
                 ...(activityMessageIds.has(message.id) || isUpdate(index) || (repeated && index === lastIndex) ? [] : [
                   ...sender(message.role === "user" ? "you" : "agent", message.id),
                   message.role === "user" ? (
-                    <UserBubble key={message.id} message={message} />
+                    <Fragment key={message.id}>
+                      <UserBubble message={message} />
+                      {(steering[task.localId ?? ""] ?? []).filter((entry) => entry.messageId === message.id).map((entry) => (
+                        <Fragment key={entry.commandId}>
+                          <SteeringChip entry={entry} />
+                          {canRestart(task) && <RestartButton onClick={() => setRestart({ task, messageId: message.id, parts: outgoingFromParts(message.parts), progress: initialRestart(), attempt: 0 })} />}
+                        </Fragment>
+                      ))}
+                    </Fragment>
                   ) : (
                     <AgentBubble key={message.id} message={message} taskState={task.kind === "message" ? undefined : task.state} onReply={(text) => void send([{ text, mediaType: "text/plain" }])}
                       extensions={view?.extensions} a2ui={a2uiOn} answered={sending || index !== task.messages.length - 1}
@@ -318,12 +397,21 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
                 ...(index === cardAt ? [<TaskCard key={`card-${task.taskId}`} task={task} canceling={cancelingId === task.taskId} onCancel={() => void cancelTask(task)} />] : []),
                 ...(runs.has(index) ? [...sender("agent", `log-${message.id}`), <ProgressLog key={`log-${message.id}`} messages={runs.get(index)!} active={isOpenTask(task)} agentName={name} />] : []),
               ]);
+              // Messages that never reached the task (the agent refused them, or Taskbay cannot tell) are not in its history, so they are shown here.
+              const unsent = (steering[task.localId ?? ""] ?? []).filter((entry) => entry.text && !task.messages.some((message) => message.id === entry.messageId));
               return (
                 <div key={task.taskId} className="flex flex-col gap-3.5">
                   <LoadAgentHistoryButton task={task} onLoaded={upsertTask} />
                   {task.origin === "discovered" && <DiscoveredMarker task={task} now={renderedAt} />}
                   {history.length > 0 && <AgentHistoryDivider>What Taskbay received</AgentHistoryDivider>}
                   {rows}
+                  {unsent.map((entry) => (
+                    <Fragment key={entry.commandId}>
+                      <UserBubble message={{ id: entry.messageId, role: "user", parts: normalizeParts([{ text: entry.text }]), timestamp: entry.sentAt }} />
+                      <SteeringChip entry={entry} />
+                      {canRestart(task) && <RestartButton onClick={() => setRestart({ task, messageId: entry.messageId, parts: [{ text: entry.text!, mediaType: "text/plain" }], progress: initialRestart(), attempt: 0 })} />}
+                    </Fragment>
+                  ))}
                   {a2uiOn && (
                     <A2uiSurfaces state={surfacesFromParts(task.messages.filter((message) => message.role === "agent").flatMap((message) => message.parts))}
                       interactive={!sending && isOpenTask(task)} onAction={(message) => send([{ data: message, mediaType: "application/a2ui+json" }], task)} />
@@ -404,12 +492,24 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
               sending={sending}
               disabled={discovering}
               seed={seed}
-              hint={waiting ? "Reply to the agent, or pick an option above…" : targetTask ? "Send a follow-up to the running task…" : undefined}
+              hint={waiting ? "Reply to the agent, or pick an option above…" : targetTask ? "Send more input to the running task. The agent decides whether to use it." : undefined}
               onSend={send}
             />
           </div>
         </div>
       </div>
+
+      {restart && (
+        <RestartDialog
+          open
+          onOpenChange={(open) => { if (!open) setRestart(null); }}
+          progress={restart.progress}
+          taskTitle={taskTitle(restart.task, 60)}
+          onConfirm={() => void runRestartFrom("cancel")}
+          onRetryStart={() => void runRestartFrom("start")}
+          onSendAsInput={() => { const { parts, task } = restart; setRestart(null); void send(parts, task); }}
+        />
+      )}
 
       <SideRail
         open={railVisible}

@@ -75,7 +75,23 @@ export interface TrackedTask {
 /** Another task in the same context (same agent, tenant and context id). */
 export interface ContextSibling { localId: string; taskId: string; state: string; title?: string; updatedAt: string }
 
+/** What happened to one message a person sent to a task that was already working. Taskbay claims nothing about what the agent did with it. */
+export type SteeringOutcome = "delivered" | "responded" | "refused" | "waiting" | "unknown";
+
+export interface SteeringEntry {
+  messageId: string;
+  commandId: string;
+  sentAt: string;
+  outcome: SteeringOutcome;
+  /** Why the agent refused (see `RemoteErrorKind`); only when `outcome` is `refused`. */
+  errorKind?: string;
+  /** The text of a message that never reached the task (refused, waiting, unknown), so it can still be shown. */
+  text?: string;
+}
+
 export interface DurableTaskView extends TrackedTask {
+  /** Messages sent to this task while it was submitted or working, newest last. Only on a task's detail, never on list rows. */
+  steering?: SteeringEntry[];
   /** Other tasks in this task's context the caller may read, newest first, at most 20. Only on a task's detail. */
   contextSiblings?: ContextSibling[];
   /** Optimistic database version; fences delayed committed snapshots in the UI. */
