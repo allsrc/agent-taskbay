@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Ellipsis, Maximize2, Pilcrow, WandSparkles } from "lucide-react";
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { JsonTree } from "@/components/JsonTree";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,7 @@ import { ResponsiveDialog } from "@/components/patterns/responsive-dialog";
 import { isTabular, parseCsv } from "@/lib/content";
 import { formattedView, profileContent, resolveView, VIEW_LABEL, type ContentProfile, type ViewKind, type ViewMode } from "@/lib/content-view";
 import { htmlPreviewDocument, sanitizeHtml } from "@/lib/html-preview";
+import { remarkExplicitLinksOnly } from "@/lib/markdown-links";
 import { cn } from "@/lib/utils";
 import { Clamp, type ClampSize } from "@/components/long-content";
 
@@ -70,12 +71,22 @@ export function RichHtmlPreview({ text }: { text: string }) {
 
 const MENU_LABEL: Record<ViewKind, string> = { ...VIEW_LABEL, html: "Sanitized HTML" };
 
+/**
+ * Markdown from an agent never loads remote images, and only links the author wrote (see `remarkExplicitLinksOnly`). A link
+ * opens in a new tab without telling the target who sent you; an address with an unsafe scheme is dropped by
+ * react-markdown's URL filter and shows as its label.
+ */
+const MARKDOWN_COMPONENTS: Components = {
+  img: ({ alt }) => <span>{alt ? `Image: ${alt}` : "Remote image omitted"}</span>,
+  a: ({ href, children }) => (href ? <a href={href} target="_blank" rel="noopener noreferrer nofollow">{children}</a> : <span>{children}</span>),
+};
+
 function ContentBody({ text, view, profile, streaming }: { text: string; view: ViewKind; profile: ContentProfile; streaming: boolean }) {
   const caret = streaming && <span className="text-brand-text animate-caret">▌</span>;
   if (view === "markdown") {
     return (
       <div className="markdown-content break-words">
-        <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ img: ({ alt }) => <span>{alt ? `Image: ${alt}` : "Remote image omitted"}</span> }}>{text}</ReactMarkdown>
+        <ReactMarkdown remarkPlugins={[remarkGfm, remarkExplicitLinksOnly]} components={MARKDOWN_COMPONENTS}>{text}</ReactMarkdown>
         {caret}
       </div>
     );
