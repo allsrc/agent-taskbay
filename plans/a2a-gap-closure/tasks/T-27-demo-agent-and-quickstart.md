@@ -2,7 +2,7 @@
 id: T-27
 title: Demo agent and quickstart for tasks started elsewhere
 phase: 2
-status: in_progress
+status: done
 depends_on: [T-26, T-12]
 size: M
 gap: dev-startup
@@ -52,3 +52,5 @@ Real agents, screenshots that cannot be reproduced, any production-only setup.
 ## Notes for later
 
 ## Implementation log
+
+- 2026-10-15 · done: scripts/fixture-form-agent.mjs gains the 'automation' variant (two tasks a pipeline 'started': Rotate staging credentials waiting for input, Nightly report finished; ListTasks, GetTask, SendMessage, CancelTask), printed by demo-agent; quickstart walk-through 7, README, cli.md; src/lib/fixture-automation-agent.test.ts; verify-package.mjs now registers the card from the packed install, browses, tracks and checks origin=discovered. npm run verify:package passed (packed tarball, install, launch, browse and track, restart). Whole npm run check passed on the merged tree.
