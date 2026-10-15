@@ -101,6 +101,10 @@ try {
   assert.equal(fresh.state, "TASK_STATE_WORKING");
   assert.ok(fresh.messages.some((message) => (message.referenceTaskIds ?? []).includes(old.taskId)), "the new task references the old one");
   assert.equal(fresh.referenceLinks[old.taskId], old.localId);
+  assert.deepEqual(fresh.related.references.map((task) => task.localId), [old.localId]);
+  assert.deepEqual((await detail(old.localId)).related.referencedBy.map((task) => task.localId), [fresh.localId]);
+  assert.equal(fresh.related.references[0].state, "TASK_STATE_CANCELED");
+  assert.ok((await call("/api/tasks")).body.tasks.every((task) => task.related === undefined));
 
   console.log("Steering HTTP verification passed (pglite, embedded worker).");
 } finally {

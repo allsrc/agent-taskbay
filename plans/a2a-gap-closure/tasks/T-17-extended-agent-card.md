@@ -2,12 +2,12 @@
 id: T-17
 title: Fetch and show the extended Agent Card
 phase: 4
-status: todo
+status: done
 depends_on: [T-01, T-03]
 size: M
 gap: G6
 migration: yes
-updated:
+updated: 2026-10-15
 ---
 
 # T-17. Extended Agent Card
@@ -58,3 +58,22 @@ Using extended skills for routing or grants.
 ## Notes for later
 
 ## Implementation log
+
+- 2026-10-15 · done: branch plan/T-17-extended-agent-card; npm run check passed; browser desktop and phone verified; PostgreSQL variant skipped locally
+Implemented on `plan/T-17-extended-agent-card`.
+
+- Added `Migration0007_ExtendedCardKind` using the migration generator, converted to ESM, and raised `DB_SCHEMA_VERSION` to 7. Existing snapshots default to `public`; all existing snapshot readers still use `findLatestCardSnapshot`, which now selects only public cards. Extended reads are separate and organization-scoped.
+- Added `FetchExtendedCardService`, an `ExtendedCardGateway` port and A2A adapter, runtime wiring, and the administrator-only `POST /api/agents/{agentId}/extended-card/refresh` route. It uses the existing agent credential and public-security limiter (30 per minute across instances). The actual T-03 kind is `extended_card_not_configured`; it returns a neutral result without writing a snapshot or logging the remote error.
+- Hardened the existing `extendedCard` gateway operation: a 2 MiB response budget before SDK parsing, the same safe-URL checks as public discovery, and pinned signature verification before redaction and storage. Invalid, untrusted and required-but-missing signatures are rejected. Protected errors remain generic.
+- Catalog and individual-agent responses expose an optional `extendedCard` display with skill descriptions, a fetch time and streaming/push booleans. Only the agent detail screen merges these skills; chat and grant selectors retain their public views. Grant creation and skill routing reject extended-only skills, including an extended fetch before the first stored public discovery.
+- Added the Fetch/Refresh row, progress/unavailable/failure/retry states, timestamp, authenticated capability display and extra skill pills. The `showcase` demo agent supports the flow. Browser verification fetched the demo card successfully at 1200px and inspected it at 390px; neither viewport overflowed horizontally.
+- Tests: `extended-card.test.ts` (view merge and minimized display), `extended-card-gateway.test.ts` (URL and size limits, pinned valid/tampered/forged signatures, credential echo redaction), `extended-card-row.test.tsx` (row states), `extended-card.db.test.ts` (upgrade, restart, public reader/routing/grant isolation, whole-agent versus skill-only reads, two organizations), `verify-extended-card-http.mjs` (fetch, persistence, neutral refusal, invalid-card non-storage, limiter), and non-admin route refusals in `verify-identity-http.mjs`. Both new integration suites are in the explicit npm script chains.
+- Updated connect/use guides, HTTP/data/compatibility/CLI references, threat model, upgrade notes and changelog. Relative documentation links resolve; the simple checker finds an existing inline-code `[label](url)` example in CHANGELOG, which is not a document link.
+- Verification: `npm run check` passed (561 unit tests, 44 database tests, migrations, schema drift check, production build, all HTTP suites including the new extended-card suite). Focused suites and TypeScript also passed. PostgreSQL test variants are present but skipped locally because `A2A_TEST_POSTGRES_URL` is unset and the Docker daemon is unavailable.
+
+Hosting profiles and deviations:
+
+- Rules 1, 3, 6 and 9: snapshots and rate budgets live in the database; display reads enforce organization and whole-agent grants. Both database variants use the same migration/isolation contract; only PGlite ran here. No secrets or raw extended cards are returned to the browser. Rules 2 and 7 require no new worker: this is an on-demand read with per-request adapters. Rule 5 is exercised by the showcase demo. Rule 8 adds visible fetch status and retry, with no background behavior.
+- Rule 4 needs a deployment sequence: although the new column has a safe default, an old instance would read the newest extended snapshot as public. Upgrade all web and worker instances before the first extended fetch; mixed-version operation after an extended snapshot is written is unsupported. This is recorded in the upgrade guide.
+- Extended display is restricted to whole-agent readers rather than disclosing extra skills to a principal with only a skill grant. Such readers keep the existing restricted public view.
+- The 2 MiB wire budget includes the protocol envelope, so a card exactly at the public-card limit may be refused slightly earlier. This bounds parsing before trusting the SDK result and is documented.

@@ -92,6 +92,10 @@ Releases up to 0.2.0 shipped sixteen timestamp-named migrations; they were squas
 migrations table is rewritten to the single baseline. It is shown as schema v0 in the messages and backup name until then. A database that is missing some of the sixteen is refused with `This database was created by an older Agent Taskbay release…`. Start it once with
 `agent-taskbay@0.2.0`, then start the new version.
 
+**Extended-card snapshots (schema version 7).** The new `kind` column defaults existing cards to `public`. Upgrade every web and worker instance before anyone uses **Fetch** for an extended card. Earlier code reads the latest snapshot without checking its kind and could mistake an extended card for the public one. Use the stop, migrate, then restart order above; mixed-version operation after the first extended fetch is unsupported.
+
+**Related-task links (schema version 8).** The migration adds `task_links` without changing existing task rows. Apply it before deploying new web and worker code. New message projections derive links as they are stored. To populate links for existing history immediately, [rebuild the projections](#rebuild-projections); a rebuild reuses the ledger and does not contact agents. Older instances can coexist against the additive schema, but only updated instances derive links.
+
 With more than one web replica keep `A2A_AUTO_MIGRATE` off and run `db:migrate` once per release. Replicas racing to migrate is the case the default avoids.
 
 The migrations add append-only triggers on the security audit table and on the fixed core of approval requests. Updates and deletes on those rows fail with `audit records are append-only` or

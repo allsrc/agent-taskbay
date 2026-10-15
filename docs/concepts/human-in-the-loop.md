@@ -32,6 +32,12 @@ whole agent, and ownership, due times, escalation and notes work on it unchanged
 
 A person can also send more input to a task that is already working. Agent Taskbay delivers the message and shows whether the agent accepted it, answered afterwards or refused it. It does not claim the agent used the input: A2A defines no live steering, so the agent decides. To change direction for certain, cancel the task and start a new one in the same context that references the old one (`referenceTaskIds`). The console offers this as **Stop and restart with this**, two ordinary commands shown as two steps; it cannot promise that the agent stops or keeps partial work. See [Sending more input to a running task](../guides/use-the-console.md#sending-more-input-to-a-running-task).
 
+## Related work
+
+An agent can describe work that builds on another task by putting its ID in a message's `referenceTaskIds`. A person can also send references, including when restarting a task with a new instruction. The task page shows the known links in both directions under **Related tasks**, so someone following delegated work can move between it and the work that referenced it.
+
+A2A defines no parent-child hierarchy here. Taskbay resolves references only for tasks it already knows in the same organization, agent and tenant; it does not discover tasks or follow cross-agent URLs from a reference. Each linked task needs its own read permission. Canceling one does not cancel another. See [Related tasks](../guides/use-the-console.md#related-tasks).
+
 ## Approvals
 
 An approval is a `DecisionRequest` scoped to one A2A task. The agent, tenant and skill come from the task's own row, never from the proposed content. The design goal: the record alone can show who approved exactly what, and what happened next.

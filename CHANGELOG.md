@@ -31,6 +31,10 @@ the project uses [semantic versioning](https://semver.org/) once it reaches 1.0;
 
 ### Added
 
+- Task pages show **Related tasks** in both directions (**References** and **Referenced by**) from user and agent messages’ `referenceTaskIds`. Links persist across restarts and projection rebuilds, resolve only within the same organization, agent and tenant, and reveal only tasks the reader may access. Schema version 8.
+
+- Administrators can **Fetch** and **Refresh** an extended Agent Card using the stored agent credential. Extra skills appear as **Authenticated** for whole-agent readers; public skills, routing, grants and extension negotiation remain unchanged. Extended snapshots use schema version 7. Upgrade all instances before the first extended-card fetch.
+
 - A message sent to a task that is working now shows what Taskbay can tell about it: **Delivered**, **Agent responded**, **Agent refused: …**, **Waiting for a response** (then **No response yet** after 60 seconds) or **Not sure it arrived**. `GET /api/tasks/{taskId}` returns it as `steering`, worked out when you read it; nothing new is stored. Taskbay does not claim the agent used the input.
 - **Stop and restart with this** in chat cancels a running task and then starts a new task in the same conversation that references the old one, as two visible steps. The new task starts only after the old one is canceled, a failed step says what did and did not happen, and a repeat or reload does not create a second cancel or task.
 - The push worker removes push configurations Taskbay left on agents for finished tasks (a crash mid-registration, or Taskbay down when the task ended). It deletes only configurations carrying a registration ID Taskbay issued or a URL under its own `/api/webhooks/a2a/` path, checks each task at most daily, and records `push.cleanup.<count>` in the security audit.

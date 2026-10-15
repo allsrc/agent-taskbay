@@ -28,7 +28,7 @@ export async function withTaskQueries<T>(work: (queries: TaskQueryService, organ
       await bootstrapDefaultLocalOrganization(repositories.organizations);
     if (!organization) throw new Error("Unknown query organization.");
     const names = async (userIds: string[]) => Object.fromEntries((userIds.length ? await em.find(UserEntity, { id: { $in: userIds } }) : []).map((user) => [user.id, user.displayName]));
-    return work(new TaskQueryService(repositories.tasks, repositories.agents, names, { events: repositories.taskEvents, commands: repositories.commands, store }), organization.id);
+    return work(new TaskQueryService(repositories.tasks, repositories.agents, names, { events: repositories.taskEvents, commands: repositories.commands, store }, repositories.taskLinks), organization.id);
   }, orm);
 }
 
@@ -74,7 +74,7 @@ export function createTaskObserver(session: ObservationSession, options: {
     return em.transactional(async (transaction) => {
       await options.beforeObserve?.(transaction);
       const ports = createPersistenceRepositories(transaction);
-      const service = new ObserveTaskService(ports.agents, ports.tasks, ports.taskEvents, ports.outbox);
+      const service = new ObserveTaskService(ports.agents, ports.tasks, ports.taskEvents, ports.outbox, undefined, ports.taskLinks);
       const view = await service.observe({
         ...session, organizationId: organization.id, tenant: session.tenant ?? "",
         event: archived.event, originalEventObjectKey: archived.originalEventObjectKey,

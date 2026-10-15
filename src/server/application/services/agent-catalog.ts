@@ -112,6 +112,7 @@ export class AgentCatalogService {
     if (!agent) throw new Error("Unknown agent.");
     const now = this.clock.now();
     await this.agents.appendCardSnapshot({
+      kind: "public",
       id: this.createId(), agentId: agent.id, fetchedAt: now,
       resolvedCardUrl: snapshot.resolvedCardUrl,
       rawCardJson: snapshot.rawCardJson, normalizedCardJson: snapshot.normalizedCardJson,

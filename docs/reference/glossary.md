@@ -85,6 +85,9 @@ An A2A push notification an agent sends into Taskbay at `POST /api/webhooks/a2a/
 **Reconciliation**\
 Polling that keeps tasks current when streams and push miss something: `GetTask` for each open known task about every 15 seconds, and `ListTasks` per agent about every 60 seconds. It only updates tasks the console already knows and never reopens a finished task. See [Durable tasks](../concepts/durable-tasks.md#keeping-a-task-current-without-a-browser).
 
+**Related task**\
+A stored task linked to another by `referenceTaskIds` on a user or agent message. The task page shows **References** and **Referenced by**, restricted to tasks you may read. Resolution stays within the same organization, agent and tenant; a link is not a parent-child relationship or a rule for cancellation. See [Related tasks](../guides/use-the-console.md#related-tasks).
+
 **Revision and content digest**\
 A revision is a numbered, immutable version of an approval's proposed action; a new proposal or a reviewer's edit creates the next one. Its content digest is the SHA-256 of the canonical action. A decision names the revision the reviewer read and fails with `409` if a newer one exists. See [Human in the loop](../concepts/human-in-the-loop.md#approvals).
 

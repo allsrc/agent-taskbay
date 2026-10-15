@@ -42,7 +42,7 @@ async function contract(config: DatabaseConfig, directory: string) {
     // Operational revision changes on rebuild; deterministic content excludes it.
     const read = async (id: string = legacyId, organizationId: string = org.id) => {
       const view = await withTaskQueries((queries) => queries.detail(organizationId, id), orm);
-      if (view) { delete view.version; delete view.contextSiblings; delete view.steering; }
+      if (view) { delete view.version; delete view.contextSiblings; delete view.steering; delete view.related; }
       return view;
     };
     expect(await read()).toMatchObject({ messages: [], artifacts: [] });

@@ -5,6 +5,7 @@ import { agentRegistry } from "@/lib/agent-registry";
 import { apiError } from "@/lib/api-response";
 import type { ConnectionView } from "@/lib/connection-interface";
 import { readJsonRequest } from "@/lib/request-guard";
+import { readExtendedCard } from "@/server/runtime/extended-card";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,6 +18,7 @@ export interface CatalogEntry {
   description?: string;
   skills?: Array<{ id: string; name: string; description: string; tags: string[] }>;
   card?: unknown;
+  extendedCard?: import("@/lib/extended-card").ExtendedCardView;
   error?: string;
   trust?: string;
   /** Extensions the card requires: which ones Taskbay cannot honor, and whether an administrator allowed sending anyway. */
@@ -37,6 +39,7 @@ async function handleGET() {
       const discovery = await discoverRegisteredAgent(agent);
       const card = discovery.card as { name?: string; description?: string; skills?: CatalogEntry["skills"] };
       return { id: agent.id, cardUrl: agent.cardUrl, source: agent.source, name: card.name, description: card.description, skills: card.skills, card: discovery.card, trust: discovery.trust, connection: discovery.connection,
+        extendedCard: await readExtendedCard(agent.id),
         extensions: { required: discovery.sideband?.requiredUris ?? [], unsupportedRequired: discovery.sideband?.unsupportedRequiredUris ?? [], override: agent.extensionOverride ?? false } };
     } catch (error) {
       return { id: agent.id, cardUrl: agent.cardUrl, source: agent.source, error: error instanceof Error ? error.message : "Agent discovery failed." };

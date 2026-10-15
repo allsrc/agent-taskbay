@@ -32,6 +32,6 @@ export async function recordArtifactAccess(organizationId: string, taskId: strin
       {onConflictFields: ["taskId", "digest"], onConflictAction: "ignore"});
   }, orm);
 }
-export async function publicSecurityRateLimit(scope: "login" | "callback" | "webhook") {
-  return withRequestEntityManager((em) => takeRateLimit(em, `public:${scope}`, scope === "webhook" ? 1200 : 240));
+export async function publicSecurityRateLimit(scope: "login" | "callback" | "webhook" | "extended-card") {
+  return withRequestEntityManager((em) => takeRateLimit(em, `public:${scope}`, scope === "webhook" ? 1200 : scope === "extended-card" ? 30 : 240));
 }

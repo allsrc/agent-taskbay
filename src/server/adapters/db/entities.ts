@@ -75,6 +75,7 @@ const AgentCardSnapshotSchema = defineEntity({
   tableName: "agent_card_snapshots",
   properties: {
     id: p.uuid().primary(),
+    kind: p.text().$type<"public" | "extended">().default("public"),
     agentId: () =>
       p.manyToOne(AgentEntity).mapToPk().joinColumn("agent_id"),
     fetchedAt: p.datetime(),
@@ -159,6 +160,24 @@ const TaskSchema = defineEntity({
 export class TaskEntity extends TaskSchema.class {}
 Object.defineProperty(TaskEntity, "name", { value: "TaskEntity" });
 TaskSchema.setClass(TaskEntity);
+
+const TaskLinkSchema = defineEntity({
+  name: "TaskLinkEntity",
+  tableName: "task_links",
+  properties: {
+    id: p.uuid().primary(),
+    organizationId: () => p.manyToOne(OrganizationEntity).mapToPk().joinColumn("organization_id"),
+    fromTaskId: () => p.manyToOne(TaskEntity).mapToPk().joinColumn("from_task_id"),
+    toTaskId: () => p.manyToOne(TaskEntity).mapToPk().joinColumn("to_task_id"),
+    kind: p.text().$type<"references">(),
+    createdAt: p.datetime(),
+  },
+  uniques: [{ name: "uq_task_links_reference", properties: ["fromTaskId", "toTaskId", "kind"] }],
+  indexes: [{ name: "idx_task_links_to_task", properties: ["toTaskId"] }],
+});
+export class TaskLinkEntity extends TaskLinkSchema.class {}
+Object.defineProperty(TaskLinkEntity, "name", { value: "TaskLinkEntity" });
+TaskLinkSchema.setClass(TaskLinkEntity);
 
 const TaskEventSchema = defineEntity({
   name: "TaskEventEntity",
@@ -711,6 +730,7 @@ export const persistenceEntities = [
   AgentEntity,
   AgentCardSnapshotEntity,
   TaskEntity,
+  TaskLinkEntity,
   TaskEventEntity,
   OutboxMessageEntity,
   TaskCommandEntity,

@@ -40,8 +40,10 @@ export function redactSecrets<T>(value: T, secrets: string[] = []): T {
 /** Each socket resolves and validates the exact address it connects to. No redirect or ambient proxy. */
 export function createSafeFetch(options: Pick<ConnectionConfig, "auth" | "headers"> & {
   telemetry: WireEvent[]; timeoutMs: number; credentialOrigins?: string[]; secrets?: string[];
+  maxResponseBytes?: number;
   tls?: {cert?: string; key?: string; ca?: string};
 }): typeof fetch {
+  const maxBytes = options.maxResponseBytes ?? MAX_AGENT_RESPONSE_BYTES;
   return async (input, init) => {
     const source = input instanceof Request ? input : undefined;
     const url = validateTargetUrl(typeof input === "string" || input instanceof URL ? input.toString() : input.url);
@@ -76,7 +78,7 @@ export function createSafeFetch(options: Pick<ConnectionConfig, "auth" | "header
       const response = await undiciFetch(url, { ...init, headers, redirect: "manual", dispatcher,
         signal: AbortSignal.any([AbortSignal.timeout(options.timeoutMs), ...(init?.signal ? [init.signal] : [])]) } as Parameters<typeof undiciFetch>[1]);
       if (response.status >= 300 && response.status < 400) { await response.body?.cancel(); throw new Error("Agent redirects are not permitted."); }
-      if (Number(response.headers.get("content-length") ?? 0) > MAX_AGENT_RESPONSE_BYTES) {
+      if (Number(response.headers.get("content-length") ?? 0) > maxBytes) {
         await response.body?.cancel(); throw new Error("Agent response exceeds the safety limit.");
       }
       options.telemetry.push({id: crypto.randomUUID(), timestamp: new Date().toISOString(), phase: "response", method, url: url.href,
@@ -89,7 +91,7 @@ export function createSafeFetch(options: Pick<ConnectionConfig, "auth" | "header
             const {done,value} = await reader.read();
             if (done) { controller.close(); await dispatcher.close(); return; }
             total += value.byteLength;
-            if (total > MAX_AGENT_RESPONSE_BYTES) throw new Error("Agent response exceeds the safety limit.");
+            if (total > maxBytes) throw new Error("Agent response exceeds the safety limit.");
             controller.enqueue(value);
           } catch (error) { controller.error(error); await reader.cancel().catch(() => undefined); await dispatcher.destroy(); }
         },

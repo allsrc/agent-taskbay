@@ -92,6 +92,18 @@ curl -s http://localhost:3002/api/agents
 
 Each entry has the card, a `trust` value, or an `error` string if discovery failed. In local development mode this works without a login; in OIDC mode it needs a session cookie.
 
+## Extended Agent Card
+
+An agent can advertise an extended card for authenticated callers. On its page, an administrator can choose **Fetch** in the **Extended card** row under **Capabilities**, then **Refresh** to fetch it again. Taskbay uses the agent's stored server-side credential; no credential goes to the browser.
+
+After a successful fetch the row shows **Fetched** and the time. Extra skills appear after public skills with an **Authenticated** pill, and authenticated streaming and push capabilities appear separately. They are information only: chat skill choices, skill grants, required extensions and routing continue to use the public card. People with read access to the whole agent can see the stored display; a skill-only grant does not reveal extra skills.
+
+The `showcase` sample from `npx agent-taskbay demo-agent` supports this flow without a credential and returns an **Authenticated demo skill**. A real agent decides which credential it requires.
+
+**Not configured on this agent** is a neutral result. **Fetch failed** offers **Retry**; check the connection, network policy and signing keys. A failed refresh keeps the last successfully fetched card. Fetching is limited to 30 calls per minute across the deployment, in addition to the administrator's normal budget.
+
+Extended cards pass the same URL, origin, private-network and signature checks as public cards. Their response, including the protocol envelope, is capped at 2 MiB before parsing. Cards with invalid or untrusted signatures are refused; unsigned cards are refused when `A2A_REQUIRE_SIGNED_CARDS=true`.
+
 ## Task discovery
 
 Other systems can start tasks on an agent you connect: a pipeline, a schedule, a colleague's own client. Taskbay can show you those tasks so you can answer, steer or cancel them.

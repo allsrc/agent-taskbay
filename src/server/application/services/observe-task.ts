@@ -10,6 +10,8 @@ import type { StreamMetadata } from "../ports/subscriptions";
 import { eventSubject, object } from "./task-projection";
 
 import { eventDigest } from "./event-identity";
+import type { TaskLinkRepository } from "../ports/task-links";
+import { recordTaskLinks } from "./task-links";
 export { canonicalJson, eventDigest } from "./event-identity";
 import { reduceTaskLedger, TASK_PROJECTOR_VERSION } from "./versioned-task-projection";
 
@@ -56,6 +58,7 @@ export class ObserveTaskService {
     private readonly events: TaskEventRepository,
     private readonly outbox: OutboxRepository,
     private readonly clock: Clock = { now: () => new Date() },
+    private readonly links?: TaskLinkRepository,
   ) {}
 
   /** The runtime adapter wraps this entire operation in one database transaction. */
@@ -134,6 +137,7 @@ export class ObserveTaskService {
         contentJson: JSON.parse(JSON.stringify(view)) as JsonValue,
       };
       await this.tasks.saveProjection(projection);
+      if (this.links) await recordTaskLinks(this.links, projection, view, now);
       await enqueueTaskFreshness(this.outbox, input.organizationId, task.id, now);
       // Tell the responsible people when work needs them or ends; entering the same state again re-notifies, replays do not.
       const next = view.state.replace("TASK_STATE_", "");

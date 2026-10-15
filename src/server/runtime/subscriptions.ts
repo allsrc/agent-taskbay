@@ -68,7 +68,7 @@ export async function readTaskFeed(localId: string, after: number) {
     const task = await ports.tasks.findById(org.id, localId);
     if (!task) throw new CommandError("Task not found.", 404);
     return { task, events: await ports.taskEvents.readFeed(org.id, localId, after, 100),
-      view: await new TaskQueryService(ports.tasks, ports.agents).detail(org.id, localId),
+      view: await new TaskQueryService(ports.tasks, ports.agents, undefined, undefined, ports.taskLinks).detail(org.id, localId),
       subscription: await ports.subscriptions.findByTaskId(org.id, localId) };
   });
 }

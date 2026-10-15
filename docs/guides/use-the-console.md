@@ -45,10 +45,16 @@ Select an agent to see its card:
 - **Capabilities**: streaming, push notifications, extended card, and the advertised extension URIs.
 - **Connection**: the binding, interface URL, protocol version, tenant or tenants, and how each advertised extension is used (negotiated, ignored, or required but not supported). See [Reading the Connection card](connect-an-agent.md#reading-the-connection-card).
 - **Task discovery**: how Taskbay finds tasks other systems started on this agent (**Browse only**, **Off**), with **Browse tasks** for people who may use it. Only administrators can change the mode; the choices a deployment forbids are disabled and say so. See [Task discovery](connect-an-agent.md#task-discovery).
-- **Skills**: name and description of each advertised skill.
+- **Skills**: name and description of each public skill. Extra skills from a fetched extended card follow with an **Authenticated** pill; they cannot be selected for routing or grants.
 - **Security**: the card signature result, advertised security schemes, and default input and output modes.
 
 **Start chat** opens a new chat with that agent. It only appears when the card was fetched. **Connection setup** reopens the connect dialog with this card URL. **Remove** appears for agents added in the console, not for agents configured through environment variables, and asks "Remove this agent from the catalog?" first.
+
+### Fetch the extended card
+
+When the public card advertises it, administrators see **Fetch** in the **Extended card** row under **Capabilities**. After a fetch it shows **Fetched** and the time, with **Refresh**. Readers with whole-agent access see the extra skills and authenticated capability values; a skill-only grant does not expose them.
+
+**Not configured on this agent** is neutral. **Fetch failed** offers **Retry** and keeps the last good card. Taskbay uses the agent's stored credential and normal network and signature checks. See [Extended Agent Card](connect-an-agent.md#extended-agent-card) for limits and the sample agent.
 
 ### Browse an agent's tasks
 
@@ -223,6 +229,14 @@ A task another system started carries a **Discovered** tag in the list. Its page
 
 An agent can hold several tasks in one context. When the task you open has company, its page shows **Other tasks in this context** (up to 20, newest first, only those you may read), each a link with its state. **Show all in the Tasks list** opens the Tasks list narrowed to that context, with a **Context: <first 8 characters>** chip above the list; select the chip to remove the narrowing. The narrowing stays while you open tasks from the list. A task without a context has no such section.
 
+### Related tasks
+
+A task page shows **Related tasks** when a message on that task refers to another stored task, or another task refers to it. **References** lists tasks this one mentions; **Referenced by** lists tasks that mention it. Each row links to the task and shows its title, agent and current state. A restart that references the old task appears in both directions.
+
+These links come from `referenceTaskIds` on user or agent messages. They do not imply a parent, execution order, shared context, or automatic cancellation. References resolve only within the same agent and tenant in your organization. Unknown IDs are ignored, and Taskbay does not fetch or track tasks just because a message references them. If the task becomes known later, a subsequent projection or rebuild can resolve it.
+
+You see only tasks you may read; an empty group is hidden, and the entire section is hidden when neither group has readable tasks. Removing an agent from the catalog disables it and keeps its task history and links. Links use stored task state and do not need a live connection to the agent.
+
 Open a task to see its detail page. The header shows the title, state, full task ID, context ID and agent. The buttons are:
 
 - **Refresh** reloads the task.
@@ -241,6 +255,7 @@ The cards are:
 | **Approvals** | Approvals for this task, and **Request approval** while the task is active |
 | **Internal notes** | Team notes, never sent to the agent |
 | **Audit trail** | The latest 8 entries for this task, and **View the full trail** |
+| **Related tasks** | **References** and **Referenced by**, with links and state for tasks you may read. Hidden when empty. |
 | **Identifiers** | `localId` (the console's own ID, used in URLs), `taskId`, `tenant`, `contextId`, the number of messages (`messageIds`), the artifact IDs, and any `referenceTaskIds`. A reference links to the other task when the console knows it. |
 
 The remote IDs come from the agent and are for diagnosis. The console uses `localId` for links and permission checks. See [Durable tasks](../concepts/durable-tasks.md#identity-of-remote-ids).

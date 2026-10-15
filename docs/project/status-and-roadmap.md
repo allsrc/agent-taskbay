@@ -18,6 +18,7 @@ Agent Taskbay is **pre-1.0**. The package version is `0.2.0` and it is published
 | Definite refusals by an agent are recorded as rejected with a kind; finished tasks are not continued; an unsupported required extension blocks sending until an administrator allows it | `npm run test:db` (`commands.db.test.ts`, `terminal-guard.db.test.ts`, `required-extensions.db.test.ts`) and `npm run test:http` (`verify-task-http.mjs`) |
 | Send a task, stream it, cancel it, and see it again after the browser closes and the server restarts | `npm run test:db` and `npm run test:http` (`verify-task-http.mjs`) |
 | Webhook (push) and polling reconciliation feeding the same idempotent ingestion path | `npm run test:db` (`push.db.test.ts`, `reconciliation.db.test.ts`) |
+| Related tasks in both directions from message references, filtered by read grants; same agent and tenant only | `npm run test:db` (`task-links.db.test.ts`), `npm test` (`related-tasks.test.tsx`) and `npm run test:http` (`verify-steering-http.mjs`) |
 | Rebuilding task projections from retained events | `npm run test:db` (`projection-rebuild.db.test.ts`); CLI `npm run db:projections:rebuild` |
 | OIDC sign-in, roles, teams, per-agent and per-skill grants | `npm run test:http` (`verify-identity-http.mjs`), `npm run test:db` (`identity.db.test.ts`, `scoped-security.db.test.ts`) |
 | Encrypted agent credentials (API key, bearer, OAuth client credentials, mTLS), origin allowlist, SSRF controls, signed-card trust | `npm run test:http` (`verify-service-security.mjs`) |

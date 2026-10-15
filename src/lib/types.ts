@@ -79,6 +79,7 @@ export type OperationAction =
   | "deletePushConfig";
 
 export interface OperationResponse {
+  cardTrust?: import("../server/adapters/auth/card-trust").CardTrust;
   result: unknown;
   telemetry: WireEvent[];
   latencyMs: number;

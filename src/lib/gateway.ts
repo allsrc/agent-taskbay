@@ -110,6 +110,17 @@ function requestOptions(config: ConnectionConfig, extensions: string[] = [], tra
 
 export { selectAdvertisedInterface };
 
+/** Extended cards are untrusted input, even when fetched with a stored credential. */
+export async function validateExtendedCard(card: AgentCard, cardUrl: string) {
+  const json = AgentCard.toJSON(card) as Record<string, unknown>;
+  if (Buffer.byteLength(JSON.stringify(json)) > MAX_CARD_BYTES) throw new Error("Agent Card exceeds the 2 MB safety limit.");
+  await assertSafeAgentCard(json);
+  const trust = await verifyCardTrust(card, new URL(cardUrl).origin);
+  if (trust !== "verified" && (trust !== "unsigned" || process.env.A2A_REQUIRE_SIGNED_CARDS === "true"))
+    throw new Error("Agent Card trust policy rejected this connection.");
+  return trust;
+}
+
 export async function discoverAgent(config: ConnectionConfig): Promise<DiscoverResponse & { normalizedCard: AgentCard }> {
   await assertSafeUrl(config.cardUrl);
   const telemetry: WireEvent[] = [];
@@ -175,13 +186,13 @@ export async function discoverAgent(config: ConnectionConfig): Promise<DiscoverR
   };
 }
 
-async function createClient(config: ConnectionConfig): Promise<{ client: Client; telemetry: WireEvent[]; negotiatedExtensions: string[] }> {
+async function createClient(config: ConnectionConfig, maxResponseBytes?: number): Promise<{ client: Client; telemetry: WireEvent[]; negotiatedExtensions: string[]; supportsExtendedCard: boolean }> {
   const discovery = await discoverAgent(config);
   if (discovery.trust !== "verified" && (discovery.trust !== "unsigned" || process.env.A2A_REQUIRE_SIGNED_CARDS === "true"))
     throw new Error("Agent Card trust policy rejected this connection.");
   if (config.auth.type === "none" && !config.tls && discovery.normalizedCard.securityRequirements?.length)
     throw new Error("Agent credentials are required.");
-  const fetchImpl = createSafeFetch({ ...config, telemetry: discovery.telemetry, timeoutMs: timeout(config) });
+  const fetchImpl = createSafeFetch({ ...config, telemetry: discovery.telemetry, timeoutMs: timeout(config), maxResponseBytes });
   const transports = [
     new JsonRpcTransportFactory({ fetchImpl, legacyCompat: { enabled: true } }),
     new RestTransportFactory({ fetchImpl, legacyCompat: { enabled: true } }),
@@ -201,6 +212,7 @@ async function createClient(config: ConnectionConfig): Promise<{ client: Client;
   });
   return {
     client: await factory.createFromAgentCard(card),
+    supportsExtendedCard: card.capabilities?.extendedAgentCard === true,
     telemetry: discovery.telemetry,
     negotiatedExtensions: negotiateSidebandExtensions(card),
   };
@@ -290,11 +302,12 @@ export function recoverMalformedLegacyResult(telemetry: WireEvent[]): unknown | 
 
 async function executeOperationInternal(input: OperationInput): Promise<OperationResponse> {
   const started = performance.now();
-  const { client, telemetry, negotiatedExtensions } = await createClient(input.connection);
+  const { client, telemetry, negotiatedExtensions, supportsExtendedCard } = await createClient(input.connection, input.action === "extendedCard" ? MAX_CARD_BYTES : undefined);
   const params = input.params ?? {};
   const options = requestOptions(input.connection, negotiatedExtensions, input.traceContext?.traceparent);
   if (input.signal) options.signal = AbortSignal.any([input.signal, options.signal!]);
   let result: unknown;
+  let cardTrust: OperationResponse["cardTrust"];
   switch (input.action) {
     case "send": {
       const request = buildSendRequest(withNegotiatedExtensions(params, negotiatedExtensions));
@@ -325,7 +338,13 @@ async function executeOperationInternal(input: OperationInput): Promise<Operatio
       includeArtifacts: params.includeArtifacts ?? true,
     }), options)); break;
     case "cancelTask": input.onDispatch?.(); result = Task.toJSON(await client.cancelTask(CancelTaskRequest.fromJSON({ tenant: params.tenant ?? "", id: params.taskId, metadata: params.metadata }), options)); break;
-    case "extendedCard": result = AgentCard.toJSON(await client.getAgentCard(options)); break;
+    case "extendedCard": {
+      if (!supportsExtendedCard) throw Object.assign(new Error("Extended card not configured."), { reason: "EXTENDED_AGENT_CARD_NOT_CONFIGURED" });
+      const card = await client.getAgentCard(options);
+      result = AgentCard.toJSON(card);
+      cardTrust = await validateExtendedCard(card, input.connection.cardUrl);
+      break;
+    }
     case "createPushConfig": result = TaskPushNotificationConfig.toJSON(await client.createTaskPushNotificationConfig(TaskPushNotificationConfig.fromJSON({
       tenant: params.tenant ?? "", id: params.configId ?? "", taskId: params.taskId, url: params.url, token: params.token ?? "",
       authentication: params.authentication,
@@ -340,6 +359,7 @@ async function executeOperationInternal(input: OperationInput): Promise<Operatio
   const requestId = input.requestId ?? crypto.randomUUID();
   return {
     result,
+    ...(cardTrust ? { cardTrust } : {}),
     telemetry,
     latencyMs: Math.round(performance.now() - started),
     protocolVersion: client.protocolVersion,

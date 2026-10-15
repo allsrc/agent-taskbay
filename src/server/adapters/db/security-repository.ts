@@ -6,6 +6,8 @@ import { AccessPolicy } from "../../application/services/access-policy";
 import { currentPrincipal } from "../auth/principal-context";
 import { AccessGrantEntity, TeamEntity, TeamMembershipEntity, MembershipEntity, AgentEntity, TaskEntity, RateBucketEntity } from "./entities";
 import { DatabaseIdentityRepository } from "./identity-repository";
+import { createPersistenceRepositories } from "./repositories";
+import { viewAgentCard } from "../../../lib/agent-card";
 
 export class DatabaseAccessPolicyRepository implements AccessPolicyRepository {
   constructor(private readonly em: EntityManager) {}
@@ -41,6 +43,13 @@ export async function createGrant(em: EntityManager, principal: Principal, input
   if (!["read", "operate"].includes(input.permission) || !["organization", "membership", "team"].includes(input.subjectType) ||
     (input.skillId !== null && (!input.skillId || input.skillId.length > 255))) throw new Error("Invalid grant.");
   if (!await em.findOne(AgentEntity, {id: input.agentId, organizationId: principal.organizationId, enabled: true})) throw new Error("Unknown agent.");
+  if (input.skillId !== null) {
+    const agents = createPersistenceRepositories(em).agents;
+    const snapshot = await agents.findLatestCardSnapshot(input.agentId);
+    if (!viewAgentCard(snapshot?.normalizedCardJson).skills.some((skill) => skill.id === input.skillId) &&
+      (snapshot || await agents.findLatestExtendedCardSnapshot(principal.organizationId, input.agentId)))
+      throw new Error("Only skills on the public Agent Card can be granted.");
+  }
   const valid = input.subjectType === "organization" ? input.subjectId === principal.organizationId :
     input.subjectType === "membership" ? Boolean(await em.findOne(MembershipEntity, { id: input.subjectId, organizationId: principal.organizationId, enabled: true })) :
       Boolean(await em.findOne(TeamEntity, { id: input.subjectId, organizationId: principal.organizationId, enabled: true }));

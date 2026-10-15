@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Chip, EmptyState, InfoCard, StateChip } from "@/components/a2a/primitives";
 import { CommandError } from "@/components/a2a/command-error";
 import { ContextSiblings } from "@/components/tasks/context-siblings";
+import { RelatedTasks } from "@/components/tasks/related-tasks";
 import { DiscoveredTaskNotice } from "@/components/tasks/discovered-task-notice";
 import { CommandFailureError, failureFromError, failureFromResponse, type CommandFailure } from "@/lib/command-failure";
 import { Page, PageMessage } from "@/components/console/page";
@@ -113,7 +114,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ taskId: s
       <DiscoveredTaskNotice task={task} />
       {failure && <CommandError failure={failure} className="mb-4" />}
 
-      <div className="grid gap-4 2xl:grid-cols-3 2xl:items-start">
+      <div className="grid grid-cols-1 gap-4 2xl:grid-cols-3 2xl:items-start">
         <div className="space-y-4 2xl:col-span-2">
           <InfoCard label="History">
             <ul className="divide-y">
@@ -147,6 +148,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ taskId: s
           </InfoCard>
 
           <ContextSiblings siblings={task.contextSiblings} contextId={task.contextId} agentId={task.agentId} />
+          <RelatedTasks related={task.related} />
 
           {task.kind !== "message" && <TaskAudit taskId={task.localId} />}
         </div>

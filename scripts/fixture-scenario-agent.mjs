@@ -141,7 +141,7 @@ export async function startScenarioAgent({ port = 0, behaviors = {} } = {}) {
     GetExtendedAgentCard() {
       if (!config.extendedCard) throw new RpcError("ExtendedAgentCardNotConfiguredError");
       const base = card();
-      return { ...base, skills: [...base.skills, ...(config.extendedCard.skills ?? [])] };
+      return { ...base, ...config.extendedCard, skills: [...base.skills, ...(config.extendedCard.skills ?? [])] };
     },
   };
 

@@ -37,6 +37,8 @@ export interface AgentRecord {
 }
 
 export interface AgentCardSnapshotRecord {
+  /** Older callers omit this and write a public snapshot. */
+  kind?: "public" | "extended";
   id: string;
   agentId: string;
   fetchedAt: Date;
@@ -79,6 +81,15 @@ export interface TaskRecord {
 }
 
 export type TaskSummaryRecord = Pick<TaskRecord, "id" | "organizationId" | "agentId" | "tenant" | "remoteTaskId" | "remoteContextId" | "kind" | "skillId" | "state" | "title" | "createdAt" | "updatedAt" | "version" | "origin">;
+
+export interface TaskLinkRecord {
+  id: string;
+  organizationId: string;
+  fromTaskId: string;
+  toTaskId: string;
+  kind: "references";
+  createdAt: Date;
+}
 
 export type TaskEventSource =
   | "stream"

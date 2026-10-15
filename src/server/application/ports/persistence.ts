@@ -54,6 +54,7 @@ export interface AgentRepository {
   findLatestCardSnapshot(
     agentId: string,
   ): Promise<AgentCardSnapshotRecord | undefined>;
+  findLatestExtendedCardSnapshot(organizationId: string, agentId: string): Promise<AgentCardSnapshotRecord | undefined>;
 }
 
 /** Filters apply inside the caller's visibility and can only narrow it. `after` replaces `offset`. */

@@ -5,6 +5,7 @@ import type { ConnectionView } from "@/lib/connection-interface";
 import { viewAgentCard, type AgentView } from "@/lib/agent-card";
 
 export interface CatalogAgent {
+  extendedCard?: import("@/lib/extended-card").ExtendedCardView;
   id: string;
   cardUrl: string;
   source: "env" | "managed";
@@ -35,13 +36,14 @@ export const useAgentStore = create<AgentStoreState>()((set, get) => ({
       const response = await fetch("/api/agents", { cache: "no-store" });
       const body = await response.json();
       if (!response.ok) throw new Error(body?.error?.message ?? "Could not load agents.");
-      const agents: CatalogAgent[] = (body.agents as Array<{ id: string; cardUrl: string; source: "env" | "managed"; card?: unknown; trust?: string; error?: string; extensions?: CatalogAgent["extensions"]; connection?: ConnectionView }>).map(
+      const agents: CatalogAgent[] = (body.agents as Array<{ id: string; cardUrl: string; source: "env" | "managed"; card?: unknown; trust?: string; error?: string; extensions?: CatalogAgent["extensions"]; connection?: ConnectionView; extendedCard?: CatalogAgent["extendedCard"] }>).map(
         (entry) => ({
           id: entry.id,
           cardUrl: entry.cardUrl,
           source: entry.source,
           view: entry.card ? viewAgentCard(entry.card) : undefined,
           error: entry.error, trust: entry.trust, extensions: entry.extensions, connection: entry.connection,
+          extendedCard: entry.extendedCard,
         }),
       );
       set({ agents, status: "ready" });

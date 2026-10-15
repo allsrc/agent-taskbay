@@ -168,6 +168,7 @@ try {
   assert.equal((await request(`/api/agents/${agent.id}`, foreignSession)).status, 404);
   assert.deepEqual((await json("/api/task-views?organizationId=org-a", foreignSession, { headers: { "X-Organization-Id": grants.get("org-a-admin").organizationId } })).tasks, []);
   const viewerSession = (await login("org-a-viewer")).session;
+  assert.equal((await request(`/api/agents/${agent.id}/extended-card/refresh`, viewerSession, { method: "POST", headers: { Origin: origin } })).status, 403);
   assert.equal((await json("/api/auth/session", viewerSession)).user.role, "viewer", "IdP role claim escalated a provisioned viewer");
   assert.equal((await request(`/api/agents/${agent.id}/commands`, viewerSession, { method: "POST", headers: { Origin: origin } })).status, 403);
   assert.equal((await request(`/api/agents/${agent.id}`, viewerSession, { method: "DELETE", headers: { Origin: origin } })).status, 403);
@@ -178,6 +179,7 @@ try {
   for (const path of [`/api/agents/${agent.id}/commands`, `/api/agents/${agent.id}/messages`, `/api/agents/${agent.id}/stream`])
     assert.ok([403, 404].includes((await request(path, ungrantedSession, {method: "POST", headers: {Origin: origin, "Content-Type": "application/json"}, body: JSON.stringify({text: "deny"})})).status));
   const operatorSession = (await login("org-a-operator")).session;
+  assert.equal((await request(`/api/agents/${agent.id}/extended-card/refresh`, operatorSession, { method: "POST", headers: { Origin: origin } })).status, 403);
   assert.match(JSON.stringify(await json("/api/agents", operatorSession)), /Protected catalog fixture/);
   await json("/api/admin/security", adminSession);
   assert.equal((await request("/api/admin/security", operatorSession)).status, 403);

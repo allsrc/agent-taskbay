@@ -2,6 +2,7 @@ import { taskAccessFilter } from "./security-repository";
 import { replaceContentProjection, readContentProjection } from "./content-projections";
 import { MikroOrmSyncCursorRepository } from "./sync-repository";
 import { MikroOrmPushRepository } from "./push-repository";
+import { MikroOrmTaskLinkRepository } from "./task-link-repository";
 import { LockMode, type EntityManager, type QueryResult } from "@mikro-orm/core";
 import { randomUUID } from "node:crypto";
 import { DEFAULT_TASK_DISCOVERY_HISTORY_DAYS, DEFAULT_TASK_DISCOVERY_MODE, MAX_TASK_DISCOVERY_HISTORY_DAYS, isTaskDiscoveryMode, type TaskDiscoveryMode } from "../../domain/discovery-mode";
@@ -74,6 +75,7 @@ function agentCardSnapshotRecord(
   entity: AgentCardSnapshotEntity,
 ): AgentCardSnapshotRecord {
   return {
+    kind: entity.kind,
     id: entity.id,
     agentId: entity.agentId,
     fetchedAt: entity.fetchedAt,
@@ -276,9 +278,17 @@ export class MikroOrmAgentRepository implements AgentRepository {
   async findLatestCardSnapshot(agentId: string) {
     const entity = await this.entityManager.findOne(
       AgentCardSnapshotEntity,
-      { agentId },
+      { agentId, kind: "public" },
       { orderBy: { fetchedAt: "desc" } },
     );
+    return entity ? agentCardSnapshotRecord(entity) : undefined;
+  }
+
+  async findLatestExtendedCardSnapshot(organizationId: string, agentId: string) {
+    const agent = await this.findById(organizationId, agentId);
+    if (!agent?.enabled) return undefined;
+    const entity = await this.entityManager.findOne(AgentCardSnapshotEntity,
+      { agentId, kind: "extended" }, { orderBy: { fetchedAt: "desc" } });
     return entity ? agentCardSnapshotRecord(entity) : undefined;
   }
 }
@@ -548,6 +558,7 @@ export function createPersistenceRepositories(entityManager: EntityManager) {
     organizations: new MikroOrmOrganizationRepository(entityManager),
     agents: new MikroOrmAgentRepository(entityManager),
     tasks: new MikroOrmTaskRepository(entityManager),
+    taskLinks: new MikroOrmTaskLinkRepository(entityManager),
     taskEvents: new MikroOrmTaskEventRepository(entityManager),
     outbox: new MikroOrmOutboxRepository(entityManager),
     commands: new MikroOrmTaskCommandRepository(entityManager),

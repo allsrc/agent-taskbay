@@ -10,6 +10,7 @@ import { ArtifactAccessEntity, TaskEntity } from "../adapters/db/entities";
 import { withJobEntityManager } from "../adapters/db/orm";
 import { artifactStore } from "./task-persistence";
 import { enqueueTaskFreshness } from "../application/services/task-freshness";
+import { recordTaskLinks } from "../application/services/task-links";
 
 export function createProjectionRebuilder(options: { orm?: MikroORM; store?: ArtifactStore } = {}) {
   const repository: ProjectionRebuildRepository = {
@@ -34,6 +35,7 @@ export function createProjectionRebuilder(options: { orm?: MikroORM; store?: Art
         updatedAt: new Date(view.updatedAt), remoteUpdatedAt,
         terminalAt: terminal ? snapshot.task.terminalAt ?? new Date(view.updatedAt) : null,
       });
+      await recordTaskLinks(ports.taskLinks, snapshot.task, view, new Date());
       for (const digest of binaryDigests) await tx.upsert(ArtifactAccessEntity, {id: randomUUID(), organizationId: snapshot.task.organizationId, taskId: snapshot.task.id, digest},
         {onConflictFields: ["taskId", "digest"], onConflictAction: "ignore"});
       await enqueueTaskFreshness(ports.outbox, snapshot.task.organizationId, snapshot.task.id, new Date());

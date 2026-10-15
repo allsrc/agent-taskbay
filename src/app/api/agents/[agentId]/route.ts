@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { discoverRegisteredAgent } from "@/server/runtime/agent-discovery";
 import { agentRegistry } from "@/lib/agent-registry";
 import { apiError } from "@/lib/api-response";
+import { readExtendedCard } from "@/server/runtime/extended-card";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,7 +15,8 @@ async function handleGET(_request: Request, context: { params: Promise<{ agentId
   try {
     const discovery = await discoverRegisteredAgent(agent);
     return NextResponse.json(
-      { id: agent.id, cardUrl: agent.cardUrl, source: agent.source, card: discovery.card, trust: discovery.trust, report: discovery.report },
+      { id: agent.id, cardUrl: agent.cardUrl, source: agent.source, card: discovery.card, trust: discovery.trust, report: discovery.report,
+        extendedCard: await readExtendedCard(agent.id) },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {

@@ -15,6 +15,8 @@ import { ConnectionCard } from "@/components/agents/connection-card";
 import { RequiredExtensionsNotice } from "@/components/agents/required-extensions-notice";
 import { BrowseTasksDialog } from "@/components/agents/browse-tasks-dialog";
 import { TaskDiscoveryCard } from "@/components/agents/task-discovery-card";
+import { ExtendedCardRow } from "@/components/agents/extended-card-row";
+import { mergeExtendedSkills } from "@/lib/extended-card";
 import type { DiscoveryStatusView } from "@/lib/browse-tasks";
 import { useServerResource } from "@/lib/use-server-resource";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -41,6 +43,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ agentId:
   }
 
   const view = agent.view;
+  const skills = view ? mergeExtendedSkills(view.skills, agent.extendedCard) : [];
 
   async function remove() {
     if (!agent || !window.confirm("Remove this agent from the catalog?")) return;
@@ -93,14 +96,18 @@ export default function AgentDetailPage({ params }: { params: Promise<{ agentId:
               {[
                 ["Streaming", view.streaming],
                 ["Push notifications", view.pushNotifications],
-                ["Extended card", view.extendedCard],
               ].map(([key, on]) => (
                 <li key={String(key)} className="flex items-center justify-between py-2 text-sm first:pt-0 last:pb-0">
                   <span>{String(key)}</span>
                   <Pill tone={on ? "success" : "neutral"}>{on ? "Yes" : "No"}</Pill>
                 </li>
               ))}
+              <ExtendedCardRow agentId={agent.id} advertised={view.extendedCard} admin={session.data?.user.role === "admin"}
+                card={agent.extendedCard} onChanged={refresh} />
             </ul>
+            {agent.extendedCard && <p className="mt-3 text-sm text-muted-foreground">
+              Authenticated capabilities: streaming {agent.extendedCard.capabilities.streaming ? "yes" : "no"}, push notifications {agent.extendedCard.capabilities.pushNotifications ? "yes" : "no"}. Used for display only.
+            </p>}
             {view.extensions.length > 0 && (
               <div className="mt-4 space-y-1.5">
                 <Eyebrow>Extensions</Eyebrow>
@@ -114,11 +121,11 @@ export default function AgentDetailPage({ params }: { params: Promise<{ agentId:
           {agent.connection && <ConnectionCard connection={agent.connection} bindings={view.bindings} />}
 
           <InfoCard label="Skills">
-            {view.skills.length === 0 && <p className="text-sm text-muted-foreground">No skills advertised.</p>}
+            {skills.length === 0 && <p className="text-sm text-muted-foreground">No skills advertised.</p>}
             <ul className="divide-y">
-              {view.skills.map((skill) => (
+              {skills.map((skill) => (
                 <li key={skill.id} className="py-2.5 first:pt-0 last:pb-0">
-                  <div className="text-sm font-medium">{skill.name}</div>
+                  <div className="flex flex-wrap items-center gap-2 text-sm font-medium">{skill.name}{skill.authenticated && <Pill tone="info">Authenticated</Pill>}</div>
                   <div className="text-sm text-muted-foreground">{skill.description}</div>
                 </li>
               ))}

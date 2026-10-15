@@ -89,7 +89,19 @@ export interface SteeringEntry {
   text?: string;
 }
 
+export interface RelatedTask {
+  localId: string;
+  taskId: string;
+  agentName: string;
+  state: string;
+  title?: string;
+}
+
+export interface RelatedTasks { references: RelatedTask[]; referencedBy: RelatedTask[] }
+
 export interface DurableTaskView extends TrackedTask {
+  /** Known message references in either direction, limited to tasks the caller may read. Detail only. */
+  related?: RelatedTasks;
   /** Messages sent to this task while it was submitted or working, newest last. Only on a task's detail, never on list rows. */
   steering?: SteeringEntry[];
   /** Other tasks in this task's context the caller may read, newest first, at most 20. Only on a task's detail. */

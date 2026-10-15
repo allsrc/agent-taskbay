@@ -97,8 +97,9 @@ Fixed 60-second windows in the database, so they hold across web replicas.
 | Per person, `administer` routes | 60 |
 | `GET /api/auth/login` and `/api/auth/callback`, all callers together | 240 each |
 | `POST /api/webhooks/a2a/{id}`, all callers together | 1200 |
+| Extended card refreshes, all callers together | 30 |
 
-When a limit is hit the route answers `429`. The webhook and the browse and track routes add `Retry-After: 60`. The limits are not configurable.
+When a limit is hit the route answers `429`. The webhook, extended card refresh, and browse and track routes add `Retry-After: 60`. The limits are not configurable.
 
 ## Route index
 
@@ -116,6 +117,7 @@ When a limit is hit the route answers `429`. The webhook and the browse and trac
 | `POST /api/agents` | administer | Integration | Register an agent by Agent Card URL |
 | `POST /api/agents/preview` | administer | Console | Fetch and validate a card without registering |
 | `GET /api/agents/{agentId}` | read | Integration | One agent with its card and trust status |
+| `POST /api/agents/{agentId}/extended-card/refresh` | administer | Console | Fetch and store the extended card |
 | `DELETE /api/agents/{agentId}` | administer | Integration | Remove a managed agent |
 | `POST /api/agents/{agentId}/commands` | operate | Integration | Send a message or cancel (durable, returns `202`) |
 | `GET /api/commands/{commandId}` | read | Integration | Command status and result |
@@ -196,6 +198,14 @@ failed, `error`. A failing agent stays in the list. `trust` is `unsigned`, `veri
 they only partly hold (see [Authentication and roles](#authentication-and-roles)). Each entry also has `extensions`: `{ "required": [...], "unsupportedRequired": [...], "override": false }`, the extensions the card marks required, which of them Taskbay does not support, and whether an administrator allowed sending anyway.
 
 Calling this route is also what stores the card snapshot that [extension](extensions/README.md) negotiation reads; see the note there.
+
+### `POST /api/agents/{agentId}/extended-card/refresh`
+
+`administer`. No body. Fetches with the agent's server-side credential, validates the extended card and stores a separate snapshot. Returns `200 { "fetchedAt": "<ISO time>", "skills": [{ "id", "name", "description", "examples" }], "capabilities": { "streaming": true, "pushNotifications": false } }`. Endpoints, security metadata, raw cards and signatures are excluded. When not advertised or when the agent returns `ExtendedAgentCardNotConfiguredError`, returns `200 { "available": false }` without storing anything.
+
+`403` for non-administrators, `404` for an unknown agent, `429` with `Retry-After: 60` after 30 refreshes per minute across the deployment (also subject to the per-person administrative budget), and `502` with a generic message for a failed or unsafe fetch. The response is `no-store`. A failed refresh leaves the last valid snapshot intact.
+
+After a successful fetch, the catalog and individual-agent reads include `extendedCard` with those same display fields for people with read access to the whole agent. A skill-scoped view omits it. The public `card` and `skills` fields are unchanged; extended skills cannot authorize routing or grants.
 
 ### `POST /api/agents`
 
@@ -407,6 +417,8 @@ Bad filter: `400 Invalid task filter.`
 ### `GET /api/tasks/{taskId}`
 
 `contextSiblings` lists the other tasks the same agent holds in this task's context (same tenant and context ID), newest first, at most 20, each `{ localId, taskId, state, title, updatedAt }`, limited to tasks you may read. It is `[]` when the task has no context. A discovered task's view also has `origin: "discovered"`, `discoveredAt`, and, on this route only, `trackedBy` (`{ userId, name }`, or `null` when automatic discovery found it).
+
+`related` is `{ "references": [...], "referencedBy": [...] }`. Each entry is `{ localId, taskId, agentName, state, title? }`, using current stored summaries and limited to tasks the caller may read. Both arrays are empty when there are no visible links. Relationships are derived from user and agent messages' `referenceTaskIds`, resolved within the same organization, agent and tenant; unknown references are ignored. The graph can contain cycles. List rows have no `related`. The existing `referenceLinks` mapping remains available.
 
 `steering` lists what happened to each message a person sent while the task was `SUBMITTED` or `WORKING`, oldest first: `{ messageId, commandId, sentAt, outcome, errorKind?, text? }`. `outcome` is `delivered` (accepted, nothing new from the agent since), `responded` (accepted, and the agent has since sent a message, artifact or status update), `refused` (the agent returned an error; `errorKind` says which), `waiting` (the command is `pending` or `dispatching`) or `unknown` (the command is `uncertain` or `failed`). `text` is the message text, present only for messages that never reached the task (`refused`, `waiting`, `unknown`). It is worked out when you read it, from the command and the task's event history, and is `[]` when there is none. A reply to a task that was waiting for input is not listed. List rows have no `steering`.
 

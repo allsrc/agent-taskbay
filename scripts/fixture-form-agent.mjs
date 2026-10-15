@@ -120,26 +120,34 @@ export async function startFormAgent(port = 0) {
   const cancelled = [];
   const contexts = new Map();
   let origin = "";
+  const card = (variant) => ({
+    name: `Form fixture (${variant})`, description: "Asks for input with a structured form", version: "1.0.0",
+    supportedInterfaces: [{ url: `${origin}/${variant}/a2a`, protocolBinding: "JSONRPC", protocolVersion: "1.0" }],
+    capabilities: { streaming: true, extendedAgentCard: variant === "showcase", extensions: variant === "unknown" ? [{ uri: "https://example.com/extensions/unknown/v9", required: false, params: { anything: true } }]
+      : variant === "showcase" ? [{ uri: FORM_EXTENSION_URI, required: false, params: { startForm } }, { uri: A2UI_EXTENSION_URI, required: false }, { uri: APPROVAL_EXTENSION_URI, required: false }]
+      : variant === "plain" || variant === "rogue" ? [] : variant === "approver" ? [{ uri: APPROVAL_EXTENSION_URI, required: false }] : variant === "a2ui" ? [{ uri: A2UI_EXTENSION_URI, required: false, params: { supportedCatalogIds: [BASIC_CATALOG] } }]
+      : [{ uri: FORM_EXTENSION_URI, required: false, params: variant === "form" ? { startForm } : {} }] },
+    defaultInputModes: ["text/plain", "application/json"], defaultOutputModes: ["text/plain"], skills: [],
+  });
   const server = createServer(async (request, response) => {
     const variant = request.url.split("/")[1];
     response.setHeader("Content-Type", "application/json");
     if (request.method === "GET" && variant === "automation") { response.end(JSON.stringify(automation.card(origin))); return; }
     if (request.method === "GET") {
-      response.end(JSON.stringify({
-        name: `Form fixture (${variant})`, description: "Asks for input with a structured form", version: "1.0.0",
-        supportedInterfaces: [{ url: `${origin}/${variant}/a2a`, protocolBinding: "JSONRPC", protocolVersion: "1.0" }],
-        capabilities: { streaming: true, extensions: variant === "unknown" ? [{ uri: "https://example.com/extensions/unknown/v9", required: false, params: { anything: true } }]
-          : variant === "showcase" ? [{ uri: FORM_EXTENSION_URI, required: false, params: { startForm } }, { uri: A2UI_EXTENSION_URI, required: false }, { uri: APPROVAL_EXTENSION_URI, required: false }]
-          : variant === "plain" || variant === "rogue" ? [] : variant === "approver" ? [{ uri: APPROVAL_EXTENSION_URI, required: false }] : variant === "a2ui" ? [{ uri: A2UI_EXTENSION_URI, required: false, params: { supportedCatalogIds: [BASIC_CATALOG] } }]
-          : [{ uri: FORM_EXTENSION_URI, required: false, params: variant === "form" ? { startForm } : {} }] },
-        defaultInputModes: ["text/plain", "application/json"], defaultOutputModes: ["text/plain"], skills: [],
-      }));
+      response.end(JSON.stringify(card(variant)));
       return;
     }
     let input = "";
     for await (const chunk of request) input += chunk;
     const rpc = JSON.parse(input);
     if (variant === "automation") { response.end(JSON.stringify(automation.handle(rpc))); return; }
+    if (rpc.method === "GetExtendedAgentCard" && variant === "showcase") {
+      const base = card(variant);
+      response.end(JSON.stringify({ jsonrpc: "2.0", id: rpc.id, result: { ...base, skills: [
+        { id: "authenticated-demo", name: "Authenticated demo skill", description: "Visible after fetching the extended card; display only.", tags: ["demo"], examples: [] },
+      ] } }));
+      return;
+    }
     const message = rpc.params?.message;
     const taskId = message?.taskId ?? `form-task-${received.length}`;
     const contextId = message?.contextId ?? "form-context";
