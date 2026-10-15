@@ -2,12 +2,12 @@
 id: T-18
 title: Show the negotiated connection and choose a tenant
 phase: 4
-status: todo
+status: done
 depends_on: [T-06, T-02]
 size: M
 gap: G12
 migration: no
-updated:
+updated: 2026-10-15
 ---
 
 # T-18. Connection details and tenant choice
@@ -59,3 +59,13 @@ Changing how the SDK negotiates.
 ## Notes for later
 
 ## Implementation log
+
+- 2026-10-15 · done: branch plan/T-18; effective tenant stored (sent explicitly); tests: connection-interface, connection-card, gateway-tenant, agent-discovery, verify-discovery-http step connection
+Done on branch plan/T-18.
+
+- New pure module `src/lib/connection-interface.ts`: `chooseConnectionInterface` (what `createClient` uses: gRPC dropped, pin narrows, then the SDK's preferred-binding and best-per-binding rule), `advertisedTenants`, `defaultTenant`, `buildConnectionView`. `selectAdvertisedInterface` moved there and is re-exported from `gateway.ts`. Transport names are `JSONRPC` and `HTTP+JSON`.
+- `discoverRegisteredAgent` returns `connection` (a `ConnectionView`) built from the unfiltered card and the saved connection; `GET /api/agents` entries carry it; the agent store keeps it.
+- Connection card (`src/components/agents/connection-card.tsx`) replaces Interfaces; the Browse tasks dialog now gets every tenant.
+- Tenant decision: store the effective tenant. A new conversation sends the chosen tenant, else the card's only tenant, else (several) the tenant of the interface the SDK would use, else empty. The tenant is sent explicitly, so `tasks.tenant` matches what the agent saw. An existing conversation keeps its stored tenant (older ones may be empty). The selector is in the chat options only when the card declares more than one tenant; it is locked once the conversation has tasks.
+- Deviation: the "negotiated" list is Taskbay's sideband negotiation (existing `negotiateSidebandExtensions`); "ignored" is every advertised extension that is neither negotiated nor required-but-unsupported.
+- Tests: `connection-interface.test.ts`, `connection-card.test.tsx` (card and selector), multi-tenant cases in `gateway-tenant.test.ts` (agent request log), `agent-discovery.test.ts`, and a `step connection` in `scripts/verify-discovery-http.mjs`. Hosting rules: no new state or tables; the view is computed per request from the stored card, so all three profiles behave the same. `verify-discovery-http.mjs` step 6 (automatic discovery) already fails on the unchanged base commit; the connection step runs before it.

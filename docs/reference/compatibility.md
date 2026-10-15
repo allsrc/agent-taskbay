@@ -43,7 +43,7 @@ The gateway uses the official `@a2a-js/sdk` for protocol handling.
 | Push notifications | Optional | Worker-managed registration. Only for agents whose card sets `capabilities.pushNotifications`. The worker calls get (to check for an existing config), create and delete of task push configs; it never lists them. Needs `A2A_PUSH_CALLBACK_ORIGIN` and a callback reachable by the agent. Off by default. See [Agent push callbacks](../guides/agent-push-callbacks.md). |
 | Task browsing and tracking (`ListTasks`, `GetTask`) | Yes: `ListTasks` pages are shown live and never stored; a task is stored only when a person tracks it. Agents without `ListTasks` can still be tracked by ID. | `discovery.db.test.ts`, `verify-task-http` |
 | Extended Agent Card | Display only | The agent page shows whether the card advertises it. No route fetches the extended card in this version. |
-| Multi-tenancy | Yes | The `tenant` field is part of task identity. |
+| Multi-tenancy | Yes | The `tenant` field is part of task identity. A card with one tenant is used silently; with several, you choose the tenant for a new conversation in the chat options, and Taskbay stores the tenant that was sent. A conversation cannot change tenant. Taskbay does not read tenants from anywhere but the card's interfaces. |
 | Parts | `text`, `raw`, `url`, `data` | Binary parts are stored in the artifact store; remote URLs are shown as provenance and are not loaded by the console. |
 | Task states | The A2A set | `AUTH_REQUIRED` is displayed; Agent Taskbay does not perform the authorization the agent needs ([#1](https://github.com/allsrc/agent-taskbay/issues/1)). |
 

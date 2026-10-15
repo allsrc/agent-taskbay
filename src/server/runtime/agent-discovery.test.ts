@@ -25,7 +25,7 @@ describe("AGT-002/003 registered discovery persistence", () => {
       list: vi.fn(), get: vi.fn(), add: vi.fn(), remove: vi.fn(), recordDiscovery: vi.fn(),
     };
     const agent = { id: "local-id", cardUrl: "https://example.test", source: "managed" as const };
-    expect(await discoverRegisteredAgent(agent, registry)).toEqual({...discovery, telemetry: []});
+    expect(await discoverRegisteredAgent(agent, registry)).toEqual({...discovery, telemetry: [], connection: expect.objectContaining({ binding: null, tenants: [], pinned: false })});
     expect(registry.recordDiscovery).toHaveBeenCalledWith(agent.id, {
       signatureStatus: "unsigned", resolvedCardUrl: discovery.resolvedCardUrl,
       rawCardJson: discovery.rawCard, normalizedCardJson: discovery.card,

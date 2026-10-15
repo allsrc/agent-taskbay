@@ -30,6 +30,7 @@ the project uses [semantic versioning](https://semver.org/) once it reaches 1.0;
 
 ### Added
 
+- The agent page has a **Connection** card (binding, interface, protocol version, tenant, and which extensions are negotiated, ignored or required but not supported), replacing **Interfaces**. When an agent's card lists several tenants, the chat options let you choose the tenant for a new conversation; Taskbay now sends and stores the effective tenant instead of an empty one. `GET /api/agents` entries gain a `connection` object.
 - `A2A_TASK_DISCOVERY` (`off`, `browse` or `auto`, default `browse`), the highest task discovery mode any agent may use, and the stored fields behind it (an agent's discovery mode, where a task came from, who tracked it). Schema version 2.
 - `scripts/fixture-scenario-agent.mjs`, a controllable sample agent for protocol scenarios (development only; not in the npm package).
 - `scripts/fixture-content-agent.mjs`, a streaming sample agent that sends content under the wrong media type (cases in `scripts/fixtures/mislabeled-content.json`, shared by its tests) and, with `tools` and `long`, tool calls, results, reasoning and other JSON in common framework shapes, and 700-line content.

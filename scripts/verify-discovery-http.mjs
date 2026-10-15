@@ -58,6 +58,17 @@ try {
   registered = (await call("/api/agents", { method: "POST", body: JSON.stringify({ cardUrl: agent.cardUrl }) })).body.agent;
   assert.equal((await call("/api/agents")).status, 200);
 
+  console.log("step connection");
+  // The catalog describes the connection: the interface the gateway uses and every tenant the card lists.
+  const entry = async () => (await call("/api/agents")).body.agents.find((item) => item.id === registered.id);
+  assert.deepEqual({ ...(await entry()).connection, interfaceUrl: undefined }, { binding: "JSONRPC", interfaceUrl: undefined, protocolVersion: "1.0", tenant: "", tenants: [], pinned: false,
+    negotiated: [], ignored: [], required: [], unsupportedRequired: [] });
+  await agent.control({ tenants: ["acme", "beta"] });
+  const several = (await entry()).connection;
+  assert.deepEqual(several.tenants, ["acme", "beta"]);
+  assert.equal(several.tenant, "beta");
+  await agent.control({ tenants: [] });
+
   console.log("step 0");
   // Browse only (the default). Taskbay lists what the agent has and stores nothing.
   await agent.control({ seed: [

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { discoverRegisteredAgent } from "@/server/runtime/agent-discovery";
 import { agentRegistry } from "@/lib/agent-registry";
 import { apiError } from "@/lib/api-response";
+import type { ConnectionView } from "@/lib/connection-interface";
 import { readJsonRequest } from "@/lib/request-guard";
 
 export const runtime = "nodejs";
@@ -19,6 +20,7 @@ export interface CatalogEntry {
   error?: string;
   trust?: string;
   /** Extensions the card requires: which ones Taskbay cannot honor, and whether an administrator allowed sending anyway. */
+  connection?: ConnectionView;
   extensions?: { required: string[]; unsupportedRequired: string[]; override: boolean };
 }
 
@@ -34,7 +36,7 @@ async function handleGET() {
     try {
       const discovery = await discoverRegisteredAgent(agent);
       const card = discovery.card as { name?: string; description?: string; skills?: CatalogEntry["skills"] };
-      return { id: agent.id, cardUrl: agent.cardUrl, source: agent.source, name: card.name, description: card.description, skills: card.skills, card: discovery.card, trust: discovery.trust,
+      return { id: agent.id, cardUrl: agent.cardUrl, source: agent.source, name: card.name, description: card.description, skills: card.skills, card: discovery.card, trust: discovery.trust, connection: discovery.connection,
         extensions: { required: discovery.sideband?.requiredUris ?? [], unsupportedRequired: discovery.sideband?.unsupportedRequiredUris ?? [], override: agent.extensionOverride ?? false } };
     } catch (error) {
       return { id: agent.id, cardUrl: agent.cardUrl, source: agent.source, error: error instanceof Error ? error.message : "Agent discovery failed." };

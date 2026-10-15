@@ -45,6 +45,13 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
   const agentId = conversation?.agentId ?? initialAgentId ?? "";
   const agent = useAgentStore((state) => state.agents.find((item) => item.id === agentId));
   const view = agent?.view;
+  // A new conversation sends the tenant the person chose, else the card's only or default tenant; an existing one keeps its own.
+  // The effective tenant is sent and stored, so Taskbay's identity for the task matches the agent's.
+  const [tenantChoice, setTenantChoice] = useState<{ agentId: string; tenant: string } | null>(null);
+  const tenantOptions = agent?.connection?.tenants ?? [];
+  const newConversation = tasks.length === 0;
+  const chosenTenant = tenantChoice?.agentId === agentId && tenantOptions.includes(tenantChoice.tenant) ? tenantChoice.tenant : undefined;
+  const sendTenant = newConversation ? chosenTenant ?? agent?.connection?.tenant ?? "" : tasks[0]?.tenant;
   // The card decides which extensions this send activates (A2UI), so wait for discovery instead of sending without it.
   const agentsStatus = useAgentStore((state) => state.status);
   const discovering = !agent?.view && agentsStatus !== "ready" && agentsStatus !== "error";
@@ -175,7 +182,7 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
     let landed: string | undefined;
     try {
       await runSend(
-        { skillId, agentId, agentName: view?.name ?? conversation?.agentName ?? "Agent", parts, taskId: effectiveTarget?.taskId, contextId, tenant: tasks[0]?.tenant, config, userMessage, base },
+        { skillId, agentId, agentName: view?.name ?? conversation?.agentName ?? "Agent", parts, taskId: effectiveTarget?.taskId, contextId, tenant: sendTenant, config, userMessage, base },
         {
           onUpdate: (next) => {
             const nextKey = conversationKey(next);
@@ -409,6 +416,9 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
           tasks: tasks.filter((task) => task.kind !== "message"),
           refIds,
           onRefIds: setRefIds,
+          tenant: tenantOptions.length > 1
+            ? { options: tenantOptions, value: (newConversation ? sendTenant : tasks[0]?.tenant) ?? "", locked: !newConversation, onChange: (tenant) => setTenantChoice({ agentId, tenant }) }
+            : undefined,
         }}
       />
     </div>

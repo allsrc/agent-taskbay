@@ -1,6 +1,7 @@
 "use client";
 
 import { create } from "zustand";
+import type { ConnectionView } from "@/lib/connection-interface";
 import { viewAgentCard, type AgentView } from "@/lib/agent-card";
 
 export interface CatalogAgent {
@@ -11,6 +12,8 @@ export interface CatalogAgent {
   view?: AgentView;
   trust?: string;
   error?: string;
+  /** Interface, protocol version, tenants and extensions this connection uses. */
+  connection?: ConnectionView;
   /** Required extensions the card declares, which of them Taskbay cannot honor, and the administrator override. */
   extensions?: { required: string[]; unsupportedRequired: string[]; override: boolean };
 }
@@ -32,13 +35,13 @@ export const useAgentStore = create<AgentStoreState>()((set, get) => ({
       const response = await fetch("/api/agents", { cache: "no-store" });
       const body = await response.json();
       if (!response.ok) throw new Error(body?.error?.message ?? "Could not load agents.");
-      const agents: CatalogAgent[] = (body.agents as Array<{ id: string; cardUrl: string; source: "env" | "managed"; card?: unknown; trust?: string; error?: string; extensions?: CatalogAgent["extensions"] }>).map(
+      const agents: CatalogAgent[] = (body.agents as Array<{ id: string; cardUrl: string; source: "env" | "managed"; card?: unknown; trust?: string; error?: string; extensions?: CatalogAgent["extensions"]; connection?: ConnectionView }>).map(
         (entry) => ({
           id: entry.id,
           cardUrl: entry.cardUrl,
           source: entry.source,
           view: entry.card ? viewAgentCard(entry.card) : undefined,
-          error: entry.error, trust: entry.trust, extensions: entry.extensions,
+          error: entry.error, trust: entry.trust, extensions: entry.extensions, connection: entry.connection,
         }),
       );
       set({ agents, status: "ready" });

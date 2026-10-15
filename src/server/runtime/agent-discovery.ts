@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 
 import { discoverAgent } from "../../lib/gateway";
 import { ensureDiscoveryCursorsFor } from "./discovery-cursors";
+import { buildConnectionView } from "../../lib/connection-interface";
 import { agentRegistry } from "../../lib/agent-registry";
 import type { AgentRegistry, RegisteredAgent } from "../application/ports/agent-registry";
 import type { JsonValue } from "../domain/persistence-model";
@@ -12,7 +13,8 @@ export async function discoverRegisteredAgent(
   registry: AgentRegistry = agentRegistry(),
   connection = registeredAgentConnection,
 ) {
-  const discovery = await discoverAgent(await connection(agent));
+  const config = await connection(agent);
+  const discovery = await discoverAgent(config);
   const card = discovery.card;
   await registry.recordDiscovery(agent.id, {
     signatureStatus: discovery.trust ?? "unsigned",
@@ -29,5 +31,11 @@ export async function discoverRegisteredAgent(
   await ensureDiscoveryCursorsFor(agent.id).catch(() => undefined);
   const filtered = await filterAgentCard(agent.id, discovery.card);
   const partial = filtered !== discovery.card;
-  return { ...discovery, card: filtered, report: partial ? {...discovery.report, issues: [], passed: []} : discovery.report, telemetry: [] };
+  // The Connection card shows what the gateway would use for this saved connection, from the unfiltered card.
+  const sideband = discovery.sideband;
+  const connectionView = buildConnectionView(discovery.normalizedCard?.supportedInterfaces ?? [], config, {
+    advertised: sideband?.advertisedUris ?? [], negotiated: sideband?.negotiatedUris ?? [],
+    required: sideband?.requiredUris ?? [], unsupportedRequired: sideband?.unsupportedRequiredUris ?? [],
+  });
+  return { ...discovery, connection: connectionView, card: filtered, report: partial ? {...discovery.report, issues: [], passed: []} : discovery.report, telemetry: [] };
 }
