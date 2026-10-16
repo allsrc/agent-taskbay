@@ -27,7 +27,7 @@ export interface ListOptions { statusTimestampAfter?: Date | null; historyLength
 export interface A2AReconciliationGateway {
   /** One `GetTask`. `historyLength` asks the agent for that many of its most recent history messages; omitted, the agent decides. */
   get(agent: AgentRecord, task: TaskRecord, signal: AbortSignal, historyLength?: number): Promise<JsonValue>;
-  list(agent: AgentRecord, cursor: SyncCursorRecord, signal: AbortSignal, options?: ListOptions): Promise<{ tasks: JsonValue[]; nextPageToken: string }>;
+  list(agent: AgentRecord, cursor: SyncCursorRecord, signal: AbortSignal, options?: ListOptions): Promise<{ tasks: JsonValue[]; nextPageToken: string; tenant?: string }>;
 }
 export interface ReconciliationSink {
   /** Ingest under a task-version check and unexpired lease fence. False means a concurrent update won. */

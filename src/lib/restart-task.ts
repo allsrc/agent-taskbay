@@ -15,6 +15,8 @@ export interface RestartProgress {
 export const initialRestart = (): RestartProgress => ({ cancel: { status: "waiting" }, start: { status: "waiting" } });
 
 export interface RestartSteps {
+  /** Restore authorized attachments before canceling; failure must leave the old task running. */
+  prepare?(): Promise<void>;
   /** Cancels the task. Rejects with a `CommandFailureError` when the agent refuses or the outcome is uncertain. */
   cancel(): Promise<void>;
   /** Reads the task again and returns its state, or undefined when it cannot be read. */
@@ -37,7 +39,7 @@ export async function runRestart(steps: RestartSteps, from: "cancel" | "start", 
   if (from === "cancel") {
     update({ cancel: { status: "running" }, start: { status: "waiting" } });
     let alreadyFinished = false;
-    try { await steps.cancel(); } catch (cause) {
+    try { await steps.prepare?.(); await steps.cancel(); } catch (cause) {
       const failure = failureFromError(cause, "The task could not be canceled.");
       if (failure.kind !== "task_terminal" && failure.kind !== "task_not_cancelable") { update({ cancel: { status: "failed", failure }, start: { status: "skipped" } }); return progress; }
       alreadyFinished = true;
@@ -54,12 +56,41 @@ export async function runRestart(steps: RestartSteps, from: "cancel" | "start", 
     update({ cancel: { status: "done", alreadyFinished } });
   }
   update({ start: { status: "running" } });
-  try { await steps.start(); } catch (cause) {
+  try { if (from === "start") await steps.prepare?.(); await steps.start(); } catch (cause) {
     update({ start: { status: "failed", failure: failureFromError(cause, "The new task could not be started.") } });
     return progress;
   }
   update({ start: { status: "done" } });
   return progress;
+}
+
+/** A definite refusal permits a new command. Unknown outcomes keep their identity for reconciliation. */
+export function restartMessageId(original: string, previous?: string, failure?: CommandFailure): string {
+  const refused = failure?.kind && ["task_not_found", "task_not_cancelable", "push_not_supported", "unsupported_operation",
+    "content_type_not_supported", "extended_card_not_configured", "extension_required", "version_not_supported", "invalid_request", "task_terminal", "dispatch_failed"].includes(failure.kind);
+  return refused ? `restart-${crypto.randomUUID()}` : previous ?? `restart-${original}`;
+}
+
+const ARCHIVED_FILE = /^\/api\/artifacts\/[0-9a-f]{64}$/;
+// The command endpoint accepts at most 16 MiB after JSON/base64 encoding. Reject oversized restored inputs before stopping work.
+const MAX_RESTART_BYTES = 16 * 1024 * 1024;
+
+/** Read stored files through the existing authenticated artifact route. External agent URLs remain references. */
+export async function restoreRestartAttachments(parts: OutgoingPart[]): Promise<OutgoingPart[]> {
+  const restored: OutgoingPart[] = [];
+  for (const part of parts) {
+    if (!("url" in part) || !ARCHIVED_FILE.test(part.url)) { restored.push(part); continue; }
+    const response = await fetch(part.url, { cache: "no-store", redirect: "error", signal: AbortSignal.timeout(30_000) });
+    if (!response.ok) throw new Error("The attached file could not be loaded. Check your access and try again.");
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    if (bytes.length * 4 / 3 > MAX_RESTART_BYTES) throw new Error("The attached file is too large to restart with.");
+    let binary = "";
+    for (let offset = 0; offset < bytes.length; offset += 0x8000) binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+    restored.push({ raw: btoa(binary), mediaType: part.mediaType, filename: part.filename ?? "file" });
+  }
+  if (new TextEncoder().encode(JSON.stringify(restored)).length > MAX_RESTART_BYTES - 64 * 1024)
+    throw new Error("The instruction and attached files are too large to restart with.");
+  return restored;
 }
 
 /** What can be resent from a message already shown: text, structured data and files by reference. Anything Taskbay cannot read back is left out. */

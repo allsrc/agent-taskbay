@@ -12,7 +12,7 @@ import { DiscoveredMarker } from "@/components/chat/discovered-marker";
 import { SteeringChip } from "@/components/chat/steering-chip";
 import { RestartDialog } from "@/components/chat/restart-dialog";
 import { CancelTasksDialog } from "@/components/tasks/cancel-tasks-dialog";
-import { cancelOverHttp, initialRestart, outgoingFromParts, runRestart, type RestartProgress } from "@/lib/restart-task";
+import { cancelOverHttp, initialRestart, outgoingFromParts, restartMessageId, restoreRestartAttachments, runRestart, type RestartProgress } from "@/lib/restart-task";
 import { Pill } from "@/components/patterns/status";
 import { failureFromError, type CommandFailure } from "@/lib/command-failure";
 import { Composer } from "@/components/chat/composer";
@@ -92,7 +92,8 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
   // What happened to each message sent to a working task, by task. Read from the task's detail: list rows and snapshots do not carry it.
   const [steering, setSteering] = useState<Record<string, SteeringEntry[]>>({});
   // "Stop and restart with this instruction" in progress: which message, and how far the two steps got.
-  const [restart, setRestart] = useState<{ task: TrackedTask; messageId: string; parts: OutgoingPart[]; progress: RestartProgress; attempt: number } | null>(null);
+  const [restart, setRestart] = useState<{ task: TrackedTask; messageId: string; startMessageId?: string; parts: OutgoingPart[]; progress: RestartProgress; attempt: number } | null>(null);
+  const restartInFlight = useRef(false);
   const [wire, setWire] = useState<WireEntry[]>([]);
   const [seed, setSeed] = useState<{ id: number; text: string } | undefined>();
   const wireId = useRef(0);
@@ -166,7 +167,7 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
   async function send(parts: OutgoingPart[], forTask?: TrackedTask, options?: { forceNew?: boolean; restartOf?: TrackedTask; messageId?: string; rethrow?: boolean }) {
     const effectiveTarget = options?.forceNew ? undefined : forTask ?? targetTask;
     setLastSend(parts);
-    if (sending || !agentId || discovering) {
+    if (sending || !agentId || discovering || (restartInFlight.current && !options?.restartOf)) {
       if (options?.rethrow) throw new Error("Taskbay is still sending another message. Try again in a moment.");
       return;
     }
@@ -235,28 +236,38 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
   }
 
   /** The two steps of a restart. The ids derive from the message being restarted, so a second click or a reload repeats the same commands instead of creating new ones. */
-  const restartSteps = (current: NonNullable<typeof restart>) => ({
-    cancel: () => {
-      pushWire("out", "CancelTask", { method: "CancelTask", params: { id: current.task.taskId } });
-      return cancelOverHttp(current.task, `restart-cancel-${current.messageId}-${current.attempt}`);
-    },
-    readState: async () => {
-      const reply = await fetch(`/api/tasks/${current.task.localId}`, { cache: "no-store" });
-      if (!reply.ok) return undefined;
-      const body = (await reply.json()) as { task?: DurableTaskView };
-      if (body.task) upsertTask(body.task);
-      return body.task?.state;
-    },
-    start: () => send(current.parts, undefined, { forceNew: true, restartOf: current.task, messageId: `restart-${current.messageId}`, rethrow: true }),
-  });
+  const restartSteps = (current: NonNullable<typeof restart>) => {
+    let parts = current.parts;
+    return {
+      prepare: async () => { parts = await restoreRestartAttachments(current.parts); },
+      cancel: () => {
+        pushWire("out", "CancelTask", { method: "CancelTask", params: { id: current.task.taskId } });
+        return cancelOverHttp(current.task, `restart-cancel-${current.messageId}-${current.attempt}`);
+      },
+      readState: async () => {
+        const reply = await fetch(`/api/tasks/${current.task.localId}`, { cache: "no-store" });
+        if (!reply.ok) return undefined;
+        const body = (await reply.json()) as { task?: DurableTaskView };
+        if (body.task) upsertTask(body.task);
+        return body.task?.state;
+      },
+      start: () => send(parts, undefined, { forceNew: true, restartOf: current.task, messageId: current.startMessageId ?? restartMessageId(current.messageId), rethrow: true }),
+    };
+  };
   async function runRestartFrom(from: "cancel" | "start") {
-    if (!restart || sending) return;
+    if (!restart || sending || restartInFlight.current) return;
+    restartInFlight.current = true;
     // A cancel that failed is tried again as a new command; one that is done is never repeated.
-    const current = from === "cancel" && restart.progress.cancel.status === "failed" ? { ...restart, attempt: restart.attempt + 1 } : restart;
-    if (current !== restart) setRestart(current);
-    const result = await runRestart(restartSteps(current), from, (progress) => setRestart((now) => (now ? { ...now, progress } : now)), current.progress);
-    void refreshSteering(current.task.localId ?? "");
-    if (result.start.status === "done") toast.success("New task started");
+    const current = { ...restart,
+      attempt: restart.attempt + (from === "cancel" && restart.progress.cancel.status === "failed" ? 1 : 0),
+      startMessageId: restartMessageId(restart.messageId, restart.startMessageId, from === "start" ? restart.progress.start.failure : undefined),
+    };
+    setRestart(current);
+    try {
+      const result = await runRestart(restartSteps(current), from, (progress) => setRestart((now) => (now ? { ...now, progress } : now)), current.progress);
+      void refreshSteering(current.task.localId ?? "");
+      if (result.start.status === "done") toast.success("New task started");
+    } finally { restartInFlight.current = false; }
   }
 
   if (!agentId) return null;
@@ -465,7 +476,7 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
         <Composer
               inputModes={view?.inputModes ?? []}
               sending={sending}
-              disabled={discovering}
+              disabled={discovering || restart?.progress.cancel.status === "running" || restart?.progress.start.status === "running"}
               seed={seed}
               hint={waiting ? "Reply to the agent, or pick an option above…" : targetTask ? "Send more input to the running task. The agent decides whether to use it." : undefined}
               onSend={send}

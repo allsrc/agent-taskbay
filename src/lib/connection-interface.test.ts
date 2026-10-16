@@ -6,6 +6,13 @@ const rest = (extra: Partial<InterfaceLike> = {}): InterfaceLike => ({ url: "htt
 const none = { advertised: [], negotiated: [], required: [], unsupportedRequired: [] };
 
 describe("chooseConnectionInterface", () => {
+  it("honors tenant matching inside pins and preserves an unscoped interface on mixed cards", () => {
+    const interfaces = [rpc({ tenant: "acme", url: "https://a.test/acme" }), rpc({ url: "https://a.test/default" }), rpc({ tenant: "beta", url: "https://a.test/beta" })];
+    expect(chooseConnectionInterface(interfaces, { protocolBinding: "JSONRPC" }, "acme").selected?.url).toBe("https://a.test/acme");
+    expect(chooseConnectionInterface(interfaces, {}, "").selected?.url).toBe("https://a.test/default");
+    expect(chooseConnectionInterface(interfaces, { interfaceUrl: "https://a.test/beta" }, "acme").selected).toBeUndefined();
+    expect(buildConnectionView(interfaces, { interfaceUrl: "https://a.test/acme" }, none).tenants).toEqual(["acme"]);
+  });
   const grpc = { url: "https://a.test/grpc", protocolBinding: "GRPC", protocolVersion: "1.0" };
   const older = rpc({ protocolVersion: "0.3.0", url: "https://a.test/old" });
   const cases: Array<[string, InterfaceLike[], Parameters<typeof chooseConnectionInterface>[1], string | undefined, boolean]> = [
@@ -28,14 +35,14 @@ describe("chooseConnectionInterface", () => {
 
 describe("tenants", () => {
   it("lists distinct tenants in card order and ignores gRPC and empty ones", () => {
-    expect(advertisedTenants([rpc({ tenant: "acme" }), rpc({ tenant: "beta" }), rest({ tenant: "acme" }), rpc()])).toEqual(["acme", "beta"]);
+    expect(advertisedTenants([rpc({ tenant: "acme" }), rpc({ tenant: "beta" }), rest({ tenant: "acme" }), rpc()])).toEqual(["acme", "beta", ""]);
     expect(advertisedTenants([{ ...rpc({ tenant: "grpc-only" }), protocolBinding: "GRPC" }])).toEqual([]);
   });
   it("uses the only tenant, none when there is none, and the selected interface's when several", () => {
     expect(defaultTenant([])).toBe("");
     expect(defaultTenant(["acme"])).toBe("acme");
     expect(defaultTenant(["acme", "beta"], rpc({ tenant: "beta" }))).toBe("beta");
-    expect(defaultTenant(["acme", "beta"], rpc())).toBe("acme");
+    expect(defaultTenant(["acme", "beta"], rpc())).toBe("");
   });
 });
 

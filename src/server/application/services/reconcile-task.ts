@@ -51,6 +51,8 @@ export class ReconciliationWorker {
         const plan = !auto ? { full: false, after: null } : starting ? planSweep(cursor, now) : { full: cursor.sweepAfter == null, after: cursor.sweepAfter ?? null };
         const page = await this.gateway.list(agent, cursor, signal, auto ? { statusTimestampAfter: plan.after, historyLength: DISCOVERED_HISTORY_PAGE } : undefined);
         if (signal.aborted) throw new Error("Read aborted.");
+        if (auto && page.tenant !== undefined && page.tenant !== cursor.tenant)
+          await this.work.run((ports) => ports.syncCursors.startDiscovery(cursor.organizationId, cursor.agentId, [page.tenant!], now, false));
         if (page.nextPageToken.length > 4096 || page.nextPageToken && page.nextPageToken === cursor.pageToken || page.tasks.length > 100)
           throw new Error("Invalid pagination.");
         // Validate the entire known page before ingesting any of it.
@@ -67,7 +69,9 @@ export class ReconciliationWorker {
         }
         let found = starting ? 0 : cursor.sweepFound ?? 0;
         let foundHere = 0;
-        if (auto && this.sink.discover) {
+        // A legacy empty-tenant cursor may resolve to a named default. It refreshes its existing records only;
+        // the canonical named cursor owns new discovery, avoiding duplicate identities for the same remote task.
+        if (auto && this.sink.discover && (page.tenant === undefined || page.tenant === cursor.tenant)) {
           // Anything Taskbay already stores, finished or not, is not new.
           const ids = page.tasks.map((event) => eventSubject(event).remoteTaskId).filter((id): id is string => Boolean(id));
           const stored = new Set((await this.work.run((ports) => ports.tasks.findManyByRemoteIds({ organizationId: cursor.organizationId, agentId: cursor.agentId, tenant: cursor.tenant, remoteTaskIds: ids }))).map((task) => task.remoteTaskId));

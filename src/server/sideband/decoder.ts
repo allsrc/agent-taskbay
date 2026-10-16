@@ -1,6 +1,7 @@
 import { normalizePart, normalizeParts } from "../../lib/content";
 import type { TaskReferences, SidebandEvent, SidebandLevel } from "../../shared/types";
 import { decodeExtensionArtifact } from "./adapters";
+import { sidebandExtensionUris } from "../runtime/runtime-config";
 
 type JsonObject = Record<string, unknown>;
 const isObject = (value: unknown): value is JsonObject => Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -115,6 +116,8 @@ export function extractSidebandEvents(
   envelope: unknown,
   context: { sessionId: string; requestId: string; negotiatedExtensions: string[] },
 ): SidebandEvent[] {
+  const sideband = new Set(sidebandExtensionUris());
+  context = { ...context, negotiatedExtensions: context.negotiatedExtensions.filter((uri) => sideband.has(uri)) };
   if (!context.negotiatedExtensions.length) return [];
   const references = envelopeReferences(envelope);
   const negotiated = new Set(context.negotiatedExtensions);

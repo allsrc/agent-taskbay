@@ -4,6 +4,24 @@ import type { ReconciliationUnitOfWork } from "../ports/reconciliation";
 import type { AgentRecord, SyncCursorRecord, TaskRecord } from "../../domain/persistence-model";
 
 describe("REL-002 SCL-001 reconciliation lease heartbeat", () => {
+  it("creates a canonical cursor when discovery first learns the default tenant, without storing alias copies", async () => {
+    const cursor = { id: "cursor", taskId: null, tenant: "", organizationId: "org", agentId: "agent", leaseOwner: "owner", attempts: 1, pageToken: "", lastSyncedAt: null } as SyncCursorRecord;
+    const startDiscovery = vi.fn().mockResolvedValue(undefined);
+    const finish = vi.fn().mockResolvedValue(true);
+    const ports = { agents: { findById: async () => ({ enabled: true } as AgentRecord) }, syncCursors: {
+      claim: async () => cursor, knownTasks: async () => [], startDiscovery, finish,
+    } };
+    const work = { run: async (callback: (value: typeof ports) => Promise<unknown>) => callback(ports) } as unknown as ReconciliationUnitOfWork;
+    const discover = vi.fn();
+    const worker = new ReconciliationWorker(work, {
+      get: vi.fn(), list: async () => ({ tenant: "acme", tasks: [{ task: { id: "remote", status: { state: "TASK_STATE_WORKING" } } }], nextPageToken: "" }),
+    }, { ingest: vi.fn(), discover }, undefined, { mode: () => "auto" });
+    await worker.runOne("owner", new AbortController().signal);
+    expect(startDiscovery).toHaveBeenCalledWith("org", "agent", ["acme"], expect.any(Date), false);
+    expect(discover).not.toHaveBeenCalled();
+    expect(finish).toHaveBeenCalledWith(cursor, expect.any(Date), expect.objectContaining({ lastError: null }));
+  });
+
   it("aborts a quiet read when ownership is lost and never ingests its late result", async () => {
     vi.useFakeTimers();
     try {

@@ -75,14 +75,14 @@ The **Connection** card shows what Taskbay will use when it talks to the agent. 
 
 | Row | Meaning |
 | --- | --- |
-| **Binding**, **Interface**, **Protocol** | The interface Taskbay connects to. If your connection settings pin a binding, interface URL or protocol version, the card says "Pinned by your connection settings." and shows the matching interface. Otherwise it shows the interface the A2A SDK picks: bindings in card order, and for each binding the last 1.0 interface, else the first. gRPC is never used. |
+| **Binding**, **Interface**, **Protocol** | The interface Taskbay connects to. If your connection settings pin a binding, interface URL or protocol version, the card says "Pinned by your connection settings." and shows the matching interface. For the default tenant it shows the interface the A2A SDK picks: bindings in card order, and for each binding the last 1.0 interface, else the first. gRPC is never used. |
 | **Tenant** | `(default)` when the card declares no tenant, the tenant when it declares one, or the list when it declares several. |
 | **Required** | `All supported`, `None`, or a red `N not supported` pill when the card marks an extension `required: true` that Taskbay does not support (sending is then blocked; see the notice at the top of the page). |
 | **Extensions** | Expand it to see each URI as `negotiated` (Taskbay uses it), `ignored` (advertised, not used) or `required, not supported`. |
 
 If **Interface** is `—`, no usable interface is advertised: the card lists only gRPC, or a pinned interface is no longer on the card. Agent-supplied values are shown as text and never as links.
 
-**Tenants.** A tenant is part of a task's identity. When the card declares exactly one tenant, new conversations use it without asking. When it declares several, choose the tenant for a new conversation in the chat **Options** ([Per-request options](use-the-console.md#per-request-options)); an existing conversation keeps the tenant it started with. Taskbay sends the tenant explicitly and stores it with the task. Conversations started before this release may have an empty stored tenant; they keep working, and the agent fills in its default.
+**Tenants.** A tenant is part of a task's identity. When the card declares exactly one tenant, new conversations use it without asking. When it declares several, choose the tenant for a new conversation in the chat **Options** ([Per-request options](use-the-console.md#per-request-options)); an existing conversation keeps the tenant it started with. Taskbay selects the matching advertised interface URL for that tenant, within any pinned connection settings, sends the tenant explicitly and stores it with the task. A tenant that cannot use a matching interface is refused before dispatch. Conversations started before this release may have an empty stored tenant; they keep working, and the agent fills in its default.
 
 From a terminal you can check what the catalog sees:
 
@@ -145,6 +145,8 @@ What you see:
 
 To send anyway, an administrator turns on **Allow sending without it (audited)** on the agent page, or calls `PATCH /api/agents/{agentId}/settings` with `{ "extensionOverride": true }`.
 The change is recorded in the security audit as `agent.extension.override` (and `agent.extension.override.removed` when turned off). The agent may not behave as it expects.
+
+Supported advertised extensions are declared in the `A2A-Extensions` request header, including required form, approval and A2UI extensions. Skill routing is activated for a scoped send or when required by the card.
 
 The check uses the agent's most recent stored card, which Taskbay records whenever the catalog or the agent page loads. A send made before any card was recorded is not blocked.
 

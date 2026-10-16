@@ -14,6 +14,15 @@ export function negotiateSidebandExtensions(card: AgentCard): string[] {
   return advertisedExtensionUris(card).filter((uri) => understood.has(uri));
 }
 
+/** Extensions Taskbay can honor on the wire, including required UI and routing extensions. */
+export function negotiateExtensions(card: AgentCard, supplied: readonly string[] = []): string[] {
+  const understood = new Set(understoodExtensionUris());
+  const advertised = advertisedExtensionUris(card);
+  const required = new Set(requiredExtensionUris(card));
+  return [...new Set([...advertised.filter((uri) => understood.has(uri) &&
+    (uri !== SKILL_ROUTING_EXTENSION || required.has(uri) || supplied.includes(uri))), ...supplied])];
+}
+
 /** Every extension Taskbay understands: the negotiated sideband ones plus the ones its screens render. */
 export function understoodExtensionUris(): string[] {
   return [...new Set([...sidebandExtensionUris(), STRUCTURED_FORM_EXTENSION_URI, A2UI_EXTENSION_URI, APPROVAL_REQUEST_EXTENSION_URI, SKILL_ROUTING_EXTENSION])];

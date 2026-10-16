@@ -4,11 +4,11 @@ import { AgentEntity } from "../adapters/db/entities";
 import { createPersistenceRepositories } from "../adapters/db/repositories";
 import { effectiveTaskDiscovery, DEFAULT_TASK_DISCOVERY_MODE } from "../domain/discovery-mode";
 import { taskDiscoveryCap } from "./runtime-config";
+import { advertisedTenants, cardInterfaces } from "../../lib/connection-interface";
 
 /** Tenants an agent's card declares for its interfaces. */
 function cardTenants(card: unknown): string[] {
-  const interfaces = (card as { supportedInterfaces?: Array<{ tenant?: unknown }> } | undefined)?.supportedInterfaces;
-  return (Array.isArray(interfaces) ? interfaces : []).map((entry) => entry?.tenant).filter((tenant): tenant is string => typeof tenant === "string" && tenant.length > 0 && tenant.length <= 255);
+  return advertisedTenants(cardInterfaces(card)).filter((tenant) => tenant.length <= 255);
 }
 
 /**
@@ -18,7 +18,8 @@ function cardTenants(card: unknown): string[] {
 export async function startAutomaticDiscovery(em: EntityManager, organizationId: string, agentId: string, reset: boolean) {
   const ports = createPersistenceRepositories(em);
   const snapshot = await ports.agents.findLatestCardSnapshot(agentId);
-  const tenants = ["", ...cardTenants(snapshot?.normalizedCardJson), ...await ports.syncCursors.taskTenants(organizationId, agentId)];
+  const declared = cardTenants(snapshot?.normalizedCardJson);
+  const tenants = [...(declared.length ? declared : [""]), ...await ports.syncCursors.taskTenants(organizationId, agentId)];
   await ports.syncCursors.startDiscovery(organizationId, agentId, tenants, new Date(), reset);
 }
 

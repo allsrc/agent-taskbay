@@ -79,6 +79,8 @@ export type OperationAction =
   | "deletePushConfig";
 
 export interface OperationResponse {
+  /** Effective routing tenant, after resolving the selected AgentInterface's default. */
+  tenant?: string;
   cardTrust?: import("../server/adapters/auth/card-trust").CardTrust;
   result: unknown;
   telemetry: WireEvent[];

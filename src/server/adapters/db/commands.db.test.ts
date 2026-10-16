@@ -135,6 +135,14 @@ async function contract(config: DatabaseConfig, directory: string) {
     const otherLocalId = (otherResult.resultJson as { localId: string }).localId;
     expect(await createPersistenceRepositories(orm.em.fork()).tasks.findById(org.id, otherLocalId)).toBeUndefined();
     expect(await createPersistenceRepositories(orm.em.fork()).tasks.findById(other.id, otherLocalId)).toMatchObject({ kind: "message", remoteTaskId: null });
+    // Before the first card snapshot, the SDK's effective tenant still becomes the new task's durable identity.
+    const defaultSend = await acceptCommand(agent.id, { text: "Use the interface default" }, "tenant-default", { orm, store });
+    await createCommandDispatcher({ orm, store, gateway: { dispatch: async () => ({ tenant: "acme", task: {
+      id: "default-tenant-task", status: { state: "TASK_STATE_COMPLETED" },
+    } }) } }).runOne();
+    const defaultResult = (await createPersistenceRepositories(orm.em.fork()).commands.findById(org.id, defaultSend.id))!;
+    expect(defaultResult.status).toBe("succeeded");
+    expect(await createPersistenceRepositories(orm.em.fork()).tasks.findById(org.id, (defaultResult.resultJson as { localId: string }).localId)).toMatchObject({ tenant: "acme" });
     expect(await orm.migrator.checkSchema()).toBe(false);
   } finally { await orm.close(true); }
 }

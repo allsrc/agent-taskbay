@@ -1,11 +1,15 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CommandFailureError } from "@/lib/command-failure";
-import { cancelOverHttp, initialRestart, outgoingFromParts, runRestart, type RestartProgress, type RestartSteps } from "@/lib/restart-task";
+import { cancelOverHttp, initialRestart, outgoingFromParts, restartMessageId, restoreRestartAttachments, runRestart, type RestartProgress, type RestartSteps } from "@/lib/restart-task";
+import { externalizeBinary } from "@/server/application/services/protocol-archive";
+import { normalizeParts } from "@/lib/content";
+import type { ArtifactStore } from "@/server/application/ports/artifact-store";
 
 const refuse = (kind: string) => new CommandFailureError("agent said no", { kind });
 function steps(overrides: Partial<RestartSteps> & { state?: string } = {}) {
   const calls: string[] = [];
   const value: RestartSteps = {
+    prepare: overrides.prepare,
     cancel: overrides.cancel ?? (async () => { calls.push("cancel"); }),
     readState: overrides.readState ?? (async () => { calls.push("read"); return overrides.state ?? "TASK_STATE_CANCELED"; }),
     start: overrides.start ?? (async () => { calls.push("start"); }),
@@ -20,6 +24,44 @@ const run = (value: RestartSteps, from: "cancel" | "start" = "cancel", start?: R
 afterEach(() => vi.unstubAllGlobals());
 
 describe("stop and restart with this instruction", () => {
+  it("preserves binary file content across archival and restores it before cancellation", async () => {
+    const bytes = Uint8Array.from([0, 1, 128, 255, 10]);
+    const raw = Buffer.from(bytes).toString("base64");
+    const digest = "a".repeat(64);
+    const store = { put: async () => ({ objectKey: `org/${digest}`, digest, sizeBytes: bytes.length }) } as unknown as ArtifactStore;
+    const archived = await externalizeBinary({ parts: [{ text: "Use this" }, { raw, mediaType: "text/csv", filename: "a.csv" }] }, "org", store);
+    const parts = outgoingFromParts(normalizeParts((archived.event as { parts: unknown[] }).parts));
+    const fetchFile = vi.fn<(url: string) => Promise<Response>>(async () => new Response(bytes));
+    vi.stubGlobal("fetch", fetchFile);
+    let prepared = parts;
+    const { value, calls } = steps({ prepare: async () => { prepared = await restoreRestartAttachments(parts); }, cancel: async () => {
+      expect(prepared).toEqual([{ text: "Use this", mediaType: "text/plain" }, { raw, mediaType: "text/csv", filename: "a.csv" }]);
+    } });
+    expect((await run(value)).progress.start.status).toBe("done");
+    expect(calls).toContain("start");
+    expect(fetchFile.mock.calls[0][0]).toBe(`/api/artifacts/${digest}`);
+    expect(await restoreRestartAttachments([{ url: "https://agent.test/file", mediaType: "text/csv" }])).toEqual([{ url: "https://agent.test/file", mediaType: "text/csv" }]);
+    expect(fetchFile).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves work running when an attachment is missing or no longer authorized", async () => {
+    for (const status of [403, 404]) {
+      vi.stubGlobal("fetch", async () => new Response("", { status }));
+      const { value, calls } = steps({ prepare: () => restoreRestartAttachments([{ url: `/api/artifacts/${"b".repeat(64)}`, mediaType: "text/csv" }]).then(() => {}) });
+      expect((await run(value)).progress.start.status).toBe("skipped");
+      expect(calls).toEqual([]);
+    }
+  });
+
+  it("changes the retry identity only for a definite refusal", () => {
+    const first = restartMessageId("m1");
+    expect(first).toBe("restart-m1");
+    expect(restartMessageId("m1", first, { kind: "uncertain", message: "unknown" })).toBe(first);
+    expect(restartMessageId("m1", first, { message: "connection lost" })).toBe(first);
+    expect(restartMessageId("m1", first, { kind: "content_type_not_supported", message: "refused" })).not.toBe(first);
+    expect(restartMessageId("m1", first, { kind: "dispatch_failed", message: "never sent" })).not.toBe(first);
+  });
+
   it("cancels, checks the task is canceled, then starts the new task", async () => {
     const order: string[] = [];
     const { value } = steps({ cancel: async () => { order.push("cancel"); }, readState: async () => { order.push("read"); return "TASK_STATE_CANCELED"; }, start: async () => { order.push("start"); } });

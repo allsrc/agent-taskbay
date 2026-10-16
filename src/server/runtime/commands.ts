@@ -149,7 +149,10 @@ export function createCommandDispatcher(options: { orm?: MikroORM; store?: Artif
     em.transactional((transaction) => callback(createPersistenceRepositories(transaction))), options.orm) };
   return new CommandDispatcher(work, options.gateway ?? new SdkCommandGateway(), options.store ?? artifactStore, {
     commit: async (message, command, event, userMessage) => {
-      await createTaskObserver({ organizationId: command.organizationId, agentId: command.agentId, tenant: command.tenant, sessionId: command.id,
+      // The first send may precede any stored card. The gateway reports the default it actually used for new work.
+      const effectiveTenant = !command.tenant && userMessage && !((userMessage as { taskId?: unknown }).taskId) &&
+        typeof (event as { tenant?: unknown }).tenant === "string" ? (event as { tenant: string }).tenant : command.tenant;
+      await createTaskObserver({ organizationId: command.organizationId, agentId: command.agentId, tenant: effectiveTenant, sessionId: command.id,
         requestId: command.id, source: "command_response", userMessage, skillId: command.skillId }, { orm: options.orm, store: options.store,
         onObserved: async (view, safeEvent, transaction) => {
           const ports = createPersistenceRepositories(transaction);
@@ -171,7 +174,7 @@ export async function waitForCommand(id: string, signal?: AbortSignal) {
     if (!command) throw new CommandError("Command not found.", 404);
     if (command.status === "succeeded") return command;
     if (["failed", "uncertain", "rejected"].includes(command.status))
-      throw new CommandError(command.lastError ?? "Command failed.", 409, command.status === "rejected" ? command.errorKind ?? undefined : command.status === "uncertain" ? "uncertain" : undefined);
+      throw new CommandError(command.lastError ?? "Command failed.", 409, command.status === "rejected" ? command.errorKind ?? undefined : command.status === "uncertain" ? "uncertain" : "dispatch_failed");
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
   throw new CommandError(`Command accepted; waiting stopped. Query /api/commands/${id} for its outcome before submitting again.`, 504);

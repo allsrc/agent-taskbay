@@ -62,14 +62,9 @@ These hold for every extension on this page unless its own page says otherwise.
 
 ### What is sent to the agent
 
-Extension URIs go to the agent in the message's `extensions` field. They come from three sources, merged and de-duplicated:
+Supported extensions advertised by the agent are declared in the `A2A-Extensions` request header and, for sends, the message's `extensions` field. This includes structured forms, approval requests, A2UI and supported required extensions, as well as configured sideband URIs.
 
-- URIs the caller lists in `config.extensions` on a send ([HTTP API](../http-api.md#command-body)), including those switched on in the console's Settings page ("Extension URIs activated on every request").
-- **Sideband URIs the agent advertises and Agent Taskbay understands.** The understood set is the two built-in `urn:` URIs plus anything in `A2A_SIDEBAND_EXTENSION_URIS`
-  ([Configuration](../configuration.md#catalog-and-extensions)). These are also sent in the A2A extensions request header.
-- The skill-routing URI when a send is restricted to a skill, and the A2UI URI when the console sends to an agent that advertises A2UI.
-
-The structured-form and approval-request extensions are content conventions detected on the agent's replies; the console does not need to list them on requests.
+Caller-supplied `config.extensions` are merged and de-duplicated into both the header and message, including those enabled in Settings. Optional skill routing is activated only when a send supplies the validated skill route; a required skill-routing extension is declared on every request. Sideband decoding remains limited to the built-in or configured sideband URIs: negotiating a form or approval extension does not turn its content into trace events.
 
 ## Sideband events
 

@@ -16,6 +16,8 @@ import { effectiveTaskDiscovery, DEFAULT_TASK_DISCOVERY_MODE } from "../domain/d
 import { taskDiscoveryCap } from "./runtime-config";
 import { artifactStore, createTaskObserver } from "./task-persistence";
 import type { ArtifactStore } from "../application/ports/artifact-store";
+import { cardDefaultTenant } from "../../lib/connection-interface";
+import { object } from "../application/services/task-projection";
 
 export const BROWSE_PAGE_SIZE = 25;
 export const MAX_BROWSE_PAGE_SIZE = 50;
@@ -47,7 +49,7 @@ async function authorizeDiscovery(em: Parameters<Parameters<typeof withRequestEn
 
 /** Lists the agent's tasks now. Nothing is stored and nothing is cached. */
 export async function browseRemoteTasks(agentId: string, query: BrowseQuery, options: DiscoveryOptions = {}) {
-  const tenant = query.tenant ?? "";
+  let tenant = query.tenant ?? "";
   if (tenant.length > 255 || (query.contextId?.length ?? 0) > 255 || (query.pageToken?.length ?? 0) > 4096) throw new DiscoveryError("A filter is too long.", 400, "invalid_request");
   if (query.status && !STATUS_FILTER.has(query.status)) throw new DiscoveryError("Unknown task state.", 400, "invalid_request");
   const pageSize = Math.min(Math.max(Math.trunc(query.pageSize ?? BROWSE_PAGE_SIZE), 1), MAX_BROWSE_PAGE_SIZE);
@@ -64,21 +66,34 @@ export async function browseRemoteTasks(agentId: string, query: BrowseQuery, opt
     if (error instanceof RemoteRejection) throw new DiscoveryError(`The agent refused the request: ${error.kind}.`, 502, error.kind);
     throw new DiscoveryError("The agent could not be reached.", 502, "agent_unavailable");
   }
+  tenant = page.tenant ?? tenant;
   const { rows, dropped } = remoteTaskRows(page.tasks, tenant);
   if (!rows.length && dropped) throw new DiscoveryError("The agent returned tasks Taskbay could not read.", 502, "agent_response_invalid");
-  const known = await withRequestEntityManager((em) => createPersistenceRepositories(em).tasks.findManyByRemoteIds({ organizationId, agentId: agent.id, tenant, remoteTaskIds: rows.map((row) => row.taskId) }), options.orm);
-  const byId = new Map(known.map((task) => [task.remoteTaskId, task.id]));
+  const known = await withRequestEntityManager(async (em) => {
+    const ports = createPersistenceRepositories(em);
+    const identity = { organizationId, agentId: agent.id, tenant, remoteTaskIds: rows.map((row) => row.taskId) };
+    const canonical = await ports.tasks.findManyByRemoteIds(identity);
+    const snapshot = tenant ? await ports.agents.findLatestCardSnapshot(agent.id) : undefined;
+    const legacy = tenant && cardDefaultTenant(snapshot?.normalizedCardJson) === tenant
+      ? await ports.tasks.findManyByRemoteIds({ ...identity, tenant: "" }) : [];
+    return [...canonical, ...legacy];
+  }, options.orm);
+  const byId = new Map<string | null, string>();
+  for (const task of known) if (!byId.has(task.remoteTaskId)) byId.set(task.remoteTaskId, task.id);
   const result: BrowseRow[] = rows.map((row) => ({ ...row, tracked: byId.has(row.taskId), localId: byId.get(row.taskId) ?? null }));
   return { rows: result, nextPageToken: page.nextPageToken.length <= 4096 ? page.nextPageToken : "", dropped, tenant };
 }
 
 /** Stores one task from the agent and starts following it. Idempotent: a task already stored is returned as it is. */
 export async function trackRemoteTask(agentId: string, input: { taskId: string; tenant?: string }, options: DiscoveryOptions = {}) {
-  const tenant = input.tenant ?? "";
+  let tenant = input.tenant ?? "";
   if (!input.taskId || input.taskId.length > 255 || tenant.length > 255) throw new DiscoveryError("A task ID of 1 to 255 characters is required.", 400, "invalid_request");
   const context = await withRequestEntityManager(async (em) => {
     const authorized = await authorizeDiscovery(em, agentId, "track");
-    const existing = await authorized.ports.tasks.findByRemoteIdentity({ organizationId: authorized.organizationId, agentId: authorized.agent.id, tenant, remoteTaskId: input.taskId });
+    const defaultTenant = cardDefaultTenant((await authorized.ports.agents.findLatestCardSnapshot(authorized.agent.id))?.normalizedCardJson);
+    const identity = { organizationId: authorized.organizationId, agentId: authorized.agent.id, tenant, remoteTaskId: input.taskId };
+    const existing = await authorized.ports.tasks.findByRemoteIdentity(identity) ?? (tenant && tenant === defaultTenant
+      ? await authorized.ports.tasks.findByRemoteIdentity({ ...identity, tenant: "" }) : undefined);
     return { organizationId: authorized.organizationId, agent: authorized.agent, principal: authorized.principal, existing: existing?.id };
   }, options.orm);
   if (context.existing) return { localId: context.existing, created: false };
@@ -92,8 +107,14 @@ export async function trackRemoteTask(agentId: string, input: { taskId: string; 
     if (error instanceof RemoteRejection) throw new DiscoveryError(`The agent refused the request: ${error.kind}.`, 502, error.kind);
     throw new DiscoveryError("The agent could not be reached.", 502, "agent_unavailable");
   }
+  tenant = typeof object(event).tenant === "string" ? String(object(event).tenant) : tenant;
   const invalid = validateTrackedTask(event, input.taskId, tenant);
   if (invalid) throw new DiscoveryError(invalid, 502, "agent_response_invalid");
+  // Resolve the default from the fresh gateway read, not a possibly stale stored card. Re-tracking keeps the canonical row.
+  const existing = await withRequestEntityManager((em) => createPersistenceRepositories(em).tasks.findByRemoteIdentity({
+    organizationId: context.organizationId, agentId: context.agent.id, tenant, remoteTaskId: input.taskId,
+  }), options.orm);
+  if (existing) return { localId: existing.id, created: false };
 
   // The browser contributed only an ID. What is stored is what the agent returned, observed like any other task update.
   const view = await createTaskObserver({ organizationId: context.organizationId, agentId: context.agent.id, tenant, sessionId: randomUUID(), requestId: randomUUID(),

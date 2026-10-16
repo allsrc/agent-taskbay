@@ -23,7 +23,7 @@ describe("SdkReconciliationGateway.list", () => {
     expect(page.nextPageToken).toBe("");
   });
   it("reads an empty list, which the SDK serializes without a task array", async () => {
-    expect(await gateway.list(record, cursor(), signal)).toEqual({ tasks: [], nextPageToken: "" });
+    expect(await gateway.list(record, cursor(), signal)).toEqual({ tasks: [], nextPageToken: "", tenant: "" });
   });
   it("still follows a token while there are more pages, and passes discovery's options", async () => {
     await agent.control({ seed: Array.from({ length: 101 }, (_, index) => ({ id: `t${index}`, state: "working" })) });

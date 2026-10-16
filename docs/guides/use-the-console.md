@@ -135,10 +135,12 @@ Step 2 runs only after the old task reads back as canceled. If the agent says th
 | What happens | What you see |
 | --- | --- |
 | The agent refuses the cancel, or Taskbay cannot tell whether it did | The error for that failure, "The new task was not started and nothing else changed.", and **Send as extra input instead**, which sends the message to the running task. |
-| The cancel worked but the new task failed | "The old task was canceled, but the new task was not started." and **Try step 2 again**, which repeats step 2 only. |
-| You click again, or reload and restart the same message | The same two commands are used again (their keys come from the message), so no second cancel or second new task is created. |
+| The cancel worked but the agent refused the new task, or dispatch failed before sending | "The old task was canceled, but the new task was not started." and **Try step 2 again**, which sends a new attempt for step 2 only. |
+| Taskbay cannot confirm whether the new task started | **Check step 2 again** checks the same durable command. It does not create a new send. |
+| An attached file cannot be read or the restored input is too large | An error before cancellation; the old task keeps running. |
+| You click again while a step is running | The same attempt is used; a second click cannot create a second cancel or new task. |
 
-Both steps are ordinary commands and show on the **Wire** panel. Only text, structured data and files sent by URL are carried to the new task. The message to restart can be one that the agent refused, since its text is still shown.
+Both steps are ordinary commands and show on the **Wire** panel. Text, structured data, external file URLs and stored inline attachments are carried to the new task. Taskbay reads stored files through your current artifact permissions and restores their original bytes before canceling; private console URLs are never sent as file references. The message to restart can be one that the agent refused, since its text is still shown.
 
 ### Answer an agent that needs you
 
@@ -217,6 +219,7 @@ answered, not on the agent's own wording:
 | The agent needs an extension Taskbay does not support. See the agent page. / The agent does not support this protocol version. See the agent page. | The agent requires something Taskbay cannot do. | Read the [required extensions](connect-an-agent.md#required-extensions) section. |
 | The agent rejected the request as malformed. | The agent could not parse what was sent. | Try again with simpler content; report it if it repeats. |
 | This task is finished. Start a new task in the same conversation. | You sent to, or canceled, a task that already ended. | Choose **Start new task**: the same message is sent as a new task in this conversation. |
+| The request could not be sent to the agent. Check the connection and try again. | Discovery or another pre-dispatch check failed; no send reached the agent. | Check the agent connection, then send again. |
 | Taskbay can't tell whether the agent received this. It will not resend automatically. Check the task before trying again. | The request left Taskbay and then the connection failed or the agent answered in a way that does not say it refused. | Open the task, check its state, and send again only if the agent did nothing. |
 
 A refusal by the agent means it did nothing, so sending again is safe. Anything else shows the message Taskbay has, as plain text, with **Try again** where that can help.

@@ -45,7 +45,7 @@ That runs, in order: `lint`, `test`, `test:db`, `db:migrate`, `db:schema:check`,
 | `npm run test:db` | Database contract tests (`src/server/adapters/db/*.db.test.ts`) | Run on PGlite; also on PostgreSQL when `A2A_TEST_POSTGRES_URL` is set. Single worker, 30 s timeout. |
 | `npm run db:schema:check` | Migrations match the entities | Run `npm run db:migrate` first, as `check` does. |
 | `npm run build` | Production build (webpack) | |
-| `npm run test:http` | End-to-end HTTP suites (`scripts/verify-*-http.mjs`) | Needs the production build. Starts fixture agents and real production servers, and restarts them. Slow. |
+| `npm run test:http` | End-to-end HTTP suites (`scripts/verify-*-http.mjs`) | Needs the production build. Starts fixture agents and real production servers, and restarts them. Slow. The steering suite loads the shared browser restart helpers through `tsx` to check retry identity and attachment restoration against real HTTP commands. |
 | `npm run verify:package` | Packs the project, installs the tarball into an empty directory, launches it | Needs network access to install dependencies. |
 
 A new database-backed test goes in a `*.db.test.ts` file and must also be added to the explicit file list in the `test:db` script in `package.json`; the script does not glob. A new HTTP suite is added to the `test:http` chain the same way.

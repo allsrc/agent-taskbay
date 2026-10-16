@@ -56,6 +56,11 @@ describe.each([["open", open], ["protected", protectedConnection]] as const)("Sd
   it("returns the task when the agent accepts", async () => {
     expect(await dispatch()).toMatchObject({ task: { status: { state: expect.anything() } } });
   });
+
+  it("reports the SDK's effective tenant for a first send", async () => {
+    await agent.control({ tenants: ["acme"] });
+    expect(await dispatch()).toMatchObject({ tenant: "acme", task: { status: { state: "TASK_STATE_WORKING" } } });
+  });
 });
 
 it("treats a failure before the request leaves as a safe retry, not a rejection", async () => {

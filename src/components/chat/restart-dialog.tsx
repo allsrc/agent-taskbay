@@ -56,9 +56,11 @@ export function RestartSteps({ taskTitle, progress, onSendAsInput, onRetryStart,
       )}
       {startFailed && progress.start.failure && (
         <>
-          <p className="text-xs font-medium">The old task was canceled, but the new task was not started.</p>
+          <p className="text-xs font-medium">{progress.start.failure.kind === "uncertain" || !progress.start.failure.kind
+            ? "The old task has finished. Taskbay cannot confirm whether the new task started."
+            : "The old task was canceled, but the new task was not started."}</p>
           <CommandError failure={progress.start.failure} onStartNew={onStartNew} />
-          {onRetryStart && <div><Button size="sm" variant="outline" onClick={onRetryStart}>Try step 2 again</Button></div>}
+          {onRetryStart && <div><Button size="sm" variant="outline" onClick={onRetryStart}>{progress.start.failure.kind === "uncertain" || !progress.start.failure.kind ? "Check step 2 again" : "Try step 2 again"}</Button></div>}
         </>
       )}
     </div>

@@ -5,6 +5,8 @@ import { join } from "node:path";
 import { spawn, execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { startScenarioAgent } from "./fixture-scenario-agent.mjs";
+import { cancelOverHttp, outgoingFromParts, restoreRestartAttachments, restartMessageId, runRestart } from "../src/lib/restart-task.ts";
+import { sendAndStream } from "../src/lib/client-stream.ts";
 
 // Real Next production HTTP against the controllable agent: what happened to a message sent to a working task (delivered, responded,
 // refused), and "stop and restart with this instruction" at API level (cancel, then send a new task that references the old one).
@@ -149,6 +151,56 @@ try {
   assert.equal(mixedResults[1].status, 200);
   assert.equal((await detail(mixedFirst.localId)).state, "TASK_STATE_WORKING");
   assert.equal((await detail(mixedLast.localId)).state, "TASK_STATE_CANCELED");
+
+  // Use the browser's actual restart and streaming helpers through the real command/idempotency path.
+  const binary = Buffer.from([0, 1, 128, 255, 10]);
+  const attached = await command("restart-attached", { contextId: "ctx-attached", parts: [
+    { text: "Analyze this file", mediaType: "text/plain" }, { raw: binary.toString("base64"), mediaType: "text/csv", filename: "input.csv" },
+  ] });
+  const attachedTask = await detail(attached.result.localId);
+  const originalMessage = attachedTask.messages.find((message) => message.role === "user");
+  const displayedParts = outgoingFromParts(originalMessage.parts);
+  assert.ok(displayedParts.some((part) => part.url?.startsWith("/api/artifacts/")));
+  const nativeFetch = globalThis.fetch;
+  // A browser supplies its origin and resolves same-origin relative URLs; retain the fixture's native fetch separately.
+  globalThis.fetch = (input, options = {}) => nativeFetch(typeof input === "string" && input.startsWith("/") ? base + input : input,
+    { ...options, headers: { Origin: base, ...options.headers } });
+  try {
+    let parts, nextMessageId = restartMessageId(originalMessage.id), replacement;
+    const steps = {
+      prepare: async () => { parts = await restoreRestartAttachments(displayedParts); },
+      cancel: () => cancelOverHttp(attachedTask, "restart-file-cancel"),
+      readState: async () => (await detail(attachedTask.localId)).state,
+      start: async () => {
+        const controller = new AbortController();
+        replacement = undefined;
+        try {
+          await sendAndStream(registered.id, { parts, contextId: attachedTask.contextId, messageId: nextMessageId,
+            config: { referenceTaskIds: [attachedTask.taskId] } }, { onSnapshot: (task) => { replacement = task; controller.abort(); } }, controller.signal);
+        } catch (error) { if (!replacement) throw error; }
+      },
+    };
+    await agent.control({ fail: { method: "SendMessage", error: "ContentTypeNotSupportedError", times: 1 } });
+    const firstTry = await runRestart(steps, "cancel", () => {});
+    assert.equal(firstTry.cancel.status, "done");
+    assert.equal(firstTry.start.failure.kind, "content_type_not_supported");
+    const previous = nextMessageId;
+    nextMessageId = restartMessageId(originalMessage.id, previous, firstTry.start.failure);
+    assert.notEqual(nextMessageId, previous);
+    const retry = await runRestart(steps, "start", () => {}, firstTry);
+    assert.equal(retry.start.status, "done");
+    assert.equal((await detail(attachedTask.localId)).state, "TASK_STATE_CANCELED");
+    const requests = (await agent.state()).log;
+    assert.equal(requests.filter((request) => request.method === "CancelTask" && request.params.id === attachedTask.taskId).length, 1);
+    const restarted = requests.findLast((request) => request.method === "SendMessage" && request.params.message.messageId === nextMessageId);
+    assert.equal(restarted.params.message.parts[1].raw, binary.toString("base64"));
+    assert.equal(restarted.params.message.parts[1].url, undefined);
+    assert.equal(restarted.params.message.parts[1].filename, "input.csv");
+    // Rechecking an uncertain delivery reuses the same command, even if the first request already created the task.
+    assert.equal(restartMessageId(originalMessage.id, nextMessageId, { kind: "uncertain", message: "lost response" }), nextMessageId);
+    assert.equal((await runRestart(steps, "start", () => {}, retry)).start.status, "done");
+    assert.equal((await agent.state()).log.filter((request) => request.method === "SendMessage" && request.params.message.messageId === nextMessageId).length, 1);
+  } finally { globalThis.fetch = nativeFetch; }
 
   console.log("Steering and related cancel HTTP verification passed (pglite, embedded worker).");
 } finally {

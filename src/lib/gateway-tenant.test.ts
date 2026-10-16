@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { discoverAgent, executeOperation } from "./gateway";
+import { discoverAgent, executeOperation, streamOperation } from "./gateway";
 import { buildConnectionView } from "./connection-interface";
 import type { ConnectionConfig } from "./types";
 import { startScenarioAgent } from "../../scripts/fixture-scenario-agent.mjs";
@@ -21,15 +21,15 @@ it("WF-66 fills the tenant from the selected interface when Taskbay sends an emp
   expect(await sentTenants("GetTask")).toEqual(["acme"]);
 });
 
-it("WF-66 keeps an explicit tenant instead of the interface default", async () => {
-  await executeOperation({ connection: connection(), action: "listTasks", params: { tenant: "other" } });
-  expect(await sentTenants("ListTasks")).toEqual(["other"]);
+it("refuses an explicit tenant that has no compatible interface", async () => {
+  await expect(executeOperation({ connection: connection(), action: "listTasks", params: { tenant: "other" } })).rejects.toThrow("No advertised interface matches");
+  expect(await sentTenants("ListTasks")).toEqual([]);
 });
 
 // An agent whose card lists several tenants. The chosen tenant is resolved before sending and stored, so it goes out explicitly.
 describe("WF-66 multi-tenant agent", () => {
   let multi: Awaited<ReturnType<typeof startScenarioAgent>>;
-  beforeAll(async () => { multi = await startScenarioAgent({ behaviors: { tenants: ["acme", "beta"] } }); });
+  beforeAll(async () => { multi = await startScenarioAgent({ behaviors: { tenants: ["acme", "beta"], tenantPaths: true } }); });
   afterAll(async () => { await multi.close(); });
   const config = (): ConnectionConfig => ({ cardUrl: multi.cardUrl, auth: { type: "none" }, headers: {} });
   const sent = async (method: string) => (await multi.state()).log.filter((entry: { method: string }) => entry.method === method)
@@ -50,5 +50,28 @@ describe("WF-66 multi-tenant agent", () => {
     expect(await sent("SendMessage")).toEqual(["beta", "beta"]);
     await executeOperation({ connection: config(), action: "send", params: { text: "again", tenant: "acme" } });
     expect(await sent("SendMessage")).toEqual(["beta", "beta", "acme"]);
+  });
+
+  it("routes reads, streaming, cancellation and push configurations to the tenant's own URL", async () => {
+    const started = await executeOperation({ connection: config(), action: "send", params: { text: "route checks", tenant: "acme" } });
+    const taskId = (started.result as { id: string }).id;
+    expect(started.tenant).toBe("acme");
+    await executeOperation({ connection: config(), action: "getTask", params: { taskId, tenant: "acme" } });
+    await executeOperation({ connection: config(), action: "listTasks", params: { tenant: "acme" } });
+    await executeOperation({ connection: config(), action: "createPushConfig", params: { tenant: "acme", taskId, configId: "p", url: "https://callback.test/p" } });
+    await executeOperation({ connection: config(), action: "listPushConfigs", params: { tenant: "acme", taskId } });
+    await executeOperation({ connection: config(), action: "deletePushConfig", params: { tenant: "acme", taskId, configId: "p" } });
+    const controller = new AbortController();
+    const stream = await streamOperation({ connection: config(), action: "getTask", params: { tenant: "acme", taskId }, signal: controller.signal });
+    const first = await stream.events.next();
+    expect(first.done).toBe(false);
+    controller.abort();
+    await stream.events.return();
+    await executeOperation({ connection: config(), action: "cancelTask", params: { taskId, tenant: "acme" } });
+    const requests = (await multi.state()).log.filter((entry: { params: { tenant?: string } }) => entry.params.tenant === "acme");
+    expect(requests.every((entry: { path: string }) => entry.path === "/acme/a2a")).toBe(true);
+    expect(requests.some((entry: { method: string }) => entry.method === "SubscribeToTask")).toBe(true);
+    await expect(executeOperation({ connection: { ...config(), interfaceUrl: multi.origin + "/beta/a2a" }, action: "send", params: { tenant: "acme", text: "wrong pin" } }))
+      .rejects.toThrow("No advertised interface matches");
   });
 });

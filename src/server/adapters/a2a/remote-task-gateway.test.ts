@@ -21,6 +21,12 @@ const seed = (...tasks: Array<Record<string, unknown>>) => agent.control({ seed:
 describe.each([["open", false], ["protected", true]])("SdkRemoteTaskGateway over a %s connection", (_label, isProtected) => {
   beforeEach(() => { protectedConnection = isProtected; });
 
+  it("accepts empty agents and filters with no matches after SDK serialization", async () => {
+    expect(await gateway.list(record, { tenant: "", pageSize: 10 })).toEqual({ tasks: [], nextPageToken: "", tenant: "acme" });
+    await seed({ id: "only", state: "working" });
+    expect(await gateway.list(record, { tenant: "", pageSize: 10, status: "TASK_STATE_FAILED" })).toEqual({ tasks: [], nextPageToken: "", tenant: "acme" });
+  });
+
   it("lists a page of tasks with the tenant the card declares, and pages with the agent's token", async () => {
     await seed({ id: "a", state: "working", updatedAt: "2026-01-03T00:00:00Z" }, { id: "b", state: "input-required", updatedAt: "2026-01-02T00:00:00Z" }, { id: "c", state: "completed", updatedAt: "2026-01-01T00:00:00Z" });
     const first = await gateway.list(record, { tenant: "", pageSize: 2 });

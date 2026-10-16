@@ -28,6 +28,7 @@ export const COMMAND_ERROR_COPY: Record<string, Copy> = {
   task_not_found_on_agent: { tone: "warning", text: "The agent does not have a task with that ID." },
   unknown_agent: { tone: "warning", text: "This agent is not available." },
   uncertain: { tone: "warning", text: "Taskbay can't tell whether the agent received this. It will not resend automatically. Check the task before trying again." },
+  dispatch_failed: { tone: "warning", text: "The request could not be sent to the agent. Check the connection and try again." },
 };
 const GENERIC = "The request could not be completed.";
 const MESSAGE_LIMIT = 300;

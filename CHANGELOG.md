@@ -37,6 +37,9 @@ the project uses [semantic versioning](https://semver.org/) once it reaches 1.0;
 
 ### Fixed
 
+- Tenant selection uses the matching interface URL within connection pins. New tasks store the effective default tenant, and automatic discovery avoids empty-tenant alias copies while preserving legacy records.
+- Supported required extensions are declared in A2A request headers, and empty SDK task lists show a normal empty state.
+- Restart retries create a fresh command after a definite refusal and recheck the same command for uncertain outcomes. Stored inline attachments are restored through current artifact permissions before cancellation, preserving the original file bytes.
 - Markdown in chat links only explicitly authored links and autolinks; bare addresses, emails and paths stay plain text. Links open in a new tab with `noopener noreferrer nofollow`.
 - Chat follows new content after layout, preserving bottom padding and keeping the latest reply, quick replies and forms above the composer on desktop and phone. Scrolling up pauses following; sending resumes it.
 - Questions that require input or authorization and the agent’s final reply stay visible instead of folding into **Progress**.

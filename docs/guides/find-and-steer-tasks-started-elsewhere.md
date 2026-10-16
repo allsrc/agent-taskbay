@@ -10,7 +10,7 @@ Agents do not only work for people at a Taskbay screen. A nightly job can start 
 - You are an administrator, or an operator with an `operate` grant on the **whole** agent. A grant limited to one skill is not enough, and viewers cannot ([Teams and grants](teams-and-grants.md)).
 - Task discovery is not `off` for the agent or for the deployment (`A2A_TASK_DISCOVERY`).
 
-What Taskbay does, in one paragraph: it uses **the agent's own credential** to ask the agent what tasks it has. By default the browse list is read only when you open it, and browsing stores nothing. Background reconciliation can still list tasks to refresh work Taskbay already stores. You choose which task to **track**; only then is that one task stored and followed. An administrator can instead switch the agent to **Automatic**, where a worker stores tasks started elsewhere in the background.
+What Taskbay does, in one paragraph: it uses **the agent's own credential** to ask the agent what tasks it has. By default the browse list is read only when you open it, and browsing stores nothing. Background reconciliation can still list tasks to refresh work Taskbay already stores. You choose which task to **track**; only then is that one task stored and followed. A declared default tenant is resolved before new tasks are stored; automatic discovery uses that same identity and does not create an empty-tenant copy. Existing tasks with an empty stored tenant remain readable and are followed without discovering alias copies. An administrator can instead switch the agent to **Automatic**, where a worker stores tasks started elsewhere in the background.
 
 ## Find a task and track it
 
@@ -20,6 +20,8 @@ What Taskbay does, in one paragraph: it uses **the agent's own credential** to a
    If you know the ID, paste it under **Track by task ID** instead.
 
 **What you should see.** The task appears in **Tasks** with a **Discovered** tag (and under the **Discovered** filter). If it is waiting on a person, it is also in the **Inbox** under **Needs you**. Nobody is notified about the state it is already in, and it has no owner until someone claims it.
+
+A filter with no matches shows an empty list; it does not mean the agent is unreachable.
 
 Browsing alone stores nothing. A task you do not track appears nowhere in Taskbay, and nothing from the list is kept after you close it.
 

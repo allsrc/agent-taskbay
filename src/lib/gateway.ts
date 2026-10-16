@@ -31,7 +31,7 @@ import { chooseConnectionInterface, selectAdvertisedInterface } from "./connecti
 import { createSafeFetch, redactSecrets } from "./safe-fetch";
 import { assertSafeAgentCard, assertSafeInterfaceUrl, assertSafeUrl } from "./url-safety";
 import type { ConnectionConfig, DiscoverResponse, OperationAction, OperationResponse, WireEvent } from "./types";
-import { advertisedExtensionUris, negotiateSidebandExtensions, requiredExtensionUris, understoodExtensionUris, unsupportedRequiredExtensionUris } from "../server/sideband/extension";
+import { advertisedExtensionUris, negotiateExtensions, requiredExtensionUris, understoodExtensionUris, unsupportedRequiredExtensionUris } from "../server/sideband/extension";
 import { extractSidebandEvents } from "../server/sideband/decoder";
 
 const DEFAULT_TIMEOUT = 60_000;
@@ -179,14 +179,14 @@ export async function discoverAgent(config: ConnectionConfig): Promise<DiscoverR
     latencyMs: Math.round(performance.now() - started),
     sideband: {
       advertisedUris: advertisedExtensionUris(normalizedCard),
-      negotiatedUris: negotiateSidebandExtensions(normalizedCard),
+      negotiatedUris: negotiateExtensions(normalizedCard),
       requiredUris: requiredExtensionUris(normalizedCard),
       unsupportedRequiredUris: unsupportedRequiredExtensionUris(normalizedCard),
     },
   };
 }
 
-async function createClient(config: ConnectionConfig, maxResponseBytes?: number): Promise<{ client: Client; telemetry: WireEvent[]; negotiatedExtensions: string[]; supportsExtendedCard: boolean }> {
+async function createClient(config: ConnectionConfig, maxResponseBytes?: number, tenant?: string, extensions: string[] = []): Promise<{ client: Client; telemetry: WireEvent[]; negotiatedExtensions: string[]; supportsExtendedCard: boolean; supportsStreaming: boolean; tenant: string }> {
   const discovery = await discoverAgent(config);
   if (discovery.trust !== "verified" && (discovery.trust !== "unsigned" || process.env.A2A_REQUIRE_SIGNED_CARDS === "true"))
     throw new Error("Agent Card trust policy rejected this connection.");
@@ -198,10 +198,10 @@ async function createClient(config: ConnectionConfig, maxResponseBytes?: number)
     new RestTransportFactory({ fetchImpl, legacyCompat: { enabled: true } }),
   ];
   let card = { ...discovery.normalizedCard, supportedInterfaces: discovery.normalizedCard.supportedInterfaces.filter((item) => item.protocolBinding.toUpperCase() !== "GRPC") };
-  const choice = chooseConnectionInterface(card.supportedInterfaces, config);
-  if (choice.pinned) {
+  const choice = chooseConnectionInterface(card.supportedInterfaces, config, tenant);
+  if (choice.selected || choice.pinned || tenant) {
     const selected = choice.selected;
-    if (!selected) throw new Error("The selected interface is no longer advertised by the Agent Card.");
+    if (!selected) throw new Error("No advertised interface matches the tenant and connection settings.");
     await assertSafeInterfaceUrl(selected.url, selected.protocolBinding);
     card = { ...card, supportedInterfaces: [selected] };
   }
@@ -213,8 +213,10 @@ async function createClient(config: ConnectionConfig, maxResponseBytes?: number)
   return {
     client: await factory.createFromAgentCard(card),
     supportsExtendedCard: card.capabilities?.extendedAgentCard === true,
+    supportsStreaming: card.capabilities?.streaming === true,
+    tenant: tenant || choice.selected?.tenant || "",
     telemetry: discovery.telemetry,
-    negotiatedExtensions: negotiateSidebandExtensions(card),
+    negotiatedExtensions: negotiateExtensions(card, extensions),
   };
 }
 
@@ -302,8 +304,9 @@ export function recoverMalformedLegacyResult(telemetry: WireEvent[]): unknown | 
 
 async function executeOperationInternal(input: OperationInput): Promise<OperationResponse> {
   const started = performance.now();
-  const { client, telemetry, negotiatedExtensions, supportsExtendedCard } = await createClient(input.connection, input.action === "extendedCard" ? MAX_CARD_BYTES : undefined);
   const params = input.params ?? {};
+  const { client, telemetry, negotiatedExtensions, supportsExtendedCard, tenant } = await createClient(input.connection, input.action === "extendedCard" ? MAX_CARD_BYTES : undefined,
+    typeof params.tenant === "string" ? params.tenant : undefined, Array.isArray(params.extensions) ? params.extensions.filter((value): value is string => typeof value === "string") : []);
   const options = requestOptions(input.connection, negotiatedExtensions, input.traceContext?.traceparent);
   if (input.signal) options.signal = AbortSignal.any([input.signal, options.signal!]);
   let result: unknown;
@@ -320,7 +323,7 @@ async function executeOperationInternal(input: OperationInput): Promise<Operatio
         const sessionId = input.sessionId ?? crypto.randomUUID();
         const requestId = input.requestId ?? crypto.randomUUID();
         return {
-          result, telemetry, latencyMs: Math.round(performance.now() - started), protocolVersion: client.protocolVersion, transport: client.transport.protocolName,
+          result, tenant, telemetry, latencyMs: Math.round(performance.now() - started), protocolVersion: client.protocolVersion, transport: client.transport.protocolName,
           diagnostics: [{ id: "legacy.malformed-result", severity: "warning", path: "$.result", message: `Rendered a non-compliant legacy response after the strict SDK rejected it: ${error instanceof Error ? error.message : "invalid response"}` }],
           sessionId,
           requestId,
@@ -359,6 +362,7 @@ async function executeOperationInternal(input: OperationInput): Promise<Operatio
   const requestId = input.requestId ?? crypto.randomUUID();
   return {
     result,
+    tenant,
     ...(cardTrust ? { cardTrust } : {}),
     telemetry,
     latencyMs: Math.round(performance.now() - started),
@@ -378,11 +382,12 @@ export async function streamOperation(input: OperationInput): Promise<{
   telemetry: WireEvent[];
   negotiatedExtensions: string[];
 }> {
-  const { client, telemetry, negotiatedExtensions } = await createClient(input.connection);
   const params = input.params ?? {};
+  const { client, telemetry, negotiatedExtensions, supportsStreaming } = await createClient(input.connection, undefined,
+    typeof params.tenant === "string" ? params.tenant : undefined, Array.isArray(params.extensions) ? params.extensions.filter((value): value is string => typeof value === "string") : []);
   const options = requestOptions(input.connection, negotiatedExtensions, input.traceContext?.traceparent);
   if (input.signal) options.signal = AbortSignal.any([input.signal, options.signal!]);
-  if (!(await client.getAgentCard()).capabilities?.streaming) throw new Error("STREAMING_UNSUPPORTED");
+  if (!supportsStreaming) throw new Error("STREAMING_UNSUPPORTED");
   const events = input.action === "send"
     ? client.sendMessageStream(buildSendRequest(withNegotiatedExtensions(params, negotiatedExtensions)), options)
     : client.resubscribeTask(SubscribeToTaskRequest.fromJSON({ tenant: params.tenant ?? "", id: params.taskId }), options);

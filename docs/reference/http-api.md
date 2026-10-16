@@ -245,7 +245,7 @@ the effective mode is `auto`. `canBrowse` says whether this caller may browse an
 
 `operate`, and the caller must be an administrator or hold an `operate` grant on the **whole** agent (a skill-scoped grant is not enough). Lists the tasks the agent has
 right now, using the agent's own credential, so people can find work another system started. **Nothing is stored and nothing is cached.**
-Query: `tenant` (default empty), `contextId`, `status` (a task state such as `TASK_STATE_INPUT_REQUIRED`), `pageToken` (the previous response's `nextPageToken`), `pageSize` (1 to 50, default 25).
+Query: `tenant` (default empty), `contextId`, `status` (a task state such as `TASK_STATE_INPUT_REQUIRED`), `pageToken` (the previous response's `nextPageToken`), `pageSize` (1 to 50, default 25). An empty or omitted tenant resolves to the selected interface’s default; the response reports the effective `tenant`. A zero-match filter returns `200` with `rows: []`.
 
 ```json
 { "rows": [ { "taskId": "3f9a2c1d", "contextId": "77ab12cd", "state": "TASK_STATE_INPUT_REQUIRED", "updatedAt": "2026-10-01T09:30:00.000Z",
@@ -294,7 +294,7 @@ All sends are recorded as a durable command first, then dispatched by a worker. 
 | `parts` | array of objects | A2A v1 part objects, for example `{ "text": "...", "mediaType": "text/plain" }` or `{ "data": { ... }, "mediaType": "application/json" }`. A `send` needs non-empty `text` or at least one part. |
 | `taskId` | string | Remote task ID. Required for `cancelTask`; on `send` it continues that task. |
 | `contextId` | string | Remote context ID. Must match the task's context when `taskId` is given (`403 Task context mismatch.`). |
-| `tenant` | string, at most 255 | Default empty. Part of the task's identity. |
+| `tenant` | string, at most 255 | Omitted or empty uses the selected interface’s default for new work. Existing empty-tenant tasks retain their identity. An explicit tenant selects a compatible advertised interface within connection pins. |
 | `messageId` | string, 1 to 255 | Becomes the A2A `messageId`; generated if omitted. |
 | `skillId` | string, 1 to 255 | Restrict the send to one skill. Needs a skill-routing agent; see [Skill routing](extensions/skill-routing.md). |
 | `config` | object | `returnImmediately`, `historyLength`, `acceptedOutputModes`, `referenceTaskIds`, `extensions`, `metadata`, `requestMetadata`. Strict. Referenced tasks must be known (`404 Referenced task not found.`). |
@@ -370,6 +370,8 @@ Success `200`: `{ "result": <task or message>, "localId", "commandId", "sessionI
 
 `operate`. `{taskId}` here is the **remote** task ID. Optional query `?tenant=`. Optional `Idempotency-Key` (random if absent, so a retry is not de-duplicated).
 Waits like `/messages` and returns the same shape; the result is the agent's updated task.
+
+The synchronous cancel and stream routes report a settled pre-dispatch failure as `dispatch_failed`, so a caller can make a new attempt safely. `uncertain` keeps its original command identity and must be checked before another send.
 
 ### `POST /api/agents/{agentId}/stream`
 

@@ -81,7 +81,7 @@ export async function startScenarioAgent({ port = 0, behaviors = {} } = {}) {
     const extensions = config.requireExtension ? [{ uri: config.requireExtension, required: true }] : [];
     return {
       name: "Scenario fixture", description: "Controllable agent for protocol scenarios", version: "1.0.0",
-      supportedInterfaces: tenants.map((tenant) => ({ url: `${origin}/a2a`, protocolBinding: "JSONRPC", protocolVersion: "1.0", ...(tenant ? { tenant } : {}) })),
+      supportedInterfaces: tenants.map((tenant) => ({ url: config.tenantPaths && tenant ? `${origin}/${encodeURIComponent(tenant)}/a2a` : `${origin}/a2a`, protocolBinding: "JSONRPC", protocolVersion: "1.0", ...(tenant ? { tenant } : {}) })),
       capabilities: { streaming: true, pushNotifications: true, extendedAgentCard: Boolean(config.extendedCard), extensions },
       defaultInputModes: ["text/plain"], defaultOutputModes: ["text/plain"],
       skills: [{ id: "work", name: "Do work", description: "Runs a scenario task", tags: ["scenario"], examples: ["start a task"] }],
@@ -153,7 +153,7 @@ export async function startScenarioAgent({ port = 0, behaviors = {} } = {}) {
       if (body.fail.error !== "drop" && !ERRORS[body.fail.error]) throw new Error(`Unknown error name ${body.fail.error}`);
       failures.push({ ...body.fail });
     }
-    for (const name of ["requireExtension", "extendedCard", "ignoreInputWhileWorking", "rejectInputWhileWorking", "noList", "tenants"]) if (name in body) config[name] = body[name];
+    for (const name of ["requireExtension", "enforceExtensions", "tenantPaths", "extendedCard", "ignoreInputWhileWorking", "rejectInputWhileWorking", "noList", "tenants"]) if (name in body) config[name] = body[name];
   };
 
   const server = createServer(async (request, response) => {
@@ -171,10 +171,15 @@ export async function startScenarioAgent({ port = 0, behaviors = {} } = {}) {
       return json(404, { error: "Unknown control endpoint." });
     }
     if (request.method === "GET" && (path === "/card.json" || path === "/.well-known/agent-card.json")) return json(200, card());
-    if (request.method !== "POST" || path !== "/a2a") return json(404, { error: "Not found" });
+    const pathTenant = config.tenantPaths ? /^\/([^/]+)\/a2a$/.exec(path)?.[1] : undefined;
+    if (request.method !== "POST" || path !== "/a2a" && !pathTenant) return json(404, { error: "Not found" });
     let rpc;
     try { rpc = JSON.parse(input); } catch { return json(400, { jsonrpc: "2.0", id: null, error: { code: -32700, message: "Parse error" } }); }
-    log.push({ method: rpc.method, params: rpc.params, at: now() });
+    log.push({ method: rpc.method, params: rpc.params, path, extensions: request.headers["a2a-extensions"] ?? "", at: now() });
+    if (pathTenant && decodeURIComponent(pathTenant) !== rpc.params?.tenant)
+      return json(200, { jsonrpc: "2.0", id: rpc.id, error: { code: -32602, message: "Wrong tenant for this interface" } });
+    if (config.enforceExtensions && config.requireExtension && !String(request.headers["a2a-extensions"] ?? "").split(",").map((uri) => uri.trim()).includes(config.requireExtension))
+      return json(200, { jsonrpc: "2.0", id: rpc.id, error: { code: -32008, message: "Required extension was not declared" } });
     const failure = failures.find((item) => item.method === rpc.method && (item.times === undefined || item.times > 0));
     if (failure) {
       if (failure.times !== undefined) failure.times -= 1;

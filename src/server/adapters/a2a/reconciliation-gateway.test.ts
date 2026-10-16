@@ -15,7 +15,7 @@ describe("INT-001 REL-002 reconciliation gateway", () => {
     expect(await new SdkReconciliationGateway().get(agent, task, signal)).toEqual({ task: { id: "remote" } });
     expect(execute.mock.lastCall![0]).toMatchObject({ action: "getTask", params: { taskId: "remote", tenant: "tenant-a" }, signal });
     execute.mockResolvedValueOnce({ result: { tasks: [{ id: "remote" }], nextPageToken: "next" } });
-    expect(await new SdkReconciliationGateway().list(agent, cursor, signal)).toEqual({ tasks: [{ task: { id: "remote" } }], nextPageToken: "next" });
+    expect(await new SdkReconciliationGateway().list(agent, cursor, signal)).toEqual({ tasks: [{ task: { id: "remote" } }], nextPageToken: "next", tenant: "tenant-a" });
     expect(execute.mock.lastCall![0]).toMatchObject({ action: "listTasks", params: { tenant: "tenant-a", pageToken: "page-2", pageSize: 100, includeArtifacts: true } });
     expect(execute.mock.lastCall![0].params.historyLength).toBeUndefined();
   });

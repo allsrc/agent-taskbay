@@ -83,6 +83,9 @@ try {
   assert.ok(listed.body.rows.every((row) => row.tracked === false));
   assert.deepEqual(await tasks(), [], "browsing stored a task");
   assert.equal((await browse("?status=TASK_STATE_INPUT_REQUIRED")).body.rows.length, 1);
+  const noMatches = await browse("?status=TASK_STATE_FAILED");
+  assert.equal(noMatches.status, 200, noMatches.text);
+  assert.deepEqual(noMatches.body.rows, [], "an empty SDK task array is an empty result, not a connection error");
 
   // Track the task waiting for a person: it is stored as discovered, appears in the inbox, and tracking tells nobody about its current state.
   const tracked = await track("ask");
@@ -155,6 +158,34 @@ try {
     const body = (await call("/api/notifications")).body;
     return (body.notifications ?? body.items ?? []).some((item) => item.title === "A task started outside Taskbay needs input");
   }, "automatic discovery tells people about work waiting on them");
+  assert.equal((await settings({ taskDiscovery: "browse" })).status, 200);
+
+  // Distinct tenant URLs plus the SDK's default-tenant decorator: an existing empty-tenant cursor must not create alias copies.
+  await agent.control({ tenants: ["acme", "beta"], tenantPaths: true, seed: [
+    { id: "shared-id", tenant: "acme", contextId: "ctx-acme", state: "input-required" },
+    { id: "shared-id", tenant: "beta", contextId: "ctx-beta", state: "input-required" },
+    { id: "ask", tenant: "beta", contextId: "ctx-ask", state: "completed" },
+  ] });
+  await entry();
+  const tenantLogStart = (await agent.state()).log.length;
+  assert.equal((await settings({ taskDiscovery: "auto" })).status, 200);
+  await until(async () => (await tasks()).filter((task) => task.taskId === "shared-id").length === 2, "one discovered task per canonical tenant", 600);
+  const canonical = (await tasks()).filter((task) => task.taskId === "shared-id");
+  assert.deepEqual(canonical.map((task) => task.tenant).sort(), ["acme", "beta"]);
+  const defaultPage = await browse();
+  assert.equal(defaultPage.status, 200, defaultPage.text);
+  assert.equal(defaultPage.body.tenant, "beta");
+  assert.equal(defaultPage.body.rows.find((row) => row.taskId === "shared-id").tracked, true);
+  const trackedDefault = await track("shared-id");
+  assert.equal(trackedDefault.status, 200, trackedDefault.text);
+  assert.equal(trackedDefault.body.localId, canonical.find((task) => task.tenant === "beta").localId);
+  assert.equal((await tasks()).filter((task) => task.taskId === "shared-id").length, 2);
+  assert.equal((await tasks()).filter((task) => task.taskId === "ask").length, 1, "a legacy task is not rediscovered under a named alias");
+  assert.equal(defaultPage.body.rows.find((row) => row.taskId === "ask").localId, tracked.body.localId);
+  assert.equal((await track("ask", "beta")).body.localId, tracked.body.localId);
+  const tenantRequests = (await agent.state()).log.slice(tenantLogStart).filter((request) => request.params?.tenant === "acme" || request.params?.tenant === "beta");
+  assert.ok(tenantRequests.length > 0);
+  assert.ok(tenantRequests.every((request) => request.path === `/${request.params.tenant}/a2a`), JSON.stringify(tenantRequests));
   assert.equal((await settings({ taskDiscovery: "browse" })).status, 200);
 
   // The browse rate limit is kept per person and agent.

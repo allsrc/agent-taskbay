@@ -41,4 +41,11 @@ describe("restart dialog steps", () => {
   it("notes a task that had already finished", () => {
     expect(render({ cancel: { status: "done", alreadyFinished: true }, start: { status: "waiting" } })).toContain("The task had already finished.");
   });
+
+  it("describes an uncertain start without claiming that it did not happen", () => {
+    const html = render({ cancel: { status: "done" }, start: { status: "failed", failure: { kind: "uncertain", message: "unknown" } } }, { onRetryStart: () => {} });
+    expect(html).toContain("Taskbay cannot confirm whether the new task started.");
+    expect(html).toContain("Check step 2 again");
+    expect(html).not.toContain("but the new task was not started");
+  });
 });
