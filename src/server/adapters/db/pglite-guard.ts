@@ -11,7 +11,9 @@ export class DatabaseOpenError extends Error {
   }
 }
 
-const held = new Set<string>();
+/** Folders this process has claimed, with how many openers inside it hold each. */
+const held = new Map<string, number>();
+let exitHookInstalled = false;
 
 function alive(pid: number): boolean {
   try { process.kill(pid, 0); return true; } catch (error) { return (error as NodeJS.ErrnoException).code === "EPERM"; }
@@ -22,22 +24,25 @@ export const lockPathFor = (dataDir: string) => `${dataDir}.lock`;
 /**
  * PGlite is a single-owner database with no lock of its own: a second process that opens the same folder succeeds, and
  * both then write to it, which damages it. This takes a lock file beside the folder (never inside it) and refuses while
- * another live process holds it. A lock left by a process that died is taken over. Held until this process exits.
+ * another live process holds it. A lock left by a process that died is taken over. Several openers in one process share
+ * one claim; call `releasePgliteDirectory` once per claim when each closes, so a process that has closed its database
+ * (and then starts a server on the same folder, for instance) no longer blocks anyone.
  */
 export function claimPgliteDirectory(dataDir: string): void {
-  if (held.has(dataDir)) return;
+  const count = held.get(dataDir);
+  if (count !== undefined) { held.set(dataDir, count + 1); return; }
   const file = lockPathFor(dataDir);
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       writeFileSync(file, `${JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString() })}\n`, { flag: "wx" });
-      held.add(dataDir);
-      process.once("exit", () => { try { rmSync(file); } catch { /* already gone */ } });
+      held.set(dataDir, 1);
+      installExitHook();
       return;
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "EEXIST") return; // an unwritable location is reported by the database itself
       let owner: number | undefined;
       try { owner = (JSON.parse(readFileSync(file, "utf8")) as { pid?: number }).pid; } catch { /* unreadable: treat as stale */ }
-      if (owner === process.pid) { held.add(dataDir); return; }
+      if (owner === process.pid) { held.set(dataDir, 1); installExitHook(); return; }
       if (owner !== undefined && alive(owner)) {
         throw new DatabaseOpenError(
           `The embedded database in ${dataDir} is already open in another process (pid ${owner}). ` +
@@ -48,6 +53,22 @@ export function claimPgliteDirectory(dataDir: string): void {
       rmSync(file, { force: true }); // stale: its owner is gone
     }
   }
+}
+
+/** Gives up one claim. The lock file goes when the last opener in this process lets go. */
+export function releasePgliteDirectory(dataDir: string): void {
+  const count = held.get(dataDir);
+  if (count === undefined) return;
+  if (count > 1) { held.set(dataDir, count - 1); return; }
+  held.delete(dataDir);
+  try { rmSync(lockPathFor(dataDir)); } catch { /* already gone */ }
+}
+
+/** A process that ends while still holding a claim takes its lock files with it. */
+function installExitHook() {
+  if (exitHookInstalled) return;
+  exitHookInstalled = true;
+  process.once("exit", () => { for (const dataDir of held.keys()) try { rmSync(lockPathFor(dataDir)); } catch { /* already gone */ } });
 }
 
 /**
