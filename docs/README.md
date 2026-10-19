@@ -23,7 +23,7 @@ Agent Taskbay is pre-1.0. If a word is unfamiliar, the [glossary](reference/glos
 
 How do I...
 
-- **...use each screen** (Agents, Chat, Tasks, Flows, Audit, Settings)? [Use the console](guides/use-the-console.md)
+- **...use each screen** (Agents, Find tasks, Chat, Tasks, Flows, Administration, Settings)? [Use the console](guides/use-the-console.md)
 - **...connect an A2A agent** from its Agent Card? [Connect an agent](guides/connect-an-agent.md)
 - **...connect an agent that needs authentication** (bearer token, API key, OAuth client credentials, mTLS), pin card signing keys, or restrict outbound origins? [Agent credentials and outbound policy](guides/agent-credentials.md)
 - **...let agents push task updates** to Taskbay instead of waiting for polling? [Receive push callbacks from agents](guides/agent-push-callbacks.md)

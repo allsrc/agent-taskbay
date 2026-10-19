@@ -5,6 +5,12 @@ the project uses [semantic versioning](https://semver.org/) once it reaches 1.0;
 
 ## [Unreleased]
 
+### Changed
+
+- **Console navigation is reorganised by job.** The sidebar groups daily work (**Home**, **Inbox**, **Tasks**, **Chat**), **Agents** (**Agents**, **Find tasks**, **Orchestration**) and **You** (**Notifications**, **Settings**, **Administration** for administrators).
+- **Administration is its own area** (`/admin`) with **Overview**, **People**, **Teams**, **Agent access** and **Policies & alerts**, plus a link to the audit trail. It replaces the organization cards that sat under **Settings**, which now holds only your browser-stored request defaults and extensions. **Teams** gains **Disable team**. No API changed.
+- **Browsing an agent's tasks is a page, not a dialog.** **Find tasks** (`/discover`) works across agents and is linked from the sidebar, the **Tasks** list and each agent's **Task discovery** card.
+
 ### Added
 
 - **Browse and track tasks started elsewhere.** **Browse tasks** on an agent page reads live `ListTasks` pages without storing them; **Track** and **Track by task ID** re-read and store one task to answer, steer, cancel or claim. Requires an administrator or whole-agent `operate` grant. Stored tasks carry **Discovered** labels, an origin filter and tracking details; tracking never claims a task or notifies people about its first stored state. The **Task discovery** card defaults to **Browse only**, with **Off** and a deployment-wide `A2A_TASK_DISCOVERY` cap. Schema version 2.

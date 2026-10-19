@@ -1,13 +1,16 @@
 "use client";
 
 import { Suspense, useState } from "react";
+import Link from "next/link";
+import type { Route } from "next";
+import { SearchCheck } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { StateChip } from "@/components/a2a/primitives";
 import { ListPane, ListRow, ListStatus, MasterDetail } from "@/components/console/master-detail";
 import { FilterChips } from "@/components/patterns/filter-chips";
 import { Pill } from "@/components/patterns/status";
 import { ContextFilterChip } from "@/components/tasks/context-filter-chip";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { isActiveState, needsYou, relativeTime, taskTitle } from "@/lib/task-view";
 import { dueLabel, isOverdue } from "@/lib/workflow";
 import { taskListQuery, TASK_PAGE_SIZE } from "@/lib/task-list-query";
@@ -64,6 +67,7 @@ function TasksShell({ children }: { children: React.ReactNode }) {
       list={
         <ListPane
           title="Tasks"
+          actions={<Link href={"/discover" as Route} className={buttonVariants({ variant: "outline", size: "sm" })}><SearchCheck /> Find tasks</Link>}
           controls={
             <div className="space-y-2">
             <FilterChips

@@ -52,7 +52,7 @@ Roles are only the baseline. Access to a particular agent comes from grants:
 - A user without a read grant gets a 404, not a 403, so the existence of a task or approval is not disclosed.
 - Task filters apply in the database before pagination, so a page never contains rows the user cannot see.
 
-A new non-admin membership starts with no agent access at all. An administrator grants it explicitly, in **Settings** or through `POST /api/admin/security`. The steps are in [Give people access to agents and skills](../guides/teams-and-grants.md).
+A new non-admin membership starts with no agent access at all. An administrator grants it explicitly, in **Administration** or through `POST /api/admin/security`. The steps are in [Give people access to agents and skills](../guides/teams-and-grants.md).
 
 ### Skills
 
@@ -100,7 +100,7 @@ Push callbacks from agents do not use sessions. They carry a per-registration be
 ## Limits
 
 - One organization per deployment in practice. The data model carries an organization ID everywhere, but there is no organization switcher.
-- Teams cannot be escalation targets. You manage teams and grants in **Settings** or through `POST /api/admin/security`. There is no CLI for them, and no sync from identity-provider groups.
+- Teams cannot be escalation targets. You manage teams and grants in **Administration** or through `POST /api/admin/security`. There is no CLI for them, and no sync from identity-provider groups.
 - No API tokens ([#31](https://github.com/allsrc/agent-taskbay/issues/31) discusses them).
 
 ## Further reading

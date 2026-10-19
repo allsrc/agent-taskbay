@@ -77,7 +77,7 @@ Internal notes are visible to your team only, up to 4000 characters each, never 
 
 ## Escalation
 
-An administrator can set where overdue, unfinished work goes. Open **Settings**, then **Escalation**.
+An administrator can set where overdue, unfinished work goes. Open **Administration**, then **Policies & alerts**, then **Escalation**.
 
 1. Choose **Applies to**: "All agents", or one agent. An agent-specific rule overrides "All agents".
 2. Choose **Escalate to**: an active operator or administrator.
@@ -109,7 +109,7 @@ The embedded worker does these sweeps in the same process as the console. With a
 | Buttons are missing | Your role or grants do not allow it. The server decides; hidden buttons are a convenience | Check [Sign in and roles](sign-in-and-roles.md) |
 | "This task is already owned by someone else." | Claim on an owned task | Ask the owner or an administrator to release or assign it |
 | "The due time must be in the future and within a year." | Invalid due time | Choose a time within that range |
-| Task did not escalate | No enabled rule, no due time, the task is finished, or the sweep worker is not running | Check Settings and the worker |
+| Task did not escalate | No enabled rule, no due time, the task is finished, or the sweep worker is not running | Check Administration → Policies & alerts and the worker |
 
 ## Limits
 

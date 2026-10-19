@@ -115,7 +115,7 @@ Request budgets apply per membership per minute: 900 reads, 120 operations, 60 a
 
 ## Teams and grants
 
-A new operator or viewer sees nothing until an administrator grants access. Administrators give grants in **Settings**, section **Teams and access**, or through `POST /api/admin/security`. There is no CLI for teams or grants.
+A new operator or viewer sees nothing until an administrator grants access. Administrators give grants in **Administration**, under **Agent access**, or through `POST /api/admin/security`. There is no CLI for teams or grants.
 
 A grant names a recipient (everyone in the organization, one person, or a team), an agent, optionally one skill, and `Read` or `Read and operate`. Revoking a grant applies to the person's next request. Accepted work already in the worker continues. A skill-only grant works only for agents that advertise the skill-routing extension.
 
@@ -141,7 +141,7 @@ The full how-to, with an example, the API bodies, revocation and a failure table
 
 - One organization per running deployment. `A2A_AUTH_ORGANIZATION_SLUG` selects it; the browser cannot choose.
 - Only the OIDC authorization-code profile described above. No SAML, no password login, no API tokens for people, no group or role claim mapping, no SCIM.
-- No user administration screen; provisioning is a CLI and deactivation is a database edit.
+- No screen to add, change or deactivate people. **Administration → People** lists them and what they can reach, but provisioning is a CLI and deactivation is a database edit.
 - Signing in does not give the console credentials to call agents on your behalf. Agent calls use the credentials in the vault. User-delegated OAuth is tracked in
   [#1](https://github.com/allsrc/agent-taskbay/issues/1).
 - Not verified: behaviour with any particular identity provider. The test suite uses a temporary local OIDC issuer.

@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import type { Route } from "next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, House, Inbox, LayoutGrid, ListChecks, MessageSquare, MoreHorizontal, ScrollText, SlidersHorizontal, Workflow, type LucideIcon } from "lucide-react";
+import { Bell, House, Inbox, LayoutGrid, ListChecks, MessageSquare, MoreHorizontal, SearchCheck, ShieldCheck, SlidersHorizontal, Workflow, type LucideIcon } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { MobileTopBar } from "@/components/navigation/mobile-top-bar";
 import { TabBar, type TabBarItem } from "@/components/navigation/tab-bar";
@@ -27,26 +27,32 @@ interface NavItem {
   label: string;
   short: string;
   icon: LucideIcon;
+  /** The sidebar group the item sits under. */
+  group: "work" | "agents" | "account";
   /** Shown only to administrators; the server enforces access regardless. */
   adminOnly?: boolean;
 }
 
+const GROUP_LABEL: Record<NavItem["group"], string | null> = { work: null, agents: "Agents", account: "You" };
+
 const NAV: NavItem[] = [
-  { href: "/" as Route, label: "Home", short: "Home", icon: House },
-  { href: "/agents" as Route, label: "Agents", short: "Agents", icon: LayoutGrid },
-  { href: "/chat" as Route, label: "Chat", short: "Chat", icon: MessageSquare },
-  { href: "/inbox" as Route, label: "Inbox", short: "Inbox", icon: Inbox },
-  { href: "/tasks" as Route, label: "Tasks", short: "Tasks", icon: ListChecks },
-  { href: "/flows" as Route, label: "Orchestration", short: "Flows", icon: Workflow },
-  { href: "/audit" as Route, label: "Audit", short: "Audit", icon: ScrollText, adminOnly: true },
-  { href: "/notifications" as Route, label: "Notifications", short: "Alerts", icon: Bell },
-  { href: "/settings" as Route, label: "Settings", short: "Setup", icon: SlidersHorizontal },
+  { href: "/" as Route, label: "Home", short: "Home", icon: House, group: "work" },
+  { href: "/inbox" as Route, label: "Inbox", short: "Inbox", icon: Inbox, group: "work" },
+  { href: "/tasks" as Route, label: "Tasks", short: "Tasks", icon: ListChecks, group: "work" },
+  { href: "/chat" as Route, label: "Chat", short: "Chat", icon: MessageSquare, group: "work" },
+  { href: "/agents" as Route, label: "Agents", short: "Agents", icon: LayoutGrid, group: "agents" },
+  { href: "/discover" as Route, label: "Find tasks", short: "Find", icon: SearchCheck, group: "agents" },
+  { href: "/flows" as Route, label: "Orchestration", short: "Flows", icon: Workflow, group: "agents" },
+  { href: "/notifications" as Route, label: "Notifications", short: "Alerts", icon: Bell, group: "account" },
+  { href: "/settings" as Route, label: "Settings", short: "Setup", icon: SlidersHorizontal, group: "account" },
+  { href: "/admin" as Route, label: "Administration", short: "Admin", icon: ShieldCheck, group: "account", adminOnly: true },
 ];
 
 /** The list a detail screen belongs to, so the phone top bar can show a back button. */
 function parentOf(pathname: string): Route | null {
   const [, section, a, b] = pathname.split("/");
   if (section === "inbox" && a && b) return "/inbox" as Route;
+  if (section === "admin" && a) return "/admin" as Route;
   if (["tasks", "agents", "chat", "approvals"].includes(section) && a) return `/${section}` as Route;
   return null;
 }
@@ -57,6 +63,7 @@ const PRIMARY_TABS = new Set<string>(["/", "/chat", "/inbox", "/tasks"]);
 function useActive(nav: NavItem[]) {
   const pathname = usePathname() ?? "/";
   // The standalone approvals queue now lives in the inbox, so its review pages keep the Inbox item active.
+  if (pathname === "/audit" || pathname.startsWith("/audit/")) return nav.find((item) => item.href === "/admin") ?? undefined;
   const path = pathname === "/approvals" || pathname.startsWith("/approvals/") ? pathname.replace("/approvals", "/inbox") : pathname;
   return nav.find((item) => (item.href === "/" ? path === "/" : path === item.href || path.startsWith(`${item.href}/`)));
 }
@@ -109,12 +116,16 @@ export function AppShell({ children, identity }: { children: React.ReactNode;
           <Logo className="[&>span:last-child]:hidden lg:[&>span:last-child]:inline" />
         </Link>
         <nav className="flex flex-col gap-0.5 px-2 py-2 lg:px-3" aria-label="Primary">
-          {nav.map((item) => {
+          {nav.map((item, index) => {
             const on = active?.href === item.href;
             const count = badgeFor(item.href);
+            const heading = nav[index - 1]?.group !== item.group ? GROUP_LABEL[item.group] : null;
+            const divider = index > 0 && nav[index - 1].group !== item.group;
             return (
+              <Fragment key={item.href}>
+                {divider && <div className="bg-sidebar-border mx-2 my-1.5 h-px lg:hidden" aria-hidden />}
+                {heading && <span className="label-mono hidden px-2.5 pt-3 pb-1 lg:block">{heading}</span>}
               <Link
-                key={item.href}
                 href={item.href}
                 aria-current={on ? "page" : undefined}
                 title={item.label}
@@ -136,6 +147,7 @@ export function AppShell({ children, identity }: { children: React.ReactNode;
                   </>
                 )}
               </Link>
+              </Fragment>
             );
           })}
         </nav>

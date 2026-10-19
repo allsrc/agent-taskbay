@@ -1,17 +1,18 @@
 "use client";
 
-import { SecuritySettings } from "@/components/security-settings";
-import { EscalationSettings } from "@/components/escalation-settings";
-import { NotificationChannelSettings } from "@/components/notification-channel-settings";
-
 import { useState } from "react";
-import { Trash2 } from "lucide-react";
+import Link from "next/link";
+import type { Route } from "next";
+import { ArrowRight, ShieldCheck, Trash2 } from "lucide-react";
 import { InfoCard } from "@/components/a2a/primitives";
 import { Page } from "@/components/console/page";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { cardSurface } from "@/components/patterns/card-surface";
+import { useServerResource } from "@/lib/use-server-resource";
+import { cn } from "@/lib/utils";
 import { OUTPUT_MODE_OPTIONS, useSettingsStore } from "@/store/settings-store";
 
 function ToggleRow({ title, desc, checked, onChange, disabled }: { title: string; desc: string; checked: boolean; onChange: (value: boolean) => void; disabled?: boolean }) {
@@ -29,18 +30,15 @@ function ToggleRow({ title, desc, checked, onChange, disabled }: { title: string
 export default function SettingsPage() {
   const settings = useSettingsStore();
   const [extension, setExtension] = useState("");
+  const admin = useServerResource<{ user: { role: string } }>("/api/auth/session").data?.user.role === "admin";
 
   return (
     <Page
       title="Settings"
       size="default"
-      description="Defaults for the requests you send, and, for administrators, who can reach which agents."
+      description="Your own defaults for the requests you send. They are saved in this browser and affect only you."
     >
       <section className="space-y-4">
-        <div>
-          <h2 className="font-heading text-base font-semibold">Saved in this browser</h2>
-          <p className="text-sm text-muted-foreground">Request defaults and extensions apply to your chats on this device.</p>
-        </div>
         <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
           <InfoCard label="Request defaults">
             <p className="mb-3 text-xs text-muted-foreground">acceptedOutputModes, used when an agent card doesn&apos;t declare its own.</p>
@@ -87,18 +85,16 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      {/* Administrator cards render nothing for other roles, so the heading shows only when a card did. */}
-      <div className="mt-10 flex flex-col gap-4">
-        <div className="peer order-2 grid gap-4 empty:hidden lg:grid-cols-2 lg:items-start">
-          <SecuritySettings />
-          <EscalationSettings />
-          <NotificationChannelSettings />
-        </div>
-        <div className="order-1 hidden peer-[:not(:empty)]:block">
-          <h2 className="font-heading text-base font-semibold">Organization settings</h2>
-          <p className="text-sm text-muted-foreground">Visible to administrators only. The server enforces access regardless.</p>
-        </div>
-      </div>
+      {admin && (
+        <Link href={"/admin" as Route} className={cn(cardSurface, "mt-8 flex-row items-center justify-start gap-3 p-4 text-left")}>
+          <ShieldCheck className="size-5 text-brand-text" />
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-medium">Organization administration</span>
+            <span className="block text-sm text-muted-foreground">People, teams, agent access, escalation and the notification channel now live under Administration.</span>
+          </span>
+          <ArrowRight className="size-4 text-muted-foreground" />
+        </Link>
+      )}
     </Page>
   );
 }

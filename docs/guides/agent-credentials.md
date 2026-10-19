@@ -86,7 +86,7 @@ rm binding.json
 For PGlite add `--offline-pglite` after stopping the web process. On success the only output is `Agent credential binding updated.` The script loads `.env` files, so database settings and the vault
 variables may live there.
 
-Check the result in **Settings**, section **Agent credentials**: it shows the credential kind, whether it is enabled, and when it was updated. It never shows secret values. Then open the agent in
+Check the result in **Administration → Agent access**, card **Agent credentials**: it shows the credential kind, whether it is enabled, and when it was updated. It never shows secret values. Then open the agent in
 the catalog and run a discovery; a working binding shows the agent's card instead of an error.
 
 Storing again replaces the binding and enables it, which is how you rotate the credential itself. The previous value is not kept. Each store and revoke writes a `credential.rotated` or

@@ -152,7 +152,7 @@ A task is a unit of A2A work that Taskbay keeps as a database record, keyed by i
 The per-agent choice **Browse only**, **Automatic** or **Off**, limited by `A2A_TASK_DISCOVERY` for the deployment. It controls finding tasks started elsewhere; existing stored tasks continue to refresh in every mode. See [Task discovery](../guides/connect-an-agent.md#task-discovery).
 
 **Team**\
-A named group of memberships that an administrator creates in **Settings** so one grant can cover several people. Teams cannot be renamed or deleted, cannot be escalation targets, and are not synced from identity-provider groups. See [Give people access to agents and skills](../guides/teams-and-grants.md).
+A named group of memberships that an administrator creates in **Administration** so one grant can cover several people. Teams cannot be renamed or deleted, cannot be escalation targets, and are not synced from identity-provider groups. See [Give people access to agents and skills](../guides/teams-and-grants.md).
 
 **Tenant**\
 An A2A scope that is part of remote task identity together with the agent and remote task ID. New conversations select a tenant from the card’s interfaces; existing conversations retain their stored tenant. It is separate from Taskbay’s organization. See [Connection and tenant](../guides/connect-an-agent.md#reading-the-connection-card).
