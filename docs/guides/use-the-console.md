@@ -1,4 +1,4 @@
-# Use the console: chat, tasks, flows, audit and settings
+# Use the console: chat, tasks, flows, administration and settings
 
 > Who this is for: anyone who works in the Taskbay console day to day. You will have a map of every screen, know what each control does, and know which actions your role allows.
 
@@ -18,11 +18,11 @@ The console is the web app you open in the browser. The sidebar lists its screen
 | Add or remove agents | Yes | No | No |
 | Organization-wide **Audit**, CSV export | Yes | No | No |
 | Read one task's audit trail | Yes | With read access | With read access |
-| Admin cards in **Settings** | Yes | Not shown | Not shown |
+| **Administration** (people, teams, agent access, policies) | Yes | Not shown | Not shown |
 
 ## The sidebar
 
-On a medium screen the sidebar shrinks to an icon rail; from a large screen it shows labels. The sidebar items are **Home**, **Agents**, **Chat**, **Inbox**, **Tasks**, **Orchestration**, **Audit**, **Notifications** and **Settings**. **Audit** only appears for administrators. On a phone the bottom bar shows **Home**, **Chat**, **Inbox** and **Tasks**, plus a **More** tab that opens a sheet with the rest (**Agents**, **Orchestration**, **Audit** for administrators, **Notifications** and **Settings**), your identity menu and the theme switch. The **Inbox** tab shows a count of pending approvals, and **More** shows a dot when there are unread notifications.
+On a medium screen the sidebar shrinks to an icon rail; from a large screen it shows labels. The sidebar is grouped by what you are doing. Under no heading is your daily work: **Home**, **Inbox**, **Tasks** and **Chat**. Under **Agents** are **Agents**, **Find tasks** and **Orchestration**. Under **You** are **Notifications**, **Settings** (your own defaults) and, for administrators only, **Administration** (people, teams, agent access, policies and the audit trail). On a phone the bottom bar shows **Home**, **Inbox**, **Tasks** and **Chat**, plus a **More** tab that opens a sheet with the rest (**Agents**, **Find tasks**, **Orchestration**, **Notifications**, **Settings** and **Administration** for administrators), your identity menu and the theme switch. The **Inbox** tab shows a count of pending approvals, and **More** shows a dot when there are unread notifications.
 
 **Inbox** shows a badge with the number of pending approvals. **Notifications** shows your unread count (shown as "99+" above 99). The bottom of the sidebar shows your identity menu, a **Light** / **System** / **Dark** theme switch, the tenant of the first agent that reports one, and the version of Agent Taskbay that is running (the package version, for example `v0.2.0`).
 
@@ -58,7 +58,7 @@ When the public card advertises it, administrators see **Fetch** in the **Extend
 
 ### Browse an agent's tasks
 
-**Browse tasks** (in the **Task discovery** card; operators and administrators) opens the agent's task list, read live from the agent with the agent's own credential. Use it to find work another system started.
+**Browse tasks** (in the **Task discovery** card; operators and administrators) opens **Find tasks** for that agent, a full page also reachable from the sidebar and from **Find tasks** at the top of the **Tasks** list. It shows the agent's task list, read live from the agent with the agent's own credential. Pick the agent at the top of the page. Use it to find work another system started.
 Filter by **State** or **Context ID**, page with **Previous** and **Next**, or paste a task ID under **Track by task ID**.
 
 Each row shows the task's title or ID, its state, how long ago it changed and, in quotes, the first line of what the agent last said. That text comes from the agent and is shown as plain text.
@@ -312,9 +312,7 @@ Anyone who can read a task can see that task's trail through **View the full tra
 
 ## Settings
 
-**Settings** mixes two kinds of setting. Know which kind you are changing.
-
-### Saved in this browser
+**Settings** holds only your own defaults. Organization-wide settings are under [Administration](#administration-administrators-only).
 
 **Request defaults** and **Extensions** are stored in your browser's local storage (key `agent-taskbay.settings`). They apply only to chats you open in this browser. They are not saved on the server, not shared with other people, and not recorded in the audit trail. Every role can change them.
 
@@ -326,16 +324,20 @@ Anyone who can read a task can see that task's trail through **View the full tra
 | | **historyLength** | Default for the chat option. Empty means unset. |
 | **Extensions** | Extension URIs, **Add**, toggle, **Remove extension** | URIs you activate on every message you send, in addition to the extensions the console activates itself |
 
-### Organization settings (administrators only)
+Administrators also see a link to **Administration** at the bottom of the page.
 
-These cards load from the server. If you are not an administrator, the server answers 403 and the cards do not appear. Changes apply to the whole organization.
+## Administration (administrators only)
 
-| Card | What an administrator can do |
+**Administration** is its own area, with a tab for each job. Everything here loads from the server and applies to the whole organization. If you are not an administrator the page says "Administrators only" and the server answers 403.
+
+| Tab | What an administrator can do |
 | --- | --- |
-| **Teams and access** | **Create team**, **Add member**, **Remove** a member, **Grant access** (to everyone, a member or a team, for a whole agent or one skill, with Read or Read and operate), and **Revoke**. See [Give people access to agents and skills](teams-and-grants.md). |
-| **Agent credentials** | See whether each agent has a credential and its kind ("configured", "revoked" or "unconfigured"). Secrets are set with a CLI on the server and never shown. See [Agent credentials](agent-credentials.md). |
-| **Escalation** | Add a rule (**Applies to**, **Escalate to**, **Save rule**) and **Turn off** or **Turn on** a rule. See [Approvals and ownership](approvals-and-ownership.md#escalation). |
-| **Notification channel** | See whether the webhook is configured, how many deliveries succeeded, are waiting, or gave up, the last failure, and **Send test notification**. The URL and secret live in server configuration. See [Notifications](notifications.md). |
+| **Overview** | See the number of people, teams, active grants and agents, and what each role means. |
+| **People** | See everyone with their role, their teams and the agents they can reach, and why (through everyone, a team or a direct grant). With OIDC sign-in you can also **Add person** (name, identity-provider subject, role), change a role, **Deactivate** (they are signed out now; history stays) and **Reactivate**. You cannot change or deactivate yourself. In local development mode there is only the built-in administrator, so the page says so and offers no controls. See [Sign in and roles](sign-in-and-roles.md). |
+| **Teams** | **Create team**, **Add** or remove a member, and **Disable** a team. See [Give people access to agents and skills](teams-and-grants.md). |
+| **Agent access** | **Grant access** (to everyone, a person or a team, for a whole agent or one skill, with Read or Read and operate), **Revoke** a grant, and see whether each agent has a credential and its kind ("configured", "revoked" or "none"). Secrets are set with a CLI on the server and never shown. See [Agent credentials](agent-credentials.md). |
+| **Policies & alerts** | **Escalation**: add a rule (**Applies to**, **Escalate to**, **Save rule**) and **Turn off** or **Turn on** a rule; see [Approvals and ownership](approvals-and-ownership.md#escalation). **Notification channel**: whether the webhook is configured, how many deliveries succeeded, are waiting or gave up, the last failure, and **Send test notification**; see [Notifications](notifications.md). |
+| **Audit trail** | The organization-wide [audit trail](#audit). |
 
 ## When it fails
 
@@ -352,7 +354,7 @@ These cards load from the server. If you are not an administrator, the server an
 | "Task not found" | The task does not exist or you cannot read it. The server answers 404 rather than 403. | Ask an administrator for a grant |
 | Banner ending "Retrying server sync…" | The browser could not load tasks from the server | Check the server is running. The console retries every 5 seconds. |
 | "Administrators only" on **Audit** | You are not an administrator | Open a task and use **View the full trail** |
-| Admin cards missing in **Settings** | You are not an administrator | Ask an administrator |
+| **Administration** missing from the sidebar, or "Administrators only" | You are not an administrator | Ask an administrator |
 | "Too many requests. Try again shortly." | Per-person rate limit | Wait a minute |
 
 More symptoms are in [Troubleshooting](../operations/troubleshooting.md).
@@ -373,4 +375,4 @@ More symptoms are in [Troubleshooting](../operations/troubleshooting.md).
 - [Approvals and ownership](approvals-and-ownership.md): the Inbox, approvals, claiming and escalation.
 - [Notifications](notifications.md): what triggers a notification and the webhook.
 - [Rich content](../concepts/rich-content.md): how messages, files, forms and A2UI render.
-- [Give people access to agents and skills](teams-and-grants.md): teams and grants in **Settings**.
+- [Give people access to agents and skills](teams-and-grants.md): teams and grants in **Administration**.

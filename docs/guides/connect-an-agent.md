@@ -57,8 +57,8 @@ In local mode the organization slug is `local` (the launcher and `npm run dev` u
 
 Administrators see every agent. Everyone else sees nothing until granted.
 
-1. Open **Settings**, then **Teams and access**.
-2. Optionally create a team and add members.
+1. Open **Administration**, then **Teams** to create a team and add people, and **Agent access** to grant.
+2. Optionally create a team and add members first.
 3. Under the grant form choose a recipient (everyone in the organization, one member, or a team), the agent, a scope (whole agent, or one skill), and a permission: **Read** or **Read and operate**. Then **Grant access**.
 4. **Revoke** removes it. Revocation applies to later reads and commands. Work the console already accepted continues.
 
@@ -174,7 +174,7 @@ Card trust: a card is "unsigned" or "verified". Verification uses public keys yo
 | "Agent credentials are required." | The card lists security requirements and no credential is stored | Store a binding with `npm run security:credentials`. |
 | "Agent Card trust policy rejected this connection." | `A2A_REQUIRE_SIGNED_CARDS=true` and the card is unsigned or its signature does not verify | Pin the signing key, or turn the requirement off. |
 | Sending fails with `extension_required` | The card marks an extension `required: true` that Taskbay does not support | Ask the agent's owner, or have an administrator allow it ([Required extensions](#required-extensions)). |
-| The agent is registered but a member sees nothing | No grant | Add a grant in Settings. |
+| The agent is registered but a member sees nothing | No grant | Add a grant in Administration → Agent access. |
 | Preview of a protected card fails, though the URL is right | Preview sends no credentials | Use **Register URL**, then store the credential. |
 | Remove is missing | The agent was seeded from `A2A_REGISTERED_AGENTS` | Remove it from the variable. |
 

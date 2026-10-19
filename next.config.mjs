@@ -8,6 +8,8 @@ const { version } = JSON.parse(readFileSync(new URL("./package.json", import.met
 const nextConfig = {
   env: { NEXT_PUBLIC_APP_VERSION: version },
   poweredByHeader: false,
+  // The launcher and docs print 127.0.0.1 URLs; `next dev` otherwise blocks its own /_next assets for that host and the page never hydrates.
+  allowedDevOrigins: ["127.0.0.1"],
   // Keep Node-only database drivers (including PGlite's WASM assets) outside
   // the Server Components/Route Handler bundle. All database entry points run
   // in the Node.js runtime.

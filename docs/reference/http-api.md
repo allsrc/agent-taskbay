@@ -152,7 +152,7 @@ When a limit is hit the route answers `429`. The webhook, extended card refresh,
 | `GET /api/audit` | read | Integration | Audit trail |
 | `GET /api/audit/export` | administer | Integration | One CSV page of the audit trail |
 | `GET /api/admin/security` | administer | Console | Teams, grants, credential metadata |
-| `POST /api/admin/security` | administer | Console | Create teams, grant and revoke access |
+| `POST /api/admin/security` | administer | Console | Create teams, grant and revoke access, add people, change roles, deactivate and reactivate |
 | `GET /api/artifacts/{digest}` | read | Integration | Download a stored artifact |
 | `POST /api/webhooks/a2a/{registrationId}` | push credential | Agents only | A2A push notification receiver |
 
@@ -621,7 +621,7 @@ The audit trail is append-only: database triggers reject updates and deletes.
 
 ### `GET /api/admin/security`
 
-`administer`. `{ organizationId, teams, memberships, teamMembers, grants, credentials }`. Credential entries show only `agentId`, `kind`, `enabled` and `updatedAt`; secrets are never returned.
+`administer`. `{ organizationId, identity, inactiveMemberships, teams, memberships, teamMembers, grants, credentials }`. `identity` is `{ mode, issuer, selfMembershipId }`: `mode` is `development` or `oidc`, and `issuer` is the configured OIDC issuer (`null` in development). `inactiveMemberships` lists deactivated people with `id`, `name` and `role`. Credential entries show only `agentId`, `kind`, `enabled` and `updatedAt`; secrets are never returned.
 
 ### `POST /api/admin/security`
 
@@ -634,6 +634,11 @@ The audit trail is append-only: database triggers reject updates and deletes.
 | `disableTeam` | `teamId` |
 | `grant` | `agentId`, `skillId` (string or `null` for the whole agent), `subjectType` (`organization`, `membership`, `team`), `subjectId`, `permission` (`read`, `operate`) |
 | `revokeGrant` | `grantId` |
+| `provisionMember` | `subject` (1 to 255), `displayName` (1 to 200), `role` (`admin`, `operator`, `viewer`). Uses the configured OIDC issuer; refused with a message when the console runs in development mode. Adding someone already provisioned changes their role and turns them back on. |
+| `changeRole` | `membershipId`, `role` |
+| `deactivateMember`, `reactivateMember` | `membershipId`. Deactivating ends the person's sessions at once and keeps their history. A person whose user account is disabled on the server cannot be reactivated here. |
+
+You cannot change the role of, or deactivate, your own membership, so an administrator always remains. Audit actions: `member.provisioned`, `member.role_changed`, `member.deactivated`, `member.reactivated`.
 
 All changes are audited. Credential values are managed with [`npm run security:credentials`](cli.md#npm-run-securitycredentials), not through the API.
 

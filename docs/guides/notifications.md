@@ -71,7 +71,7 @@ A2A_ALLOWED_AGENT_ORIGINS=https://hooks.example.com
 
 `A2A_NOTIFY_WEBHOOK_ORGANIZATION` is the slug of the one organization whose notifications are sent; it defaults to `local`. Setting `A2A_AUTH_ORIGIN` makes the `link` in each payload absolute; without it the link is a path such as `/approvals/<id>`. If the URL is set and the secret is shorter than 32 characters, the setting is rejected: the error is logged and only in-app notifications work. Every variable is listed in [Configuration](../reference/configuration.md).
 
-4. Sign in as an administrator, open **Settings**, and find **Notification channel**. It shows the webhook state ("Not configured", "On → host", or "Configured for another organization"), delivered, waiting/retrying and gave-up counts, and the last failure. The URL and secret are never shown.
+4. Sign in as an administrator, open **Administration**, then **Policies & alerts**, and find **Notification channel**. It shows the webhook state ("Not configured", "On → host", or "Configured for another organization"), delivered, waiting/retrying and gave-up counts, and the last failure. The URL and secret are never shown.
 5. Choose **Send test notification**. A "Test notification" appears in your inbox and is posted to the webhook.
 
 Against a local build with a throwaway receiver on `127.0.0.1`, the channel card's API reports `delivered: 1` and the receiver gets the payload below. Delivery to a local receiver is covered by `npm run test:http` (`verify-notifications-http.mjs`). Slack and other real services are not tested.

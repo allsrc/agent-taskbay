@@ -5,6 +5,14 @@ the project uses [semantic versioning](https://semver.org/) once it reaches 1.0;
 
 ## [Unreleased]
 
+### Changed
+
+- **Console navigation is reorganised by job.** The sidebar groups daily work (**Home**, **Inbox**, **Tasks**, **Chat**), **Agents** (**Agents**, **Find tasks**, **Orchestration**) and **You** (**Notifications**, **Settings**, **Administration** for administrators).
+- **Administration is its own area** (`/admin`) with **Overview**, **People**, **Teams**, **Agent access** and **Policies & alerts**, plus a link to the audit trail. It replaces the organization cards that sat under **Settings**, which now holds only your browser-stored request defaults and extensions. **Teams** gains **Disable team**. No API changed.
+- **People management in the console.** With OIDC sign-in, **Administration → People** can add a person, change a role, deactivate and reactivate, all audited (`member.*`) and with the same guards as the API: you cannot change or deactivate yourself. In local development mode the page shows the built-in administrator and explains that people need OIDC. `POST /api/admin/security` gains `provisionMember`, `changeRole`, `deactivateMember` and `reactivateMember`; `GET` adds `identity` and `inactiveMemberships`.
+- **Dev server serves `127.0.0.1`.** `next dev` now allows the `127.0.0.1` origin, which the launcher and docs print; before, the page loaded there but never became interactive.
+- **Browsing an agent's tasks is a page, not a dialog.** **Find tasks** (`/discover`) works across agents and is linked from the sidebar, the **Tasks** list and each agent's **Task discovery** card.
+
 ### Added
 
 - **Browse and track tasks started elsewhere.** **Browse tasks** on an agent page reads live `ListTasks` pages without storing them; **Track** and **Track by task ID** re-read and store one task to answer, steer, cancel or claim. Requires an administrator or whole-agent `operate` grant. Stored tasks carry **Discovered** labels, an origin filter and tracking details; tracking never claims a task or notifies people about its first stored state. The **Task discovery** card defaults to **Browse only**, with **Off** and a deployment-wide `A2A_TASK_DISCOVERY` cap. Schema version 2.

@@ -28,6 +28,8 @@ node scripts/fixture-form-agent.mjs 4010
 To check how chat shows content an agent labels with the wrong media type, run `node scripts/fixture-content-agent.mjs 4011` and register
 `http://127.0.0.1:4011/card.json`; see the [CLI reference](../reference/cli.md#fixture-agent-script).
 
+Open the dev console on `localhost` or `127.0.0.1`; both work (`allowedDevOrigins` in `next.config.mjs`). Any other host name needs adding there, or the page loads but never becomes interactive and the dev server logs "Blocked cross-origin request to Next.js dev resource".
+
 If `npm run dev` fails on an in-use port, something else holds 3002 (the script fixes the port). If it fails with a database error, another process probably owns the PGlite directory; PGlite allows one owner.
 
 ## Check your change

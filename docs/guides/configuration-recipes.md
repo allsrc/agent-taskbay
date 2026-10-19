@@ -319,7 +319,7 @@ rm binding.json
 `AGENT_UUID` is the agent's local ID, the `id` field of `GET /api/agents`. With PGlite, stop the web process and add `--offline-pglite`. For an `oauthClient`
 credential, also add the token endpoint's origin to `A2A_ALLOWED_AGENT_ORIGINS`.
 
-**Check it works.** The CLI prints `Agent credential binding updated.` In **Settings**, section **Agent credentials** shows the kind and that it is enabled (never the
+**Check it works.** The CLI prints `Agent credential binding updated.` In **Administration → Agent access**, the **Agent credentials** card shows the kind and that it is enabled (never the
 secret). Open the agent in the catalog and run discovery: you see the card instead of `Agent credentials are required.` or `Agent credential destination is not permitted.`
 With trust pins, a card that fails the policy is refused with `Agent Card trust policy rejected this connection.` Rotation and revocation are in
 [Agent credentials](agent-credentials.md).
@@ -357,7 +357,7 @@ A2A_PUSH_CALLBACK_ORIGIN=http://127.0.0.1:3002
 A2A_PUSH_ALLOW_LOOPBACK_HTTP=true
 ```
 
-**Check the webhook.** Sign in as an administrator, open **Settings**, find **Notification channel** and choose **Send test notification**. The card shows "On" with the
+**Check the webhook.** Sign in as an administrator, open **Administration → Policies & alerts**, find **Notification channel** and choose **Send test notification**. The card shows "On" with the
 webhook host and a delivered count; `GET /api/notifications/channel` returns `"configured":true` and `"enabledForOrganization":true`. How to verify the signature on the
 receiving side is in [Notifications](notifications.md#verify-the-signature).
 

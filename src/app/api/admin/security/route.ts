@@ -5,6 +5,8 @@ import { withRequestEntityManager } from "@/server/adapters/db/orm";
 import { TeamEntity, TeamMembershipEntity, MembershipEntity, UserEntity, AccessGrantEntity, AgentCredentialEntity } from "@/server/adapters/db/entities";
 import { DatabaseIdentityRepository } from "@/server/adapters/db/identity-repository";
 import { createGrant } from "@/server/adapters/db/security-repository";
+import { PeopleError, changeMemberRole, deactivateMember, provisionMember, reactivateMember } from "@/server/adapters/db/people-repository";
+import { loadAuthConfig } from "@/server/adapters/auth/config";
 import { readJsonRequest } from "@/lib/request-guard";
 import { apiError } from "@/lib/api-response";
 
@@ -18,17 +20,28 @@ const mutation = z.discriminatedUnion("action", [
   z.object({action: z.literal("grant"), agentId: uuid, skillId: z.string().min(1).max(255).nullable(),
     subjectType: z.enum(["organization", "membership", "team"]), subjectId: uuid, permission: z.enum(["read", "operate"])}).strict(),
   z.object({action: z.literal("revokeGrant"), grantId: uuid}).strict(),
+  z.object({action: z.literal("provisionMember"), subject: z.string().trim().min(1).max(255), displayName: z.string().trim().min(1).max(200), role: z.enum(["admin", "operator", "viewer"])}).strict(),
+  z.object({action: z.literal("changeRole"), membershipId: uuid, role: z.enum(["admin", "operator", "viewer"])}).strict(),
+  z.object({action: z.literal("deactivateMember"), membershipId: uuid}).strict(),
+  z.object({action: z.literal("reactivateMember"), membershipId: uuid}).strict(),
 ]);
 async function handleGET() {
   const principal = currentPrincipal()!;
   return withRequestEntityManager(async (em) => {
     const teams = await em.find(TeamEntity, {organizationId: principal.organizationId});
-    const memberships = await em.find(MembershipEntity, {organizationId: principal.organizationId, enabled: true});
-    const users = memberships.length ? await em.find(UserEntity, {id: {$in: memberships.map((member) => member.userId)}, enabled: true}) : [];
+    const everyone = await em.find(MembershipEntity, {organizationId: principal.organizationId});
+    const memberships = everyone.filter((member) => member.enabled);
+    const allUsers = everyone.length ? await em.find(UserEntity, {id: {$in: everyone.map((member) => member.userId)}, enabled: true}) : [];
+    const users = allUsers.filter((user) => memberships.some((member) => member.userId === user.id));
+    const auth = loadAuthConfig();
     const grants = await em.find(AccessGrantEntity, {organizationId: principal.organizationId});
     const credentials = await em.find(AgentCredentialEntity, {organizationId: principal.organizationId}, {fields: ["agentId", "kind", "enabled", "updatedAt"]});
     const teamMembers = teams.length ? await em.find(TeamMembershipEntity, {teamId: {$in: teams.map((team) => team.id)}}) : [];
-    return Response.json({ organizationId: principal.organizationId, teams: teams.map(({id,name,enabled}) => ({id,name,enabled})),
+    return Response.json({ organizationId: principal.organizationId,
+      identity: {mode: auth.mode, issuer: auth.mode === "oidc" ? auth.issuer : null, selfMembershipId: principal.membershipId},
+      inactiveMemberships: everyone.filter((member) => !member.enabled && allUsers.some((user) => user.id === member.userId))
+        .map((member) => ({id: member.id, role: member.role, name: allUsers.find((user) => user.id === member.userId)!.displayName})),
+      teams: teams.map(({id,name,enabled}) => ({id,name,enabled})),
       memberships: memberships.filter((member) => users.some((user) => user.id === member.userId)).map((member) => ({id: member.id, role: member.role,
         name: users.find((user) => user.id === member.userId)!.displayName})),
       teamMembers: teamMembers.map(({id,teamId,membershipId}) => ({id,teamId,membershipId})),
@@ -49,6 +62,15 @@ async function handlePOST(request: Request) {
         if (!grant) throw new Error("Unknown grant.");
         grant.enabled = false; await tx.flush();
         await new DatabaseIdentityRepository(tx).appendAudit(principal, "access.revoked", grant.id); return;
+      }
+      if (input.action === "provisionMember") {
+        const auth = loadAuthConfig();
+        if (auth.mode !== "oidc") throw new PeopleError("Adding people needs OIDC sign-in. This console is running in local development mode.");
+        await provisionMember(tx, principal, {issuer: auth.issuer, subject: input.subject, displayName: input.displayName, role: input.role}); return;
+      }
+      if (input.action === "changeRole") { await changeMemberRole(tx, principal, input); return; }
+      if (input.action === "deactivateMember" || input.action === "reactivateMember") {
+        await (input.action === "deactivateMember" ? deactivateMember : reactivateMember)(tx, principal, input.membershipId); return;
       }
       if (input.action === "createTeam") {
         const team = tx.create(TeamEntity, {id: crypto.randomUUID(), organizationId: principal.organizationId, name: input.name, enabled: true});

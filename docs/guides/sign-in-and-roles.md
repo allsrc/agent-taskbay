@@ -93,8 +93,7 @@ Things to know:
   `A2A_DATABASE_PROFILE` and `A2A_DATABASE_URL` (or `A2A_PGLITE_DATA_DIR`) in the shell.
 - With PostgreSQL the command can run while the web process is up. With PGlite only one process may open the data directory, so stop the web process and add `--offline-pglite`.
 - Running it again for the same issuer and subject changes the role and sets the membership to enabled. It does not change the display name and does not re-enable a user that was disabled globally.
-- There is no administration UI for users and no CLI to disable or remove one. A trusted database operator sets `enabled` to false on the row in `memberships` (or `users` to block a person across
-  organizations).
+- The console can do the same without the CLI: **Administration → People** adds a person (name, subject, role), changes a role, deactivates and reactivates. It is available only with OIDC sign-in; in local development mode the page explains why. You cannot change or deactivate yourself, so an administrator always remains. Deactivating ends the person's sessions at once and keeps their history. To block a person across organizations, a trusted database operator sets `enabled` to false on the row in `users`.
 - Output on success is the single line `Identity membership provisioned.`
 
 To find a person's `sub`, read it from your provider's user record or from the ID token. Some providers use opaque identifiers rather than email addresses.
@@ -115,7 +114,7 @@ Request budgets apply per membership per minute: 900 reads, 120 operations, 60 a
 
 ## Teams and grants
 
-A new operator or viewer sees nothing until an administrator grants access. Administrators give grants in **Settings**, section **Teams and access**, or through `POST /api/admin/security`. There is no CLI for teams or grants.
+A new operator or viewer sees nothing until an administrator grants access. Administrators give grants in **Administration**, under **Agent access**, or through `POST /api/admin/security`. There is no CLI for teams or grants.
 
 A grant names a recipient (everyone in the organization, one person, or a team), an agent, optionally one skill, and `Read` or `Read and operate`. Revoking a grant applies to the person's next request. Accepted work already in the worker continues. A skill-only grant works only for agents that advertise the skill-routing extension.
 
@@ -141,7 +140,7 @@ The full how-to, with an example, the API bodies, revocation and a failure table
 
 - One organization per running deployment. `A2A_AUTH_ORGANIZATION_SLUG` selects it; the browser cannot choose.
 - Only the OIDC authorization-code profile described above. No SAML, no password login, no API tokens for people, no group or role claim mapping, no SCIM.
-- No user administration screen; provisioning is a CLI and deactivation is a database edit.
+- No bulk import, no invitation email and no SCIM. **Administration → People** adds people one at a time by their exact subject. A person disabled across organizations is a database edit.
 - Signing in does not give the console credentials to call agents on your behalf. Agent calls use the credentials in the vault. User-delegated OAuth is tracked in
   [#1](https://github.com/allsrc/agent-taskbay/issues/1).
 - Not verified: behaviour with any particular identity provider. The test suite uses a temporary local OIDC issuer.
