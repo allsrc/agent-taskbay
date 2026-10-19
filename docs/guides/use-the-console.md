@@ -295,7 +295,7 @@ The arrows are only a layout. They show references the agent or you set, not an 
 
 ## Audit
 
-**Audit** is the organization-wide audit trail. Only administrators see it in the sidebar. A non-admin who opens `/audit` sees "Administrators only".
+**Audit trail** is the organization-wide audit trail. It is the last tab of **Administration** (`/admin/audit`), so the Administration tabs stay in view. An administrator who opens `/audit` is sent there; a non-admin who opens it sees "Administrators only". `/audit?taskId=…` is a single task's trail, reached from **View the full trail** on a task page.
 
 The trail is read-only and newest first, 25 entries at a time with **Show older entries**. Each entry is one sentence ("You approved …", "The agent requested approval: …"), a time, and a link to the task. **Details** expands the exact facts: revision and digest, proposed or sent content, rationale, risk, expiry and delivery result. Note text is never shown, only that a note was added.
 
@@ -353,7 +353,7 @@ Administrators also see a link to **Administration** at the bottom of the page.
 | "Conversation not found" / "This conversation is unavailable in the current organization." | The link is from another organization, or you lost read access | Open the chat from **Recent conversations**, or ask for a grant |
 | "Task not found" | The task does not exist or you cannot read it. The server answers 404 rather than 403. | Ask an administrator for a grant |
 | Banner ending "Retrying server sync…" | The browser could not load tasks from the server | Check the server is running. The console retries every 5 seconds. |
-| "Administrators only" on **Audit** | You are not an administrator | Open a task and use **View the full trail** |
+| "Administrators only" on **Audit trail** | You are not an administrator | Open a task and use **View the full trail** |
 | **Administration** missing from the sidebar, or "Administrators only" | You are not an administrator | Ask an administrator |
 | "Too many requests. Try again shortly." | Per-person rate limit | Wait a minute |
 

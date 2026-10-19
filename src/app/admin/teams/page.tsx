@@ -30,7 +30,7 @@ export default function TeamsPage() {
                 const candidates = view.memberships.filter((member) => !members.some((link) => link.membershipId === member.id));
                 return (
                   <Panel key={team.id} title={team.name} description={`${members.length} ${members.length === 1 ? "person" : "people"}`}
-                    action={<Button variant="ghost" size="sm" disabled={busy} onClick={() => { if (window.confirm(`Disable team “${team.name}”? Its grants stop applying.`)) void change({ action: "disableTeam", teamId: team.id }); }}>Disable</Button>}>
+                    action={<Button variant="outline" size="sm" disabled={busy} onClick={() => { if (window.confirm(`Disable team “${team.name}”? Its grants stop applying.`)) void change({ action: "disableTeam", teamId: team.id }); }}>Disable</Button>}>
                     <ul className="mb-3 divide-y" aria-label={`Members of ${team.name}`}>
                       {members.length === 0 && <li className="text-sm text-muted-foreground">No members yet.</li>}
                       {members.map((link) => {
