@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { createSubscriptionWorker } from "../runtime/subscriptions";
+import { reportRetry } from "./report";
 
 /** A bounded pool prevents a quiet long-lived stream from blocking other tasks. */
 export function startSubscriptionLoop(concurrency = 8) {
@@ -9,7 +10,7 @@ export function startSubscriptionLoop(concurrency = 8) {
     while (!shutdown.signal.aborted) {
       let worked = false;
       try { worked = await worker.runOne(randomUUID(), shutdown.signal); }
-      catch { console.error("Subscription worker could not access durable state; will retry."); }
+      catch (error) { reportRetry("Subscription worker", error); }
       if (!worked) await new Promise<void>((resolve) => {
         const done = () => { clearTimeout(timer); shutdown.signal.removeEventListener("abort", done); resolve(); };
         const timer = setTimeout(done, 250); timer.unref?.();

@@ -19,6 +19,19 @@ npm run dev
 
 The console is at `http://localhost:3002`. `npm run dev` uses embedded PGlite under `.data/`, applies migrations on start (`A2A_AUTO_MIGRATE`), and signs you in as a labelled development administrator. Copy `.env.example` to `.env.local` to change settings; see the [configuration reference](../reference/configuration.md).
 
+### Where the database is
+
+| How you start it | Database | Migrations | Sign-in |
+| --- | --- | --- | --- |
+| `npx agent-taskbay` (or `node bin/agent-taskbay.mjs` after `npm run build`) | PGlite in `~/.agent-taskbay/pglite` (`--data-dir` or `A2A_DATA_DIR` to change), with generated secrets and artifacts beside it | Applied on start, after a backup of an existing database | Local development administrator, loopback only |
+| `npm run dev` | PGlite in `.data/pglite` under the repository (`A2A_PGLITE_DATA_DIR` to change) | Applied on start | Local development administrator |
+| `npm run db:migrate`, `npm run auth:provision` and the other scripts | The same folder `npm run dev` uses, unless you set `A2A_*` variables | `db:migrate` applies them | Not applicable |
+| PostgreSQL (`A2A_DATABASE_PROFILE=postgresql`, `A2A_DATABASE_URL`) | Your server | Explicit `npm run db:migrate`, unless `A2A_AUTO_MIGRATE=true` | OIDC |
+
+PGlite allows one owner. Taskbay now takes a lock file beside the folder (`<folder>.lock`), so a second process, such as `npm run db:migrate` while `npm run dev` is running, stops with "already open in another process" instead of sharing the folder. Stop the dev server before running a script against its database, or point the script at a different folder.
+
+If the folder is damaged (typically by a process killed while writing, or by two processes opening it before the lock existed), opening it fails with "could not be opened (PGlite aborted)". Taskbay does not delete or move it for you, because it holds your data. Move the folder aside (`mv .data/pglite .data/pglite.damaged`), start again to get a fresh one, and keep the old one if you need to recover anything. Stop the dev server with Ctrl+C rather than killing it.
+
 To give it agents, start the sample ones in a second terminal and register a printed Agent Card URL in the console:
 
 ```bash

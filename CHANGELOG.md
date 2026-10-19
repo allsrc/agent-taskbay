@@ -13,6 +13,8 @@ the project uses [semantic versioning](https://semver.org/) once it reaches 1.0;
 - **Dev server serves `127.0.0.1`.** `next dev` now allows the `127.0.0.1` origin, which the launcher and docs print; before, the page loaded there but never became interactive.
 - **Browsing an agent's tasks is a page, not a dialog.** **Find tasks** (`/discover`) works across agents and is linked from the sidebar, the **Tasks** list and each agent's **Task discovery** card.
 
+- **Clear errors when the embedded database cannot be opened.** PGlite has no lock of its own, so a second process (for example `npm run db:migrate` while `npm run dev` runs) could open the same folder silently and damage it. Taskbay now takes a `<folder>.lock` file and refuses with "already open in another process"; a stale lock from a dead process is taken over. A damaged folder, which made PGlite end the whole process with `RuntimeError: Aborted()`, now fails the open with an error that says what to do. Background workers print the reason once instead of a bare "will retry" in a loop. Nothing is deleted or moved automatically.
+
 ### Added
 
 - **Browse and track tasks started elsewhere.** **Browse tasks** on an agent page reads live `ListTasks` pages without storing them; **Track** and **Track by task ID** re-read and store one task to answer, steer, cancel or claim. Requires an administrator or whole-agent `operate` grant. Stored tasks carry **Discovered** labels, an origin filter and tracking details; tracking never claims a task or notifies people about its first stored state. The **Task discovery** card defaults to **Browse only**, with **Off** and a deployment-wide `A2A_TASK_DISCOVERY` cap. Schema version 2.

@@ -11,6 +11,7 @@ import {
   type DatabaseConfig,
 } from "./config";
 import { migrateOnStartup } from "./migration-startup";
+import { openGuarded } from "./pglite-guard";
 import { createPersistenceRepositories } from "./repositories";
 
 type DatabaseGlobal = typeof globalThis & {
@@ -22,14 +23,17 @@ const databaseGlobal = globalThis as DatabaseGlobal;
 export async function createDatabaseOrm(
   config: DatabaseConfig = loadDatabaseConfig(),
 ): Promise<MikroORM> {
-  const orm = await MikroORM.init(createMikroOrmOptions(config));
-  try {
-    await orm.connect();
-    return orm;
-  } catch (error) {
-    await orm.close(true).catch(() => undefined);
-    throw error;
-  }
+  const open = async () => {
+    const orm = await MikroORM.init(createMikroOrmOptions(config));
+    try {
+      await orm.connect();
+      return orm;
+    } catch (error) {
+      await orm.close(true).catch(() => undefined);
+      throw error;
+    }
+  };
+  return config.profile === "pglite" ? openGuarded(config.dataDir, open) : open();
 }
 
 export async function bootstrapRuntimeDatabase(orm: MikroORM) {

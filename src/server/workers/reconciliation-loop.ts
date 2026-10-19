@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { createReconciliationWorker } from "../runtime/reconciliation";
 import { ensureAutomaticDiscoveryCursors } from "../runtime/discovery-cursors";
+import { reportRetry } from "./report";
 
 export function startReconciliationLoop(concurrency = 2) {
   const worker = createReconciliationWorker();
@@ -11,7 +12,7 @@ export function startReconciliationLoop(concurrency = 2) {
     while (!shutdown.signal.aborted) {
       let worked = false;
       try { worked = await worker.runOne(randomUUID(), shutdown.signal); }
-      catch { console.error("Reconciliation worker could not access durable state; will retry."); }
+      catch (error) { reportRetry("Reconciliation worker", error); }
       if (!worked) await new Promise<void>((resolve) => {
         const done = () => { clearTimeout(timer); shutdown.signal.removeEventListener("abort", done); resolve(); };
         const timer = setTimeout(done, 250); timer.unref?.();

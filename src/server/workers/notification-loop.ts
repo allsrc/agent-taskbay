@@ -1,4 +1,5 @@
 import { createNotificationDelivery, createNotificationFanout } from "../runtime/notifications";
+import { reportRetry } from "./report";
 
 /** Turns queued events into inbox rows, then delivers each through the external channel when one is configured. */
 export function startNotificationLoop() {
@@ -10,9 +11,9 @@ export function startNotificationLoop() {
   let running: Promise<void> = Promise.resolve();
   const tick = async () => {
     try { for (let count = 0; count < 100 && !shutdown.signal.aborted; count++) if (!await fanout.runOne()) break; }
-    catch { console.error("Notification fan-out could not access durable state; will retry."); }
+    catch (error) { reportRetry("Notification fan-out", error); }
     try { for (let count = 0; count < 20 && delivery && !shutdown.signal.aborted; count++) if (!await delivery.runOne(shutdown.signal)) break; }
-    catch { console.error("Notification delivery could not access durable state; will retry."); }
+    catch (error) { reportRetry("Notification delivery", error); }
     if (!shutdown.signal.aborted) { timer = setTimeout(() => { running = tick(); }, 250); timer.unref?.(); }
   };
   running = tick();
