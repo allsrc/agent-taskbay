@@ -3,7 +3,8 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { claimPgliteDirectory, DatabaseOpenError, lockPathFor } from "./pglite-guard";
+import { existsSync } from "node:fs";
+import { claimPgliteDirectory, DatabaseOpenError, lockPathFor, releasePgliteDirectory } from "./pglite-guard";
 
 function scratch() {
   const dir = mkdtempSync(join(tmpdir(), "a2a-guard-"));
@@ -34,6 +35,39 @@ describe("PGlite directory lock", () => {
       other.done();
     } finally { done(); }
   });
+});
+
+describe("PGlite directory lock lifetime", () => {
+  it("shares one claim between openers in a process and removes the lock file with the last release", () => {
+    const { dataDir, done } = scratch();
+    try {
+      claimPgliteDirectory(dataDir); claimPgliteDirectory(dataDir);
+      expect(existsSync(lockPathFor(dataDir))).toBe(true);
+      releasePgliteDirectory(dataDir);
+      expect(existsSync(lockPathFor(dataDir))).toBe(true);
+      releasePgliteDirectory(dataDir);
+      expect(existsSync(lockPathFor(dataDir))).toBe(false);
+      releasePgliteDirectory(dataDir); // an extra release is harmless
+    } finally { done(); }
+  });
+
+  it("a process that has closed its database no longer blocks another, even while it keeps running", () => {
+    const { dataDir, done } = scratch();
+    try {
+      // The HTTP verification scripts do this: open, close, then start the server as a child while they keep running.
+      const result = run(`
+        import { createDatabaseOrm } from "./src/server/adapters/db/orm";
+        const a = await createDatabaseOrm(); await a.migrator.up(); await a.close(true);
+        const { spawnSync } = await import("node:child_process");
+        const child = spawnSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e",
+          'import { createDatabaseOrm } from "./src/server/adapters/db/orm"; try { const o = await createDatabaseOrm(); console.log("OPENED"); await o.close(true); } catch (e) { console.log(e.name + ": " + e.message); } process.exit(0);'],
+          { encoding: "utf8", env: process.env });
+        console.log(child.stdout);
+        process.exit(0);`, dataDir);
+      expect(result.stdout).toContain("OPENED");
+      expect(result.stdout).not.toContain("already open");
+    } finally { done(); }
+  }, 120_000);
 });
 
 describe("PGlite open failures", () => {

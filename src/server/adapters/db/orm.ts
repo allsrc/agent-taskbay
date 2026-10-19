@@ -11,7 +11,7 @@ import {
   type DatabaseConfig,
 } from "./config";
 import { migrateOnStartup } from "./migration-startup";
-import { openGuarded } from "./pglite-guard";
+import { claimPgliteDirectory, openGuarded, releasePgliteDirectory } from "./pglite-guard";
 import { createPersistenceRepositories } from "./repositories";
 
 type DatabaseGlobal = typeof globalThis & {
@@ -33,7 +33,21 @@ export async function createDatabaseOrm(
       throw error;
     }
   };
-  return config.profile === "pglite" ? openGuarded(config.dataDir, open) : open();
+  if (config.profile !== "pglite") return open();
+  // The claim lasts as long as the database is open, so a process that closes it can hand the folder to another one.
+  claimPgliteDirectory(config.dataDir);
+  try {
+    const orm = await openGuarded(config.dataDir, open);
+    const close = orm.close.bind(orm);
+    let released = false;
+    orm.close = async (...args: Parameters<typeof close>) => {
+      try { return await close(...args); } finally { if (!released) { released = true; releasePgliteDirectory(config.dataDir); } }
+    };
+    return orm;
+  } catch (error) {
+    releasePgliteDirectory(config.dataDir);
+    throw error;
+  }
 }
 
 export async function bootstrapRuntimeDatabase(orm: MikroORM) {

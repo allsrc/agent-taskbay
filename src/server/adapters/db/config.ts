@@ -8,7 +8,6 @@ import { PostgreSqlDriver } from "@mikro-orm/postgresql";
 import { z } from "zod";
 
 import { persistenceEntities } from "./entities";
-import { claimPgliteDirectory } from "./pglite-guard";
 import { nextMigrationName } from "./schema-version";
 
 const databaseEnvironmentSchema = z
@@ -123,8 +122,6 @@ export function createMikroOrmOptions(
 
   // PGlite creates its directory without `recursive`, so a clean checkout (no `.data`) would fail with ENOENT.
   mkdirSync(path.dirname(config.dataDir), { recursive: true });
-  // PGlite has no lock of its own; this also covers the MikroORM CLI (`npm run db:migrate`), which builds its options here.
-  claimPgliteDirectory(config.dataDir);
 
   return {
     ...commonOptions,
