@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import { StateChip } from "@/components/a2a/primitives";
+import { Identifier } from "@/components/patterns/identifier";
 import { CommandError } from "@/components/a2a/command-error";
 import { Button, buttonVariants } from "@/components/ui/button";
 import type { BrowseRowView } from "@/lib/browse-tasks";
@@ -26,8 +27,10 @@ export function BrowseTaskRow({ row, busy, failure, onTrack, now }: {
         <span className="min-w-0 flex-1 truncate text-sm font-medium">{label}</span>
         <StateChip state={row.state} />
       </div>
-      <div className="text-muted-foreground truncate font-mono text-[11px]">
-        {row.taskId.slice(0, 8)}{row.contextId ? ` · context ${row.contextId.slice(0, 8)}` : ""}{row.updatedAt ? ` · updated ${relativeTime(row.updatedAt, now)}` : ""}
+      <div className="text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px]">
+        <Identifier kind="task" value={row.taskId} />
+        {row.contextId && <Identifier kind="context" value={row.contextId} />}
+        {row.updatedAt && <span className="font-mono">updated {relativeTime(row.updatedAt, now)}</span>}
       </div>
       <div className="flex items-center gap-3">
         <p className="text-muted-foreground min-w-0 flex-1 text-sm">{row.snippet ? <>“{row.snippet}”</> : null}</p>

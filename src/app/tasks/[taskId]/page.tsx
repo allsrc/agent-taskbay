@@ -11,7 +11,6 @@ import { RelatedTasks } from "@/components/tasks/related-tasks";
 import { DiscoveredTaskNotice } from "@/components/tasks/discovered-task-notice";
 import { Page, PageMessage } from "@/components/console/page";
 import { Callout } from "@/components/patterns/data-display";
-import { DefinitionList } from "@/components/patterns/layout";
 import { Eyebrow, Pill, StatusDot } from "@/components/patterns/status";
 import { TaskAudit } from "@/components/audit/task-audit";
 import { TaskApprovals } from "@/components/approvals/task-approvals";
@@ -23,6 +22,7 @@ import { isActiveState, referencesOf, STATE_TONE, stateLabel, stateName, taskTit
 import { useServerResource } from "@/lib/use-server-resource";
 import type { DurableTaskView } from "@/shared/task-types";
 import { useTaskStore } from "@/store/task-store";
+import { Identifier, IdentifierList } from "@/components/patterns/identifier";
 
 const time = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
@@ -70,7 +70,13 @@ export default function TaskDetailPage({ params }: { params: Promise<{ taskId: s
       size="wide"
       title={taskTitle(task, 80)}
       eyebrow={<StateChip state={task.state} />}
-      description={<span className="font-mono text-xs break-all">{task.taskId} · {task.contextId ?? "no context"} · {task.agentName}</span>}
+      description={
+        <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          <span className="text-xs">{task.agentName}</span>
+          <Identifier kind="task" value={task.taskId} head={13} />
+          {task.contextId ? <Identifier kind="context" value={task.contextId} head={13} /> : <span className="text-xs">No context ID</span>}
+        </span>
+      }
       actions={
         <>
           <Button variant="outline" onClick={resource.refresh}><RefreshCw /> Refresh</Button>
@@ -96,7 +102,10 @@ export default function TaskDetailPage({ params }: { params: Promise<{ taskId: s
                 const text = message.parts.map((part) => (part.kind === "text" ? String(part.value) : `[${part.kind} · ${part.mediaType}]`)).join(" ");
                 return (
                   <li key={message.id} className="space-y-1 py-3 first:pt-0 last:pb-0">
-                    <Eyebrow className={message.role === "user" ? "text-brand-text" : undefined}>{message.role === "user" ? "You" : task.agentName}{message.origin === "agent-history" ? " · from the agent's history" : ""}</Eyebrow>
+                    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5">
+                      <Eyebrow className={message.role === "user" ? "text-brand-text" : undefined}>{message.role === "user" ? "You" : task.agentName}{message.origin === "agent-history" ? " · from the agent's history" : ""}</Eyebrow>
+                      <Identifier kind="message" value={message.id} head={8} />
+                    </div>
                     <div className="line-clamp-6 text-sm break-words whitespace-pre-wrap">{text}</div>
                   </li>
                 );
@@ -111,6 +120,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ taskId: s
                 <li key={artifact.artifactId} className="flex flex-wrap items-center gap-2 py-2.5 first:pt-0 last:pb-0">
                   <Chip>{artifact.parts[0]?.mediaType ?? "—"}</Chip>
                   <span className="min-w-0 flex-1 truncate font-mono text-[13px] font-medium">{artifact.name ?? artifact.artifactId}</span>
+                  <Identifier kind="artifact" value={artifact.artifactId} head={8} />
                   {!artifact.complete && <Pill tone="brand" dot live>Streaming</Pill>}
                   {artifact.parts.filter((part) => part.kind === "url" && typeof part.value === "string" && /^\/api\/artifacts\/[0-9a-f]{64}$/.test(part.value)).map((part) => (
                     <a key={part.id} href={String(part.value)} download={part.filename ?? "artifact"} className={buttonVariants({ variant: "outline", size: "xs" })}><Download /> Download</a>
@@ -143,27 +153,32 @@ export default function TaskDetailPage({ params }: { params: Promise<{ taskId: s
           {task.kind !== "message" && <TaskApprovals taskId={task.localId} canRequest={active} />}
           {task.kind !== "message" && <TaskNotes taskId={task.localId} />}
           <InfoCard label="Identifiers">
-            <DefinitionList
-              className="font-mono text-xs"
+            <p className="text-muted-foreground mb-3 text-xs">
+              IDs for this task. Tap the copy icon to copy a whole value. “A2A” IDs come from the protocol and match what the agent logs; “Taskbay only” IDs are Taskbay&apos;s own records.
+            </p>
+            <IdentifierList
               items={[
-                { label: "localId", value: task.localId },
-                { label: "taskId", value: task.taskId },
-                { label: "tenant", value: task.tenant || "—" },
-                { label: "contextId", value: task.contextId ?? "—" },
-                { label: "messages", value: String(task.messages.length) },
-                { label: "artifacts", value: task.artifacts.map((artifact) => artifact.artifactId).join(", ") || "—" },
+                { kind: "task", value: task.taskId },
+                { kind: "context", value: task.contextId },
+                { kind: "record", value: task.localId },
+                { kind: "tenant", value: task.tenant },
               ]}
             />
-            {references.length > 0 && (
-              <div className="mt-4 space-y-2">
-                <Eyebrow>referenceTaskIds</Eyebrow>
-                <div className="flex flex-wrap gap-1.5">
-                  {references.map((id) =>
-                    task.referenceLinks[id] ? <Link key={id} href={`/tasks/${task.referenceLinks[id]}`}><Chip>{id.slice(0, 8)}</Chip></Link> : <Chip key={id}>{id.slice(0, 8)}</Chip>,
-                  )}
-                </div>
+            {task.artifacts.length > 0 && (
+              <div className="mt-4 space-y-2 border-t pt-3">
+                <Eyebrow>Artifacts ({task.artifacts.length})</Eyebrow>
+                <IdentifierList items={task.artifacts.map((artifact) => ({ kind: "artifact" as const, value: artifact.artifactId, label: artifact.name ? `Artifact ID · ${artifact.name}` : undefined }))} />
               </div>
             )}
+            {references.length > 0 && (
+              <div className="mt-4 space-y-2 border-t pt-3">
+                <Eyebrow>Referenced tasks ({references.length})</Eyebrow>
+                <IdentifierList items={references.map((id) => ({ kind: "reference" as const, value: id, href: task.referenceLinks[id] ? `/tasks/${task.referenceLinks[id]}` : undefined }))} />
+              </div>
+            )}
+            <p className="text-muted-foreground mt-4 border-t pt-3 text-xs">
+              {task.messages.length} {task.messages.length === 1 ? "message" : "messages"}. Each message&apos;s ID is shown on it under History.
+            </p>
           </InfoCard>
         </div>
       </div>

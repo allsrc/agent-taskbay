@@ -27,11 +27,11 @@ function TaskNode({ task, accent, refs }: { task: TrackedTask; accent?: "brand";
         <span className="min-w-0 flex-1 truncate text-sm font-medium">{taskTitle(task, 40)}</span>
         <StateChip state={task.state} />
       </div>
-      <span className="font-mono text-[11px] text-muted-foreground">{task.taskId.slice(0, 8)} · {task.agentName}</span>
+      <span className="font-mono text-[11px] text-muted-foreground">Task {task.taskId.slice(0, 8)} · {task.agentName}</span>
       {refs && refs.length > 0 && (
         <div className="mt-2 space-y-1.5">
-          <Eyebrow>referenceTaskIds</Eyebrow>
-          <div className="flex flex-wrap gap-1.5">{refs.map((id) => <Chip key={id}>{id.slice(0, 8)}</Chip>)}</div>
+          <Eyebrow>Builds on <span className="font-mono normal-case">referenceTaskIds</span></Eyebrow>
+          <div className="flex flex-wrap gap-1.5">{refs.map((id) => <Chip key={id}>Task {id.slice(0, 8)}</Chip>)}</div>
         </div>
       )}
     </Link>

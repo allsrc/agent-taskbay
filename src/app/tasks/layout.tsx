@@ -103,7 +103,7 @@ function TasksShell({ children }: { children: React.ReactNode }) {
                 <StateChip state={task.state} />
               </div>
               <div className="truncate font-mono text-[11px] text-muted-foreground">
-                {task.taskId.slice(0, 8)} · {task.agentName} · {relativeTime(task.updatedAt)}
+                Task {task.taskId.slice(0, 8)} · {task.agentName} · {relativeTime(task.updatedAt)}
               </div>
               {task.origin === "discovered" && <Pill tone="neutral">Discovered</Pill>}
               {task.workflow && (task.workflow.assigneeName || task.workflow.dueAt) && (

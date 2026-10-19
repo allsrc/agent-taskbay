@@ -77,7 +77,7 @@ export function OptionsPanel(props: OptionsPanelProps) {
 
       {props.tasks.length > 0 && (
         <div className="flex flex-col gap-1.5">
-          <span className="font-mono text-xs font-semibold">referenceTaskIds</span>
+          <span className="text-xs font-semibold">Build on earlier tasks <span className="text-muted-foreground font-mono font-normal">referenceTaskIds</span></span>
           <div className="flex flex-wrap gap-1.5">
             {props.tasks.map((task) => {
               const on = props.refIds.includes(task.taskId);
@@ -88,8 +88,9 @@ export function OptionsPanel(props: OptionsPanelProps) {
                   aria-pressed={on}
                   onClick={() => props.onRefIds(on ? props.refIds.filter((id) => id !== task.taskId) : [...props.refIds, task.taskId])}
                   className={chip(on)}
+                  title={`Task ${task.taskId}`}
                 >
-                  {task.taskId.slice(0, 8)}
+                  Task {task.taskId.slice(0, 8)}
                 </button>
               );
             })}
