@@ -1,6 +1,10 @@
 /** Shapes returned by `GET /api/admin/security`, and the pure reading of them the Admin screens share. */
 export interface SecurityView {
   organizationId: string;
+  /** How people sign in. Only OIDC deployments can add people; local development has the one built-in administrator. */
+  identity: { mode: "development" | "oidc"; issuer: string | null; selfMembershipId: string };
+  /** People who were turned off. They keep their history and can be reactivated. */
+  inactiveMemberships: Array<{ id: string; name: string; role: string }>;
   teams: Array<{ id: string; name: string; enabled: boolean }>;
   memberships: Array<{ id: string; name: string; role: string }>;
   teamMembers: Array<{ id: string; teamId: string; membershipId: string }>;

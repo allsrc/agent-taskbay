@@ -9,6 +9,8 @@ the project uses [semantic versioning](https://semver.org/) once it reaches 1.0;
 
 - **Console navigation is reorganised by job.** The sidebar groups daily work (**Home**, **Inbox**, **Tasks**, **Chat**), **Agents** (**Agents**, **Find tasks**, **Orchestration**) and **You** (**Notifications**, **Settings**, **Administration** for administrators).
 - **Administration is its own area** (`/admin`) with **Overview**, **People**, **Teams**, **Agent access** and **Policies & alerts**, plus a link to the audit trail. It replaces the organization cards that sat under **Settings**, which now holds only your browser-stored request defaults and extensions. **Teams** gains **Disable team**. No API changed.
+- **People management in the console.** With OIDC sign-in, **Administration → People** can add a person, change a role, deactivate and reactivate, all audited (`member.*`) and with the same guards as the API: you cannot change or deactivate yourself. In local development mode the page shows the built-in administrator and explains that people need OIDC. `POST /api/admin/security` gains `provisionMember`, `changeRole`, `deactivateMember` and `reactivateMember`; `GET` adds `identity` and `inactiveMemberships`.
+- **Dev server serves `127.0.0.1`.** `next dev` now allows the `127.0.0.1` origin, which the launcher and docs print; before, the page loaded there but never became interactive.
 - **Browsing an agent's tasks is a page, not a dialog.** **Find tasks** (`/discover`) works across agents and is linked from the sidebar, the **Tasks** list and each agent's **Task discovery** card.
 
 ### Added

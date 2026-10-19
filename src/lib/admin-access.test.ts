@@ -3,6 +3,8 @@ import { effectiveGrants, overviewCounts, recipientName, teamsOf, type SecurityV
 
 const view: SecurityView = {
   organizationId: "org",
+  identity: { mode: "oidc", issuer: "https://idp.example.test", selfMembershipId: "m3" },
+  inactiveMemberships: [],
   teams: [{ id: "t1", name: "Ops", enabled: true }, { id: "t2", name: "Old", enabled: false }],
   memberships: [{ id: "m1", name: "Ada", role: "operator" }, { id: "m2", name: "Bo", role: "viewer" }, { id: "m3", name: "Cy", role: "admin" }],
   teamMembers: [{ id: "l1", teamId: "t1", membershipId: "m1" }, { id: "l2", teamId: "t2", membershipId: "m1" }],

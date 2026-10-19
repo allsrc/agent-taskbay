@@ -17,7 +17,8 @@ const HUMANIZED: Record<string, string> = {
   "access.granted": "granted access", "access.revoked": "revoked access", "team.created": "created a team", "team.member_added": "added a team member",
   "team.member_removed": "removed a team member", "agent.registered": "registered an agent", "agent.removed": "removed an agent",
   "session.started": "signed in", "session.ended": "signed out", "credential.rotated": "rotated an agent credential",
-  "credential.revoked": "revoked an agent credential", "identity.provisioned": "provisioned a member", "escalation.policy_saved": "saved an escalation rule",
+  "credential.revoked": "revoked an agent credential", "identity.provisioned": "provisioned a member", "member.provisioned": "added a person", "member.role_changed": "changed a person's role",
+  "member.deactivated": "deactivated a person", "member.reactivated": "reactivated a person", "escalation.policy_saved": "saved an escalation rule",
   "task.send.accepted": "sent a message to an agent", "task.cancel.accepted": "asked an agent to cancel a task",
 };
 export function humanizeAction(action: string) {
