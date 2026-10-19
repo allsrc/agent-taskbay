@@ -5,6 +5,11 @@ the project uses [semantic versioning](https://semver.org/) once it reaches 1.0;
 
 ## [Unreleased]
 
+### Fixed
+
+- **Link-styled outline buttons had no border.** `buttonVariants()` returned a raw class string, so an outline button built from a link kept both `border-transparent` and the variant's border colour, and the transparent one won. "Back to tasks", **Export CSV**, **Add agent** and similar looked like plain text. They now render as buttons.
+- **Audit trail no longer drops you out of Administration.** It opens inside Administration at `/admin/audit` with the tabs still visible; `/audit` sends administrators there. **Find tasks** no longer shows a redundant "Back to tasks" button, and **Disable** on a team looks like a button.
+
 ### Changed
 
 - **Console navigation is reorganised by job.** The sidebar groups daily work (**Home**, **Inbox**, **Tasks**, **Chat**), **Agents** (**Agents**, **Find tasks**, **Orchestration**) and **You** (**Notifications**, **Settings**, **Administration** for administrators).

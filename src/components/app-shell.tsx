@@ -63,7 +63,6 @@ const PRIMARY_TABS = new Set<string>(["/", "/chat", "/inbox", "/tasks"]);
 function useActive(nav: NavItem[]) {
   const pathname = usePathname() ?? "/";
   // The standalone approvals queue now lives in the inbox, so its review pages keep the Inbox item active.
-  if (pathname === "/audit" || pathname.startsWith("/audit/")) return nav.find((item) => item.href === "/admin") ?? undefined;
   const path = pathname === "/approvals" || pathname.startsWith("/approvals/") ? pathname.replace("/approvals", "/inbox") : pathname;
   return nav.find((item) => (item.href === "/" ? path === "/" : path === item.href || path.startsWith(`${item.href}/`)));
 }

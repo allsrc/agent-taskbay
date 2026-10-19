@@ -14,7 +14,7 @@ export const ADMIN_LINKS: AdminLink[] = [
   { href: "/admin/teams" as Route, label: "Teams", icon: UsersRound },
   { href: "/admin/access" as Route, label: "Agent access", icon: KeyRound },
   { href: "/admin/policies" as Route, label: "Policies & alerts", icon: Bell },
-  { href: "/audit" as Route, label: "Audit trail", icon: ScrollText },
+  { href: "/admin/audit" as Route, label: "Audit trail", icon: ScrollText },
 ];
 
 /** The sub-navigation of the Admin area: one tab per job, scrolling sideways on a phone. */

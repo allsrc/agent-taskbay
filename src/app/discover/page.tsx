@@ -45,7 +45,6 @@ function Find() {
       size="wide"
       title="Find tasks"
       description="Read the task list straight from an agent to find work another system started. Nothing is stored until you track a task, and then it joins your Tasks and Inbox."
-      actions={<Link href={"/tasks" as Route} className={buttonVariants({ variant: "outline" })}>Back to tasks</Link>}
     >
       {loading ? <PageMessage>Loading agents…</PageMessage> : reachable.length === 0 ? (
         <EmptyState icon={SearchCheck} title="No reachable agents" action={<Link href={"/agents" as Route} className={buttonVariants()}>Go to agents</Link>}>
