@@ -42,7 +42,8 @@ export function claimPgliteDirectory(dataDir: string): void {
         throw new DatabaseOpenError(
           `The embedded database in ${dataDir} is already open in another process (pid ${owner}). ` +
           "Stop that process first (for example the dev server, the launcher, or a migration), then try again. " +
-          "Opening it twice damages it.");
+          "Opening it twice damages it. If nothing of yours is running (an operating system can give a dead process's number " +
+          `to an unrelated one), delete ${file} and try again.`);
       }
       rmSync(file, { force: true }); // stale: its owner is gone
     }
