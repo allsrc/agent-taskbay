@@ -1,5 +1,6 @@
 import { createDecisionService } from "../runtime/decisions";
 import { createWorkflowService } from "../runtime/workflow";
+import { reportRetry } from "./report";
 
 const interval = () => {
   const configured = Number(process.env.A2A_DECISION_SWEEP_MS);
@@ -17,8 +18,8 @@ export function startDecisionLoop() {
   let timer: ReturnType<typeof setTimeout> | undefined;
   let running: Promise<void> = Promise.resolve();
   const tick = async () => {
-    try { await service.sweep(); } catch { console.error("Decision sweeper could not access durable state; will retry."); }
-    try { await workflow.sweepEscalations(); } catch { console.error("Escalation sweeper could not access durable state; will retry."); }
+    try { await service.sweep(); } catch (error) { reportRetry("Decision sweeper", error); }
+    try { await workflow.sweepEscalations(); } catch (error) { reportRetry("Escalation sweeper", error); }
     if (!stopped) { timer = setTimeout(() => { running = tick(); }, interval()); timer.unref?.(); }
   };
   running = tick();

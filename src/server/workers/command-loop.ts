@@ -1,4 +1,5 @@
 import { createCommandDispatcher } from "../runtime/commands";
+import { reportRetry } from "./report";
 
 /** Loop is shared by embedded local dispatch and the PostgreSQL worker. */
 export function startCommandLoop() {
@@ -9,7 +10,7 @@ export function startCommandLoop() {
   const tick = async () => {
     try {
       for (let count = 0; count < 10 && !stopped; count++) if (!await dispatcher.runOne()) break;
-    } catch { console.error("Command dispatcher could not access durable state; will retry."); }
+    } catch (error) { reportRetry("Command dispatcher", error); }
     if (!stopped) { timer = setTimeout(() => { running = tick(); }, 250); timer.unref?.(); }
   };
   running = tick();

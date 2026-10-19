@@ -1,4 +1,5 @@
 import { createFreshnessDispatcher } from "../runtime/freshness";
+import { reportRetry } from "./report";
 
 export function startFreshnessLoop() {
   const dispatcher = createFreshnessDispatcher();
@@ -8,7 +9,7 @@ export function startFreshnessLoop() {
   const tick = async () => {
     try {
       for (let count = 0; count < 100 && !stopped; count++) if (!await dispatcher.runOne()) break;
-    } catch { console.error("Freshness dispatcher could not access durable state; will retry."); }
+    } catch (error) { reportRetry("Freshness dispatcher", error); }
     if (!stopped) { timer = setTimeout(() => { running = tick(); }, 250); timer.unref?.(); }
   };
   running = tick();

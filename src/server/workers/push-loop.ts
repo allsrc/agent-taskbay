@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { createPushWorker } from "../runtime/push";
 import { loadPushCredentials } from "../runtime/push-config";
+import { reportRetry } from "./report";
 
 export function startPushLoop() {
   const credentials = loadPushCredentials();
@@ -15,13 +16,13 @@ export function startPushLoop() {
       try {
         if (!adopted) { await worker.adopt(); adopted = true; }
         worked = await worker.runOne(randomUUID(), shutdown.signal);
-      } catch { console.error("Push worker could not access durable state; will retry."); }
+      } catch (error) { reportRetry("Push worker", error); }
       if (!worked && Date.now() >= nextCleanup) {
         nextCleanup = Date.now() + 60_000;
         try {
           const cleaned = await worker.cleanupOne(shutdown.signal);
           if (cleaned) console.log(`Push cleanup removed ${cleaned} leftover configuration${cleaned === 1 ? "" : "s"}.`);
-        } catch { console.error("Push cleanup could not access durable state; will retry."); }
+        } catch (error) { reportRetry("Push cleanup", error); }
       }
       if (!worked) await new Promise<void>((resolve) => {
         const done = () => { clearTimeout(timer); shutdown.signal.removeEventListener("abort", done); resolve(); };
