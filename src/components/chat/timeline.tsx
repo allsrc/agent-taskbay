@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { StructuredForm } from "@/components/chat/structured-form";
 import { formFromPart, type FormSubmission } from "@/lib/structured-form";
 import { isA2uiPart } from "@/lib/a2ui";
+import { Identifier } from "@/components/patterns/identifier";
 import { isReasoningPart, isToolPart, statusAuthor } from "@/lib/chat-activity";
 import { callNames, describeData, type DataKind, type DataSummary } from "@/lib/data-part";
 
@@ -170,9 +171,6 @@ const DATA_ICON: Record<DataKind, typeof Wrench> = {
 };
 const DATA_KIND_LABEL: Partial<Record<DataKind, string>> = { "tool-call": "call", "tool-result": "result" };
 
-/** Long generated ids keep their start and end, which is what people compare. */
-const shortId = (id: string) => (id.length > 14 ? `${id.slice(0, 8)}…${id.slice(-4)}` : id);
-
 /** A collapsed row that opens to show its payload: what it is, its name, its id and a short preview. */
 function StepDisclosure({ summary, busy = false, children }: { summary: DataSummary; busy?: boolean; children: React.ReactNode }) {
   const Icon = DATA_ICON[summary.kind];
@@ -187,7 +185,12 @@ function StepDisclosure({ summary, busy = false, children }: { summary: DataSumm
         <Icon className="size-3.5 shrink-0" aria-hidden />
         <span className={cn("max-w-[45%] shrink-0 truncate font-medium text-foreground/80", named && "font-mono", summary.failed && "text-danger")}>{summary.title}</span>
         {kindLabel && !summary.title.toLowerCase().endsWith(kindLabel) && <span className="shrink-0">{kindLabel}</span>}
-        {summary.id && <span className="shrink-0 rounded bg-muted px-1 font-mono text-[10.5px]" title={summary.id}>{shortId(summary.id)}</span>}
+        {summary.id && (
+          // Inside a summary, so a click on the ID or its copy icon must not also open or close the step.
+          <span className="min-w-0 shrink" onClick={(event) => { event.preventDefault(); event.stopPropagation(); }}>
+            <Identifier kind="call" value={summary.id} head={6} />
+          </span>
+        )}
         {summary.preview && <span className="min-w-0 flex-1 truncate font-mono text-[11px] opacity-80" title={summary.preview}>{summary.preview}</span>}
         {busy && <Loader2 className="size-3 shrink-0 animate-spin" />}
         <ChevronRight className="ml-auto size-3.5 shrink-0 transition-transform group-open/step:rotate-90" />
@@ -306,9 +309,10 @@ export function TaskCard({ task, canceling, onCancel }: { task: TrackedTask; can
         <h3 className="min-w-0 flex-1 truncate font-heading text-[15px] font-semibold">{taskTitle(task, 48)}</h3>
         <StateChip state={task.state} />
       </div>
-      <div className="text-muted-foreground flex items-center gap-2 font-mono text-[11px]">
-        <span className="min-w-0 flex-1 truncate">
-          {task.taskId.slice(0, 13)} · {task.contextId ? task.contextId.slice(0, 13) : "no context"}
+      <div className="text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
+        <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-0.5">
+          <Identifier kind="task" value={task.taskId} head={8} />
+          {task.contextId ? <Identifier kind="context" value={task.contextId} head={8} /> : <span title="This task has no context ID">No context ID</span>}
         </span>
         {isActiveState(task.state) && (
           <Button variant="ghost" size="sm" className="text-muted-foreground h-6 px-2 text-[11px]" onClick={onCancel} disabled={canceling}>

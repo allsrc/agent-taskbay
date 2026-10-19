@@ -5,6 +5,10 @@ the project uses [semantic versioning](https://semver.org/) once it reaches 1.0;
 
 ## [Unreleased]
 
+### Added
+
+- **IDs are labeled and copyable.** Every ID in chat, task pages, approvals and the task browser now says what it is (Task ID, Context ID, Message ID, Artifact ID, Call ID, Taskbay ID, Approval ID, Command ID, Digest), with a copy icon that copies the whole value. Selecting a label explains the ID: its protocol field, whether A2A defines it or only Taskbay keeps it, its full value and who creates it. The task page's **Identifiers** panel is rebuilt around this, shows each message's ID in **History**, lists artifact and referenced-task IDs, wraps very long values and folds those over 100 characters behind **Show all**. Copying works over plain HTTP, and the chat header's context ID moves to its own row on a phone.
+
 ### Fixed
 
 - **Link-styled outline buttons had no border.** `buttonVariants()` returned a raw class string, so an outline button built from a link kept both `border-transparent` and the variant's border colour, and the transparent one won. "Back to tasks", **Export CSV**, **Add agent** and similar looked like plain text. They now render as buttons.

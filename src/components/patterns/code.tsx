@@ -3,6 +3,7 @@
 import * as React from "react"
 import { CheckIcon, CopyIcon, EyeIcon, EyeOffIcon } from "lucide-react"
 import { toast } from "sonner"
+import { copyToClipboard } from "@/lib/clipboard"
 import { cn } from "@/lib/utils"
 
 import { Button } from "@/components/ui/button"
@@ -12,12 +13,11 @@ export function useCopy(timeout = 1500) {
   const [copied, setCopied] = React.useState(false)
   const copy = React.useCallback(
     async (value: string, label?: string) => {
-      try {
-        await navigator.clipboard.writeText(value)
+      if (await copyToClipboard(value)) {
         setCopied(true)
         if (label) toast.success(`${label} copied`)
         window.setTimeout(() => setCopied(false), timeout)
-      } catch {
+      } else {
         toast.error("Couldn’t access the clipboard")
       }
     },

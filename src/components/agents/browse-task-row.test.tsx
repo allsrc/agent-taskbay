@@ -13,7 +13,14 @@ describe("BrowseTaskRow", () => {
   it("shows the title, ids, state, age and the agent's question in quotes", () => {
     const html = render();
     expect(html).toContain("Reconcile invoices");
-    expect(html).toContain("3f9a2c1d · context 77ab12cd · updated 4m");
+    // Each ID says what it is and can be copied, whole.
+    expect(html).toContain("Task ID");
+    expect(html).toContain("3f9a2c1d-aaaa");
+    expect(html).toContain('aria-label="Copy Task ID"');
+    expect(html).toContain("Context ID");
+    expect(html).toContain("77ab12cd-bbbb");
+    expect(html).toContain('aria-label="Copy Context ID"');
+    expect(html).toContain("updated 4m");
     expect(html).toContain("Input required");
     expect(html).toContain("“Which ledger should I use?”");
   });
@@ -58,8 +65,8 @@ describe("BrowseTaskRow", () => {
 
   it("omits the age and context when the agent gave none", () => {
     const html = render({ row: row({ updatedAt: null, contextId: null }) });
-    expect(html).toContain(">3f9a2c1d<");
+    expect(html).toContain("Task ID");
     expect(html).not.toContain("updated");
-    expect(html).not.toContain("context");
+    expect(html).not.toContain("Context ID");
   });
 });

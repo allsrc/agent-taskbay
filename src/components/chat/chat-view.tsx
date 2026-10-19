@@ -38,6 +38,8 @@ import { useAgentStore } from "@/store/agent-store";
 import { useSettingsStore } from "@/store/settings-store";
 import { useTaskStore, type SendConfig, type ThreadMessage, type TrackedTask } from "@/store/task-store";
 import type { DurableTaskView } from "@/shared/task-types";
+import { CopyIdButton, Identifier } from "@/components/patterns/identifier";
+import { ID_KINDS } from "@/lib/identifiers";
 import { cn } from "@/lib/utils";
 
 const NEW_TASK = "new";
@@ -286,16 +288,25 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
     return [<SenderLabel key={`who-${key}`} who={who} name={name} id={agentId} />];
   };
 
+  const contextId = tasks.find((task) => task.contextId)?.contextId;
+  const conversationMeta = (
+    <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-[11px] text-muted-foreground">
+      {contextId
+        ? <Identifier kind="context" value={contextId} head={13} />
+        : <span title="The agent creates the context ID with its first reply">New conversation</span>}
+      <span className="shrink-0 font-mono">· {stateLabel}</span>
+    </div>
+  );
+
   return (
     <div className="flex flex-1 md:min-h-0">
       <div className="flex min-w-0 flex-1 flex-col md:min-h-0">
-        <header className="top-chrome sticky z-30 flex shrink-0 items-center gap-2.5 border-b bg-background/90 px-4 py-2.5 backdrop-blur-xl md:static md:px-6 md:py-3">
+        <header className="top-chrome sticky z-30 flex shrink-0 flex-wrap items-center gap-x-2.5 gap-y-1 border-b bg-background/90 px-4 py-2.5 backdrop-blur-xl md:static md:px-6 md:py-3">
           <AgentAvatar name={name} id={agentId} size="sm" />
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2"><span className="truncate text-sm font-medium">{name}</span>{tasks.some((task) => task.origin === "discovered") && <Pill tone="neutral">Discovered</Pill>}</div>
-            <div className="truncate font-mono text-[11px] text-muted-foreground">
-              {(tasks.find((task) => task.contextId)?.contextId ?? "new conversation").slice(0, 18)} · {stateLabel}
-            </div>
+            {/* Beside the name from `md` up; on a phone it sits on its own row below, where there is room for the ID. */}
+            <div className="hidden md:block">{conversationMeta}</div>
           </div>
           <Button variant="outline" size="sm" onClick={() => showRail("options")} aria-pressed={railVisible && railTab === "options"}>
             Options
@@ -312,6 +323,7 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
           <Button variant="ghost" size="icon-sm" onClick={() => router.push(`/chat?agent=${agentId}`)} aria-label="Reset conversation" title="Reset conversation">
             <RotateCcw />
           </Button>
+          <div className="basis-full md:hidden">{conversationMeta}</div>
         </header>
 
         <div ref={scroller} className="flex flex-1 flex-col md:min-h-0 md:overflow-auto">
@@ -431,19 +443,25 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
                 {openTasks.map((task) => {
                   const attention = ["INPUT_REQUIRED", "AUTH_REQUIRED"].includes(stateName(task.state));
                   return (
-                    <button
+                    <span
                       key={task.taskId}
-                      type="button"
-                      role="radio"
-                      aria-checked={target === task.taskId}
-                      onClick={() => setOverride(task.taskId)}
                       className={cn(
-                        "rounded-full border px-2.5 py-1 font-mono text-[11px] font-medium transition-colors",
+                        "inline-flex max-w-full items-center rounded-full border font-mono text-[11px] font-medium transition-colors",
                         target === task.taskId ? "border-brand bg-brand-soft text-brand-text" : attention ? "border-warning/60 text-warning" : "border-border text-muted-foreground hover:text-foreground",
                       )}
                     >
-                      {task.taskId.slice(0, 8)} · {stateName(task.state).toLowerCase().replaceAll("_", " ")}
-                    </button>
+                      <button
+                        type="button"
+                        role="radio"
+                        aria-checked={target === task.taskId}
+                        onClick={() => setOverride(task.taskId)}
+                        title={`${ID_KINDS.task.label} ${task.taskId}`}
+                        className="min-w-0 truncate rounded-full py-1 pr-1 pl-2.5 outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                      >
+                        Task {task.taskId.slice(0, 8)} · {stateName(task.state).toLowerCase().replaceAll("_", " ")}
+                      </button>
+                      <CopyIdButton value={task.taskId} label="Copy Task ID" className="mr-1 text-current" />
+                    </span>
                   );
                 })}
                 <button

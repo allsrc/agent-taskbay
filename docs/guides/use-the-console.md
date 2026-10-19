@@ -224,6 +224,23 @@ answered, not on the agent's own wording:
 
 A refusal by the agent means it did nothing, so sending again is safe. Anything else shows the message Taskbay has, as plain text, with **Try again** where that can help.
 
+## Identifiers
+
+Chat, task pages, approvals and the task browser show IDs. Each one is labeled with what it is, shortened to its start and end, and has a **copy** icon that copies the whole value. Select an ID's name (or hover it) to open a card with what it is, the protocol field it comes from, whether the A2A protocol defines it or only Taskbay keeps it, the full value, and who creates it. The copy icon shows a check and a "copied" notice; it also works when the console is served over plain HTTP, where browsers hide the clipboard API.
+
+| Label | Field | Who creates it, and what it is for |
+| --- | --- | --- |
+| **Task ID** | `taskId` | The agent's ID for one unit of work, created when it starts a new task. Use it to find the task in the agent's own logs. |
+| **Context ID** | `contextId` | Groups related tasks and messages into one conversation. The agent creates it with the first task; later messages send it to continue. A new chat shows "New conversation" until the agent replies. |
+| **Message ID** | `messageId` | Identifies one message. Whoever sends a message creates its ID: Taskbay for yours, the agent for its replies. Shown on each message in a task's **History**. |
+| **Artifact ID** | `artifactId` | Identifies one output of a task, such as a file. Unique within its task only. |
+| **Referenced task** | `referenceTaskIds` | An earlier task a message told the agent to use as context. |
+| **Call ID** | | The agent's ID for a tool call or its result, shown on **Activity** steps, used to pair a call with its result. |
+| **Taskbay ID** | `localId` | Taskbay's own ID for a stored task, used in console links. Not an A2A ID; the agent never sees it. |
+| **Approval ID**, **Command ID**, **Digest** | | Taskbay's own records: an approval request, one request Taskbay sent to an agent, and a SHA-256 fingerprint of exact content. |
+
+On a task page the **Identifiers** panel lists every ID in full with this explanation. Values longer than 100 characters fold to three lines with **Show all**, so an unusually long ID cannot take over the panel; the copy icon always copies all of it. On a phone the copy icons are larger touch targets, and the explanation opens on tap. In the chat's **Send to** row the copy icon sits beside each task; in list rows (Tasks, Inbox) IDs are labeled but not copyable, because the whole row is a link. Open the task to copy.
+
 ## Tasks
 
 **Tasks** lists the tasks you can read, most recently updated first, 50 per page, with **Previous**, **Refresh** and **Next**. Filters: **All**, **Active**, **Needs you**, **Done**, **Mine**, **Overdue** **Unassigned** and **Discovered** (tasks another system started that someone tracked, or that were found automatically). Each row shows the title, state, short task ID, agent and last change. It also shows the assignee, the due time and "escalated" when they apply.

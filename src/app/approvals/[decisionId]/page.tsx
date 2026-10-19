@@ -17,6 +17,7 @@ import { IdempotencyKeys, OUTCOME_LABEL, canDecide, executionSummary, expiryLabe
 import { stateName } from "@/lib/task-view";
 import { useServerResource } from "@/lib/use-server-resource";
 import type { DecisionDetail, DecisionOutcome, ProposedAction, ReviewerOption } from "@/shared/decision-types";
+import { Identifier } from "@/components/patterns/identifier";
 import { cn } from "@/lib/utils";
 
 const when = (iso: string) => new Date(iso).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
@@ -107,6 +108,7 @@ function Review({ detail, refresh, error }: { detail: DecisionDetail; refresh: (
           {request.agentName ?? "Agent"} · requested by {request.requesterUserId ? person(request.requesterUserId) : `${request.agentName ?? "the agent"} (agent)`} · {when(request.createdAt)} ·{" "}
           {isOpen(request.status) && <><span className={cn(expired && "text-danger")}>{expiryLabel(request.expiresAt)}</span> · </>}
           <Link href={`/tasks/${request.taskId}`} className="text-brand-text hover:underline">View task{request.taskState ? ` (${stateName(request.taskState)})` : ""}</Link>
+          {" · "}<Identifier kind="approval" value={request.id} head={8} className="align-middle" />
         </span>
       }
     >
@@ -116,7 +118,7 @@ function Review({ detail, refresh, error }: { detail: DecisionDetail; refresh: (
       <div className="grid gap-4 2xl:grid-cols-3 2xl:items-start">
         <div className="space-y-4 2xl:col-span-2">
         <InfoCard label={`Proposed action · revision ${current.number}`}>
-          <p className="text-muted-foreground mb-2 font-mono text-[11px]">{actionLabel(current.action)} · digest {shortDigest(current.digest)}</p>
+          <p className="text-muted-foreground mb-2 flex flex-wrap items-center gap-x-3 gap-y-0.5 font-mono text-[11px]">{actionLabel(current.action)}<Identifier kind="digest" label="Digest" value={current.digest} head={12} /></p>
           <ProposedActionView action={current.action} />
           {!request.requesterUserId && <p className="text-muted-foreground mt-3 text-[12px]" data-testid="agent-origin">Opened by the agent through the approval-request extension. The agent cannot decide it; only reviewers can.</p>}
           {isOpen(request.status) && !expired && <p className="text-muted-foreground mt-3 text-[12px]">
@@ -198,9 +200,11 @@ function Review({ detail, refresh, error }: { detail: DecisionDetail; refresh: (
             <p className="text-sm font-medium" data-testid="execution-summary">{executionSummary(approvedExecution)}</p>
             {approvedExecution.error && <p className="text-danger mt-1 text-[12px]">{approvedExecution.error}</p>}
             <dl className="mt-2 flex flex-col gap-1.5 font-mono text-[11px]">
-              {[["Approved revision digest", shortDigest(approvedExecution.revisionDigest)], ["Message ID", approvedExecution.messageId],
-                ["Command", approvedExecution.commandId], ["Last checked", when(approvedExecution.updatedAt)]].map(([key, value]) => (
-                <div key={key} className="flex justify-between gap-3"><dt className="text-muted-foreground">{key}</dt><dd className="truncate text-right">{value}</dd></div>))}
+              {([["Approved revision digest", <Identifier key="d" kind="digest" label="Digest" value={approvedExecution.revisionDigest} head={12} />],
+                ["Message sent", <Identifier key="m" kind="message" label="Message ID" value={approvedExecution.messageId} head={8} />],
+                ["Command", <Identifier key="c" kind="command" label="Command ID" value={approvedExecution.commandId} head={8} />],
+                ["Last checked", when(approvedExecution.updatedAt)]] as Array<[string, React.ReactNode]>).map(([key, value]) => (
+                <div key={key} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5"><dt className="text-muted-foreground">{key}</dt><dd className="min-w-0 max-w-full text-right">{value}</dd></div>))}
             </dl>
           </InfoCard>
         )}
