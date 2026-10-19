@@ -79,6 +79,8 @@ export A2A_TEST_POSTGRES_URL=postgresql://postgres:postgres@127.0.0.1:55432/post
 
 The test account must be able to create and drop temporary databases. Use a disposable server, never a real one.
 
+The `verify` and `package` jobs run on Linux. An informational `platforms` job also runs lint, the unit tests, the embedded-database lock and people tests, and the production build on macOS and Windows; it is allowed to fail without blocking a merge until it has proved stable.
+
 ### Test and verification variables
 
 These are read by the repository's tests and verification scripts, not by the application, so they are not in the [configuration reference](../reference/configuration.md).

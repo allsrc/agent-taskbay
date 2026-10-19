@@ -52,3 +52,30 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run verify:package
+
+  platforms:
+    # Informational: the console runs locally on macOS and Windows through `npx agent-taskbay`, and CI otherwise only covers Linux.
+    # `continue-on-error` keeps a platform-specific failure visible without blocking a merge; remove it once this job has
+    # been green for a while. It runs what needs no PostgreSQL: lint, unit tests, the embedded-database lock and people
+    # tests, and the production build. The PostgreSQL, HTTP and package checks stay on Linux in `verify` and `package`.
+    name: platforms (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22.19.0
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npx vitest run --exclude "src/server/adapters/db/**/*.db.test.ts"
+      - run: npx vitest run src/server/adapters/db/pglite-guard.db.test.ts src/server/adapters/db/people.db.test.ts --maxWorkers=1 --testTimeout=60000
+      - run: npm run build
