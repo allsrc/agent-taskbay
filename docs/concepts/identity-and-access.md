@@ -26,7 +26,7 @@ There are two modes.
 
 **OIDC.** The production mode (the default when `NODE_ENV=production`). The console uses authorization-code login with PKCE, state and nonce, through the `openid-client` library, over HTTPS only. After login it checks that the exact `(issuer, subject)` pair belongs to a user with an enabled membership in the configured organization. Then it discards the provider's tokens. The provider's email, role, organization and tenant claims are never used to create or promote a user.
 
-This means signing in to your identity provider is not enough. An operator must provision the membership first, with a CLI (see [Sign in and roles](../guides/sign-in-and-roles.md)). There is no just-in-time account creation.
+This means signing in to your identity provider is not enough. Someone must provision the membership first: the first administrator with `npm run auth:provision`, and later people there or under **Administration → People** (see [Sign in and roles](../guides/sign-in-and-roles.md)). There is no just-in-time account creation.
 
 The session is an opaque random cookie named `__Host-a2a-session` (Secure, HttpOnly, SameSite=Lax, no Domain). Only its SHA-256 hash is stored, with an absolute expiry. The default lifetime is 8 hours (`A2A_AUTH_SESSION_SECONDS`, allowed range 60 to 86400). Every request re-resolves the session and the current membership, so disabling a user takes effect on their next request. Requests already running may finish. Browser mutations must carry an `Origin` that exactly matches the configured external origin (`A2A_AUTH_ORIGIN`).
 

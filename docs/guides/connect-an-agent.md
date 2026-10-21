@@ -2,7 +2,7 @@
 
 > Who this is for: an administrator adding an A2A agent to Agent Taskbay. At the end the agent is registered, reachable, authenticated if it needs to be, and visible to the people who should be able to use it.
 
-Connecting an agent is three separate things: registering its Agent Card URL, giving the console a credential if the agent requires one, and granting people access. Registration is a browser action. Credentials are set on the server, never in the browser. Grants are set in Settings.
+Connecting an agent is three separate things: registering its Agent Card URL, giving the console a credential if the agent requires one, and granting people access. Registration is a browser action. Credentials are set on the server, never in the browser. Grants are set in **Administration**, under **Agent access**.
 
 ## Before you start
 
