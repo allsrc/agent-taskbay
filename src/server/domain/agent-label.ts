@@ -9,7 +9,6 @@ export function normalizeNickname(value: string | null | undefined): string | nu
   const nickname = (value ?? "").replace(/\s+/g, " ").trim();
   if (!nickname) return null;
   if (nickname.length > MAX_AGENT_NICKNAME_LENGTH) throw new Error(`Nickname must be at most ${MAX_AGENT_NICKNAME_LENGTH} characters.`);
-  // eslint-disable-next-line no-control-regex
   if (/[\u0000-\u001f\u007f]/.test(nickname)) throw new Error("Nickname must not contain control characters.");
   return nickname;
 }

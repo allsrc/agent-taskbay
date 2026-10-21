@@ -21,7 +21,7 @@ import { mergeExtendedSkills } from "@/lib/extended-card";
 import type { DiscoveryStatusView } from "@/lib/browse-tasks";
 import { useServerResource } from "@/lib/use-server-resource";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { useAgentStore } from "@/store/agent-store";
+import { advertisedName, useAgentStore } from "@/store/agent-store";
 
 export default function AgentDetailPage({ params }: { params: Promise<{ agentId: string }> }) {
   const { agentId } = use(params);
@@ -67,7 +67,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ agentId:
       detail
       size="wide"
       title={view?.name ?? agent.nickname ?? "Unreachable agent"}
-      description={view?.description ?? agent.error}
+      description={[advertisedName(agent) && `Card name: ${advertisedName(agent)}`, view?.description ?? agent.error].filter(Boolean).join(" · ")}
       eyebrow={view ? <Pill tone="success" dot live>Reachable · Agent Card v{view.version}</Pill> : <Pill tone="danger" dot>Discovery failed</Pill>}
       actions={
         <>
