@@ -127,7 +127,7 @@ The full set of reviewer actions is in [Approvals and ownership](guides/approval
 
 - **Tasks** lists the task with its status timeline, history and identifiers.
 - The approval page lists the decision record and every revision.
-- **Audit** (administrators only) lists each step. The approval page links to the trail for its task.
+- **Administration → Audit trail** (administrators only) lists each step. The approval page links to the trail for its task.
 
 Everything above is stored in the database, not in the browser. With `npx` the state lives in the launcher's data directory (`~/.agent-taskbay` by default). From source it lives in `./.data/pglite` (database) and `./.data/artifacts` (binary content). The state survives a restart: `npm run verify:package` installs the packaged launcher, registers an agent, sends it a command, restarts, and checks that the agent and task are still there.
 
@@ -136,7 +136,7 @@ Everything above is stored in the database, not in the browser. With `npx` the s
 Real agents are often driven by more than one system. The `automation` sample agent plays that: it already has a task, "Rotate staging credentials", waiting for an answer, as if a pipeline had started it.
 
 1. In **Agents**, choose **Add agent**, paste `http://127.0.0.1:4010/automation/card.json`, then **Fetch Agent Card**, **Continue** and **Connect**.
-2. Open the agent and choose **Browse tasks**. You see two tasks, with the agent's question in quotes: "Which environment should I rotate?". Nothing has been stored yet.
+2. Choose **Find tasks** in the sidebar and pick the **Automation fixture** agent (or open the agent and choose **Browse tasks**). You see two tasks, with the agent's question in quotes: "Which environment should I rotate?". Nothing has been stored yet.
 3. Choose **Track** on "Rotate staging credentials". The row says **Tracked**; choose **Open**.
 4. Open the task in chat and reply `staging`. The task completes ("Done. Rotated staging.").
 
@@ -152,7 +152,7 @@ How it works, who may do this and how to switch it off: [Find and steer tasks st
 | The error says the target is not in the allowlist, or blocked | Production builds only reach exact origins in `A2A_ALLOWED_AGENT_ORIGINS`, and block private addresses unless `A2A_ALLOW_PRIVATE_NETWORKS=true`. The launcher sets the private-network option for you in local mode. | See [Connect an agent](guides/connect-an-agent.md#when-it-fails). |
 | `Agent Taskbay is already running for <dir> (pid ...)` | A second launcher on the same data directory. The embedded database allows one owner. | Stop the first process or pass `--data-dir`. |
 | "There is no production build." | The launcher was run from a checkout without a build. | Run `npm run build` first, or use `npx agent-taskbay`. |
-| Database error when starting a second `npm run dev` or script against the same `.data` | PGlite has a single owner process. | Stop the other process. CLIs that touch the database need `--offline-pglite` while it is stopped. |
+| `The embedded database in <dir> is already open in another process` when starting a second `npm run dev` or running a script against the same `.data` | PGlite has a single owner process, and Taskbay refuses a second one instead of sharing the folder. | Stop the other process. CLIs that touch the database need `--offline-pglite` while it is stopped. See [Development setup](contributing/development.md#where-the-database-is). |
 | **Browse tasks** is missing, or says task discovery is off | Your role cannot browse (viewers and skill-only grants cannot), or `A2A_TASK_DISCOVERY=off` | Local mode signs you in as an administrator, so check that variable. |
 | The approval never appears | The message did not contain "approve", so the showcase agent sent a form instead. | Use the exact message above, or open the task and choose **Request approval** to record one yourself. |
 | Approve is disabled or refused: "The requester cannot decide their own request." | Separation of duties is on by default. | Agent-opened requests have no requester, so this only hits approvals you created yourself. Ask another reviewer. |

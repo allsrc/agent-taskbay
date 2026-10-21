@@ -89,7 +89,7 @@ Use `"skillId": null` for the whole agent. For everyone, use `"subjectType": "or
 2. Ask a team member to sign in and open **Agents**. They see `Billing agent` with the description `Restricted skill access` and only the `Refunds` skill. The other skills, and the agent's own description, are hidden.
 3. When they start a task with that agent, the chat shows a **Skill** picker with only the granted skills. Taskbay sends the skill id to the agent in the skill-routing metadata.
 4. Their task lists show only tasks recorded for that skill.
-5. The **Audit** page records each change: `team.created`, `team.addTeamMember`, `access.granted`.
+5. **Administration → Audit trail** records each change: `team.created`, `team.addTeamMember`, `access.granted`.
 
 Browsing an agent's tasks and tracking them need an `operate` grant on the **whole** agent (or the administrator role). A skill grant never allows it, and a person with only skill grants never sees tracked or discovered tasks ([Task discovery](connect-an-agent.md#task-discovery)).
 

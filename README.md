@@ -81,7 +81,7 @@ Open it, review the proposed action, choose **Approve**, and confirm.
 ![Pending approval for Delete the staging cluster, marked high risk, with the exact action under review](docs/images/approval.png)
 
 **What you should see:** the approval becomes `approved`, the exact content you reviewed is sent to the agent once, and the task moves to
-completed. The approval page shows "Delivered to the agent; task is now" followed by the task state, and **Audit** lists every step.
+completed. The approval page shows "Delivered to the agent; task is now" followed by the task state, and **Administration → Audit trail** lists every step.
 
 ![The same approval after it was delivered once, with the task completed](docs/images/approval-delivered.png)
 

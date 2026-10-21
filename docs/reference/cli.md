@@ -151,7 +151,7 @@ npm run db:projections:rebuild -- --offline-pglite
 
 | Flag | Meaning |
 | --- | --- |
-| `--offline-pglite` | Required when the profile is PGlite, because only one process may open the database. Stop the web server first. Not needed with PostgreSQL. |
+| `--offline-pglite` | Required when the profile is PGlite, because only one process may open the database. Stop the web server first, or the command stops with "already open in another process". Not needed with PostgreSQL. |
 | `--organization <uuid>` | Organization to rebuild. Default: the organization with slug `local`. |
 | `--task <uuid>` | Rebuild only this local task ID. |
 

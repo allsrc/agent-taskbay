@@ -124,7 +124,7 @@ curl -i http://localhost:3002/api/auth/session
 
 A `200` with `"mode":"development"` means you are signed in as the local administrator. Open `http://localhost:3002/agents`; the sample agent is listed.
 
-Only one process may open the PGlite directory. Stop `npm run dev` before running a script against it with `--offline-pglite`.
+Only one process may open the PGlite directory, and Taskbay refuses a second one with "already open in another process". Stop `npm run dev` before running a script against it with `--offline-pglite`.
 
 ## 3. Single server on PostgreSQL with OIDC
 

@@ -25,7 +25,7 @@ the repository's own CI runs; nothing here is a claim about other versions or en
 | A2A SDK | `@a2a-js/sdk` `^1.3.0` (locked at `1.3.0`) | `package.json`, `package-lock.json` |
 | Web framework | Next.js `16.3.6`, React `19.3.0` | `package.json` |
 | ORM | MikroORM `7.2.3` | `package.json` |
-| Operating systems | CI runs `ubuntu-latest` only. The launcher has code to open a browser on macOS, Windows and Linux; Windows is not tested. | `ci.yml`, `bin/agent-taskbay.mjs` |
+| Operating systems | The full suite runs on `ubuntu-latest`. An informational `platforms` job also runs lint, unit tests, the embedded-database lock and people tests and the build on macOS and Windows; it may fail without blocking a merge, so treat those systems as unverified until it has been green. The launcher has code to open a browser on macOS, Windows and Linux. | `ci.yml`, `bin/agent-taskbay.mjs` |
 | Browsers | Not verified. The repository declares no browser support list and has no cross-browser test suite. | `package.json` |
 
 `npm run check` is what CI runs: lint, unit tests, database tests (PGlite, plus PostgreSQL when `A2A_TEST_POSTGRES_URL` is set), migrations, schema-drift check, production build, and the HTTP
