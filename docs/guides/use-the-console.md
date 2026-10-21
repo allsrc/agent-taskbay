@@ -36,12 +36,13 @@ Opening the console root (`/`) takes you to **Chat**.
 
 ## Agents
 
-**Agents** lists the agents you can see. A success-coloured dot means the Agent Card was fetched ("Reachable" on hover). A different dot means it failed ("Discovery failed" on hover), and the row shows the error. Use **Search agents or skills…** to filter by name, description, skill name or card URL.
+**Agents** lists the agents you can see. A success-coloured dot means the Agent Card was fetched ("Reachable" on hover). A different dot means it failed ("Discovery failed" on hover), and the row shows the error. Each row shows the agent's nickname (or card name) and the host and port of its card, so agents with the same name can be told apart. Use **Search agents or skills…** to filter by nickname, name, description, skill name or card URL.
 
 ![The sample agents, with the showcase card open](../images/agents.png)
 
 Select an agent to see its card:
 
+- **Nickname**: your own name for the agent, which replaces the card name across the console. Administrators can set or clear it; it must be unique. See [Nickname](connect-an-agent.md#2-register-it).
 - **Capabilities**: streaming, push notifications, extended card, and the advertised extension URIs.
 - **Connection**: the binding, interface URL, protocol version, tenant or tenants, and how each advertised extension is used (negotiated, ignored, or required but not supported). See [Reading the Connection card](connect-an-agent.md#reading-the-connection-card).
 - **Task discovery**: how Taskbay finds tasks other systems started on this agent (**Browse only**, **Off**), with **Browse tasks** for people who may use it. Only administrators can change the mode; the choices a deployment forbids are disabled and say so. See [Task discovery](connect-an-agent.md#task-discovery).

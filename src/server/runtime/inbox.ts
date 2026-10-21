@@ -17,7 +17,7 @@ export async function readInbox(request: InboxRequest, options: { orm?: MikroORM
     const scope = !policy || policy.principal.role === "admin" ? undefined : policy.grants.map((grant) => ({ agentId: grant.agentId, skillId: grant.skillId }));
     const service = new InboxQueryService(new MikroOrmInboxRepository(em), {
       agents: async (organizationId, ids) => Object.fromEntries((ids.length ? await em.find(AgentEntity, { organizationId, id: { $in: ids } }) : [])
-        .map((agent) => [agent.id, agent.displayName ?? agent.cardUrl])),
+        .map((agent) => [agent.id, agent.nickname || agent.displayName || agent.cardUrl])),
       people: async (organizationId, ids) => {
         const memberships = ids.length ? await em.find(MembershipEntity, { organizationId, id: { $in: ids } }) : [];
         const users = memberships.length ? await em.find(UserEntity, { id: { $in: memberships.map((membership) => membership.userId) } }) : [];

@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import type { DatabaseConfig } from "./config";
 import { createDatabaseOrm } from "./orm";
 import { createPersistenceRepositories } from "./repositories";
+import { bootstrapDefaultLocalOrganization } from "../../application/services/bootstrap-default-organization";
 import { DatabaseAgentRegistry } from "./agent-registry";
 import { provisionIdentity } from "./identity-repository";
 import { createGrant } from "./security-repository";
@@ -26,8 +27,10 @@ async function contract(config: DatabaseConfig, directory: string) {
     await orm.migrator.up({ to: "Migration0007_ExtendedCardKind" });
     const repos = () => createPersistenceRepositories(orm.em.fork());
     const registry = () => new DatabaseAgentRegistry({ orm, legacyFilePath: join(directory, "absent"), environmentUrls: () => [] });
-    const agent = await registry().add("https://links.test/card.json");
-    const org = (await repos().organizations.findBySlug("local"))!;
+    // Written as SQL: this schema predates the entity's newest columns.
+    const org = await bootstrapDefaultLocalOrganization(repos().organizations);
+    const agent = { id: randomUUID(), cardUrl: "https://links.test/card.json" };
+    await orm.em.getConnection().execute(`insert into "agents" ("id", "organization_id", "card_url", "source", "enabled", "created_at", "updated_at") values (?, ?, ?, 'managed', true, now(), now())`, [agent.id, org.id, agent.cardUrl]);
     const now = new Date();
     const old: TaskRecord = { id: randomUUID(), organizationId: org.id, agentId: agent.id, tenant: "", remoteTaskId: "before-upgrade",
       remoteContextId: null, kind: "task", state: "TASK_STATE_COMPLETED", title: "Kept on upgrade", ownerUserId: null, ownerTeamId: null,

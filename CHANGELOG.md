@@ -7,6 +7,8 @@ the project uses [semantic versioning](https://semver.org/) once it reaches 1.0;
 
 ### Added
 
+- **Agent nicknames.** Give an agent your own name to tell apart registrations whose cards advertise the same name, for example the same agent built with LangGraph and with ADK. Set it in the connect dialog or later on the agent page (administrators). The nickname replaces the card name in the console, inbox, approvals, notifications and audit trail, and the agents list now shows each agent's host and port. Nicknames are unique among enabled agents, ignoring case; clearing one restores the card name. Schema version 9.
+
 - **IDs are labeled and copyable.** Every ID in chat, task pages, approvals and the task browser now says what it is (Task ID, Context ID, Message ID, Artifact ID, Call ID, Taskbay ID, Approval ID, Command ID, Digest), with a copy icon that copies the whole value. Selecting a label explains the ID: its protocol field, whether A2A defines it or only Taskbay keeps it, its full value and who creates it. The task page's **Identifiers** panel is rebuilt around this, shows each message's ID in **History**, lists artifact and referenced-task IDs, wraps very long values and folds those over 100 characters behind **Show all**. Copying works over plain HTTP, and the chat header's context ID moves to its own row on a phone.
 
 ### Fixed

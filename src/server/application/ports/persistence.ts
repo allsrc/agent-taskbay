@@ -27,6 +27,8 @@ export interface AgentRepository {
     registration: Pick<AgentRecord, "source" | "enabled" | "updatedAt">,
   ): Promise<boolean>;
   setExtensionOverride(organizationId: string, id: string, extensionOverride: boolean, now: Date): Promise<boolean>;
+  /** Sets or clears (null) an agent's nickname. The caller has normalized it and checked it is not taken. */
+  setNickname(organizationId: string, id: string, nickname: string | null, now: Date): Promise<boolean>;
   /** Changes an agent's task discovery settings. Rejects an unknown mode or a history outside 0 to 90 days. */
   setTaskDiscovery(
     organizationId: string,

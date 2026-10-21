@@ -14,6 +14,8 @@ export interface CatalogEntry {
   id: string;
   cardUrl: string;
   source: "env" | "managed";
+  /** The administrator's own name for this agent; `name` is what its card advertises. */
+  nickname?: string;
   name?: string;
   description?: string;
   skills?: Array<{ id: string; name: string; description: string; tags: string[] }>;
@@ -38,11 +40,11 @@ async function handleGET() {
     try {
       const discovery = await discoverRegisteredAgent(agent);
       const card = discovery.card as { name?: string; description?: string; skills?: CatalogEntry["skills"] };
-      return { id: agent.id, cardUrl: agent.cardUrl, source: agent.source, name: card.name, description: card.description, skills: card.skills, card: discovery.card, trust: discovery.trust, connection: discovery.connection,
+      return { id: agent.id, cardUrl: agent.cardUrl, source: agent.source, nickname: agent.nickname, name: card.name, description: card.description, skills: card.skills, card: discovery.card, trust: discovery.trust, connection: discovery.connection,
         extendedCard: await readExtendedCard(agent.id),
         extensions: { required: discovery.sideband?.requiredUris ?? [], unsupportedRequired: discovery.sideband?.unsupportedRequiredUris ?? [], override: agent.extensionOverride ?? false } };
     } catch (error) {
-      return { id: agent.id, cardUrl: agent.cardUrl, source: agent.source, error: error instanceof Error ? error.message : "Agent discovery failed." };
+      return { id: agent.id, cardUrl: agent.cardUrl, source: agent.source, nickname: agent.nickname, error: error instanceof Error ? error.message : "Agent discovery failed." };
     }
   }));
   return NextResponse.json({ agents: entries }, { headers: { "Cache-Control": "no-store" } });
@@ -51,9 +53,9 @@ async function handleGET() {
 /** Catalog management (design doc's "next features"): register a new agent by its Agent Card URL. */
 async function handlePOST(request: Request) {
   try {
-    const body = await readJsonRequest<{ cardUrl?: string }>(request);
+    const body = await readJsonRequest<{ cardUrl?: string; nickname?: string | null }>(request);
     if (!body.cardUrl?.trim()) throw new Error("cardUrl is required.");
-    const agent = await agentRegistry().add(body.cardUrl);
+    const agent = await agentRegistry().add(body.cardUrl, body.nickname);
     return NextResponse.json({ agent }, { status: 201, headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     return apiError(error, 400);

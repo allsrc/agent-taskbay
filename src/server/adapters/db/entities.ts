@@ -44,6 +44,7 @@ const AgentSchema = defineEntity({
     source: p.string().length(32).$type<"env" | "managed">(),
     enabled: p.boolean(),
     displayName: p.string().length(300).nullable(),
+    nickname: p.string().length(100).nullable(),
     description: p.text().nullable(),
     protocolSnapshotVersion: p.string().length(100).nullable(),
     lastDiscoveryAt: p.datetime().nullable(),
