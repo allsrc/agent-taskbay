@@ -39,7 +39,7 @@ export function sharedPorts(em: EntityManager) {
       const membership = await em.findOne(MembershipEntity, { organizationId, id: membershipId });
       return (membership && (await em.findOne(UserEntity, { id: membership.userId }))?.displayName) || "A member";
     },
-    agentName: async (organizationId: string, agentId: string) => { const agent = await em.findOne(AgentEntity, { organizationId, id: agentId }); return agent?.displayName ?? "An agent"; },
+    agentName: async (organizationId: string, agentId: string) => { const agent = await em.findOne(AgentEntity, { organizationId, id: agentId }); return agent?.nickname || agent?.displayName || "An agent"; },
     notify: async (organizationId: string, event: NotificationEvent) => { await enqueueNotificationEvent(base.outbox, organizationId, event, new Date()); },
     isReviewer: async (organizationId: string, membershipId: string) => {
       const membership = await em.findOne(MembershipEntity, { id: membershipId, organizationId, enabled: true }, { refresh: true });
@@ -64,7 +64,7 @@ export function sharedPorts(em: EntityManager) {
       const agentIds = [...new Set(tasks.map((task) => task.agentId))];
       const agents = agentIds.length ? await em.find(AgentEntity, { organizationId, id: { $in: agentIds } }) : [];
       return Object.fromEntries(tasks.map((task) => [task.id, { title: task.title ?? null, state: task.state,
-        agentName: agents.find((agent) => agent.id === task.agentId)?.displayName ?? agents.find((agent) => agent.id === task.agentId)?.cardUrl ?? "Agent" }]));
+        agentName: (() => { const agent = agents.find((candidate) => candidate.id === task.agentId); return agent?.nickname || agent?.displayName || agent?.cardUrl || "Agent"; })() }]));
     },
     freshen: async (organizationId: string, taskId: string) => { await enqueueTaskFreshness(base.outbox, organizationId, taskId, new Date()); },
     audit: async (principal: Principal | null, organizationId: string, action: string, targetId: string, eventKey: string, actorType?: "agent") => {

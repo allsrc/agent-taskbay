@@ -7,12 +7,15 @@ import { requestAccessPolicy } from "../adapters/db/security-repository";
 import type { Principal } from "../application/ports/identity";
 import { DEFAULT_TASK_DISCOVERY_HISTORY_DAYS, DEFAULT_TASK_DISCOVERY_MODE, MAX_TASK_DISCOVERY_HISTORY_DAYS, TASK_DISCOVERY_MODES, effectiveTaskDiscovery,
   type TaskDiscoveryMode } from "../domain/discovery-mode";
+import { assertNicknameFree, NicknameTakenError, normalizeNickname } from "../domain/agent-label";
 import { taskDiscoveryCap } from "./runtime-config";
 import { startAutomaticDiscovery } from "./discovery-cursors";
 
 /** Per-agent settings an administrator can change. Fields are added as features need them; unknown fields are refused. */
 export const agentSettingsSchema = z.object({
   extensionOverride: z.boolean().optional(),
+  /** Empty or null clears it. */
+  nickname: z.string().max(100).nullable().optional(),
   taskDiscovery: z.enum(TASK_DISCOVERY_MODES as [TaskDiscoveryMode, ...TaskDiscoveryMode[]]).optional(),
   taskDiscoveryHistoryDays: z.number().int().min(0).max(MAX_TASK_DISCOVERY_HISTORY_DAYS).optional(),
 }).strict().refine((value) => Object.keys(value).length > 0, "At least one setting is required.");
@@ -32,6 +35,17 @@ export async function changeAgentSettings(principal: Principal, agentId: string,
     const agent = await ports.agents.findById(principal.organizationId, agentId);
     if (!agent) throw new AgentSettingsError("Unknown agent.", 404);
     const now = new Date();
+    if (change.nickname !== undefined) {
+      let nickname: string | null;
+      try {
+        nickname = normalizeNickname(change.nickname);
+        if (nickname) assertNicknameFree(await ports.agents.listByOrganization(principal.organizationId), agentId, nickname);
+      } catch (error) {
+        throw new AgentSettingsError(error instanceof Error ? error.message : "Invalid nickname.", error instanceof NicknameTakenError ? 409 : 400, error instanceof NicknameTakenError ? "nickname_taken" : undefined);
+      }
+      await ports.agents.setNickname(principal.organizationId, agentId, nickname, now);
+      await audit.appendAudit(principal, nickname ? "agent.nickname.set" : "agent.nickname.cleared", agentId, `agent-nickname:${agentId}:${crypto.randomUUID()}`);
+    }
     if (change.extensionOverride !== undefined) {
       await ports.agents.setExtensionOverride(principal.organizationId, agentId, change.extensionOverride, now);
       await audit.appendAudit(principal, change.extensionOverride ? "agent.extension.override" : "agent.extension.override.removed", agentId,

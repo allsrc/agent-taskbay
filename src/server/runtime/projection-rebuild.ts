@@ -19,7 +19,7 @@ export function createProjectionRebuilder(options: { orm?: MikroORM; store?: Art
       const task = await ports.tasks.findById(organizationId, taskId, false);
       if (!task) return undefined;
       const agent = await ports.agents.findById(organizationId, task.agentId);
-      return { task, agentName: agent?.displayName ?? "Agent", events: await ports.taskEvents.findByTaskId(organizationId, taskId) };
+      return { task, agentName: agent?.nickname || agent?.displayName || "Agent", events: await ports.taskEvents.findByTaskId(organizationId, taskId) };
     }, { isolationLevel: IsolationLevel.REPEATABLE_READ }), options.orm),
     activate: (snapshot, view, binaryDigests = []) => withJobEntityManager((em) => em.transactional(async (tx) => {
       // Lock without attempting to repair or insert an unknown identity.

@@ -58,6 +58,7 @@ function agentRecord(entity: AgentEntity): AgentRecord {
     source: entity.source,
     enabled: entity.enabled,
     displayName: entity.displayName ?? null,
+    nickname: entity.nickname ?? null,
     description: entity.description ?? null,
     protocolSnapshotVersion: entity.protocolSnapshotVersion ?? null,
     lastDiscoveryAt: entity.lastDiscoveryAt ?? null,
@@ -222,6 +223,10 @@ export class MikroOrmAgentRepository implements AgentRepository {
 
   async setExtensionOverride(organizationId: string, id: string, extensionOverride: boolean, now: Date) {
     return (await this.entityManager.nativeUpdate(AgentEntity, { organizationId, id }, { extensionOverride, updatedAt: now })) > 0;
+  }
+
+  async setNickname(organizationId: string, id: string, nickname: string | null, now: Date) {
+    return (await this.entityManager.nativeUpdate(AgentEntity, { organizationId, id }, { nickname, updatedAt: now })) > 0;
   }
 
   async setTaskDiscovery(

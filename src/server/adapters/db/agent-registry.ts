@@ -97,11 +97,11 @@ export class DatabaseAgentRegistry implements AgentRegistry {
     const policy = await requestAccessPolicy(tx);
     return agent && (!policy || policy.discovers(agent.id)) ? agent : undefined;
   }); }
-  async add(cardUrl: string) {
+  async add(cardUrl: string, nickname?: string | null) {
     const principal = currentPrincipal();
     if (principal) authorize(principal, "administer");
     return this.execute(async (catalog, transaction) => {
-      const agent = await catalog.add(cardUrl);
+      const agent = await catalog.add(cardUrl, nickname);
       if (principal) await new DatabaseIdentityRepository(transaction).appendAudit(principal, "agent.registered", agent.id);
       return agent;
     });

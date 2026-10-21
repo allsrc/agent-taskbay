@@ -210,7 +210,7 @@ After a successful fetch, the catalog and individual-agent reads include `extend
 
 ### `POST /api/agents`
 
-`administer`. Body `{ "cardUrl": "<string>" }`. Registers the agent; it does not fetch the card. Response `201 { "agent": { "id", "cardUrl", "source": "managed" } }`.
+`administer`. Body `{ "cardUrl": "<string>", "nickname": "<string> | null" }` (`nickname` optional; see the settings route for its rules). Registers the agent; it does not fetch the card. Response `201 { "agent": { "id", "cardUrl", "source": "managed", "nickname"? } }`. A nickname another enabled agent has is `400`. `GET /api/agents` entries carry `nickname` beside the card's `name`.
 Registering the same URL again returns the same agent (and re-enables it if it was removed). `400` for a missing `cardUrl`, a URL that is not `http(s)`, or one with credentials, a query string or a fragment. The network policy (origin allowlist, private addresses) is applied when the card is first fetched, not at registration. The audit trail records `agent.registered`.
 
 Observed: `{"agent":{"id":"e6e890ae-...","cardUrl":"http://127.0.0.1:4011/showcase/card.json","source":"managed"}}`.
@@ -231,7 +231,7 @@ status of the underlying error). Records a card snapshot.
 `administer`. Body `{ "extensionOverride": true | false }`; unknown fields and an empty body are `400`. `true` allows sending to an agent whose card requires an extension
 Taskbay does not support; `false` blocks again. Response `200 { "agentId", "extensionOverride" }`.
 
-The same route also takes `taskDiscovery` (`off`, `browse` or `auto`) and `taskDiscoveryHistoryDays` (a whole number from 0 to 90, used by automatic discovery). A mode above the deployment's `A2A_TASK_DISCOVERY` is `409` with `error.kind` `discovery_capped`. Switching a mode to `auto` starts the worker's sweep for the agent. A change of mode is audited as `task.discovery.mode_changed.<mode>`. `404` for an unknown agent. Audited as `agent.extension.override` or
+The same route also takes `nickname`: a string of at most 100 characters (whitespace is trimmed and collapsed; control characters are `400`), or an empty string or `null` to clear it. It replaces the card name in every view, and must be unique among the organization's enabled agents, ignoring case (`409` with `error.kind` `nickname_taken`). Audited as `agent.nickname.set` or `agent.nickname.cleared`. It also takes `taskDiscovery` (`off`, `browse` or `auto`) and `taskDiscoveryHistoryDays` (a whole number from 0 to 90, used by automatic discovery). A mode above the deployment's `A2A_TASK_DISCOVERY` is `409` with `error.kind` `discovery_capped`. Switching a mode to `auto` starts the worker's sweep for the agent. A change of mode is audited as `task.discovery.mode_changed.<mode>`. `404` for an unknown agent. Audited as `agent.extension.override` or
 `agent.extension.override.removed`. See [Required extensions](../guides/connect-an-agent.md#required-extensions).
 
 ### `GET /api/agents/{agentId}/discovery`

@@ -4,6 +4,8 @@ export interface RegisteredAgent {
   id: string;
   cardUrl: string;
   source: "env" | "managed";
+  /** The administrator's own name for this agent; shown instead of the card name. */
+  nickname?: string;
   /** True when an administrator allows sending although the card requires an unsupported extension. */
   extensionOverride?: boolean;
 }
@@ -23,7 +25,7 @@ export interface AgentDiscoverySnapshot {
 export interface AgentRegistry {
   list(): Promise<RegisteredAgent[]>;
   get(id: string): Promise<RegisteredAgent | undefined>;
-  add(cardUrl: string): Promise<RegisteredAgent>;
+  add(cardUrl: string, nickname?: string | null): Promise<RegisteredAgent>;
   remove(id: string): Promise<boolean>;
   recordDiscovery(id: string, snapshot: AgentDiscoverySnapshot): Promise<void>;
 }

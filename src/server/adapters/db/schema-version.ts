@@ -5,7 +5,7 @@ import { readdirSync } from "node:fs";
  * `Migration<nnnn>_<Name>` and applied in order, so a database at version N reaches this version by
  * running every migration after N. A test keeps this equal to the files on disk. Raise it only by adding a migration.
  */
-export const DB_SCHEMA_VERSION = 8;
+export const DB_SCHEMA_VERSION = 9;
 
 const NUMBERED = /^Migration(\d{4})_/;
 

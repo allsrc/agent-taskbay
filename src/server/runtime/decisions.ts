@@ -81,7 +81,7 @@ async function contextFor(em: Parameters<Parameters<typeof withJobEntityManager>
   return new Map(requests.map((request): [string, RequestContext] => {
     const agent = agents.find((candidate) => candidate.id === request.agentId);
     const task = tasks.find((candidate) => candidate.id === request.taskId);
-    return [request.id, { agentName: agent?.displayName ?? agent?.cardUrl ?? "Agent", taskTitle: task?.title ?? null,
+    return [request.id, { agentName: agent?.nickname || agent?.displayName || agent?.cardUrl || "Agent", taskTitle: task?.title ?? null,
       taskState: task?.state ?? null, taskRemoteId: task?.remoteTaskId ?? null }];
   }));
 }
