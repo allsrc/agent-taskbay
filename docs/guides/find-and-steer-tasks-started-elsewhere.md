@@ -14,7 +14,7 @@ What Taskbay does, in one paragraph: it uses **the agent's own credential** to a
 
 ## Find a task and track it
 
-1. Open **Agents**, then the agent. In the **Task discovery** card choose **Browse tasks**.
+1. Choose **Find tasks** in the sidebar and pick the agent. (From the agent page, **Browse tasks** in the **Task discovery** card opens the same page.)
 2. Narrow the list with **State** (for example *Needs input*) or **Context ID**. Each row shows the title or ID, the state, how long ago it changed and, in quotes, the first line of what the agent last said.
 3. Choose **Track** on the task you want. The row now says **Tracked**; **Open** takes you to the task.
    If you know the ID, paste it under **Track by task ID** instead.

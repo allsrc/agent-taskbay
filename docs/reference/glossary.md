@@ -83,6 +83,9 @@ A rule that gives a subject `read` or `operate` permission on one agent (agent g
 
 ## I to P
 
+**Identifier (ID)**\
+A value that names one thing. The console labels each one (Task ID, Context ID, Message ID, Artifact ID, Referenced task, Call ID, Taskbay ID, Approval ID, Command ID, Digest), says whether the A2A protocol defines it or only Taskbay keeps it, and offers a copy icon. See [Identifiers](../guides/use-the-console.md#identifiers).
+
 **Inbox**\
 One list of the tasks and approvals you may read, across agents. Its views are **Needs you** (the default), **Mine**, **Overdue**, **Active**, **Done** and **All**, with **Show** and **Risk** filters. See [Approvals and ownership](../guides/approvals-and-ownership.md#find-work-the-inbox).
 

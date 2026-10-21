@@ -16,7 +16,7 @@ The console is the web app you open in the browser. The sidebar lists its screen
 | Read agents, tasks, conversations and notifications | All agents | Granted agents | Granted agents |
 | Send messages, answer forms, cancel tasks | Yes | With an "operate" grant | No |
 | Add or remove agents | Yes | No | No |
-| Organization-wide **Audit**, CSV export | Yes | No | No |
+| Organization-wide **Audit trail**, CSV export | Yes | No | No |
 | Read one task's audit trail | Yes | With read access | With read access |
 | **Administration** (people, teams, agent access, policies) | Yes | Not shown | Not shown |
 
