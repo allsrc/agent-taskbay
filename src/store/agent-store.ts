@@ -65,3 +65,13 @@ export const agentName = (agents: CatalogAgent[], id: string, fallback = id) => 
   const agent = agents.find((item) => item.id === id);
   return agent?.nickname ?? agent?.view?.name ?? fallback;
 };
+
+/** The card's own name when a nickname hides it, else undefined. Show it beside the nickname so the advertised name stays visible. */
+export const advertisedName = (agent: CatalogAgent | undefined) =>
+  agent?.nickname && agent.cardName && agent.cardName !== agent.nickname ? agent.cardName : undefined;
+
+/** A one-line label for pickers: the nickname with the card name in brackets, else the name. */
+export const agentOptionLabel = (agent: CatalogAgent, fallback: string) => {
+  const advertised = advertisedName(agent);
+  return `${agent.view?.name ?? fallback}${advertised ? ` (${advertised})` : ""}`;
+};

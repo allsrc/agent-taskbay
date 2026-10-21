@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { InfoCard } from "./a2a/primitives";
 import { Button } from "./ui/button";
 import { NativeSelect } from "./ui/native-select";
-import { useAgentStore } from "@/store/agent-store";
+import { agentOptionLabel, useAgentStore } from "@/store/agent-store";
 import type { EscalationPolicyView } from "@/shared/workflow-types";
 
 interface PolicyData { policies: EscalationPolicyView[]; people: Record<string, string> }
@@ -65,7 +65,7 @@ export function EscalationSettings() {
       }}>
         <NativeSelect name="agentId" aria-label="Applies to" defaultValue="">
           <option value="">All agents</option>
-          {agents.map((agent) => <option key={agent.id} value={agent.id}>{agent.view?.name ?? agent.id}</option>)}
+          {agents.map((agent) => <option key={agent.id} value={agent.id}>{agentOptionLabel(agent, agent.id)}</option>)}
         </NativeSelect>
         <NativeSelect name="targetMembershipId" aria-label="Escalate to" required defaultValue="">
           <option value="">Escalate to…</option>

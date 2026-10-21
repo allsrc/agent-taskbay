@@ -29,7 +29,7 @@ async function contract(config: DatabaseConfig, directory: string) {
     const registry = () => new DatabaseAgentRegistry({ orm, legacyFilePath: join(directory, "absent"), environmentUrls: () => [] });
     // Written as SQL: this schema predates the entity's newest columns.
     const org = await bootstrapDefaultLocalOrganization(repos().organizations);
-    const agent = { id: randomUUID(), cardUrl: "https://links.test/card.json" };
+    const agent: { id: string; cardUrl: string } = { id: randomUUID(), cardUrl: "https://links.test/card.json" };
     await orm.em.getConnection().execute(`insert into "agents" ("id", "organization_id", "card_url", "source", "enabled", "created_at", "updated_at") values (?, ?, ?, 'managed', true, now(), now())`, [agent.id, org.id, agent.cardUrl]);
     const now = new Date();
     const old: TaskRecord = { id: randomUUID(), organizationId: org.id, agentId: agent.id, tenant: "", remoteTaskId: "before-upgrade",

@@ -9,7 +9,7 @@ import { Pill } from "@/components/patterns/status";
 import { Button } from "@/components/ui/button";
 import { NativeSelect } from "@/components/ui/native-select";
 import { recipientName } from "@/lib/admin-access";
-import { useAgentStore } from "@/store/agent-store";
+import { agentOptionLabel, useAgentStore } from "@/store/agent-store";
 
 export default function AgentAccessPage() {
   const { change, busy } = useAdminData();
@@ -40,7 +40,7 @@ export default function AgentAccessPage() {
                     </NativeSelect>
                     <NativeSelect name="agentId" aria-label="Grant agent" value={agentId} onChange={(event) => setAgentId(event.target.value)} required>
                       <option value="">Choose agent</option>
-                      {agents.map((agent) => <option key={agent.id} value={agent.id}>{agent.view?.name ?? agent.cardUrl}</option>)}
+                      {agents.map((agent) => <option key={agent.id} value={agent.id}>{agentOptionLabel(agent, agent.cardUrl)}</option>)}
                     </NativeSelect>
                     <NativeSelect key={agentId} name="skillId" aria-label="Grant scope">
                       <option value="">Whole agent</option>
@@ -59,7 +59,7 @@ export default function AgentAccessPage() {
                       const credential = view.credentials.find((item) => item.agentId === agent.id);
                       return (
                         <li key={agent.id} className="flex items-center justify-between gap-2 py-2 text-sm first:pt-0 last:pb-0">
-                          <span className="min-w-0 truncate">{agent.view?.name ?? agent.cardUrl}</span>
+                          <span className="min-w-0 truncate">{agentOptionLabel(agent, agent.cardUrl)}</span>
                           {credential ? <Pill tone={credential.enabled ? "success" : "danger"}>{credential.kind} · {credential.enabled ? "configured" : "revoked"}</Pill> : <Pill tone="neutral">none</Pill>}
                         </li>
                       );
