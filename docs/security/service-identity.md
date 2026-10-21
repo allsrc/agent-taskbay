@@ -10,7 +10,7 @@ Taskbay calls agents on behalf of people. To do that it holds credentials for ea
 - The key ring is `A2A_VAULT_KEYS` (a JSON map of key ids to 32 random bytes as 64 hex characters) plus `A2A_VAULT_ACTIVE_KEY`. Both are server-only; never use a `NEXT_PUBLIC_` variable. Web and worker processes must share the ring. Back it up separately from the database.
 - A wrong or missing key, a tampered ciphertext or a revoked binding fails closed. Taskbay does not fall back to unauthenticated calls.
 - Supported credential kinds: `apiKey`, `bearer`, `oauthClient` (client credentials; tokens are short-lived and kept only in process memory) and `mtls`. Each binding also lists the exact HTTPS origins it may be sent to.
-- Provisioning is by an operator CLI that reads JSON from standard input (`npm run security:credentials`). There is no browser form for secrets; Settings shows status only. CLI errors do not print the supplied input.
+- Provisioning is by an operator CLI that reads JSON from standard input (`npm run security:credentials`). There is no browser form for secrets; **Administration → Agent access** shows status only. CLI errors do not print the supplied input.
 
 ## Where credentials may go
 

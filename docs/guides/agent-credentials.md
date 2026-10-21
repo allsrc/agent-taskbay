@@ -3,7 +3,7 @@
 > For operators whose agents require authentication, or who run Taskbay outside a trusted laptop. At the end you will know where credentials are stored, how to add, rotate and revoke them, and which outbound network rules apply.
 
 When Taskbay calls an agent it needs to prove who it is to the agent (the "agent credential"), and the server needs rules about where it is allowed to connect. Both are server-side configuration.
-There is no browser form for secrets. Settings shows only each binding's status.
+There is no browser form for secrets. **Administration → Agent access** shows only each binding's status.
 
 This is separate from people signing in, which is covered in [Sign in and roles](./sign-in-and-roles.md).
 

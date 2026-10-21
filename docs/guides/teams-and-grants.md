@@ -9,7 +9,7 @@ Agent Taskbay is pre-1.0. The screens and API on this page may change between mi
 ## Before you start
 
 - You are signed in as an `admin`. Only administrators see **Administration** and can call `/api/admin/security`.
-- The people already have a membership in your organization, provisioned with `npm run auth:provision` (see [Sign in and roles](./sign-in-and-roles.md#provision-people)). Only enabled memberships appear in the lists.
+- The people already have a membership in your organization, from **Administration → People** or `npm run auth:provision` (see [Sign in and roles](./sign-in-and-roles.md#provision-people)). Only enabled memberships appear in the lists.
 - The agent is registered and its card has been discovered. The skill list in **Agent access** comes from the agent's stored card. If it shows only **Whole agent**, open the agent on the **Agents** page so its card loads.
 - For a skill-only grant that people can use to send work, the agent must advertise the skill-routing extension `https://extensions.allsrc.dev/agent-taskbay/skill-routing/v1` and list the skill id in its card. See the [skill routing reference](../reference/extensions/skill-routing.md). Without it, only whole-agent grants let people send.
 
@@ -122,7 +122,7 @@ Errors from **Administration** appear as a red message above the forms.
 | Symptom | Cause | Fix |
 | --- | --- | --- |
 | **Administration** is missing, or says "Administrators only" | You are not an administrator. `GET /api/admin/security` returns `403`. | Sign in as an `admin`, or ask one to run `auth:provision` with `--role admin` for you. |
-| A person is missing from a team's **Add a person…** list or the recipient list | Their membership or user is disabled, or they were never provisioned in this organization. | Provision them with `npm run auth:provision`. |
+| A person is missing from a team's **Add a person…** list or the recipient list | Their membership or user is disabled, or they were never provisioned in this organization. | Add them under **Administration → People**, or run `npm run auth:provision`. |
 | Only **Whole agent** is offered as a scope | The agent's card has not been discovered, or it lists no skills. | Open the agent on the **Agents** page so its card loads, then reload **Agent access**. |
 | `400 Invalid access management request.` | The API body has a missing or extra field, an ID that is not a UUID, an unknown `permission` or `subjectType`, or a `name` longer than 200 characters. | Match the bodies above exactly. |
 | `Unknown agent.` | The agent ID is not an enabled agent in your organization. | Use an `id` from `GET /api/agents`. |
