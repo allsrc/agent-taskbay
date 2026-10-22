@@ -75,9 +75,9 @@ All loops are idempotent and retry after a database error, logging a single line
 | Approvals and escalation | Expires overdue approval requests, marks requests superseded when their task finished, refreshes in-flight approved deliveries, and escalates overdue owned tasks. | Every `A2A_DECISION_SWEEP_MS` (default 15000; values below 100, or not a number, fall back to 15000). |
 | Notifications | Turns events into inbox rows, then sends each to the signed webhook if one is configured. Webhook delivery retries up to 8 times with backoff from 5 s to 10 min. | Polls every 250 ms. |
 
-The browser side: `GET /api/tasks/events` is a server-sent-events stream that sends `ready`, then `freshness` when something committed and `resync` about every 15 seconds. It closes itself after 55 seconds
-and the browser reconnects. It carries no task content; the browser re-reads state from the API. With PostgreSQL, web replicas poll a freshness token every 500 ms, so a change made by a worker on another host
-shows up without a message broker.
+The browser side: `GET /api/tasks/events` is a server-sent-events stream that sends `ready`, then `freshness` when something committed and `resync` about every 15 seconds. It closes itself after 40 to 55 seconds (randomized)
+and the browser reconnects. It carries no task content; the browser re-reads state from the API. With PostgreSQL, each web process polls the freshness token every 500 ms while a stream is open, so a change made by a worker on another host
+shows up without a message broker. Open streams in a process share those reads: the database sees at most one token read per organization per 400 ms per web process, however many browsers are connected.
 
 ## Scaling and leases
 

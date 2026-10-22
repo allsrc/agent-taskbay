@@ -10,7 +10,6 @@ import { useTaskStore } from "@/store/task-store";
 export function DurableTaskSync() {
   useEffect(() => {
     const controller = new AbortController();
-    let timer: ReturnType<typeof setTimeout>;
     const load = queuedRead(async () => {
       const revision = useTaskStore.getState().revision;
       try {
@@ -20,15 +19,11 @@ export function DurableTaskSync() {
         if (!controller.signal.aborted) useTaskStore.getState().fail(error instanceof Error ? error.message : "Could not load server tasks.");
       }
     }, controller.signal);
-    const poll = async () => {
-      await load();
-      if (!controller.signal.aborted) timer = setTimeout(poll, 5000);
-    };
-    void poll();
+    void load();
     const onFocus = () => { void load(); };
     const unsubscribe = subscribeTaskFreshness(onFocus);
     window.addEventListener("focus", onFocus);
-    return () => { controller.abort(); clearTimeout(timer); unsubscribe(); window.removeEventListener("focus", onFocus); };
+    return () => { controller.abort(); unsubscribe(); window.removeEventListener("focus", onFocus); };
   }, []);
   return null;
 }

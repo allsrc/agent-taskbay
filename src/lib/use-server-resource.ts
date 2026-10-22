@@ -2,22 +2,23 @@
 
 import { useEffect, useReducer, useState } from "react";
 import { subscribeTaskFreshness } from "./task-freshness";
+import { fetchJson } from "./conditional-fetch";
 import { queuedRead } from "./queued-read";
 
-/** Read after live invalidations, with focus and periodic recovery for missed signals. */
+/** Read after live invalidations and on focus; task-freshness polls only while the live stream is down. */
 export function useServerResource<T>(url: string | null) {
   const [state, setState] = useState<{ url: string | null; data?: T; error?: string; loading: boolean }>({ url, loading: true });
   const [revision, refresh] = useReducer((value: number) => value + 1, 0);
   useEffect(() => {
     if (!url) return;
     const controller = new AbortController();
-    let timer: ReturnType<typeof setTimeout>;
     const load = queuedRead(async () => {
       try {
-        const response = await fetch(url, { cache: "no-store", signal: controller.signal });
-        const body = await response.json();
-        if (!response.ok) throw new Error(body.error?.message ?? "Could not load server state.");
-        if (!controller.signal.aborted) setState({ url, data: body as T, loading: false });
+        const { ok, body, unchanged } = await fetchJson<T & { error?: { message?: string } }>(url, controller.signal);
+        if (!ok) throw new Error(body.error?.message ?? "Could not load server state.");
+        // A 304 leaves a settled, error-free state as is, so nothing re-renders.
+        if (!controller.signal.aborted) setState((previous) => unchanged && previous.url === url && !previous.error && !previous.loading ? previous
+          : { url, data: body as T, loading: false });
       } catch (error) {
         if (!controller.signal.aborted) setState((previous) => ({
           url, data: previous.url === url ? previous.data : undefined,
@@ -25,15 +26,11 @@ export function useServerResource<T>(url: string | null) {
         }));
       }
     }, controller.signal);
-    const poll = async () => {
-      await load();
-      if (!controller.signal.aborted) timer = setTimeout(poll, 5000);
-    };
-    void poll();
+    void load();
     const onFocus = () => { void load(); };
     const unsubscribe = subscribeTaskFreshness(onFocus);
     window.addEventListener("focus", onFocus);
-    return () => { controller.abort(); clearTimeout(timer); unsubscribe(); window.removeEventListener("focus", onFocus); };
+    return () => { controller.abort(); unsubscribe(); window.removeEventListener("focus", onFocus); };
   }, [url, revision]);
   return {
     data: state.url === url ? state.data : undefined,

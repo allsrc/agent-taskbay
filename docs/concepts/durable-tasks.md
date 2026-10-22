@@ -103,7 +103,7 @@ Raw events live in an append-only ledger. What the screens read is a projection:
 
 The projection is derived by a deterministic reducer, so it can be rebuilt from retained events. Rebuild prepares the new generation outside the task lock, verifies archived binary digests, then swaps it in only if the task has not changed in the meantime. A failed rebuild keeps the old generation readable. Rebuild never sends anything to an agent. It cannot restore history that retention has deleted. See [Upgrading and backups](../guides/upgrading-and-backups.md) for the command.
 
-To tell browsers something changed, every accepted projection write queues a `task.freshness` outbox row. A worker publishes it. `GET /api/tasks/events` streams three content-free events: `ready` (sent on every connection), `freshness` and `resync` (after about 15 s of quiet). Connections last about 55 s and then the browser reconnects. Signals carry no task data. On any signal, on reconnect, on focus and on a 5-second fallback poll, the browser re-queries. A lost signal costs at most a few seconds of staleness.
+To tell browsers something changed, every accepted projection write queues a `task.freshness` outbox row. A worker publishes it. `GET /api/tasks/events` streams three content-free events: `ready` (sent on every connection), `freshness` and `resync` (after about 15 s of quiet). Connections last 40 to 55 s (randomized) and then the browser reconnects. Signals carry no task data. On any signal, on reconnect and on focus, the browser re-queries. It polls (about every 5–7.5 seconds, with jitter) only while the stream is down: when the browser has no `EventSource`, or no frame has arrived for 20 seconds or a reconnect has failed for 5. The stream stays open for 40 to 55 seconds at a time, so an idle tab makes one re-query per signal, about one every 15 seconds, and no timer reads while the stream is healthy. Re-queries send `If-None-Match` from tab memory and get `304` when nothing changed, so an unchanged read costs no response body and no re-render.
 
 ## Identity of remote IDs
 
@@ -118,7 +118,7 @@ Known `referenceTaskIds` on user and agent messages create durable local links w
 | Command stuck `pending` | No worker running, or the agent is disabled | Check the worker is running. See [Running and workers](../operations/running-and-workers.md) |
 | Command `uncertain` | Failure after dispatch, or lease expiry | Open the task, check its state, and send again only if the agent did nothing |
 | Task never leaves `working` with no browser open | Agent lacks streaming and push is off | Reconciliation will catch up within about 15 s. Check agent health |
-| UI is a few seconds stale | Freshness signal lost | The 5 s fallback poll covers it |
+| UI is a few seconds stale | Freshness signal lost | The next `resync` (within 15 s) covers it, or the fallback poll if the stream is down |
 | Rebuild refuses | Ledger empty or an archive is missing or corrupt | Restore from backup. It fails closed on purpose |
 
 More in [Troubleshooting](../operations/troubleshooting.md).

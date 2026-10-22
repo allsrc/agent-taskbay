@@ -1,4 +1,5 @@
 import { authenticatedRoute } from "@/server/runtime/identity";
+import { conditionalJson } from "@/lib/conditional-json";
 import { apiError } from "@/lib/api-response";
 import { readJsonRequest } from "@/lib/request-guard";
 import { createDecisionService, listDecisions, openDecisionSchema, parseBody, toAction, requestView, requirePrincipal } from "@/server/runtime/decisions";
@@ -14,7 +15,7 @@ async function handleGET(request: Request) {
     if (status && !(STATUSES as readonly string[]).includes(status)) return Response.json({ error: { message: "Unknown status." } }, { status: 400 });
     const requests = await listDecisions({ status: (status ?? undefined) as (typeof STATUSES)[number] | undefined,
       taskId: params.get("taskId") ?? undefined, mine: params.get("assigned") === "me" });
-    return Response.json({ decisions: requests }, { headers: { "Cache-Control": "no-store" } });
+    return conditionalJson(request, { decisions: requests });
   } catch (error) { return apiError(error, 400); }
 }
 

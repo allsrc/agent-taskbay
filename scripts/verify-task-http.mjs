@@ -394,7 +394,13 @@ try {
   assert.deepEqual((await json("/api/task-views?organizationId=foreign&tenant=foreign")).tasks, browserOne);
   assert.equal((await fetch(base + "/api/task-views?limit=0")).status, 400);
   assert.equal((await fetch(base + "/api/task-views?after=" + remoteId)).status, 400);
-  assert.equal((await fetch(base + "/api/task-views")).headers.get("cache-control"), "no-store");
+  const viewsResponse = await fetch(base + "/api/task-views");
+  assert.equal(viewsResponse.headers.get("cache-control"), "no-store");
+  const viewsTag = viewsResponse.headers.get("etag");
+  assert.ok(viewsTag);
+  const unchangedViews = await fetch(base + "/api/task-views", { headers: { "If-None-Match": viewsTag } });
+  assert.equal(unchangedViews.status, 304);
+  assert.equal(unchangedViews.headers.get("cache-control"), "no-store");
   await json(`/api/agents/${one.id}/tasks/${remoteId}/cancel?tenant=tenant-b`, { method: "POST" });
   assert.equal((await json(`/api/tasks/${ids[2]}`)).task.state, "TASK_STATE_CANCELED");
   assert.equal((await json("/api/task-views")).tasks.find((task) => task.localId === ids[2]).state, "TASK_STATE_CANCELED");

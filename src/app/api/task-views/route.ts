@@ -1,4 +1,5 @@
 import { authenticatedRoute } from "@/server/runtime/identity";
+import { conditionalJson } from "@/lib/conditional-json";
 import { apiError } from "@/lib/api-response";
 import { withTaskQueries } from "@/server/runtime/task-persistence";
 
@@ -16,7 +17,7 @@ async function handleGET(request: Request) {
       return Response.json({ error: { message: "limit must be 1–100 and after must be a local UUID." } }, { status: 400 });
     }
     const page = await withTaskQueries((queries, organizationId) => queries.contentPage(organizationId, limit, after));
-    return Response.json(page, { headers: { "Cache-Control": "no-store" } });
+    return conditionalJson(request, page);
   } catch (error) { return apiError(error, 500); }
 }
 

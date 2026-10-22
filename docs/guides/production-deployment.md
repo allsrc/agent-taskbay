@@ -126,7 +126,8 @@ Run both processes under a supervisor that restarts them. A crash loses nothing 
 Terminate TLS at a proxy and forward to the web process. Requirements specific to Taskbay:
 
 - Forward everything under `/` to the web process. Agents call `POST /api/webhooks/a2a/<registration id>` without a browser session; do not put your own authentication in front of that path if you enable push.
-- Do not buffer or time out `text/event-stream` responses. The live-update stream (`GET /api/tasks/events`) ends by itself after 55 seconds and the browser reconnects; it already sets `X-Accel-Buffering: no`.
+- Do not buffer or time out `text/event-stream` responses. The live-update stream (`GET /api/tasks/events`) ends by itself after 40 to 55 seconds and the browser reconnects; it already sets `X-Accel-Buffering: no`.
+- Several web replicas (for example on Kubernetes) need no sticky sessions: a stream is stateless, lives 40 to 55 seconds and reconnects to whichever replica the balancer picks. Freshness travels through the database, so a change committed by any replica or worker wakes browsers connected to every other replica. Each replica reads the freshness token at most about 2.5 times a second per organization that has an open stream, however many browsers are connected. Set the ingress or load-balancer idle timeout above 60 seconds, and let a draining replica close its streams; browsers reconnect on their own.
 - The request body limit in the application is 16 MB.
 - The public origin in `A2A_AUTH_ORIGIN` must be exactly what browsers use. The login redirect and the `Origin` check for mutations come from it, not from `Host` headers.
 
