@@ -14,7 +14,7 @@ import { useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { groupConversations } from "@/lib/conversations";
 import { relativeTime } from "@/lib/task-view";
-import { useAgentStore } from "@/store/agent-store";
+import { advertisedName, useAgentStore } from "@/store/agent-store";
 import { useTaskStore } from "@/store/task-store";
 
 export function ChatMissing() {
@@ -65,6 +65,7 @@ export function ChatLanding({ agentId }: { agentId?: string }) {
                 <AgentAvatar name={agent.view?.name ?? "Agent"} id={agent.id} />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium">{agent.view?.name}</span>
+                  {advertisedName(agent) && <span className="block truncate text-xs text-muted-foreground">{advertisedName(agent)}</span>}
                   <span className="block truncate text-xs text-muted-foreground">{agent.view?.skills.length ? `${agent.view.skills.length} skill${agent.view.skills.length === 1 ? "" : "s"}` : `v${agent.view?.version ?? ""}`}</span>
                 </span>
               </Link>

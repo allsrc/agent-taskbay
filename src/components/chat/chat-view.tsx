@@ -34,7 +34,7 @@ import { runSend, userThreadMessage } from "@/lib/run-message";
 import { normalizeParts } from "@/lib/content";
 import type { SteeringEntry } from "@/shared/task-types";
 import { isActiveState, stateName, taskTitle } from "@/lib/task-view";
-import { useAgentStore } from "@/store/agent-store";
+import { advertisedName, useAgentStore } from "@/store/agent-store";
 import { useSettingsStore } from "@/store/settings-store";
 import { useTaskStore, type SendConfig, type ThreadMessage, type TrackedTask } from "@/store/task-store";
 import type { DurableTaskView } from "@/shared/task-types";
@@ -304,7 +304,7 @@ export function ChatView({ conversationKey: initialKey, agentId: initialAgentId 
         <header className="top-chrome sticky z-30 flex shrink-0 flex-wrap items-center gap-x-2.5 gap-y-1 border-b bg-background/90 px-4 py-2.5 backdrop-blur-xl md:static md:px-6 md:py-3">
           <AgentAvatar name={name} id={agentId} size="sm" />
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2"><span className="truncate text-sm font-medium">{name}</span>{tasks.some((task) => task.origin === "discovered") && <Pill tone="neutral">Discovered</Pill>}</div>
+            <div className="flex items-center gap-2"><span className="truncate text-sm font-medium">{name}</span>{advertisedName(agent) && <span className="truncate text-xs text-muted-foreground" title="Name on the agent's card">{advertisedName(agent)}</span>}{tasks.some((task) => task.origin === "discovered") && <Pill tone="neutral">Discovered</Pill>}</div>
             {/* Beside the name from `md` up; on a phone it sits on its own row below, where there is room for the ID. */}
             <div className="hidden md:block">{conversationMeta}</div>
           </div>

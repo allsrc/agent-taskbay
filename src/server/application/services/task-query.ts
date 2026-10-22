@@ -36,7 +36,7 @@ export class TaskQueryService {
     const agents = new Map((await this.agents.listByOrganization(organizationId)).map((agent) => [agent.id, agent]));
     const tasks = rows.map((task) => ({
       localId: task.id, taskId: task.remoteTaskId!, tenant: task.tenant,
-      agentId: task.agentId, agentName: agents.get(task.agentId)?.displayName ?? "Agent",
+      agentId: task.agentId, agentName: agents.get(task.agentId)?.nickname || agents.get(task.agentId)?.displayName || "Agent",
       state: task.state, kind: "task" as const, title: task.title ?? undefined,
       contextId: task.remoteContextId ?? undefined, origin: task.origin ?? "created",
       createdAt: task.createdAt.toISOString(), updatedAt: task.updatedAt.toISOString(),
@@ -71,7 +71,7 @@ export class TaskQueryService {
   private async view(organizationId: string, task: TaskRecord): Promise<DurableTaskView> {
     const agent = await this.agents.findById(organizationId, task.agentId);
     const view = {
-      taskId: task.remoteTaskId ?? task.id, agentId: task.agentId, agentName: agent?.displayName ?? "Agent",
+      taskId: task.remoteTaskId ?? task.id, agentId: task.agentId, agentName: agent?.nickname || agent?.displayName || "Agent",
       kind: task.kind === "message" ? "message" : "task", state: task.state,
       createdAt: task.createdAt.toISOString(), updatedAt: task.updatedAt.toISOString(), messages: [], artifacts: [],
       ...object(task.contentJson), localId: task.id, tenant: task.tenant, skillId: task.skillId ?? undefined, version: task.version, referenceLinks: {},

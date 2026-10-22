@@ -9,6 +9,9 @@ export interface CatalogAgent {
   id: string;
   cardUrl: string;
   source: "env" | "managed";
+  /** The administrator's own name for this agent. When set it is also `view.name`; the card's own name is `cardName`. */
+  nickname?: string;
+  cardName?: string;
   /** Undefined when discovery failed; see `error`. */
   view?: AgentView;
   trust?: string;
@@ -36,15 +39,20 @@ export const useAgentStore = create<AgentStoreState>()((set, get) => ({
       const response = await fetch("/api/agents", { cache: "no-store" });
       const body = await response.json();
       if (!response.ok) throw new Error(body?.error?.message ?? "Could not load agents.");
-      const agents: CatalogAgent[] = (body.agents as Array<{ id: string; cardUrl: string; source: "env" | "managed"; card?: unknown; trust?: string; error?: string; extensions?: CatalogAgent["extensions"]; connection?: ConnectionView; extendedCard?: CatalogAgent["extendedCard"] }>).map(
-        (entry) => ({
+      const agents: CatalogAgent[] = (body.agents as Array<{ id: string; cardUrl: string; source: "env" | "managed"; nickname?: string; card?: unknown; trust?: string; error?: string; extensions?: CatalogAgent["extensions"]; connection?: ConnectionView; extendedCard?: CatalogAgent["extendedCard"] }>).map(
+        (entry) => {
+          const card = entry.card ? viewAgentCard(entry.card) : undefined;
+          return {
           id: entry.id,
           cardUrl: entry.cardUrl,
           source: entry.source,
-          view: entry.card ? viewAgentCard(entry.card) : undefined,
+          nickname: entry.nickname || undefined, cardName: card?.name,
+          // Every screen names an agent by `view.name`, so the nickname replaces the card name there.
+          view: card && entry.nickname ? { ...card, name: entry.nickname } : card,
           error: entry.error, trust: entry.trust, extensions: entry.extensions, connection: entry.connection,
           extendedCard: entry.extendedCard,
-        }),
+          };
+        },
       );
       set({ agents, status: "ready" });
     } catch {
@@ -53,5 +61,17 @@ export const useAgentStore = create<AgentStoreState>()((set, get) => ({
   },
 }));
 
-export const agentName = (agents: CatalogAgent[], id: string, fallback = id) =>
-  agents.find((agent) => agent.id === id)?.view?.name ?? fallback;
+export const agentName = (agents: CatalogAgent[], id: string, fallback = id) => {
+  const agent = agents.find((item) => item.id === id);
+  return agent?.nickname ?? agent?.view?.name ?? fallback;
+};
+
+/** The card's own name when a nickname hides it, else undefined. Show it beside the nickname so the advertised name stays visible. */
+export const advertisedName = (agent: CatalogAgent | undefined) =>
+  agent?.nickname && agent.cardName && agent.cardName !== agent.nickname ? agent.cardName : undefined;
+
+/** A one-line label for pickers: the nickname with the card name in brackets, else the name. */
+export const agentOptionLabel = (agent: CatalogAgent, fallback: string) => {
+  const advertised = advertisedName(agent);
+  return `${agent.view?.name ?? fallback}${advertised ? ` (${advertised})` : ""}`;
+};

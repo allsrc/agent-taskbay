@@ -38,7 +38,7 @@ export class MikroOrmTaskLinkRepository implements TaskLinkRepository {
       { fields: ["id", "remoteTaskId", "agentId", "state", "title", "skillId", "tenant", "kind", "terminalAt"], orderBy: { createdAt: "asc", id: "asc" }, refresh: true });
     if (!tasks.length) return empty;
     const agents = await this.em.find(AgentEntity, { organizationId, id: { $in: [...new Set(tasks.map((task) => task.agentId))] } });
-    const names = new Map(agents.map((agent) => [agent.id, agent.displayName ?? "Agent"]));
+    const names = new Map(agents.map((agent) => [agent.id, agent.nickname || agent.displayName || "Agent"]));
     const summary = (task: typeof tasks[number]): RelatedTask => ({ localId: task.id, taskId: task.remoteTaskId ?? task.id,
       agentId: task.agentId, tenant: task.tenant, canOperate: policy?.allows(task.agentId, "operate", task.skillId) ?? false,
       cancelable: task.kind === "task" && !task.terminalAt && !terminalTask(task.state),

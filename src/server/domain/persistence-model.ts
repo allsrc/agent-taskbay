@@ -28,6 +28,8 @@ export interface AgentRecord {
   source: "env" | "managed";
   enabled: boolean;
   displayName: string | null;
+  /** The administrator's own name for this registration; shown instead of the card name when set. Absent or null means none. */
+  nickname?: string | null;
   description: string | null;
   protocolSnapshotVersion: string | null;
   lastDiscoveryAt: Date | null;

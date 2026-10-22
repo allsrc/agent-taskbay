@@ -3,6 +3,7 @@ import { createHash, randomUUID } from "node:crypto";
 import type { AgentDiscoverySnapshot, RegisteredAgent } from "../ports/agent-registry";
 import type { Clock } from "../ports/clock";
 import type { AgentRepository } from "../ports/persistence";
+import { assertNicknameFree, normalizeNickname } from "../../domain/agent-label";
 import type { AgentRecord } from "../../domain/persistence-model";
 
 /** Compatibility alias only. Durable primary keys are locally generated UUIDs. */
@@ -40,7 +41,7 @@ export class AgentCatalogService {
     const now = this.clock.now();
     return {
       id: this.createId(), organizationId: this.organizationId, cardUrl, source,
-      enabled: true, displayName: null, description: null, protocolSnapshotVersion: null,
+      enabled: true, displayName: null, nickname: null, description: null, protocolSnapshotVersion: null,
       lastDiscoveryAt: null, lastHealthyAt: null, createdAt: now, updatedAt: now,
     };
   }
@@ -74,7 +75,7 @@ export class AgentCatalogService {
     return agents.filter((agent) => agent.enabled &&
       (agent.source === "managed" || this.environmentUrls.has(agent.cardUrl)))
       .map((agent) => ({
-        id: agent.id, cardUrl: agent.cardUrl,
+        id: agent.id, cardUrl: agent.cardUrl, ...(agent.nickname ? { nickname: agent.nickname } : {}),
         source: this.environmentUrls.has(agent.cardUrl) ? "env" : agent.source,
         ...(agent.extensionOverride ? { extensionOverride: true } : {}),
       }));
@@ -85,8 +86,20 @@ export class AgentCatalogService {
       agent.id === id || legacyAgentIdFromCardUrl(agent.cardUrl) === id);
   }
 
-  async add(cardUrl: string): Promise<RegisteredAgent> {
+  /** Sets or clears (empty or null) an agent's nickname; throws if another enabled agent has it. Returns the stored nickname. */
+  async setNickname(id: string, nickname: string | null): Promise<string | null> {
+    const agent = await this.get(id);
+    if (!agent) throw new Error("Unknown agent.");
+    const normalized = normalizeNickname(nickname);
+    if (normalized) assertNicknameFree(await this.agents.listByOrganization(this.organizationId), agent.id, normalized);
+    await this.agents.setNickname(this.organizationId, agent.id, normalized, this.clock.now());
+    return normalized;
+  }
+
+  /** Registering a card URL again keeps its record; a nickname given with it replaces the old one. */
+  async add(cardUrl: string, nickname?: string | null): Promise<RegisteredAgent> {
     const validated = validateCardUrl(cardUrl);
+    const wanted = normalizeNickname(nickname);
     const isEnvironment = this.environmentUrls.has(validated);
     const agent = await this.agents.getOrCreate(this.createAgent(validated, isEnvironment ? "env" : "managed"));
     if (!agent.enabled || (!isEnvironment && agent.source !== "managed")) {
@@ -94,7 +107,8 @@ export class AgentCatalogService {
         source: isEnvironment ? agent.source : "managed", enabled: true, updatedAt: this.clock.now(),
       });
     }
-    return { id: agent.id, cardUrl: validated, source: isEnvironment ? "env" : "managed" };
+    const stored = wanted ? await this.setNickname(agent.id, wanted) : agent.nickname ?? null;
+    return { id: agent.id, cardUrl: validated, source: isEnvironment ? "env" : "managed", ...(stored ? { nickname: stored } : {}) };
   }
 
   async remove(id: string): Promise<boolean> {

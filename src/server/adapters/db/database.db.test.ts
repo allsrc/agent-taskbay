@@ -12,7 +12,7 @@ import {
   withRequestEntityManager,
 } from "./orm";
 
-const migrationNames = ["Migration0001_Baseline", "Migration0002_TaskDiscovery", "Migration0003_CommandErrorKind", "Migration0004_AgentExtensionOverride", "Migration0005_DiscoverySweepProgress", "Migration0006_TaskContextIndex", "Migration0007_ExtendedCardKind", "Migration0008_TaskLinks"];
+const migrationNames = ["Migration0001_Baseline", "Migration0002_TaskDiscovery", "Migration0003_CommandErrorKind", "Migration0004_AgentExtensionOverride", "Migration0005_DiscoverySweepProgress", "Migration0006_TaskContextIndex", "Migration0007_ExtendedCardKind", "Migration0008_TaskLinks", "Migration0009_AgentNickname"];
 
 async function verifyMigrationContract(config: DatabaseConfig) {
   const orm = await createDatabaseOrm(config);

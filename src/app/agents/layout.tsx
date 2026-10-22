@@ -9,7 +9,10 @@ import { ListPane, ListRow, ListStatus, MasterDetail } from "@/components/consol
 import { StatusDot } from "@/components/patterns/status";
 import { Button } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
-import { useAgentStore } from "@/store/agent-store";
+import { advertisedName, useAgentStore } from "@/store/agent-store";
+
+/** `host:port` of a card URL, so agents with the same name can be told apart in a list. */
+const hostOf = (cardUrl: string) => { try { return new URL(cardUrl).host; } catch { return cardUrl; } };
 
 export default function AgentsLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() ?? "";
@@ -22,7 +25,7 @@ export default function AgentsLayout({ children }: { children: React.ReactNode }
   const visible = agents.filter((agent) => {
     if (!needle) return true;
     const view = agent.view;
-    return [view?.name, view?.description, ...(view?.skills.map((skill) => skill.name) ?? []), agent.cardUrl]
+    return [agent.nickname, view?.name, agent.cardName, view?.description, ...(view?.skills.map((skill) => skill.name) ?? []), agent.cardUrl]
       .filter(Boolean)
       .some((text) => String(text).toLowerCase().includes(needle));
   });
@@ -52,9 +55,13 @@ export default function AgentsLayout({ children }: { children: React.ReactNode }
               <ListRow key={agent.id} href={`/agents/${agent.id}`} active={activeId === agent.id} className="flex-row items-center gap-3">
                 <AgentAvatar name={agent.view?.name ?? "Agent"} id={agent.id} />
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-medium">{agent.view?.name ?? "Unreachable agent"}</div>
+                  <div className="truncate text-sm font-medium">{agent.view?.name ?? agent.nickname ?? "Unreachable agent"}</div>
+                  {advertisedName(agent) && <div className="truncate text-[11px] text-muted-foreground" title="Name on the agent's card">{advertisedName(agent)}</div>}
                   <div className="truncate font-mono text-[11px] text-muted-foreground">
                     {agent.view ? `v${agent.view.version} · ${agent.view.security[0] ?? "no auth"}` : (agent.error ?? "discovery failed")}
+                  </div>
+                  <div className="truncate font-mono text-[11px] text-muted-foreground" title={agent.cardUrl}>
+                    {hostOf(agent.cardUrl)}
                   </div>
                 </div>
                 <span title={agent.view ? "Reachable" : "Discovery failed"}><StatusDot tone={agent.view ? "success" : "danger"} live={Boolean(agent.view)} /></span>

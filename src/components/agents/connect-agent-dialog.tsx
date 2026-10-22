@@ -11,6 +11,7 @@ import { ResponsiveDialog } from "@/components/patterns/responsive-dialog";
 import { Pill } from "@/components/patterns/status";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { useAgentStore } from "@/store/agent-store";
 import { useServerResource } from "@/lib/use-server-resource";
@@ -48,6 +49,7 @@ function ConnectFlow({ initialUrl, onDone }: { initialUrl: string; onDone: () =>
   const session = useServerResource<{ taskDiscoveryCap?: string }>("/api/auth/session");
   const [step, setStep] = useState(0);
   const [url, setUrl] = useState(initialUrl);
+  const [nickname, setNickname] = useState("");
   const [view, setView] = useState<AgentView | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -79,11 +81,11 @@ function ConnectFlow({ initialUrl, onDone }: { initialUrl: string; onDone: () =>
       const response = await fetch("/api/agents", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cardUrl: url }),
+        body: JSON.stringify({ cardUrl: url, nickname: nickname.trim() || null }),
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body?.error?.message ?? "Failed to connect the agent.");
-      toast.success("Agent connected", { description: view?.name });
+      toast.success("Agent connected", { description: nickname.trim() || view?.name });
       await refresh();
       onDone();
     } catch (cause) {
@@ -128,6 +130,11 @@ function ConnectFlow({ initialUrl, onDone }: { initialUrl: string; onDone: () =>
               />
             </InputGroup>
             <FieldDescription>Fetch the card to review what the agent can do before adding it.</FieldDescription>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="agent-nickname">Nickname (optional)</FieldLabel>
+            <Input id="agent-nickname" value={nickname} maxLength={100} onChange={(event) => setNickname(event.target.value)} placeholder="For example: Support (LangGraph)" />
+            <FieldDescription>Your own name for this agent. Use it to tell apart agents whose cards share a name. It must be unique and can be changed later.</FieldDescription>
           </Field>
           <Callout tone="info" icon={ShieldCheck} title="Protected card?">
             Register its URL directly, then configure the credentials on the server.

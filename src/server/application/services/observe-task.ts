@@ -84,7 +84,7 @@ export class ObserveTaskService {
     if (input.source === "command_response" && (input.skillId ?? null) !== (task.skillId ?? null))
       throw new Error("Agent response crossed a task skill boundary.");
     let view: DurableTaskView = {
-      taskId: task.remoteTaskId ?? task.id, agentId: agent.id, agentName: agent.displayName ?? "Agent",
+      taskId: task.remoteTaskId ?? task.id, agentId: agent.id, agentName: agent.nickname || agent.displayName || "Agent",
       kind: task.kind === "message" ? "message" : "task", state: task.state,
       createdAt: task.createdAt.toISOString(), updatedAt: task.updatedAt.toISOString(), messages: [], artifacts: [],
       ...object(task.contentJson), localId: task.id, tenant: task.tenant, referenceLinks: {},
@@ -127,7 +127,7 @@ export class ObserveTaskService {
     await append(input.event, input.source, input.sourceKey, input.payloadDigest, input.originalEventObjectKey);
     if (changed) {
       const ledger = await this.events.findByTaskId(input.organizationId, task.id);
-      view = reduceTaskLedger(task, agent.displayName ?? "Agent", ledger);
+      view = reduceTaskLedger(task, agent.nickname || agent.displayName || "Agent", ledger);
       const terminal = ["COMPLETED", "FAILED", "CANCELED", "REJECTED"].includes(view.state.replace("TASK_STATE_", ""));
       const projection: TaskRecord = {
         ...task, state: view.state, remoteContextId: view.contextId ?? task.remoteContextId,

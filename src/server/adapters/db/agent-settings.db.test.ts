@@ -69,6 +69,25 @@ async function contract(config: DatabaseConfig, directory: string) {
     expect((await orm.em.fork().find(SyncCursorEntity, { agentId: agent.id, resourceKey: "" })).map((cursor) => cursor.tenant)).toEqual([""]);
     delete process.env.A2A_TASK_DISCOVERY;
     await changeAgentSettings(admin, agent.id, { taskDiscovery: "browse" }, orm);
+    // A nickname tells apart registrations whose cards share a name: trimmed, unique ignoring case, clearable, audited, and shown by the catalog.
+    const second = await registry.add("https://agent.test/other-card", "  Support   (ADK) ");
+    expect(second.nickname).toBe("Support (ADK)");
+    await changeAgentSettings(admin, agent.id, { nickname: "Support (LangGraph)" }, orm);
+    expect((await stored()).nickname).toBe("Support (LangGraph)");
+    expect((await registry.list()).map((item) => item.nickname).sort()).toEqual(["Support (ADK)", "Support (LangGraph)"]);
+    await expect(changeAgentSettings(admin, agent.id, { nickname: "support (adk)" }, orm)).rejects.toMatchObject({ status: 409, kind: "nickname_taken" });
+    await expect(registry.add("https://agent.test/third-card", "SUPPORT (ADK)")).rejects.toThrow(/already called/);
+    await expect(changeAgentSettings(admin, agent.id, { nickname: "x".repeat(101) }, orm)).rejects.toThrow();
+    await expect(changeAgentSettings(admin, agent.id, { nickname: "bad\u0007name" }, orm)).rejects.toMatchObject({ status: 400 });
+    await changeAgentSettings(admin, agent.id, { nickname: "  " }, orm);
+    expect((await stored()).nickname).toBeNull();
+    // A removed agent frees its nickname.
+    await registry.remove(second.id);
+    await changeAgentSettings(admin, agent.id, { nickname: "Support (ADK)" }, orm);
+    expect((await stored()).nickname).toBe("Support (ADK)");
+    expect((await orm.em.fork().find(SecurityAuditEntity, { targetId: agent.id })).map((row) => row.action).filter((action) => action.startsWith("agent.nickname")).sort())
+      .toEqual(["agent.nickname.cleared", "agent.nickname.set", "agent.nickname.set"]);
+    await changeAgentSettings(admin, agent.id, { nickname: null }, orm);
     // Another organization's agent is unknown.
     await expect(changeAgentSettings({ ...admin, organizationId: randomUUID() }, agent.id, { taskDiscovery: "off" }, orm)).rejects.toMatchObject({ status: 404 });
 
@@ -93,6 +112,7 @@ if (url && !decodeURIComponent(new URL(url).pathname).includes("test")) throw ne
 describe("agentSettingsSchema", () => {
   it("accepts the supported settings and refuses anything else", () => {
     expect(agentSettingsSchema.safeParse({ taskDiscovery: "browse", taskDiscoveryHistoryDays: 90 }).success).toBe(true);
+    expect(agentSettingsSchema.safeParse({ nickname: null }).success).toBe(true);
     for (const body of [{}, { taskDiscovery: "on" }, { taskDiscoveryHistoryDays: -1 }, { taskDiscoveryHistoryDays: 91 }, { taskDiscoveryHistoryDays: 1.5 }, { surprise: true }, { taskDiscovery: "off", extra: 1 }])
       expect(agentSettingsSchema.safeParse(body).success, JSON.stringify(body)).toBe(false);
   });

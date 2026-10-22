@@ -12,6 +12,7 @@ import { Callout } from "@/components/patterns/data-display";
 import { DefinitionList } from "@/components/patterns/layout";
 import { Eyebrow, Pill } from "@/components/patterns/status";
 import { ConnectAgentDialog } from "@/components/agents/connect-agent-dialog";
+import { AgentNicknameCard } from "@/components/agents/agent-nickname-card";
 import { ConnectionCard } from "@/components/agents/connection-card";
 import { RequiredExtensionsNotice } from "@/components/agents/required-extensions-notice";
 import { TaskDiscoveryCard } from "@/components/agents/task-discovery-card";
@@ -20,7 +21,7 @@ import { mergeExtendedSkills } from "@/lib/extended-card";
 import type { DiscoveryStatusView } from "@/lib/browse-tasks";
 import { useServerResource } from "@/lib/use-server-resource";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { useAgentStore } from "@/store/agent-store";
+import { advertisedName, useAgentStore } from "@/store/agent-store";
 
 export default function AgentDetailPage({ params }: { params: Promise<{ agentId: string }> }) {
   const { agentId } = use(params);
@@ -65,8 +66,8 @@ export default function AgentDetailPage({ params }: { params: Promise<{ agentId:
     <Page
       detail
       size="wide"
-      title={view?.name ?? "Unreachable agent"}
-      description={view?.description ?? agent.error}
+      title={view?.name ?? agent.nickname ?? "Unreachable agent"}
+      description={[advertisedName(agent) && `Card name: ${advertisedName(agent)}`, view?.description ?? agent.error].filter(Boolean).join(" · ")}
       eyebrow={view ? <Pill tone="success" dot live>Reachable · Agent Card v{view.version}</Pill> : <Pill tone="danger" dot>Discovery failed</Pill>}
       actions={
         <>
@@ -88,6 +89,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ agentId:
       )}
       {view ? (
         <div className="grid gap-4 xl:grid-cols-2">
+          <AgentNicknameCard agentId={agent.id} nickname={agent.nickname} cardName={agent.cardName} admin={session.data?.user.role === "admin"} onChanged={refresh} />
           {discovery.data && <TaskDiscoveryCard agentId={agent.id} status={discovery.data} admin={session.data?.user.role === "admin"} onChanged={discovery.refresh} onBrowse={() => router.push(`/discover?agent=${agent.id}` as Route)} />}
 
           <InfoCard label="Capabilities">
@@ -149,7 +151,10 @@ export default function AgentDetailPage({ params }: { params: Promise<{ agentId:
           </InfoCard>
         </div>
       ) : (
-        <Callout tone="danger" title="This agent could not be reached"><span className="font-mono">{agent.error}</span></Callout>
+        <div className="grid gap-4">
+          <Callout tone="danger" title="This agent could not be reached"><span className="font-mono">{agent.error}</span></Callout>
+          <AgentNicknameCard agentId={agent.id} nickname={agent.nickname} admin={session.data?.user.role === "admin"} onChanged={refresh} />
+        </div>
       )}
       <ConnectAgentDialog open={connectOpen} onOpenChange={setConnectOpen} initialUrl={agent.cardUrl} />
     </Page>
