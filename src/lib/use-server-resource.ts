@@ -2,6 +2,7 @@
 
 import { useEffect, useReducer, useState } from "react";
 import { subscribeTaskFreshness } from "./task-freshness";
+import { fetchJson } from "./conditional-fetch";
 import { queuedRead } from "./queued-read";
 
 /** Read after live invalidations and on focus; task-freshness polls only while the live stream is down. */
@@ -13,10 +14,11 @@ export function useServerResource<T>(url: string | null) {
     const controller = new AbortController();
     const load = queuedRead(async () => {
       try {
-        const response = await fetch(url, { cache: "no-store", signal: controller.signal });
-        const body = await response.json();
-        if (!response.ok) throw new Error(body.error?.message ?? "Could not load server state.");
-        if (!controller.signal.aborted) setState({ url, data: body as T, loading: false });
+        const { ok, body, unchanged } = await fetchJson<T & { error?: { message?: string } }>(url, controller.signal);
+        if (!ok) throw new Error(body.error?.message ?? "Could not load server state.");
+        // A 304 leaves a settled, error-free state as is, so nothing re-renders.
+        if (!controller.signal.aborted) setState((previous) => unchanged && previous.url === url && !previous.error && !previous.loading ? previous
+          : { url, data: body as T, loading: false });
       } catch (error) {
         if (!controller.signal.aborted) setState((previous) => ({
           url, data: previous.url === url ? previous.data : undefined,
