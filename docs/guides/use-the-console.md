@@ -370,7 +370,7 @@ Administrators also see a link to **Administration** at the bottom of the page.
 | A form shows as raw data | The agent does not advertise the extension, the form is outside the supported subset, or it was already answered | See [Rich content](../concepts/rich-content.md#when-it-fails) |
 | "Conversation not found" / "This conversation is unavailable in the current organization." | The link is from another organization, or you lost read access | Open the chat from **Recent conversations**, or ask for a grant |
 | "Task not found" | The task does not exist or you cannot read it. The server answers 404 rather than 403. | Ask an administrator for a grant |
-| Banner ending "Retrying server sync…" | The browser could not load tasks from the server | Check the server is running. The console retries every 5 seconds. |
+| Banner ending "Retrying server sync…" | The browser could not load tasks from the server | Check the server is running. The console retries on the next live-update signal (about every 15 seconds), or about every 5–7 seconds while the live-update stream is down. |
 | "Administrators only" on **Audit trail** | You are not an administrator | Open a task and use **View the full trail** |
 | **Administration** missing from the sidebar, or "Administrators only" | You are not an administrator | Ask an administrator |
 | "Too many requests. Try again shortly." | Per-person rate limit | Wait a minute |

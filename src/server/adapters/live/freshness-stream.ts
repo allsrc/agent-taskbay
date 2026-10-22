@@ -1,6 +1,9 @@
 import type { FreshnessReader } from "../../application/ports/realtime";
 
-/** Backpressure keeps at most one frame queued; every frame is an invalidation. */
+/**
+ * Backpressure keeps at most one frame queued; every frame is an invalidation. The default lifetime is
+ * jittered (40–55 s) so streams opened together, such as after a rollout, do not reconnect together.
+ */
 export function freshnessStream(reader: FreshnessReader, organizationId: string, signal: AbortSignal,
   options: { pollMs?: number; resyncMs?: number; lifetimeMs?: number } = {}) {
   const encoder = new TextEncoder();
@@ -25,7 +28,7 @@ export function freshnessStream(reader: FreshnessReader, organizationId: string,
     start(controller) {
       close = () => { if (!closed) { cleanup(); controller.close(); } };
       signal.addEventListener("abort", abort, { once: true });
-      deadline = setTimeout(close, options.lifetimeMs ?? 55_000);
+      deadline = setTimeout(close, options.lifetimeMs ?? 40_000 + Math.random() * 15_000);
       if (signal.aborted) close();
     },
     async pull(controller) {

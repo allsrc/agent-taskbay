@@ -458,7 +458,7 @@ A message that reached Taskbay only because the agent's history was loaded has `
 
 `read`. A long-lived SSE signal that "something changed for this organization". Frames carry no task data (`data: {}`); clients re-query. Event names:
 `ready` (first frame), `freshness` (a change was committed), `resync` (sent after 15 seconds of silence so clients refresh anyway). Each frame is preceded by
-`retry: 1000`. The server closes the stream after 55 seconds; reconnect.
+`retry: 1000`. The server closes the stream after 40 to 55 seconds (randomized so connections do not expire together); reconnect.
 
 ## Task workflow
 
