@@ -59,6 +59,7 @@ Any autonomous agent can connect to Agent Taskbay by publishing an Agent Card JS
 ## Framework Integrations
 
 - **LangGraph**: Use Taskbay as an out-of-process interrupt queue for sensitive tool invocations. Instead of pausing a long-running Python thread in memory for hours, emit an A2A task with an approval gate and resume upon callback.
+- **Google ADK (Agent Development Kit)**: Route `LongRunningFunctionTool` and `require_confirmation=True` actions through Taskbay. The agent hibernates its `RunState` (0% CPU/RAM allocated) until a signed, revision-locked approval is delivered by the human operator.
 - **CrewAI**: Wrap sensitive tools with an approval check against Taskbay. The agent pauses, waits for the signed human review, and continues execution with the approved parameters.
 - **Python Agents**: Publish an HTTP endpoint serving an Agent Card and dispatching status updates to Taskbay.
 

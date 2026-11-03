@@ -144,6 +144,16 @@ def trigger_taskbay_approval(state):
     return {"status": "gated_for_human"}
 ```
 
+### Google Agent Development Kit (ADK) Long-Running Tool Gate
+```python
+# adk_agent.py
+# Google ADK LongRunningFunctionTool delegates to Taskbay approval queue
+def scale_cluster_tool(cluster: str, nodes: int):
+    # Emits A2A pending approval ticket to Taskbay (http://127.0.0.1:3002)
+    # Agent RunState hibernates in storage until signed decision arrives
+    return {"status": "pending_human_approval", "ticket": "adk-ticket-123"}
+```
+
 ### Standalone Python A2A Agent
 ```python
 # agent.py
