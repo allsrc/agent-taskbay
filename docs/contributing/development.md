@@ -81,7 +81,7 @@ export A2A_TEST_POSTGRES_URL=postgresql://postgres:postgres@127.0.0.1:55432/post
 
 The test account must be able to create and drop temporary databases. Use a disposable server, never a real one.
 
-The `verify` and `package` jobs run on Linux. An informational `platforms` job also runs lint, the unit tests, the embedded-database lock and people tests, and the production build on macOS and Windows; it is allowed to fail without blocking a merge until it has proved stable.
+The `verify` and `package` jobs run on Linux. A `python` job installs `sdk/python` and runs its unit tests. An informational `platforms` job also runs lint, the unit tests, the embedded-database lock and people tests, and the production build on macOS and Windows; it is allowed to fail without blocking a merge until it has proved stable. The Python helper needs Python 3.10 or newer; CI uses 3.12.
 
 ### Test and verification variables
 
@@ -91,7 +91,7 @@ These are read by the repository's tests and verification scripts, not by the ap
 | --- | --- |
 | `A2A_TEST_POSTGRES_URL` | Database tests (`npm run test:db`) and HTTP verification scripts; a PostgreSQL URL for a disposable test database. |
 | `A2A_HTTP_TEST_PROFILE`, `A2A_IDENTITY_HTTP_TEST_PROFILE`, `A2A_HTTP_TEST_KEEP_SERVER` | `scripts/verify-*-http.mjs` |
-| `A2A_*_HTTP_TEST_PORT` (`A2A_HTTP_TEST_PORT`, `A2A_AGUI_HTTP_TEST_PORT`, `A2A_A2UI_HTTP_TEST_PORT`, `A2A_FORMS_HTTP_TEST_PORT`, `A2A_DECISIONS_HTTP_TEST_PORT`, `A2A_IDENTITY_HTTP_TEST_PORT`, `A2A_WORKFLOW_HTTP_TEST_PORT`, `A2A_NOTIFICATIONS_HTTP_TEST_PORT`, `A2A_AGENT_APPROVALS_HTTP_TEST_PORT`, `A2A_PHASE6_EXIT_HTTP_TEST_PORT`, `A2A_DISCOVERY_HTTP_TEST_PORT`, `A2A_STEERING_HTTP_TEST_PORT`, `A2A_EXTENDED_CARD_HTTP_TEST_PORT`) | Port overrides for the matching script. |
+| `A2A_*_HTTP_TEST_PORT` (`A2A_HTTP_TEST_PORT`, `A2A_AGUI_HTTP_TEST_PORT`, `A2A_A2UI_HTTP_TEST_PORT`, `A2A_FORMS_HTTP_TEST_PORT`, `A2A_DECISIONS_HTTP_TEST_PORT`, `A2A_IDENTITY_HTTP_TEST_PORT`, `A2A_WORKFLOW_HTTP_TEST_PORT`, `A2A_NOTIFICATIONS_HTTP_TEST_PORT`, `A2A_AGENT_APPROVALS_HTTP_TEST_PORT`, `A2A_PHASE6_EXIT_HTTP_TEST_PORT`, `A2A_DISCOVERY_HTTP_TEST_PORT`, `A2A_STEERING_HTTP_TEST_PORT`, `A2A_EXTENDED_CARD_HTTP_TEST_PORT`, `A2A_PYTHON_SDK_HTTP_TEST_PORT`) | Port overrides for the matching script. `verify-python-sdk-http.mjs` also needs Python 3.10 or newer on `PATH` (`PYTHON` to choose the interpreter). |
 | `A2A_SERVICE_FIXTURE_DIR` | `scripts/verify-service-security.mjs` |
 | `A2A_PACKAGE_TARBALL` | `scripts/verify-package.mjs`: reuse an existing tarball. |
 
@@ -108,6 +108,8 @@ These are read by the repository's tests and verification scripts, not by the ap
 | `src/server/runtime/` | Wiring of use cases to adapters per request |
 | `src/server/workers/` | Background loops (commands, subscriptions, push, reconciliation, decisions, notifications, freshness) |
 | `bin/` | The `agent-taskbay` launcher |
+| `sdk/python/` | Experimental helper that serves an A2A agent and can ask for an approval. Not the console client SDK. |
+| `examples/` | `python-requests-taskbay` is an agent built with that helper. The LangGraph, CrewAI, and ADK directories are sketches and do not connect. |
 | `scripts/` | Operator CLIs (`*.ts`), fixture agents (including the controllable `fixture-scenario-agent.mjs`, see the [CLI reference](../reference/cli.md#fixture-agent-script)), and `verify-*` end-to-end checks |
 
 ## Boundaries

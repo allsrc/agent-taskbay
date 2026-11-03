@@ -1,13 +1,13 @@
-"""
-LangGraph Taskbay Adapter Example
-Demonstrates how to use Agent Taskbay as an out-of-process human-in-the-loop interrupt gate.
+"""Illustrative sketch of a LangGraph branch that might later ask for approval.
+
+This file does not open a socket and does not talk to Agent Taskbay. A real bridge
+is not in this repository. LangGraph's own ``interrupt()``, with a checkpointer,
+already pauses a graph durably; this sketch does not call that either.
 """
 
-import sys
-import time
-from typing import Dict, Any, TypedDict, Literal
+from typing import Any, Dict, Literal, TypedDict
 
-# Define state structure
+
 class AgentState(TypedDict):
     plan: str
     target_action: str
@@ -17,112 +17,62 @@ class AgentState(TypedDict):
 
 
 def plan_step(state: AgentState) -> Dict[str, Any]:
-    print("\n[LangGraph] Step 1: Planning agent action...")
     action = state.get("target_action", "DROP TABLE users_archive_2025;")
     return {
-        "plan": f"Execute critical database maintenance: {action}",
+        "plan": f"Proposed database statement: {action}",
         "risk_level": "high" if "DROP" in action or "DELETE" in action else "low",
-        "approved": False
+        "approved": False,
     }
 
 
-def should_interrupt_for_taskbay(state: AgentState) -> Literal["request_taskbay_approval", "execute"]:
+def should_pause(state: AgentState) -> Literal["pause", "execute"]:
     if state.get("risk_level") == "high" and not state.get("approved"):
-        return "request_taskbay_approval"
+        return "pause"
     return "execute"
 
 
-def request_taskbay_approval(state: AgentState) -> Dict[str, Any]:
-    """
-    Simulates / performs the out-of-process delegation to Agent Taskbay.
-    In production, an A2A agent publishes this task state as `auth-required`
-    with the approval-request extension on http://127.0.0.1:3002.
-    """
-    print("\n[LangGraph -> Taskbay] Step 2: High-risk action detected.")
-    print(f"Creating durable approval gate in Agent Taskbay:")
-    print(f"  • Title: Approve Database DDL Execution")
-    print(f"  • Risk Level: {state['risk_level'].upper()}")
-    print(f"  • Proposed Statement: {state['target_action']}")
-    print(f"  • Console URL: http://127.0.0.1:3002/inbox")
-    print("\n[Taskbay Console] Waiting for human operator sign-off...")
-    
-    # In live execution, Taskbay workers hold the durable state in SQLite/PGlite.
-    # The LangGraph worker can safely release memory and poll or await a webhook callback.
-    time.sleep(1.5)
-    
-    # Simulated approval received from Taskbay console
-    print("[Taskbay Console] Decision delivered: APPROVED by operator (admin@local)")
-    print("[Taskbay Console] Exact revision lock verified (revision 1).")
-    
-    return {"approved": True}
+def pause_for_review(state: AgentState) -> Dict[str, Any]:
+    print("Sketch only: no Agent Taskbay request was sent, and nothing was approved.")
+    print(f"  Statement that would need a person: {state['target_action']}")
+    return {"approved": False}
 
 
 def execute_step(state: AgentState) -> Dict[str, Any]:
-    print("\n[LangGraph] Step 3: Executing approved action...")
     if not state.get("approved"):
-        raise PermissionError("Action blocked: Human approval not granted!")
-    result = f"Successfully executed: {state['target_action']}"
-    print(f"[Execution Engine] {result}")
-    return {"execution_result": result}
+        print("Stopped before execution. A sketch cannot approve its own statement.")
+        return {"execution_result": "not executed"}
+    return {"execution_result": f"Executed: {state['target_action']}"}
 
 
-def main():
-    print("=" * 60)
-    print("Agent Taskbay + LangGraph Human-in-the-Loop Integration")
-    print("=" * 60)
-
+def main() -> None:
+    print("LangGraph sketch. This process does not contact Agent Taskbay.")
+    state: AgentState = {
+        "plan": "",
+        "target_action": "DROP TABLE users_archive_2025 CASCADE;",
+        "risk_level": "high",
+        "approved": False,
+        "execution_result": "",
+    }
     try:
-        from langgraph.graph import StateGraph, END
+        from langgraph.graph import END, StateGraph
 
         builder = StateGraph(AgentState)
         builder.add_node("plan", plan_step)
-        builder.add_node("request_taskbay_approval", request_taskbay_approval)
+        builder.add_node("pause", pause_for_review)
         builder.add_node("execute", execute_step)
-
         builder.set_entry_point("plan")
-        builder.add_conditional_edges(
-            "plan",
-            should_interrupt_for_taskbay,
-            {
-                "request_taskbay_approval": "request_taskbay_approval",
-                "execute": "execute",
-            }
-        )
-        builder.add_edge("request_taskbay_approval", "execute")
+        builder.add_conditional_edges("plan", should_pause, {"pause": "pause", "execute": "execute"})
+        builder.add_edge("pause", "execute")
         builder.add_edge("execute", END)
-
-        graph = builder.compile()
-        initial_state: AgentState = {
-            "plan": "",
-            "target_action": "DROP TABLE users_archive_2025 CASCADE;",
-            "risk_level": "high",
-            "approved": False,
-            "execution_result": ""
-        }
-        final_state = graph.invoke(initial_state)
-        print("\nWorkflow completed successfully!")
-        print(f"Result: {final_state['execution_result']}")
-
+        final_state = builder.compile().invoke(state)
+        print(final_state["execution_result"])
     except ImportError:
-        print("\nNotice: langgraph is not installed in the local environment.")
-        print("Running pure-Python demonstration of the graph state machine...\n")
-        
-        state: AgentState = {
-            "plan": "",
-            "target_action": "DROP TABLE users_archive_2025 CASCADE;",
-            "risk_level": "high",
-            "approved": False,
-            "execution_result": ""
-        }
-        
+        print("langgraph is not installed. Running the same steps in plain Python.")
         state.update(plan_step(state))
-        decision = should_interrupt_for_taskbay(state)
-        if decision == "request_taskbay_approval":
-            state.update(request_taskbay_approval(state))
+        if should_pause(state) == "pause":
+            state.update(pause_for_review(state))
         state.update(execute_step(state))
-        
-        print("\nWorkflow completed successfully!")
-        print(f"Result: {state['execution_result']}")
+        print(state["execution_result"])
 
 
 if __name__ == "__main__":

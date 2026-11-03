@@ -1,44 +1,11 @@
-# Adding an Approval Gate to CrewAI Workflows with Agent Taskbay
+# CrewAI sketch
 
-This example demonstrates how to integrate **Agent Taskbay** as an approval gate within a [CrewAI](https://github.com/crewAIInc/crewAI) multi-agent workflow.
-
-## Overview
-
-When building autonomous multi-agent teams with CrewAI (e.g., a Senior DevOps Engineer agent, a QA agent, and a Deployment agent), certain tasks must not be executed automatically:
-- Modifying production DNS records
-- Executing infrastructure tear-downs
-- Transferring funds or issuing customer refunds
-
-Using Agent Taskbay, the CrewAI tool emits a durable approval request to Taskbay. The team waits until the operator in the Taskbay console reviews the exact proposed action and approves it.
-
-## Running the Example
+This directory is an illustrative sketch of a tool wrapper. It does not contact Agent Taskbay. There is no CrewAI adapter in this repository.
 
 ```bash
-# 1. Install dependencies
-pip install -r requirements.txt
-
-# 2. Start Taskbay in another terminal (if not running)
-npx agent-taskbay
-
-# 3. Run the CrewAI workflow
 python crewai_gate.py
 ```
 
-## Architecture
+`crewai` is optional. Without it, the same step runs in plain Python. The script prints the action it would have wanted a person to review, then stops. It does not approve that action and it does not run the command in the details string.
 
-```text
-[CrewAI Agent] 
-       │ (1) Proposes sensitive action
-       ▼
-[Taskbay Approval Tool]
-       │ (2) Emits auth-required task to Taskbay
-       ▼
-[Taskbay Operations Console (http://127.0.0.1:3002)]
-       │ (3) Operator reviews diff / parameters and approves
-       ▼
-[Taskbay Approval Tool]
-       │ (4) Receives signed decision with revision lock
-       ▼
-[Execution Environment]
-       (5) Proceeds with execution
-```
+The requirements file lists CrewAI for the optional import. The script never uses HTTP.

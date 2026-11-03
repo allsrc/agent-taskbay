@@ -1,9 +1,22 @@
 # Changelog
 
 All notable changes to this project are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
-the project uses [semantic versioning](https://semver.org/) once it reaches 1.0; until then minor versions may change interfaces.
+the project follows [semantic versioning](https://semver.org/) from 1.0.0. Experimental features may change in any release.
 
 ## [Unreleased]
+
+### Added
+
+- **Repository index for agents and search tools.** `llms.txt` and `llms-full.txt` describe the console, the real extension URIs, the approval data part, and the limits in the glossary and threat model.
+- **Citation file.** `CITATION.cff` records the 1.0.0 release.
+- **Experimental Python agent helper** (`sdk/python`, version 0.1.0). It serves an A2A agent that asks for an approval in the shape the console opens. It is not published on PyPI and it is not the client SDK ([#31](https://github.com/allsrc/agent-taskbay/issues/31)). Install it from a checkout or from git. `examples/python-requests-taskbay` is a small agent built with it.
+- **Illustrative sketches** for LangGraph, CrewAI, and Google ADK under `examples/`. They do not contact Taskbay. An ADK adapter remains [#18](https://github.com/allsrc/agent-taskbay/issues/18).
+
+### Fixed
+
+- The Python helper and the plain-Python example were sending the approval as a text part, with field names the console does not read, so no decision opened. They now send a data part (`title`, `summary`, `risk`, `action.kind` of `send_message` or `send_data`) and advertise the extension as an object. A follow-up completes the task only when `metadata.approval` carries a revision whose digest matches the content that arrived. A chat reply leaves the task in `input-required`. Rejecting in the console still sends nothing.
+- Docs that named the wrong extension URIs, the wrong Agent Card path, `auth-required` as the approval state, signed decisions, a tamper-evident audit trail, an official Python SDK, and framework integrations that are not in this repository.
+- Security policy and guide wording that still described the project as pre-1.0.
 
 ## [1.0.0] - 2026-11-03
 

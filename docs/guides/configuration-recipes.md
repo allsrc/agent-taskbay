@@ -459,7 +459,7 @@ More messages: [Troubleshooting](../operations/troubleshooting.md).
   checked on a local production build.
 - One organization per deployment. The worker loops, timings and rate limits are not configurable.
 - The npm package does not include the operator scripts (`db:migrate`, `auth:provision`, `security:credentials`, `worker:tasks`). Server recipes need a source checkout.
-- Pre-1.0: variable names keep the `A2A_` prefix and may be renamed ([#27](https://github.com/allsrc/agent-taskbay/issues/27)).
+- Variable names keep the `A2A_` prefix. Renaming them is the open breaking change [#27](https://github.com/allsrc/agent-taskbay/issues/27), not a silent minor-release change.
 
 ## Related
 

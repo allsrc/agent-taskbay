@@ -13,7 +13,7 @@ to the reporter unless you prefer otherwise. This is a volunteer-maintained proj
 
 ## Supported versions
 
-Only the latest published `0.x` release receives security fixes. The project is pre-1.0 and interfaces may change between minor versions.
+Security fixes go to the latest published `1.x` release. Stable functionality follows semantic versioning. Experimental features (the AG-UI adapter, A2UI, the project's own extensions, and the Python agent helper) and the internal console HTTP routes are excluded, as described in [Status and roadmap](docs/project/status-and-roadmap.md).
 
 ## Scope and deployment guidance
 

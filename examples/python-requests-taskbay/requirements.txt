@@ -1,3 +1,2 @@
-# Standard library only
-# Optional for client tests:
-requests>=2.31.0
+# Experimental helper from this repository. It is not published on PyPI.
+-e ../../sdk/python

@@ -38,7 +38,7 @@ The records in `docs/archive/adr/` were written for maintainers. They are kept u
 
 | Decision | Why it was proposed | Trade-off | Record |
 | --- | --- | --- | --- |
-| A typed client SDK for the Taskbay HTTP API (status: proposed and parked, tracked in [#31](https://github.com/allsrc/agent-taskbay/issues/31)) | Other applications might want durable tasks, retries and approvals without writing a console | Needs service tokens, a stable versioned API and an events strategy first. None exist today. Nothing in the product changes until it is accepted | [Client SDK](../archive/adr/0026-taskbay-client-sdk.md) |
+| A typed client SDK for the Taskbay HTTP API (status: proposed and parked, tracked in [#31](https://github.com/allsrc/agent-taskbay/issues/31)) | Other applications might want durable tasks, retries and approvals without writing a console | Needs service tokens, a stable versioned API and an events strategy first. None exist today. Nothing in the product changes until it is accepted. The experimental Python helper in `sdk/python` is an A2A agent, not this SDK. | [Client SDK](../archive/adr/0026-taskbay-client-sdk.md) |
 
 ## Related
 

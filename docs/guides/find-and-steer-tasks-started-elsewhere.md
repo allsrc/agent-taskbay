@@ -65,7 +65,7 @@ Who sees discovered tasks: administrators and people with a whole-agent grant. P
 
 ## Limits
 
-- Pre-1.0. The list shows what the agent's credential can see, which may be more than you are allowed to act on elsewhere; that is why browsing needs whole-agent access.
+- The list shows what the agent's credential can see, which may be more than you are allowed to act on elsewhere; that is why browsing needs whole-agent access.
 - Browse pages are the agent's own pages (25 rows), without a total count.
 - Tracking records the task as it is now. Changes you make on the agent's side are picked up like any other task's.
 - Discovery does not apply to tasks of agents Taskbay cannot list or read.

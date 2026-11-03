@@ -116,8 +116,9 @@ Each row is explained, with its limits, in [Concepts](docs/concepts/overview.md)
 ## Why you might not want this (yet)
 
 - **Security review.** There has been no independent security review.
-- **No stable API or SDK.** The HTTP API needs a browser session cookie and a matching `Origin`; there are no service tokens and no
-  `/api/v1` ([#31](https://github.com/allsrc/agent-taskbay/issues/31)). Use it as a console, not as a backend for scripts.
+- **No stable API or client SDK.** The HTTP API needs a browser session cookie and a matching `Origin`; there are no service tokens and no
+  `/api/v1` ([#31](https://github.com/allsrc/agent-taskbay/issues/31)). Use it as a console, not as a backend for scripts. The Python package under
+  [`sdk/python`](sdk/python) is an experimental agent helper, not that SDK.
 - **Local mode is not a security boundary.** It signs everyone in as an administrator. The `npx` launcher refuses non-loopback addresses
   without OIDC; `npm run dev` from a checkout has no such guard. Anything shared needs OIDC.
 - **Self-hosting is from source, by hand.** There are no container images, Compose file, Helm chart, health endpoint or backup tooling.
@@ -170,98 +171,42 @@ by advertising an extension in the card. Without one, content is shown as ordina
 
 How to build that side is in [Build an agent for Taskbay](docs/guides/build-an-agent-for-taskbay.md).
 
-## Ecosystem Integration & Framework Guides
+## Python helper and examples
 
-Agent Taskbay is framework-agnostic. Whether your autonomous workflows run on LangGraph, CrewAI, AutoGen, or custom Python scripts, Taskbay acts as the durable human operations layer.
+Any agent that publishes an A2A Agent Card can be connected. A 0.3 card is accepted through the gateway's legacy path. LangGraph, CrewAI, and Google ADK do not have adapters in this repository; an agent built with one of them works here only once it speaks A2A. The ADK gap is tracked as [#18](https://github.com/allsrc/agent-taskbay/issues/18). There is no AutoGen example.
 
-Working examples are located in [`examples/`](examples/):
+[`sdk/python`](sdk/python) is an experimental helper that serves a small A2A agent and asks for an approval in the shape the console opens. It is not a client of the console HTTP API, and it is not published on PyPI. From a checkout:
 
-### How to use Taskbay as a LangGraph Human-in-the-Loop Interrupt
-When autonomous LangGraph graphs reach destructive actions (database changes, infrastructure deletion, financial transfers), halting Python processes in memory waiting for human input is brittle and resource-intensive.
-
-Taskbay acts as an external durable interrupt queue:
-```python
-# examples/langgraph-taskbay-adapter/adapter.py
-from langgraph.graph import StateGraph, END
-
-def request_taskbay_approval(state):
-    # Emits an approval gate to Taskbay console (http://127.0.0.1:3002)
-    # The LangGraph worker releases process memory; Taskbay holds the durable state
-    return {"status": "awaiting_human_operator"}
-
-# Connect to graph as an interrupt edge before critical execution
-```
-See [`examples/langgraph-taskbay-adapter/`](examples/langgraph-taskbay-adapter/) for the complete runnable implementation.
-
-### Adding an Approval Gate to CrewAI Workflows
-In multi-agent CrewAI systems, wrap sensitive execution tools with a Taskbay human review gate:
-```python
-# examples/crewai-taskbay-gate/crewai_gate.py
-from crewai.tools import BaseTool
-
-class TaskbayApprovalTool(BaseTool):
-    name: str = "request_human_approval"
-    description: str = "Submit high-risk operations to Taskbay for human sign-off"
-
-    def _run(self, action_title: str, risk_level: str, action_details: str) -> str:
-        # Pauses until human operator approves in Taskbay console
-        # Verifies tamper-evident revision locks before returning
-        return "SUCCESS: Operator approved action. Proceeding."
-```
-See [`examples/crewai-taskbay-gate/`](examples/crewai-taskbay-gate/) for the complete example.
-
-### Google Agent Development Kit (ADK) Durable Approvals
-Google ADK introduces human input nodes (`RequestInput`) and long-running tools (`LongRunningFunctionTool` / `require_confirmation=True`). ADK's `RunState` persistence allows agents to hibernate without consuming compute resources while awaiting sign-off.
-
-Taskbay provides the missing operational console where operators inspect actions and deliver revision-locked approvals:
-```python
-# examples/google-adk-taskbay-gate/adk_agent.py
-# 1. ADK LongRunningFunctionTool yields pending approval ticket to Taskbay
-# 2. Agent RunState hibernates in storage (0% CPU/RAM allocated)
-# 3. Operator reviews and approves in Taskbay console (http://127.0.0.1:3002)
-# 4. Signed decision wakes ADK agent from dormancy to complete execution
-```
-See [`examples/google-adk-taskbay-gate/`](examples/google-adk-taskbay-gate/) for the complete runnable implementation.
-
-### Connecting Python Agent Scripts to the Taskbay Local Console
-Any Python service can become a first-class Taskbay agent by exposing an Agent Card JSON endpoint (`/card.json` or `/.well-known/agent.json`) advertising the approval extension:
-```python
-# examples/python-requests-taskbay/agent.py
-# Uses standard library http.server — zero heavy dependencies
-# Publishes card at http://127.0.0.1:5050/card.json
-```
-See [`examples/python-requests-taskbay/`](examples/python-requests-taskbay/) for the step-by-step walkthrough.
-
-### Official Python SDK (`agent-taskbay`)
-A lightweight Python SDK is provided under [`sdk/python/`](sdk/python/):
 ```bash
-pip install agent-taskbay
-```
-```python
-from agent_taskbay import AgentServer, AgentCard, Skill
-
-card = AgentCard(name="Ops Agent", description="Infrastructure management")
-server = AgentServer(card=card, port=5050)
-
-@server.on_task
-def handle(task_id, message, operator):
-    if "delete" in message.lower():
-        return operator.request_approval("Delete Staging Database", risk_level="high")
-    return operator.complete("Task finished.")
-
-server.start()
+pip install -e sdk/python
 ```
 
-## Architectural Comparison: Alternative To Matrix
+From git:
 
-| Dimension | Agent Taskbay | In-Memory / Ad-Hoc Scripts | Proprietary / Vendor-Locked Platforms |
-| :--- | :--- | :--- | :--- |
-| **Architecture & Lock-In** | **Open A2A Protocol** (Zero vendor lock-in; works with any agent framework) | Bespoke code (must be rebuilt per agent) | **Vendor-Locked** (Proprietary APIs & walled gardens) |
-| **State Durability** | **Durable Embedded Queue** (PGlite/Postgres survives reboots & tab closes) | **Fragile** (State lost if worker dies or tab closes) | Durable, but requires external cloud dependencies |
-| **Human Approval Gates** | **Exact Revision Locks** & Separation of Duties | None (Stale decisions execute on changed state) | High configuration; requires custom UI forms |
-| **Privacy & Hosting** | **100% Self-Hosted & Local** (Zero accounts or telemetry) | Self-hosted, but unmanaged | Third-party cloud; data leaves your perimeter |
-| **Multi-Modal Inspection** | **Sandboxed Fixed Viewer** (Markdown, Media, PDF, CSV) | Raw text / console logs | Generic UI builder widgets |
-| **Audit & Governance** | **Append-Only Tamper-Evident** audit trail | None unless built by hand | Costly enterprise tier / compliance add-on |
+```bash
+pip install "git+https://github.com/allsrc/agent-taskbay.git#subdirectory=sdk/python"
+```
+
+[`examples/python-requests-taskbay`](examples/python-requests-taskbay) is a short agent built with that helper. It publishes `/.well-known/agent-card.json` (and `/card.json`). Connect that URL, send it a task, and the inbox shows a pending approval. Approving completes the task. Rejecting sends nothing. A chat reply that is not the approved message leaves the task in `input-required`.
+
+[`examples/langgraph-taskbay-adapter`](examples/langgraph-taskbay-adapter), [`examples/crewai-taskbay-gate`](examples/crewai-taskbay-gate), and [`examples/google-adk-taskbay-gate`](examples/google-adk-taskbay-gate) are illustrative sketches. They do not open a connection. LangGraph can already pause with `interrupt()` and a checkpointer. ADK can pause a tool with `require_confirmation` or `request_confirmation`, and a workflow with `RequestInput`. Those mechanisms are theirs. The sketches do not call them, and they do not call Taskbay.
+
+## Where it fits
+
+| You need | What fits |
+| --- | --- |
+| One place to start, follow, and approve work on A2A agents you already run | Agent Taskbay |
+| The framework's own pause and resume | That framework. This repository does not bridge it. |
+| A stable HTTP API or a client library for the console | Not this project today ([#31](https://github.com/allsrc/agent-taskbay/issues/31)). The Python helper is an agent Taskbay connects to, not a client of the console. |
+| Proof that the agent performed the approved action, or a cryptographic audit log | Not claimed. The audit trail is append-only in the database. An approval is bound to a SHA-256 digest of the action that was sent. The optional notification webhook is HMAC-signed; the decision is not a signature. |
+
+| | Taskbay |
+| --- | --- |
+| Protocol | A2A client (1.0, and 0.3 cards the gateway can read). Not an agent framework. |
+| Hosting | Your machine, or your PostgreSQL deployment. Local mode uses no account. The application does not send telemetry. |
+| Approvals | `input-required` plus an approval-request data part. The decision is bound to one revision and its digest. Separation of duties is on by default. `auth-required` means the agent needs credentials, not a human approval. |
+| Record | Append-only audit trail, enforced by database triggers. That is immutability in the database, not cryptographic tamper evidence. |
+| Content | Text, Markdown, JSON, CSV, and archived images, audio, video, and PDF. Agent-supplied code is not run. |
 
 ## Documentation
 

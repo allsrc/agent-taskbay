@@ -1,74 +1,146 @@
 # Agent Taskbay
 
-> Agent Taskbay is a self-hosted, open-source human-in-the-loop (HITL) operations console for AI agents and Agent2Agent (A2A) workflows. It provides durable task persistence, selective human approval gates, multi-modal artifact review, and append-only audit logging.
+Agent Taskbay is a self-hosted console for people who work with A2A agents. It stores tasks in its own database, shows them after the browser closes, and asks a person when an agent needs input or an approval. It does not run agents.
 
-## Core Facts & Quickstart
+Created and maintained by Shashi Kanth G S, part of Allsrc. MIT license. Version 1.0.0 is published on npm as `agent-taskbay`. Experimental features, including this repository's extensions, are called out in the docs and can change in any minor release.
 
-- **Type**: Self-hosted web application & background task worker runtime.
-- **License**: MIT (Created by Shashi Kanth G S, part of Allsrc).
-- **Default Port**: Web Console binds to `http://127.0.0.1:3002` (local embedded PGlite database).
-- **Sample Agents Port**: Demo fixtures bind to `http://127.0.0.1:4010`.
-- **CLI Commands**:
-  - `npx agent-taskbay` — Starts the web console on port 3002.
-  - `npx agent-taskbay demo-agent` — Starts five reference sample agents on port 4010.
-- **Protocol**: Standard [A2A (Agent2Agent) Protocol](https://a2a-protocol.org).
-- **Documentation**: [https://taskbay.allsrc.dev](https://taskbay.allsrc.dev)
-- **GitHub Repository**: [https://github.com/allsrc/agent-taskbay](https://github.com/allsrc/agent-taskbay)
+## Quickstart
 
-## Architecture
+Node.js 22.19 or newer.
 
-- **State Durability**: Commands and task events are committed to the local embedded database (PGlite) or PostgreSQL before being dispatched. When the browser closes, tasks continue running in background workers.
-- **Single Source of Truth**: The browser never connects directly to autonomous agents and never holds agent credentials. The UI reads the database; background workers communicate with agents via HTTP streaming, push callbacks, and polling.
-- **Safe Multi-Modal Artifacts**: Previews text, Markdown, JSON, CSV, PNG/JPEG, audio, video, and PDF artifacts using fixed, sandboxed renderers without executing agent-supplied code.
-- **Separation of Duties & Revision Locks**: Human approval decisions are bound to the exact content revision proposed by the agent. If the task state shifts or expires, the decision is rejected.
+```bash
+npx agent-taskbay
+```
 
-## Protocol & Agent Card Schema
+The console listens on `http://127.0.0.1:3002` and uses an embedded database in `~/.agent-taskbay`. Local mode signs you in as an administrator and binds to loopback.
 
-Any autonomous agent can connect to Agent Taskbay by publishing an Agent Card JSON at `/.well-known/agent.json` or `/card.json`:
+```bash
+npx agent-taskbay demo-agent
+```
+
+Sample agents listen on port 4010. The cards are:
+
+- `http://127.0.0.1:4010/showcase/card.json` — form, A2UI surface, and approval request
+- `http://127.0.0.1:4010/form/card.json` — structured form
+- `http://127.0.0.1:4010/approver/card.json` — approval request
+- `http://127.0.0.1:4010/a2ui/card.json` — A2UI confirmation surface
+- `http://127.0.0.1:4010/automation/card.json` — tasks another system already started
+
+Connect one from **Agents → Add agent**. These are fixtures, not product agents.
+
+## What it is
+
+- An A2A client with a database and a web console. The browser never talks to agents and never sees their credentials.
+- Commands are saved before they are sent. Workers follow tasks by stream, push callback, and polling.
+- Local mode uses PGlite. A shared deployment uses PostgreSQL, OIDC, and separate worker processes.
+- The application does not send telemetry. Local mode creates no account.
+- Content the console shows: text, Markdown, JSON, CSV, and archived images, audio, video, and PDF. Agent-supplied code is not run. Remote media URLs are not loaded.
+- The audit trail is append-only, enforced by database triggers. That is immutability in the database, not cryptographic tamper evidence. See the glossary and the threat model.
+- The optional notification webhook is HMAC-signed. An approval decision is not a signature. It is bound to a SHA-256 digest of the action that was sent.
+
+## Agent Card
+
+Give the console the card URL. A URL that ends in `.json` is fetched as given. Any other URL is resolved at `/.well-known/agent-card.json`.
+
+Extensions are objects, not bare strings. These two URIs are defined by this project. They are not A2A standards.
 
 ```json
 {
-  "name": "Production Deployer",
-  "description": "Orchestrates database migrations and infrastructure rollouts.",
-  "url": "http://127.0.0.1:4010/deployer",
+  "name": "Database migration agent",
+  "description": "Asks a person before it applies a migration.",
   "version": "1.0.0",
+  "supportedInterfaces": [
+    { "url": "http://127.0.0.1:5050/a2a", "protocolBinding": "JSONRPC", "protocolVersion": "1.0" }
+  ],
   "capabilities": {
+    "streaming": false,
+    "pushNotifications": false,
     "extensions": [
-      "https://a2a-protocol.org/ext/approval-request/v1",
-      "https://a2a-protocol.org/ext/structured-form/v1"
+      { "uri": "https://extensions.allsrc.dev/agent-taskbay/approval-request/v1", "required": false },
+      { "uri": "https://extensions.allsrc.dev/agent-taskbay/structured-form/v1", "required": false }
     ]
   },
+  "defaultInputModes": ["text/plain"],
+  "defaultOutputModes": ["text/plain"],
   "skills": [
-    {
-      "id": "deploy",
-      "name": "Deploy Application",
-      "description": "Trigger an environment deployment requiring human review."
-    }
+    { "id": "migrate", "name": "Migrate", "description": "Propose a schema migration." }
   ]
 }
 ```
 
-### Task Lifecycle States
-1. `submitted`: Created and enqueued in Taskbay database.
-2. `working`: Agent accepted task and is executing.
-3. `input-required`: Agent needs structured parameters or answers from a human operator.
-4. `auth-required`: Sensitive action requires authenticated human sign-off (with optional high-risk warning).
-5. `completed`: Final artifacts generated and task resolved.
-6. `failed` / `cancelled`: Terminated or operator-cancelled.
+## Task states
 
-## Framework Integrations
+A2A states include `submitted`, `working`, `input-required`, `auth-required`, `completed`, `failed`, `canceled`, and `rejected`. On the wire they are `TASK_STATE_*`.
 
-- **LangGraph**: Use Taskbay as an out-of-process interrupt queue for sensitive tool invocations. Instead of pausing a long-running Python thread in memory for hours, emit an A2A task with an approval gate and resume upon callback.
-- **Google ADK (Agent Development Kit)**: Route `LongRunningFunctionTool` and `require_confirmation=True` actions through Taskbay. The agent hibernates its `RunState` (0% CPU/RAM allocated) until a signed, revision-locked approval is delivered by the human operator.
-- **CrewAI**: Wrap sensitive tools with an approval check against Taskbay. The agent pauses, waits for the signed human review, and continues execution with the approved parameters.
-- **Python Agents**: Publish an HTTP endpoint serving an Agent Card and dispatching status updates to Taskbay.
+`auth-required` means the agent needs credentials. It is not a human approval. Taskbay shows it and asks the person to authorize elsewhere, then reply. There is no guided handoff.
 
-## Documentation Index
+An approval is `input-required` (`TASK_STATE_INPUT_REQUIRED`) plus one data part:
 
-- [Documentation Home](https://taskbay.allsrc.dev/docs): Overview of the console and concepts.
-- [Quickstart Guide](https://taskbay.allsrc.dev/docs/quickstart): Five-minute end-to-end setup.
-- [Concepts: Human in the Loop](https://taskbay.allsrc.dev/docs/concepts/human-in-the-loop): Detailed approval mechanics, expiration, and separation of duties.
-- [Concepts: Durable Tasks](https://taskbay.allsrc.dev/docs/concepts/durable-tasks): Multi-stage execution, reconciliation, and workers.
-- [Concepts: Alternative To Matrix](https://taskbay.allsrc.dev/docs/concepts/alternative-to): Architectural comparison with LangGraph Studio, proprietary platforms, and custom polling.
-- [Build an Agent for Taskbay](https://taskbay.allsrc.dev/docs/guides/build-an-agent-for-taskbay): Step-by-step agent integration guide.
-- [Production Deployment](https://taskbay.allsrc.dev/docs/guides/production-deployment): PostgreSQL, OIDC, and multi-process worker architecture.
+```json
+{
+  "data": {
+    "title": "Delete the staging cluster",
+    "summary": "Removes all staging nodes and volumes.",
+    "risk": "high",
+    "expiresInSeconds": 3600,
+    "action": { "kind": "send_message", "text": "Approved. Delete the staging cluster." }
+  },
+  "mediaType": "application/vnd.agent-taskbay.approval-request+json"
+}
+```
+
+`risk` is `low`, `medium`, or `high`. `action.kind` is `send_message` or `send_data`. A text part, or fields such as `riskLevel` and `description`, does not open a decision. The agent must advertise the extension URI. The part has to be on the latest input-required status message.
+
+Approving sends that action once, on the same task. The message's `metadata.approval` is:
+
+```json
+{
+  "requestId": "<uuid>",
+  "decisionId": "<uuid>",
+  "revision": 1,
+  "revisionDigest": "<sha-256 hex of the approved action>"
+}
+```
+
+Rejecting or asking for changes sends nothing. The digest covers the canonical JSON of the action, with object keys sorted at every level. It is not a signature. A chat reply can still be sent while an approval is open.
+
+## Where it fits
+
+| You need | What fits |
+| --- | --- |
+| One place to start, follow, and approve work on A2A agents you already run | Agent Taskbay |
+| The framework's own pause (LangGraph `interrupt()` with a checkpointer, an ADK confirmation, CrewAI human input) | That framework. This repository does not bridge those pauses. The ADK gap is issue 18. |
+| A stable HTTP API or a client library for the console | Not this project today (issue 31). |
+| Proof the agent performed the approved action, or a cryptographic audit log | Not claimed. |
+
+Any agent that publishes an A2A 1.0 card works as a plain chat target. A 0.3 card is accepted through the gateway's legacy path and is not verified against real 0.3 agents. Other frameworks need an A2A interface. There is no AutoGen example.
+
+## Python helper
+
+`sdk/python` is an experimental helper that serves an agent and sends the approval part above. It is not the client SDK. It is not on PyPI.
+
+```bash
+pip install "git+https://github.com/allsrc/agent-taskbay.git#subdirectory=sdk/python"
+```
+
+From a checkout: `pip install -e sdk/python`. `examples/python-requests-taskbay` is a small agent built with it. The LangGraph, CrewAI, and Google ADK directories under `examples/` are sketches and do not open a connection.
+
+## Limits that are easy to miss
+
+- No independent security review.
+- No stable console API, no service tokens, no `/api/v1`.
+- Local mode is not a security boundary.
+- No container image, Compose file, or Helm chart.
+- No gRPC. The AG-UI adapter is experimental and off by default.
+- Tested in CI on Node.js 22.19 and PostgreSQL 18 on Linux.
+
+## Docs
+
+- Repository: https://github.com/allsrc/agent-taskbay
+- npm: https://www.npmjs.com/package/agent-taskbay
+- Docs index: https://taskbay.allsrc.dev/docs
+- Quickstart: https://taskbay.allsrc.dev/docs/quickstart
+- Build an agent: https://taskbay.allsrc.dev/docs/guides/build-an-agent-for-taskbay
+- Approval extension: https://taskbay.allsrc.dev/docs/reference/extensions/approval-request
+- Threat model: https://taskbay.allsrc.dev/docs/security/threat-model
+- Status: https://taskbay.allsrc.dev/docs/project/status-and-roadmap

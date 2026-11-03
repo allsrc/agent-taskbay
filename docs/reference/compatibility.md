@@ -124,6 +124,7 @@ Credentials are bound to origins: a credential is sent only to the origins liste
 | AG-UI adapter | Experimental, off by default | `verify-agui-http`; no real client test ([#13](https://github.com/allsrc/agent-taskbay/issues/13)) |
 | Local launcher (`npx agent-taskbay`) | Implemented, single user | `verify:package` |
 | Extension plugin contract | Not implemented | [#26](https://github.com/allsrc/agent-taskbay/issues/26) |
+| Python agent helper (`sdk/python`) | Experimental. Not on PyPI. Serves an A2A agent that can ask for an approval. It is not a client of the console. | `sdk/python/tests`; `verify-python-sdk-http` |
 | Client SDK and stable `/api/v1` | Not implemented | [#31](https://github.com/allsrc/agent-taskbay/issues/31) |
 | Container images, Helm chart | Not provided | See [Production deployment](../guides/production-deployment.md) |
 

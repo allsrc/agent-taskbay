@@ -1,2 +1,2 @@
+# Optional import only. This sketch does not call Agent Taskbay and does not use HTTP.
 crewai>=0.28.0
-requests>=2.31.0

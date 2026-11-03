@@ -168,7 +168,7 @@ The 300-second window is a suggestion; the console does not define one.
 - One webhook for one organization. Per-user or per-channel routing, quiet hours, email and mobile push do not exist.
 - The webhook carries titles and names, not content. A receiver that needs more must call back into the console.
 - The signature scheme has one version (`v1`). Rotating the secret means changing the environment variable and restarting; deliveries signed with the old secret that are still queued are signed at send time, so they use the new one.
-- Pre-1.0: payload fields may be added.
+- Payload fields may be added in a minor release. Existing fields follow semantic versioning.
 
 ## Further reading
 
