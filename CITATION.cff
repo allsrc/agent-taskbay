@@ -1,0 +1,27 @@
+cff-version: 1.2.0
+message: "If you use Agent Taskbay in research, operational tooling, or academic publications, please cite it as below."
+title: "Agent Taskbay: Open-Source Human-in-the-Loop Console for AI Agents and A2A Workflows"
+abstract: "A self-hosted, MIT-licensed operations console providing durable task queues, human approval gates, multi-modal artifact review, and audit logging for autonomous AI agent networks."
+authors:
+  - family-names: "G S"
+    given-names: "Shashi Kanth"
+    website: "https://shashikanth.me"
+version: 1.0.0
+date-released: 2026-11-03
+url: "https://taskbay.allsrc.dev"
+repository-code: "https://github.com/allsrc/agent-taskbay"
+license: MIT
+keywords:
+  - "human-in-the-loop"
+  - "agentic-workflows"
+  - "hitl"
+  - "agent-ops"
+  - "llm-agents"
+  - "developer-tools"
+  - "agent-console"
+  - "a2a"
+  - "a2a-protocol"
+  - "langgraph"
+  - "crewai"
+  - "approval-gates"
+  - "durable-tasks"

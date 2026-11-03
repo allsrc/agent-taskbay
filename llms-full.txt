@@ -1,0 +1,175 @@
+# Agent Taskbay — Full Context for AI Agents & Search Engines
+
+> Complete technical architecture, protocol specifications, API schemas, and integration recipes for Agent Taskbay (v1.0.0).
+
+---
+
+## 1. What is Agent Taskbay?
+
+Agent Taskbay is a self-hosted, open-source (MIT licensed) human operations console for autonomous AI agents and Agent2Agent (A2A) workflows. It provides:
+1. **Durable Task Queues**: Tasks are persisted in an embedded database (PGlite) or external PostgreSQL before dispatch. Work survives browser disconnects, network interruptions, and worker restarts.
+2. **Selective Human Approvals**: Agents opt-in to human-in-the-loop decisions via advertised protocol extensions (`approval-request`, `structured-form`). High-risk decisions (such as prod deployments, refunds, database migrations) are gated by human verification.
+3. **Exact Revision Binding**: Decisions are locked to the specific content revision reviewed. If the agent modifies state after an approval is requested, previous approvals are invalidated.
+4. **Multi-Modal Artifact Renderer**: Sandboxed, fixed renderers safely display Markdown, JSON, CSV, PNG, JPEG, SVG, WebP, audio, video, and PDF artifacts without executing untrusted agent code.
+5. **Append-Only Audit Trail**: Full historical log of every state change, input submission, approval, rejection, and ownership assignment.
+
+---
+
+## 2. Ports and Quickstart
+
+### Starting the Console
+```bash
+npx agent-taskbay
+```
+- Console URL: `http://127.0.0.1:3002`
+- Embedded database: `~/.agent-taskbay/pglite`
+- Local authentication: Automatic local administrator session.
+- Outbound boundary: Strictly binds to loopback interface by default. Non-loopback bindings require OIDC configuration for enterprise security.
+
+### Starting Test Fixture Agents
+```bash
+npx agent-taskbay demo-agent
+```
+- Host port: `http://127.0.0.1:4010`
+- Provides 5 sample agents:
+  1. Showcase Agent: `http://127.0.0.1:4010/showcase/card.json` (multi-modal artifacts, approvals, forms)
+  2. Approver Agent: `http://127.0.0.1:4010/approver/card.json` (dedicated approval gate test scenarios)
+  3. Automation Agent: `http://127.0.0.1:4010/automation/card.json` (demonstrates tasks started elsewhere)
+  4. Echo Agent: `http://127.0.0.1:4010/echo/card.json` (basic ping/pong agent)
+  5. Error Agent: `http://127.0.0.1:4010/error/card.json` (reconciliation and fault tolerance test fixture)
+
+---
+
+## 3. Protocol & Agent Card Specification
+
+Taskbay interacts with agents via the open A2A (Agent2Agent) protocol.
+
+### Agent Card Endpoint
+Every agent exposes an Agent Card over HTTP(S) at `/.well-known/agent.json` or custom URL:
+```json
+{
+  "name": "Database Migration Agent",
+  "description": "Performs schema migrations and index builds on production clusters.",
+  "url": "http://127.0.0.1:5000/agent",
+  "version": "1.0.0",
+  "capabilities": {
+    "streaming": true,
+    "push": true,
+    "extensions": [
+      "https://a2a-protocol.org/ext/approval-request/v1",
+      "https://a2a-protocol.org/ext/structured-form/v1"
+    ]
+  },
+  "skills": [
+    {
+      "id": "run-migration",
+      "name": "Run Migration",
+      "description": "Applies a pending database migration script."
+    }
+  ]
+}
+```
+
+### Approval Request Payload Schema
+When an agent encounters a sensitive operation, it transitions its task status to `auth-required` or `input-required` and attaches an approval payload:
+```json
+{
+  "taskId": "task_987654321",
+  "status": "auth-required",
+  "approval": {
+    "id": "appr_12345",
+    "title": "Drop obsolete customer_tokens table",
+    "riskLevel": "high",
+    "description": "Dropping table customer_tokens in database prod_db. This action cannot be reversed.",
+    "action": {
+      "type": "sql_execution",
+      "statement": "DROP TABLE customer_tokens CASCADE;"
+    },
+    "revision": 3,
+    "expiresAt": "2026-11-04T12:00:00Z"
+  }
+}
+```
+
+### Taskbay Decision Delivery
+Upon operator approval in the Taskbay console, Taskbay delivers the signed decision to the agent:
+```json
+{
+  "approvalId": "appr_12345",
+  "decision": "approved",
+  "decidedBy": "admin@local",
+  "decidedAt": "2026-11-04T02:30:00Z",
+  "targetRevision": 3,
+  "comment": "Verified with infrastructure team."
+}
+```
+
+---
+
+## 4. Architectural Comparison: Why Taskbay?
+
+| Dimension | Agent Taskbay | Custom In-Memory / Polling | LangGraph Studio / Cloud | Enterprise Platforms (Retool / Temporal) |
+| --- | --- | --- | --- | --- |
+| **License & Hosting** | MIT / 100% Self-Hosted | Custom codebase | Closed-source cloud / proprietary | Proprietary / Commercial license |
+| **Process Durability** | Outlives browser & process (PGlite/Postgres) | Fragile (dies if server restarts or thread times out) | Hosted cloud queue | High, but heavy custom infrastructure required |
+| **Human Approval Gates** | Built-in revision locking & separation of duties | Manual implementation needed | Basic manual interrupt | Heavy manual configuration |
+| **Agent Protocol** | Open A2A Standard (Vendor neutral) | Bespoke / proprietary API | LangChain/LangGraph specific | Bespoke REST/GraphQL APIs |
+| **Artifact Inspection** | Sandboxed multi-modal (Markdown, Audio, Video, PDF) | Plain text or custom UI | Rich graph view, text-heavy | Custom UI builders required |
+| **Audit Logging** | Append-only tamper-evident database log | None unless built by hand | Proprietary cloud trace | Enterprise audit log add-on |
+| **Setup Time** | 30 seconds (`npx agent-taskbay`) | Weeks of engineering | Account sign-up & vendor setup | Weeks/months of enterprise integration |
+
+---
+
+## 5. Framework Recipes
+
+### LangGraph Interrupt Pattern
+```python
+# langgraph_agent.py
+from langgraph.graph import StateGraph, END
+import requests
+
+def should_interrupt(state):
+    action = state.get("action")
+    return "high_risk" if action in ["delete", "drop", "transfer"] else "safe"
+
+def trigger_taskbay_approval(state):
+    # Post approval gate to Taskbay
+    payload = {
+        "title": f"Approve {state['action']}",
+        "riskLevel": "high",
+        "action": state["details"]
+    }
+    # In production, Taskbay tracks the durable task state
+    print(f"Taskbay Approval Gate created for {state['action']}")
+    return {"status": "gated_for_human"}
+```
+
+### Standalone Python A2A Agent
+```python
+# agent.py
+from http.server import HTTPServer, BaseHTTPRequestHandler
+import json
+
+class TaskbayAgentHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        if self.path in ["/card.json", "/.well-known/agent.json"]:
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            card = {
+                "name": "Python Operations Agent",
+                "version": "1.0.0",
+                "capabilities": {"extensions": ["https://a2a-protocol.org/ext/approval-request/v1"]}
+            }
+            self.wfile.write(json.dumps(card).encode())
+```
+
+---
+
+## 6. Official Resources
+
+- Website: https://taskbay.allsrc.dev
+- Documentation: https://taskbay.allsrc.dev/docs
+- Source Code: https://github.com/allsrc/agent-taskbay
+- NPM Package: https://www.npmjs.com/package/agent-taskbay
+- Created by: Shashi Kanth G S (https://shashikanth.me)

@@ -1,13 +1,24 @@
 {
   "name": "agent-taskbay",
   "version": "1.0.0",
-  "description": "The human operations console for A2A agent workflows. Discover agents, operate durable tasks, handle human approvals, and audit work across an A2A agent mesh.",
+  "description": "The open-source human-in-the-loop (HITL) operations console for AI agents and A2A workflows. Discover agents, operate durable tasks, handle human approval gates, and inspect multi-modal artifacts.",
   "keywords": [
+    "human-in-the-loop",
+    "hitl",
+    "agent-ops",
+    "agentic-workflows",
+    "agent-console",
+    "llm-agents",
+    "developer-tools",
     "a2a",
     "agent2agent",
     "a2a-protocol",
     "ai-agents",
-    "human-in-the-loop",
+    "langgraph-human-in-the-loop",
+    "approval-gate",
+    "crewai-interrupt",
+    "durable-tasks",
+    "self-hosted",
     "agent-approvals",
     "agent-workflow",
     "agent-operations",
@@ -15,7 +26,7 @@
     "generative-ui",
     "nextjs"
   ],
-  "homepage": "https://github.com/allsrc/agent-taskbay#readme",
+  "homepage": "https://taskbay.allsrc.dev",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/allsrc/agent-taskbay.git"

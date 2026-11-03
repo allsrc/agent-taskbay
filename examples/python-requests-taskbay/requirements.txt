@@ -1,0 +1,3 @@
+# Standard library only
+# Optional for client tests:
+requests>=2.31.0

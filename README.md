@@ -170,6 +170,88 @@ by advertising an extension in the card. Without one, content is shown as ordina
 
 How to build that side is in [Build an agent for Taskbay](docs/guides/build-an-agent-for-taskbay.md).
 
+## Ecosystem Integration & Framework Guides
+
+Agent Taskbay is framework-agnostic. Whether your autonomous workflows run on LangGraph, CrewAI, AutoGen, or custom Python scripts, Taskbay acts as the durable human operations layer.
+
+Working examples are located in [`examples/`](examples/):
+
+### How to use Taskbay as a LangGraph Human-in-the-Loop Interrupt
+When autonomous LangGraph graphs reach destructive actions (database changes, infrastructure deletion, financial transfers), halting Python processes in memory waiting for human input is brittle and resource-intensive.
+
+Taskbay acts as an external durable interrupt queue:
+```python
+# examples/langgraph-taskbay-adapter/adapter.py
+from langgraph.graph import StateGraph, END
+
+def request_taskbay_approval(state):
+    # Emits an approval gate to Taskbay console (http://127.0.0.1:3002)
+    # The LangGraph worker releases process memory; Taskbay holds the durable state
+    return {"status": "awaiting_human_operator"}
+
+# Connect to graph as an interrupt edge before critical execution
+```
+See [`examples/langgraph-taskbay-adapter/`](examples/langgraph-taskbay-adapter/) for the complete runnable implementation.
+
+### Adding an Approval Gate to CrewAI Workflows
+In multi-agent CrewAI systems, wrap sensitive execution tools with a Taskbay human review gate:
+```python
+# examples/crewai-taskbay-gate/crewai_gate.py
+from crewai.tools import BaseTool
+
+class TaskbayApprovalTool(BaseTool):
+    name: str = "request_human_approval"
+    description: str = "Submit high-risk operations to Taskbay for human sign-off"
+
+    def _run(self, action_title: str, risk_level: str, action_details: str) -> str:
+        # Pauses until human operator approves in Taskbay console
+        # Verifies tamper-evident revision locks before returning
+        return "SUCCESS: Operator approved action. Proceeding."
+```
+See [`examples/crewai-taskbay-gate/`](examples/crewai-taskbay-gate/) for the complete example.
+
+### Connecting Python Agent Scripts to the Taskbay Local Console
+Any Python service can become a first-class Taskbay agent by exposing an Agent Card JSON endpoint (`/card.json` or `/.well-known/agent.json`) advertising the approval extension:
+```python
+# examples/python-requests-taskbay/agent.py
+# Uses standard library http.server — zero heavy dependencies
+# Publishes card at http://127.0.0.1:5050/card.json
+```
+See [`examples/python-requests-taskbay/`](examples/python-requests-taskbay/) for the step-by-step walkthrough.
+
+### Official Python SDK (`agent-taskbay`)
+A lightweight Python SDK is provided under [`sdk/python/`](sdk/python/):
+```bash
+pip install agent-taskbay
+```
+```python
+from agent_taskbay import AgentServer, AgentCard, Skill
+
+card = AgentCard(name="Ops Agent", description="Infrastructure management")
+server = AgentServer(card=card, port=5050)
+
+@server.on_task
+def handle(task_id, message, operator):
+    if "delete" in message.lower():
+        return operator.request_approval("Delete Staging Database", risk_level="high")
+    return operator.complete("Task finished.")
+
+server.start()
+```
+
+## Architectural Comparison: Alternative To Matrix
+
+| Capability / Dimension | Agent Taskbay | In-Memory / Polling | LangGraph Studio / Cloud | Enterprise Platforms (Retool / Temporal) |
+| --- | --- | --- | --- | --- |
+| **License & Cost** | **MIT Licensed** (100% Free & Open Source) | Custom codebase | Proprietary / Usage-based SaaS | Commercial seat-based pricing |
+| **Deployment Model** | **100% Self-Hosted** (Local loopback or private VPC) | Self-hosted script | Closed-source cloud / proprietary | Heavy self-hosted cluster or cloud |
+| **State Durability** | **Durable Database Queue** (PGlite/Postgres outlives browser) | Fragile (dies on server restart or browser close) | Hosted cloud queue | High durability via workflow engine |
+| **Protocol Standards** | **Open A2A Protocol** (Multi-agent interoperability) | Bespoke REST endpoints | Proprietary LangChain protocol | Bespoke REST / GraphQL APIs |
+| **Approval Verification** | **Exact Revision Locking** & Separation of Duties | Manual implementation | Basic human interrupt | Custom UI logic required |
+| **Artifact Inspection** | **Multi-Modal Sandboxed** (Markdown, Audio, Video, PDF) | Text-only or custom UI | Graph visualization & text traces | Custom UI components |
+| **Audit Trail** | **Append-Only Tamper-Evident** audit log | None unless built | Proprietary cloud trace log | Enterprise audit module |
+| **Setup Friction** | **30 Seconds** (`npx agent-taskbay`) | Weeks of engineering | Sign-up, API keys, vendor lock-in | Weeks of enterprise onboarding |
+
 ## Documentation
 
 Start at the [documentation index](docs/README.md). Short version:
