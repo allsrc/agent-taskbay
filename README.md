@@ -210,6 +210,19 @@ class TaskbayApprovalTool(BaseTool):
 ```
 See [`examples/crewai-taskbay-gate/`](examples/crewai-taskbay-gate/) for the complete example.
 
+### Google Agent Development Kit (ADK) Durable Approvals
+Google ADK introduces human input nodes (`RequestInput`) and long-running tools (`LongRunningFunctionTool` / `require_confirmation=True`). ADK's `RunState` persistence allows agents to hibernate without consuming compute resources while awaiting sign-off.
+
+Taskbay provides the missing operational console where operators inspect actions and deliver revision-locked approvals:
+```python
+# examples/google-adk-taskbay-gate/adk_agent.py
+# 1. ADK LongRunningFunctionTool yields pending approval ticket to Taskbay
+# 2. Agent RunState hibernates in storage (0% CPU/RAM allocated)
+# 3. Operator reviews and approves in Taskbay console (http://127.0.0.1:3002)
+# 4. Signed decision wakes ADK agent from dormancy to complete execution
+```
+See [`examples/google-adk-taskbay-gate/`](examples/google-adk-taskbay-gate/) for the complete runnable implementation.
+
 ### Connecting Python Agent Scripts to the Taskbay Local Console
 Any Python service can become a first-class Taskbay agent by exposing an Agent Card JSON endpoint (`/card.json` or `/.well-known/agent.json`) advertising the approval extension:
 ```python
