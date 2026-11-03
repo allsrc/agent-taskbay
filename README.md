@@ -254,16 +254,14 @@ server.start()
 
 ## Architectural Comparison: Alternative To Matrix
 
-| Capability / Dimension | Agent Taskbay | In-Memory / Polling | LangGraph Studio / Cloud | Enterprise Platforms (Retool / Temporal) |
-| --- | --- | --- | --- | --- |
-| **License & Cost** | **MIT Licensed** (100% Free & Open Source) | Custom codebase | Proprietary / Usage-based SaaS | Commercial seat-based pricing |
-| **Deployment Model** | **100% Self-Hosted** (Local loopback or private VPC) | Self-hosted script | Closed-source cloud / proprietary | Heavy self-hosted cluster or cloud |
-| **State Durability** | **Durable Database Queue** (PGlite/Postgres outlives browser) | Fragile (dies on server restart or browser close) | Hosted cloud queue | High durability via workflow engine |
-| **Protocol Standards** | **Open A2A Protocol** (Multi-agent interoperability) | Bespoke REST endpoints | Proprietary LangChain protocol | Bespoke REST / GraphQL APIs |
-| **Approval Verification** | **Exact Revision Locking** & Separation of Duties | Manual implementation | Basic human interrupt | Custom UI logic required |
-| **Artifact Inspection** | **Multi-Modal Sandboxed** (Markdown, Audio, Video, PDF) | Text-only or custom UI | Graph visualization & text traces | Custom UI components |
-| **Audit Trail** | **Append-Only Tamper-Evident** audit log | None unless built | Proprietary cloud trace log | Enterprise audit module |
-| **Setup Friction** | **30 Seconds** (`npx agent-taskbay`) | Weeks of engineering | Sign-up, API keys, vendor lock-in | Weeks of enterprise onboarding |
+| Dimension | Agent Taskbay | In-Memory / Ad-Hoc Scripts | Proprietary / Vendor-Locked Platforms |
+| :--- | :--- | :--- | :--- |
+| **Architecture & Lock-In** | **Open A2A Protocol** (Zero vendor lock-in; works with any agent framework) | Bespoke code (must be rebuilt per agent) | **Vendor-Locked** (Proprietary APIs & walled gardens) |
+| **State Durability** | **Durable Embedded Queue** (PGlite/Postgres survives reboots & tab closes) | **Fragile** (State lost if worker dies or tab closes) | Durable, but requires external cloud dependencies |
+| **Human Approval Gates** | **Exact Revision Locks** & Separation of Duties | None (Stale decisions execute on changed state) | High configuration; requires custom UI forms |
+| **Privacy & Hosting** | **100% Self-Hosted & Local** (Zero accounts or telemetry) | Self-hosted, but unmanaged | Third-party cloud; data leaves your perimeter |
+| **Multi-Modal Inspection** | **Sandboxed Fixed Viewer** (Markdown, Media, PDF, CSV) | Raw text / console logs | Generic UI builder widgets |
+| **Audit & Governance** | **Append-Only Tamper-Evident** audit trail | None unless built by hand | Costly enterprise tier / compliance add-on |
 
 ## Documentation
 
