@@ -62,6 +62,10 @@ Each row names the control and where it is exercised. "Evidence" points at tests
 
 Changes to authentication, credentials, outbound requests, webhooks or artifact handling should update this page and add a regression test.
 
+## Release dependency review
+
+Version 1.0.0 updates Next.js to 16.4.4, Undici to 8.12.3 and MikroORM to 7.2.5, with compatible patches for Zod, gRPC and transitive dependencies. The shadcn generator is needed only to build the stylesheet and is a development dependency. Run `npm audit --omit=dev` against the release lockfile to check installed runtime dependencies; review the full audit separately for development tooling. At release preparation, the production audit reports zero findings. The full audit still reports low and moderate findings in development tooling (including the generator, linter and test tooling); there are no high or critical findings. These are not part of the published runtime dependency tree. An audit does not establish whether an advisory is reachable in a particular deployment.
+
 ## Related
 
 - [How credentials are protected](service-identity.md)

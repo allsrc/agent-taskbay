@@ -27,8 +27,9 @@ describe("SEC-004 HTTP authentication coverage", () => {
   it("protects every application route and leaves the independent authenticated webhook plane intact", () => {
     const walk = (directory: string): string[] => readdirSync(directory, { withFileTypes: true }).flatMap((entry) =>
       entry.isDirectory() ? walk(join(directory, entry.name)) : entry.name === "route.ts" ? [join(directory, entry.name)] : []);
-    for (const path of walk("src/app/api")) {
-      const source = readFileSync(path, "utf8");
+    for (const nativePath of walk("src/app/api")) {
+      const source = readFileSync(nativePath, "utf8");
+      const path = nativePath.replaceAll("\\", "/");
       if (path.includes("/webhooks/")) { expect(source).toContain("receivePush"); continue; }
       if (path.endsWith("auth/login/route.ts") || path.endsWith("auth/callback/route.ts")) continue;
       expect(source, path).toContain("authenticatedRoute(");

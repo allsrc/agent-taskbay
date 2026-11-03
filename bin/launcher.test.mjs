@@ -33,8 +33,9 @@ it("recognises loopback hosts only", () => {
 });
 
 it("prefers --data-dir, then A2A_DATA_DIR, then the home directory", () => {
-  expect(resolveDataDir({ dataDir: "/a" }, { A2A_DATA_DIR: "/b" })).toBe("/a");
-  expect(resolveDataDir({}, { A2A_DATA_DIR: "/b" })).toBe("/b");
+  const explicit = join(dir, "explicit"), environment = join(dir, "environment");
+  expect(resolveDataDir({ dataDir: explicit }, { A2A_DATA_DIR: environment })).toBe(explicit);
+  expect(resolveDataDir({}, { A2A_DATA_DIR: environment })).toBe(environment);
   expect(resolveDataDir({}, {})).toMatch(/\.agent-taskbay$/);
 });
 

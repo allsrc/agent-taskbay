@@ -70,6 +70,9 @@ The console leaves beta with 1.0.0. Structured-form, approval-request and skill-
 
 ### Fixed
 
+- **Release dependency hardening.** Next.js and its ESLint configuration move to 16.4.4, Undici to 8.12.3, and the MikroORM packages together to 7.2.5. Compatible dependency patches include Zod 4.6.7 and gRPC 1.14.7 advisory fixes. The shadcn generator is now a development dependency; its stylesheet is compiled into the shipped console, so the generator and its tooling dependencies are no longer installed by the published package. Motion stays on its existing major version.
+- **Windows verification.** Launcher data-directory tests use native absolute paths, and authentication-coverage tests normalize directory separators before checking route exceptions.
+
 - **Link-styled outline buttons had no border.** `buttonVariants()` returned a raw class string, so an outline button built from a link kept both `border-transparent` and the variant's border colour, and the transparent one won. "Back to tasks", **Export CSV**, **Add agent** and similar looked like plain text. They now render as buttons.
 - **Audit trail no longer drops you out of Administration.** It opens inside Administration at `/admin/audit` with the tabs still visible; `/audit` sends administrators there. **Find tasks** no longer shows a redundant "Back to tasks" button, and **Disable** on a team looks like a button.
 

@@ -21,10 +21,10 @@ the repository's own CI runs; nothing here is a claim about other versions or en
 | --- | --- | --- |
 | Node.js | `>=22.19.0` (the only version CI runs: `22.19.0`) | `engines` in `package.json`; `.nvmrc`; `.github/workflows/ci.yml` and `release.yml` |
 | PostgreSQL | CI runs `postgres:18-alpine`. No other version is tested. | `.github/workflows/ci.yml` |
-| Embedded database | PGlite `0.5.8` (through `@mikro-orm/pglite` `7.2.3`), single process only | `package-lock.json` |
+| Embedded database | PGlite `0.5.8` (through `@mikro-orm/pglite` `7.2.5`), single process only | `package-lock.json` |
 | A2A SDK | `@a2a-js/sdk` `^1.3.0` (locked at `1.3.0`) | `package.json`, `package-lock.json` |
-| Web framework | Next.js `16.3.6`, React `19.3.0` | `package.json` |
-| ORM | MikroORM `7.2.3` | `package.json` |
+| Web framework | Next.js `16.4.4`, React `19.3.0` | `package.json` |
+| ORM | MikroORM `7.2.5` | `package.json` |
 | Operating systems | The full suite runs on `ubuntu-latest`. An informational `platforms` job also runs lint, unit tests, the embedded-database lock and people tests and the build on macOS and Windows; it may fail without blocking a merge, so treat those systems as unverified until it has been green. The launcher has code to open a browser on macOS, Windows and Linux. | `ci.yml`, `bin/agent-taskbay.mjs` |
 | Browsers | Not verified. The repository declares no browser support list and has no cross-browser test suite. | `package.json` |
 
