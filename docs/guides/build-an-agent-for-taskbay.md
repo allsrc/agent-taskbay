@@ -121,6 +121,24 @@ If the task finishes or expires first, the approval becomes `superseded` or `exp
 
 Do not treat an A2UI surface or a form as an approval: they only collect input. An approval is a separate record with a decision and an audit trail.
 
+## Experimental Python helper
+
+`sdk/python` is an experimental helper that serves a JSON-RPC agent and sends the approval part above. It is not the parked Taskbay client SDK ([#31](https://github.com/allsrc/agent-taskbay/issues/31)). It is not published on PyPI. From a checkout:
+
+```bash
+pip install -e sdk/python
+```
+
+From git:
+
+```bash
+pip install "git+https://github.com/allsrc/agent-taskbay.git#subdirectory=sdk/python"
+```
+
+`examples/python-requests-taskbay` is a small agent built with it. Connect `/.well-known/agent-card.json` (or `/card.json`). The helper completes a task only when the follow-up carries `metadata.approval` and the `revisionDigest` matches the content of that message. Anything else, including a chat reply, leaves the task in `TASK_STATE_INPUT_REQUIRED`. Rejecting in the console sends no message.
+
+The LangGraph, CrewAI, and Google ADK directories under `examples/` are sketches. They do not open a connection. An ADK adapter is future work ([#18](https://github.com/allsrc/agent-taskbay/issues/18)).
+
 ## Show an A2UI surface
 
 If the card advertises `https://a2ui.org/a2a-extension/a2ui/v0.9`, an `INPUT_REQUIRED` message may carry a data part with media type `application/a2ui+json` whose `data` is an array of A2UI v0.9 envelopes (`createSurface`, `updateComponents`, `updateDataModel`). The console renders a closed set of components (Text, Row, Column, Card, Divider, Button, TextField, CheckBox, ChoicePicker) as inert React elements; other components appear as labelled placeholders. It loads no URLs and runs no functions: images, videos and `openUrl` are not rendered or run, and agent strings are shown as text, not HTML or Markdown. A button with an `action.event` sends back one data part of media type `application/a2ui+json` containing an `action` object (the fixture reads `data.action.context`).
@@ -182,7 +200,7 @@ Two practical notes from reading it:
 - The extension URIs are identifiers with `/v1` fixed. An incompatible change would be published under a new version, not by editing `/v1`.
 - Experimental extension definitions may change between minor versions.
 - Agents cannot assign reviewers, set policy, or approve anything themselves.
-- Third-party A2A agents are not tested. The fixture in this repository is the only agent the tests exercise.
+- The HTTP tests exercise the fixture in this repository and the experimental Python helper. Other agents are not tested.
 
 ## Further reading
 

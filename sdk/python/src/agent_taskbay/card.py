@@ -1,12 +1,18 @@
-"""
-Agent Card models according to A2A specification.
+"""Agent Card models for the subset this helper serves.
+
+Extension entries are objects with ``uri`` and ``required``, which is what A2A 1.0
+and Agent Taskbay read. A list of bare URI strings does not advertise the extension.
 """
 
 from dataclasses import dataclass, field
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, List
 
 APPROVAL_EXTENSION_URI = "https://extensions.allsrc.dev/agent-taskbay/approval-request/v1"
 FORM_EXTENSION_URI = "https://extensions.allsrc.dev/agent-taskbay/structured-form/v1"
+
+
+def extension_entry(uri: str, *, required: bool = False) -> Dict[str, Any]:
+    return {"uri": uri, "required": required}
 
 
 @dataclass
@@ -31,7 +37,7 @@ class Skill:
 class AgentCard:
     name: str
     description: str
-    version: str = "1.0.0"
+    version: str = "0.1.0"
     skills: List[Skill] = field(default_factory=list)
     extensions: List[str] = field(default_factory=lambda: [APPROVAL_EXTENSION_URI])
     streaming: bool = False
@@ -52,9 +58,9 @@ class AgentCard:
             "capabilities": {
                 "streaming": self.streaming,
                 "pushNotifications": self.push_notifications,
-                "extensions": self.extensions,
+                "extensions": [extension_entry(uri) for uri in self.extensions],
             },
-            "defaultInputModes": ["text/plain"],
-            "defaultOutputModes": ["text/plain"],
-            "skills": [s.to_dict() for s in self.skills],
+            "defaultInputModes": ["text/plain", "application/json"],
+            "defaultOutputModes": ["text/plain", "application/json"],
+            "skills": [skill.to_dict() for skill in self.skills],
         }

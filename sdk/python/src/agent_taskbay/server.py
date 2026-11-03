@@ -1,15 +1,33 @@
-"""
-Lightweight HTTP server exposing the A2A Agent Card and handling Taskbay requests.
+"""Minimal JSON-RPC agent that can ask Agent Taskbay for an approval.
+
+Discovery paths are ``/.well-known/agent-card.json`` and ``/card.json``. A URL that
+ends in ``.json`` is fetched as-is; a base URL is resolved at
+``/.well-known/agent-card.json``. ``/.well-known/agent.json`` is served as well so
+an old link still resolves; Taskbay does not look there when given a base URL.
 """
 
+from __future__ import annotations
+
+import datetime
 import json
 import uuid
-import datetime
-from http.server import HTTPServer, BaseHTTPRequestHandler
-from typing import Callable, Dict, Any, Optional
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from typing import Any, Callable, Dict, Optional
 
+from .approvals import ApprovalRequest, OperatorResponse, interpret_follow_up
 from .card import AgentCard
-from .approvals import OperatorResponse, APPROVAL_MEDIA_TYPE
+
+CARD_PATHS = ("/card.json", "/.well-known/agent-card.json", "/.well-known/agent.json")
+Handler = Callable[[str, str, OperatorResponse], Dict[str, Any]]
+
+
+def _now() -> str:
+    return datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+
+def _text_of(message: Dict[str, Any]) -> str:
+    parts = message.get("parts") if isinstance(message.get("parts"), list) else []
+    return " ".join(part.get("text", "") for part in parts if isinstance(part, dict) and isinstance(part.get("text"), str)).strip()
 
 
 class AgentServer:
@@ -17,153 +35,183 @@ class AgentServer:
         self.card = card
         self.host = host
         self.port = port
-        self.tasks: Dict[str, Any] = {}
-        self._handler_callback: Optional[Callable[[str, str, OperatorResponse], Dict[str, Any]]] = None
+        self.tasks: Dict[str, Dict[str, Any]] = {}
+        self._pending: Dict[str, Dict[str, Any]] = {}
+        self._handler: Optional[Handler] = None
 
-    def on_task(self, fn: Callable[[str, str, OperatorResponse], Dict[str, Any]]):
-        self._handler_callback = fn
+    def on_task(self, fn: Handler) -> Handler:
+        self._handler = fn
         return fn
 
-    def start(self):
+    def handle_rpc(self, rpc: Dict[str, Any]) -> Dict[str, Any]:
+        rpc_id = rpc.get("id")
+        method = rpc.get("method")
+        params = rpc.get("params") if isinstance(rpc.get("params"), dict) else {}
+        if method == "SendMessage":
+            return self._send_message(rpc_id, params)
+        if method == "GetTask":
+            task = self.tasks.get(params.get("id"))
+            if not task:
+                return _error(rpc_id, -32001, "Task not found")
+            return _ok(rpc_id, task)
+        if method == "ListTasks":
+            tasks = list(self.tasks.values())
+            return _ok(rpc_id, {"tasks": tasks, "pageSize": 50, "totalSize": len(tasks)})
+        return _error(rpc_id, -32601, f"Method not found: {method}")
+
+    def _send_message(self, rpc_id: Any, params: Dict[str, Any]) -> Dict[str, Any]:
+        message = params.get("message") if isinstance(params.get("message"), dict) else {}
+        task_id = message.get("taskId")
+        if isinstance(task_id, str) and task_id in self.tasks:
+            task = self._resume(self.tasks[task_id], message)
+            return _ok(rpc_id, {"task": task})
+
+        new_id = task_id if isinstance(task_id, str) and task_id else f"task-{uuid.uuid4().hex[:8]}"
+        context_id = message.get("contextId") if isinstance(message.get("contextId"), str) else str(uuid.uuid4())
+        spoken = _text_of(message)
+        operator = OperatorResponse(new_id)
+        if self._handler:
+            result = self._handler(new_id, spoken, operator)
+        else:
+            result = operator.complete(f"Acknowledged: {spoken}")
+        task = self._open_task(new_id, context_id, message, result)
+        self.tasks[new_id] = task
+        return _ok(rpc_id, {"task": task})
+
+    def _open_task(self, task_id: str, context_id: str, user_message: Dict[str, Any], result: Dict[str, Any]) -> Dict[str, Any]:
+        if result.get("type") == "approval":
+            approval = result["approval"]
+            if not isinstance(approval, ApprovalRequest):
+                raise TypeError("request_approval must return the helper's ApprovalRequest")
+            action = approval.to_dict()["action"]
+            self._pending[task_id] = action
+            parts = [
+                {"text": f"Approval requested: {approval.title}"},
+                approval.to_part(),
+            ]
+            state = "TASK_STATE_INPUT_REQUIRED"
+        else:
+            self._pending.pop(task_id, None)
+            parts = [{"text": str(result.get("message", "Task completed."))}]
+            state = "TASK_STATE_COMPLETED"
+        status_message = {
+            "messageId": f"{task_id}-status",
+            "role": "ROLE_AGENT",
+            "taskId": task_id,
+            "contextId": context_id,
+            "parts": parts,
+        }
+        return {
+            "id": task_id,
+            "contextId": context_id,
+            "status": {"state": state, "timestamp": _now(), "message": status_message},
+            "history": [user_message, status_message],
+            "artifacts": [],
+        }
+
+    def _resume(self, task: Dict[str, Any], message: Dict[str, Any]) -> Dict[str, Any]:
+        # A repeat delivery of an already finished task must not run the action again.
+        if task["status"]["state"] == "TASK_STATE_COMPLETED":
+            return task
+        task_id = task["id"]
+        pending = self._pending.get(task_id)
+        decision = interpret_follow_up(message, pending) if pending else {"outcome": "not_approved", "reason": "no_approval"}
+        task["history"].append(message)
+        if decision["outcome"] == "approved":
+            self._pending.pop(task_id, None)
+            text = decision["action"].get("text") or json.dumps(decision["action"].get("values"), sort_keys=True)
+            done = {
+                "messageId": f"{task_id}-done",
+                "role": "ROLE_AGENT",
+                "taskId": task_id,
+                "contextId": task["contextId"],
+                "parts": [{"text": f"Executed with approval {decision['revisionDigest']} ({text})"}],
+            }
+            task["history"].append(done)
+            task["status"] = {"state": "TASK_STATE_COMPLETED", "timestamp": _now(), "message": done}
+            return task
+        note = {
+            "messageId": f"{task_id}-hold-{len(task['history'])}",
+            "role": "ROLE_AGENT",
+            "taskId": task_id,
+            "contextId": task["contextId"],
+            "parts": [{"text": "This reply is not an approved revision, so the proposed action was not run."}],
+        }
+        task["history"].append(note)
+        task["status"]["state"] = "TASK_STATE_INPUT_REQUIRED"
+        task["status"]["timestamp"] = _now()
+        return task
+
+    def serve(self) -> HTTPServer:
         server_instance = self
 
         class RequestHandler(BaseHTTPRequestHandler):
-            def log_message(self, format, *args):
-                # Silent or formatted logging
-                pass
+            def log_message(self, format: str, *args: Any) -> None:
+                return
 
-            def do_GET(self):
-                if self.path in ["/card.json", "/.well-known/agent.json"]:
-                    self.send_response(200)
-                    self.send_header("Content-Type", "application/json")
-                    self.send_header("Access-Control-Allow-Origin", "*")
-                    self.end_headers()
-                    base_url = f"http://{server_instance.host}:{server_instance.port}"
-                    card_data = server_instance.card.to_dict(base_url)
-                    self.wfile.write(json.dumps(card_data, indent=2).encode("utf-8"))
-                else:
+            def do_GET(self) -> None:  # noqa: N802
+                path = self.path.split("?", 1)[0]
+                if path not in CARD_PATHS:
                     self.send_response(404)
                     self.end_headers()
-
-            def do_POST(self):
-                if self.path == "/a2a":
-                    length = int(self.headers.get("Content-Length", 0))
-                    body = self.rfile.read(length)
-                    try:
-                        rpc = json.loads(body.decode("utf-8"))
-                    except Exception as e:
-                        self._send_rpc_error(None, -32700, f"Parse error: {str(e)}")
-                        return
-
-                    rpc_id = rpc.get("id")
-                    method = rpc.get("method")
-                    params = rpc.get("params", {})
-
-                    if method == "SendMessage":
-                        self._handle_send_message(rpc_id, params)
-                    elif method == "GetTask":
-                        task_id = params.get("id")
-                        task = server_instance.tasks.get(task_id)
-                        if task:
-                            self._send_rpc_success(rpc_id, task)
-                        else:
-                            self._send_rpc_error(rpc_id, -32001, "Task not found")
-                    elif method == "ListTasks":
-                        self._send_rpc_success(rpc_id, {
-                            "tasks": list(server_instance.tasks.values()),
-                            "pageSize": 50,
-                            "totalSize": len(server_instance.tasks)
-                        })
-                    else:
-                        self._send_rpc_error(rpc_id, -32601, f"Method not found: {method}")
-                else:
-                    self.send_response(404)
-                    self.end_headers()
-
-            def _handle_send_message(self, rpc_id, params):
-                msg = params.get("message", {})
-                task_id = msg.get("taskId")
-                parts = msg.get("parts", [])
-                user_text = " ".join([p.get("text", "") for p in parts if "text" in p]).strip()
-                now = datetime.datetime.now(datetime.timezone.utc).isoformat()
-
-                if task_id and task_id in server_instance.tasks:
-                    task = server_instance.tasks[task_id]
-                    task["history"].append(msg)
-                    task["status"]["state"] = "TASK_STATE_COMPLETED"
-                    task["status"]["timestamp"] = now
-                    task["history"].append({
-                        "messageId": f"{task_id}-m{len(task['history']) + 1}",
-                        "role": "ROLE_AGENT",
-                        "taskId": task_id,
-                        "parts": [{"text": "Decision received. Task completed."}]
-                    })
-                    self._send_rpc_success(rpc_id, {"task": task})
                     return
-
-                new_id = f"task-{uuid.uuid4().hex[:8]}"
-                operator_resp = OperatorResponse(new_id)
-
-                if server_instance._handler_callback:
-                    res = server_instance._handler_callback(new_id, user_text, operator_resp)
-                else:
-                    res = operator_resp.complete(f"Acknowledged: {user_text}")
-
-                if res.get("type") == "approval":
-                    approval = res["approval"]
-                    parts_data = [
-                        {"text": f"Agent proposed action requiring human review: {approval.title}"},
-                        {"mediaType": APPROVAL_MEDIA_TYPE, "text": json.dumps(approval.to_dict())}
-                    ]
-                    state = "TASK_STATE_INPUT_REQUIRED"
-                else:
-                    parts_data = [{"text": res.get("message", "Task completed.")}]
-                    state = "TASK_STATE_COMPLETED"
-
-                task = {
-                    "id": new_id,
-                    "status": {
-                        "state": state,
-                        "timestamp": now,
-                        "message": {
-                            "messageId": f"{new_id}-m1",
-                            "role": "ROLE_AGENT",
-                            "taskId": new_id,
-                            "parts": parts_data
-                        }
-                    },
-                    "history": [
-                        {
-                            "messageId": f"{new_id}-m1",
-                            "role": "ROLE_AGENT",
-                            "taskId": new_id,
-                            "parts": parts_data
-                        }
-                    ],
-                    "artifacts": [],
-                    "metadata": {"title": f"Task: {user_text[:30] or 'Direct'}"}
-                }
-                server_instance.tasks[new_id] = task
-                self._send_rpc_success(rpc_id, {"task": task})
-
-            def _send_rpc_success(self, rpc_id, result):
+                body = json.dumps(server_instance.card.to_dict(server_instance.base_url), indent=2).encode("utf-8")
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
                 self.send_header("Access-Control-Allow-Origin", "*")
                 self.end_headers()
-                self.wfile.write(json.dumps({"jsonrpc": "2.0", "id": rpc_id, "result": result}).encode("utf-8"))
+                self.wfile.write(body)
 
-            def _send_rpc_error(self, rpc_id, code, message):
+            def do_POST(self) -> None:  # noqa: N802
+                if self.path.split("?", 1)[0] != "/a2a":
+                    self.send_response(404)
+                    self.end_headers()
+                    return
+                length = int(self.headers.get("Content-Length", 0))
+                raw = self.rfile.read(length)
+                try:
+                    rpc = json.loads(raw.decode("utf-8"))
+                except Exception as error:  # noqa: BLE001 - the wire error is the response
+                    self._write(_error(None, -32700, f"Parse error: {error}"))
+                    return
+                if not isinstance(rpc, dict):
+                    self._write(_error(None, -32700, "Parse error: body must be an object"))
+                    return
+                try:
+                    self._write(server_instance.handle_rpc(rpc))
+                except ValueError as error:
+                    self._write(_error(rpc.get("id"), -32602, str(error)))
+
+            def _write(self, payload: Dict[str, Any]) -> None:
+                encoded = json.dumps(payload).encode("utf-8")
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
                 self.send_header("Access-Control-Allow-Origin", "*")
                 self.end_headers()
-                self.wfile.write(json.dumps({"jsonrpc": "2.0", "id": rpc_id, "error": {"code": code, "message": message}}).encode("utf-8"))
+                self.wfile.write(encoded)
 
         httpd = HTTPServer((self.host, self.port), RequestHandler)
-        print(f"Agent Taskbay Python Server listening on http://{self.host}:{self.port}")
-        print(f"Agent Card available at http://{self.host}:{self.port}/card.json")
+        self.port = httpd.server_address[1]
+        return httpd
+
+    @property
+    def base_url(self) -> str:
+        return f"http://{self.host}:{self.port}"
+
+    def start(self) -> None:
+        httpd = self.serve()
+        card_url = f"{self.base_url}/.well-known/agent-card.json"
+        print(f"Agent Taskbay Python helper listening on {self.base_url}")
+        print(f"AGENT_CARD_URL={card_url}", flush=True)
         try:
             httpd.serve_forever()
         except KeyboardInterrupt:
             httpd.server_close()
+
+
+def _ok(rpc_id: Any, result: Any) -> Dict[str, Any]:
+    return {"jsonrpc": "2.0", "id": rpc_id, "result": result}
+
+
+def _error(rpc_id: Any, code: int, message: str) -> Dict[str, Any]:
+    return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": code, "message": message}}

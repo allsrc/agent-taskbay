@@ -4,34 +4,27 @@ build-backend = "hatchling.build"
 
 [project]
 name = "agent-taskbay"
-version = "1.0.0"
-description = "Lightweight Python SDK for Agent Taskbay — connect Python agents and workflows to the human-in-the-loop operations console."
+version = "0.1.0"
+description = "Experimental helper that serves an A2A agent and asks Agent Taskbay for an approval. Not a client SDK, and not published on PyPI."
 readme = "README.md"
 authors = [
     { name = "Shashi Kanth G S", email = "shashikanth@allsrc.dev" }
 ]
 license = { text = "MIT" }
 classifiers = [
-    "Development Status :: 5 - Production/Stable",
+    "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
-    "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Software Development :: Libraries :: Python Modules"
 ]
 keywords = [
     "agent-taskbay",
-    "human-in-the-loop",
-    "hitl",
     "a2a",
-    "a2a-protocol",
-    "ai-agents",
-    "langgraph",
-    "crewai",
-    "approval-gates"
+    "approval-request"
 ]
 requires-python = ">=3.10"
 dependencies = []
@@ -39,5 +32,5 @@ dependencies = []
 [project.urls]
 Homepage = "https://taskbay.allsrc.dev"
 Repository = "https://github.com/allsrc/agent-taskbay"
-Documentation = "https://taskbay.allsrc.dev/docs"
+Documentation = "https://github.com/allsrc/agent-taskbay/blob/main/sdk/python/README.md"
 Issues = "https://github.com/allsrc/agent-taskbay/issues"
