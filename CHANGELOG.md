@@ -5,29 +5,30 @@ the project uses [semantic versioning](https://semver.org/) once it reaches 1.0;
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-03
+
+**Agent Taskbay 1.0 is the first stable release, bringing the console out of beta.** It gives people one place to start and follow durable A2A tasks, answer agents, review approvals and keep an audit trail, even after closing the browser.
+
+This release includes all changes since 0.2.0: task discovery and tracking, steering and restart, related tasks, richer chat content, agent nicknames, an Administration area and stream-driven live updates.
+
+### Upgrading from 0.2.0
+
+- Back up the database, artifact directory and vault keys, then stop web and workers before upgrading. This release requires **schema version 9**. The local launcher migrates automatically and backs up an existing PGlite directory; PostgreSQL deployments must apply migrations explicitly.
+- Databases with all sixteen legacy migrations are adopted into the numbered baseline without replacing their tables. If a database has only some legacy migrations, start it once with `agent-taskbay@0.2.0` before upgrading.
+- Upgrade all web and worker instances before fetching an extended Agent Card. Mixed versions can interpret card snapshots differently.
+- Rebuild projections with `npm run db:projections:rebuild` to refresh existing status-message metadata and populate related-task links immediately. Stop the web process and add `-- --offline-pglite` when using PGlite.
+- See [Upgrading and backups](docs/guides/upgrading-and-backups.md) for the complete procedure.
+
+### Release scope
+
+The console leaves beta with 1.0.0. Structured-form, approval-request and skill-routing extensions, A2UI and the optional AG-UI adapter remain experimental. The console's HTTP routes are internal and are not a stable public API. A stable client SDK and `/api/v1`, user-delegated OAuth, gRPC and packaged container deployment remain future work. There has been no independent security audit; platform and browser coverage remains limited as documented in [Compatibility](docs/reference/compatibility.md).
+
 ### Added
 
 - **Agent nicknames.** Give an agent your own name to tell apart registrations whose cards advertise the same name, for example the same agent built with LangGraph and with ADK. Set it in the connect dialog or later on the agent page (administrators). The nickname replaces the card name in the console, inbox, approvals, notifications and audit trail, and the agents list now shows each agent's host and port. Nicknames are unique among enabled agents, ignoring case; clearing one restores the card name. Schema version 9.
 
 - **IDs are labeled and copyable.** Every ID in chat, task pages, approvals and the task browser now says what it is (Task ID, Context ID, Message ID, Artifact ID, Call ID, Taskbay ID, Approval ID, Command ID, Digest), with a copy icon that copies the whole value. Selecting a label explains the ID: its protocol field, whether A2A defines it or only Taskbay keeps it, its full value and who creates it. The task page's **Identifiers** panel is rebuilt around this, shows each message's ID in **History**, lists artifact and referenced-task IDs, wraps very long values and folds those over 100 characters behind **Show all**. Copying works over plain HTTP, and the chat header's context ID moves to its own row on a phone.
 
-### Fixed
-
-- **Link-styled outline buttons had no border.** `buttonVariants()` returned a raw class string, so an outline button built from a link kept both `border-transparent` and the variant's border colour, and the transparent one won. "Back to tasks", **Export CSV**, **Add agent** and similar looked like plain text. They now render as buttons.
-- **Audit trail no longer drops you out of Administration.** It opens inside Administration at `/admin/audit` with the tabs still visible; `/audit` sends administrators there. **Find tasks** no longer shows a redundant "Back to tasks" button, and **Disable** on a team looks like a button.
-
-### Changed
-
-- **Live updates no longer poll every 5 seconds.** The console refreshes from the live-update stream and on focus, and polls (with jitter) only while the stream is down. Web processes share one freshness read per organization (at most about one per 400 ms), and stream lifetimes are randomized (40 to 55 seconds) so browsers do not reconnect together. `task-views`, `decisions` and `notifications` reads send `ETag` and answer `304` when unchanged; responses stay `no-store`.
-- **Console navigation is reorganised by job.** The sidebar groups daily work (**Home**, **Inbox**, **Tasks**, **Chat**), **Agents** (**Agents**, **Find tasks**, **Orchestration**) and **You** (**Notifications**, **Settings**, **Administration** for administrators).
-- **Administration is its own area** (`/admin`) with **Overview**, **People**, **Teams**, **Agent access** and **Policies & alerts**, plus a link to the audit trail. It replaces the organization cards that sat under **Settings**, which now holds only your browser-stored request defaults and extensions. **Teams** gains **Disable team**. No API changed.
-- **People management in the console.** With OIDC sign-in, **Administration → People** can add a person, change a role, deactivate and reactivate, all audited (`member.*`) and with the same guards as the API: you cannot change or deactivate yourself. In local development mode the page shows the built-in administrator and explains that people need OIDC. `POST /api/admin/security` gains `provisionMember`, `changeRole`, `deactivateMember` and `reactivateMember`; `GET` adds `identity` and `inactiveMemberships`.
-- **Dev server serves `127.0.0.1`.** `next dev` now allows the `127.0.0.1` origin, which the launcher and docs print; before, the page loaded there but never became interactive.
-- **Browsing an agent's tasks is a page, not a dialog.** **Find tasks** (`/discover`) works across agents and is linked from the sidebar, the **Tasks** list and each agent's **Task discovery** card.
-
-- **Clear errors when the embedded database cannot be opened.** PGlite has no lock of its own, so a second process (for example `npm run db:migrate` while `npm run dev` runs) could open the same folder silently and damage it. Taskbay now takes a `<folder>.lock` file and refuses with "already open in another process"; a stale lock from a dead process is taken over. A damaged folder, which made PGlite end the whole process with `RuntimeError: Aborted()`, now fails the open with an error that says what to do. Background workers print the reason once instead of a bare "will retry" in a loop. Nothing is deleted or moved automatically.
-
-### Added
 
 - **Browse and track tasks started elsewhere.** **Browse tasks** on an agent page reads live `ListTasks` pages without storing them; **Track** and **Track by task ID** re-read and store one task to answer, steer, cancel or claim. Requires an administrator or whole-agent `operate` grant. Stored tasks carry **Discovered** labels, an origin filter and tracking details; tracking never claims a task or notifies people about its first stored state. The **Task discovery** card defaults to **Browse only**, with **Off** and a deployment-wide `A2A_TASK_DISCOVERY` cap. Schema version 2.
 - **Automatic discovery is opt-in.** With `A2A_TASK_DISCOVERY=auto`, an administrator can set an agent to **Automatic**. Workers then store eligible unknown tasks: finished history defaults to 7 days (0–90), with at most 500 new tasks on the first sweep, 200 on later sweeps and 5,000 discovered tasks per agent before pausing. First sight notifies only for input or authorization requests updated within 24 hours; later changes notify normally. Schema version 5.
@@ -45,10 +46,20 @@ the project uses [semantic versioning](https://semver.org/) once it reaches 1.0;
 
 ### Changed
 
+- **Live updates no longer poll every 5 seconds.** The console refreshes from the live-update stream and on focus, and polls (with jitter) only while the stream is down. Web processes share one freshness read per organization (at most about one per 400 ms), and stream lifetimes are randomized (40 to 55 seconds) so browsers do not reconnect together. `task-views`, `decisions` and `notifications` reads send `ETag` and answer `304` when unchanged; responses stay `no-store`.
+- **Console navigation is reorganised by job.** The sidebar groups daily work (**Home**, **Inbox**, **Tasks**, **Chat**), **Agents** (**Agents**, **Find tasks**, **Orchestration**) and **You** (**Notifications**, **Settings**, **Administration** for administrators).
+- **Administration is its own area** (`/admin`) with **Overview**, **People**, **Teams**, **Agent access** and **Policies & alerts**, plus a link to the audit trail. It replaces the organization cards that sat under **Settings**, which now holds only your browser-stored request defaults and extensions. **Teams** gains **Disable team**. No API changed.
+- **People management in the console.** With OIDC sign-in, **Administration → People** can add a person, change a role, deactivate and reactivate, all audited (`member.*`) and with the same guards as the API: you cannot change or deactivate yourself. In local development mode the page shows the built-in administrator and explains that people need OIDC. `POST /api/admin/security` gains `provisionMember`, `changeRole`, `deactivateMember` and `reactivateMember`; `GET` adds `identity` and `inactiveMemberships`.
+- **Dev server serves `127.0.0.1`.** `next dev` now allows the `127.0.0.1` origin, which the launcher and docs print; before, the page loaded there but never became interactive.
+- **Browsing an agent's tasks is a page, not a dialog.** **Find tasks** (`/discover`) works across agents and is linked from the sidebar, the **Tasks** list and each agent's **Task discovery** card.
+
+- **Clear errors when the embedded database cannot be opened.** PGlite has no lock of its own, so a second process (for example `npm run db:migrate` while `npm run dev` runs) could open the same folder silently and damage it. Taskbay now takes a `<folder>.lock` file and refuses with "already open in another process"; a stale lock from a dead process is taken over. A damaged folder, which made PGlite end the whole process with `RuntimeError: Aborted()`, now fails the open with an error that says what to do. Background workers print the reason once instead of a bare "will retry" in a loop. Nothing is deleted or moved automatically.
+
+
 - Definite A2A refusals settle commands as `rejected` with an `errorKind`, while unknown failures after dispatch stay `uncertain`. Chat and task pages explain failures by kind, including whether to check the task or start a new one; remote refusal text is not stored or returned. Schema version 3.
 - Sending to or canceling a finished task is refused locally with `409` and `task_terminal`. Continue as a new task in the same context.
 - Unsupported extensions marked `required: true` block sends until an administrator explicitly overrides the block on the agent page or through its settings route. Cancels remain available and overrides are audited. Schema version 4.
-- Migrations use numbered names and the release declares its required schema version (now 8). The sixteen development migrations are consolidated into a baseline; older databases that applied all sixteen are adopted unchanged. Incomplete legacy databases must first start `agent-taskbay@0.2.0` to finish those migrations.
+- Migrations use numbered names and the release declares its required schema version (now 9). The sixteen development migrations are consolidated into a baseline; older databases that applied all sixteen are adopted unchanged. Incomplete legacy databases must first start `agent-taskbay@0.2.0` to finish those migrations.
 - Startup reports database creation and upgrades. Before upgrading an existing PGlite directory, it keeps a `<dir>.backup-v<schema version>-<timestamp>` copy (newest three retained); a database newer than the release is refused.
 - Sent chat messages use a soft brand surface, and sender labels distinguish **You** from the agent’s name and avatar.
 - Long content folds behind **Show all N lines**: messages and results after about 20 lines, compact steps and JSON values after 6. Multi-line JSON strings retain line breaks; trees and tables page at 100 entries, and expanded cards have bounded scrolling.
@@ -58,6 +69,10 @@ the project uses [semantic versioning](https://semver.org/) once it reaches 1.0;
 - Documentation consolidates the implemented capabilities, discovery limits, failure handling and verification, and records guided authorization and signed incoming push as future work.
 
 ### Fixed
+
+- **Link-styled outline buttons had no border.** `buttonVariants()` returned a raw class string, so an outline button built from a link kept both `border-transparent` and the variant's border colour, and the transparent one won. "Back to tasks", **Export CSV**, **Add agent** and similar looked like plain text. They now render as buttons.
+- **Audit trail no longer drops you out of Administration.** It opens inside Administration at `/admin/audit` with the tabs still visible; `/audit` sends administrators there. **Find tasks** no longer shows a redundant "Back to tasks" button, and **Disable** on a team looks like a button.
+
 
 - Tenant selection uses the matching interface URL within connection pins. New tasks store the effective default tenant, and automatic discovery avoids empty-tenant alias copies while preserving legacy records.
 - Supported required extensions are declared in A2A request headers, and empty SDK task lists show a normal empty state.

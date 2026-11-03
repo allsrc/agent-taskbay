@@ -17,8 +17,7 @@ propose, and later show what happened.
 
 Created and maintained by [Shashi Kanth G S](https://shashikanth.me), part of [Allsrc](https://allsrc.dev).
 
-> **Status: pre-1.0 (`0.2.0`), published on npm as `agent-taskbay`.** Interfaces, HTTP routes and stored data shapes may change between
-> minor versions. It has not been independently security-reviewed. See [Status and roadmap](docs/project/status-and-roadmap.md) for what
+> **Status: stable (`1.0.0`), published on npm as `agent-taskbay`.** The console is out of beta; experimental extensions and internal HTTP routes have separate compatibility limits. It has not been independently security-reviewed. See [Status and roadmap](docs/project/status-and-roadmap.md) for what
 > works, what is partial and what is planned.
 
 This README describes the current checkout; features under **Unreleased** in the [changelog](CHANGELOG.md#unreleased) require a source checkout until included in a published release.
@@ -116,7 +115,7 @@ Each row is explained, with its limits, in [Concepts](docs/concepts/overview.md)
 
 ## Why you might not want this (yet)
 
-- **Pre-1.0.** Interfaces may change between minor versions, and there has been no independent security review.
+- **Security review.** There has been no independent security review.
 - **No stable API or SDK.** The HTTP API needs a browser session cookie and a matching `Origin`; there are no service tokens and no
   `/api/v1` ([#31](https://github.com/allsrc/agent-taskbay/issues/31)). Use it as a console, not as a backend for scripts.
 - **Local mode is not a security boundary.** It signs everyone in as an administrator. The `npx` launcher refuses non-loopback addresses

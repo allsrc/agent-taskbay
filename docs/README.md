@@ -2,7 +2,7 @@
 
 > Find the page that answers your question. Each page answers one. Start with your role, or scan the task list below.
 
-Agent Taskbay is pre-1.0. If a word is unfamiliar, the [glossary](reference/glossary.md) defines it and links to the page that explains it.
+Agent Taskbay 1.0 is stable. If a word is unfamiliar, the [glossary](reference/glossary.md) defines it and links to the page that explains it.
 
 ## Start here
 

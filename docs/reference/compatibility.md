@@ -3,7 +3,7 @@
 > For anyone deciding whether Agent Taskbay fits their environment and agents: supported runtime versions, which A2A versions, transports and authentication schemes the gateway
 > handles or refuses, what is experimental, and a table of known limitations with issue links.
 
-Agent Taskbay is **pre-1.0** (package version `0.2.0`) and published to npm. Interfaces may change between minor versions. "Tested" in this page means what
+Agent Taskbay is **stable** (package version `1.0.0`) and published to npm. Stable functionality follows semantic versioning; experimental features and internal console routes may change between minor versions. "Tested" in this page means what
 the repository's own CI runs; nothing here is a claim about other versions or environments.
 
 ## On this page
@@ -104,7 +104,7 @@ Credentials are bound to origins: a credential is sent only to the origins liste
 
 ## Experimental and stable
 
-"Stable" here means implemented and covered by the repository's automated tests, **not** that the interface is frozen. Nothing is frozen before 1.0.
+"Stable" here means implemented and covered by the repository's automated tests, **not** that the interface is frozen. From 1.0, stable functionality follows semantic versioning. Experimental features and internal console routes are excluded from that compatibility promise.
 
 | Feature | Status | Evidence in the repository |
 | --- | --- | --- |

@@ -4,7 +4,7 @@
 
 This page is about A2A push notifications that agents send **into** Taskbay. It is not about the signed webhook that Taskbay sends **out** to your team chat or another system; that is [Notifications](notifications.md).
 
-When push is on, a worker registers a callback with each agent that advertises push support, one per open task. The agent then calls Taskbay's webhook when the task changes. Push is optional. Without it, Taskbay already keeps tasks current through streams (when the agent supports them) and polling reconciliation, which reads each open task about every 15 seconds. Push only makes changes arrive sooner. Taskbay is pre-1.0; this behavior may change.
+When push is on, a worker registers a callback with each agent that advertises push support, one per open task. The agent then calls Taskbay's webhook when the task changes. Push is optional. Without it, Taskbay already keeps tasks current through streams (when the agent supports them) and polling reconciliation, which reads each open task about every 15 seconds. Push only makes changes arrive sooner. Taskbay 1.0 supports this behavior.
 
 ## Before you start
 

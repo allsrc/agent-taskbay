@@ -4,7 +4,7 @@
 
 A new operator or viewer sees nothing. Their role sets the most they may ever do; a grant decides which agents, or which skills of an agent, they may do it on. You give grants in **Administration**, or with the access management API. Administrators need no grants: they see and operate every agent in their organization.
 
-Agent Taskbay is pre-1.0. The screens and API on this page may change between minor versions.
+Agent Taskbay 1.0 is stable. Screen layouts may evolve; internal console API routes are excluded from the public compatibility promise.
 
 ## Before you start
 

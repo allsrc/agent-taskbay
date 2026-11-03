@@ -180,7 +180,7 @@ Two practical notes from reading it:
 ## Limits
 
 - The extension URIs are identifiers with `/v1` fixed. An incompatible change would be published under a new version, not by editing `/v1`.
-- Pre-1.0: the extension definitions may still change between minor versions.
+- Experimental extension definitions may change between minor versions.
 - Agents cannot assign reviewers, set policy, or approve anything themselves.
 - Third-party A2A agents are not tested. The fixture in this repository is the only agent the tests exercise.
 

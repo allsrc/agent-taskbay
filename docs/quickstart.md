@@ -2,7 +2,7 @@
 
 > Who this is for: someone who wants to see Agent Taskbay work on their own machine. At the end you will have run the console, connected a sample A2A agent, sent it a task, approved an action as a reviewer, and seen the result recorded.
 
-Agent Taskbay is pre-1.0 (package version `0.2.0`). It is published to npm, so there are two ways to run it: `npx agent-taskbay`, which needs no checkout, or from a git checkout, which is also how you develop it. Steps 1 and 2 show both paths. This guide describes the current checkout; features marked **Unreleased** in the [changelog](../CHANGELOG.md#unreleased), including browsing and tracking tasks started elsewhere, require the source path until included in a published release.
+Agent Taskbay is stable (package version `1.0.0`). It is published to npm, so there are two ways to run it: `npx agent-taskbay`, which needs no checkout, or from a git checkout, which is also how you develop it. Steps 1 and 2 show both paths. This guide describes the current checkout; features marked **Unreleased** in the [changelog](../CHANGELOG.md#unreleased), require the source path until included in a published release.
 
 ## Before you start
 
@@ -23,7 +23,7 @@ npx agent-taskbay
 The launcher starts the console at `http://127.0.0.1:3002` and opens a browser tab when it is attached to a terminal (`--no-open` turns that off). It prints the Next.js start banner, then whether it is creating a new database or upgrading an existing one (an existing PGlite database is backed up first), then a summary. This is the summary from a run with `--data-dir ./scratch-data --no-open -p 3055`:
 
 ```text
-  Agent Taskbay 0.2.0 is running at http://127.0.0.1:3055
+  Agent Taskbay 1.0.0 is running at http://127.0.0.1:3055
   Data: <your data dir>
   Local mode: you are signed in as a development administrator. Only this machine can connect.
   Try it with sample agents: npx agent-taskbay demo-agent
@@ -162,7 +162,7 @@ How it works, who may do this and how to switch it off: [Find and steer tasks st
 - The sample agents are a test fixture. They do not do any real work and their cards are unsigned.
 - This runs one user as a local administrator. Multi-user sign-in needs OIDC and provisioning ([Sign in and roles](guides/sign-in-and-roles.md)).
 - The launcher has been exercised on Linux only; macOS and Windows are not verified ([Status and roadmap](project/status-and-roadmap.md)).
-- Pre-1.0: interfaces may change between minor versions.
+- Experimental features and internal console routes have separate compatibility limits.
 
 ## Related
 

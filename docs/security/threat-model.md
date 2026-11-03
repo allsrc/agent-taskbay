@@ -2,7 +2,7 @@
 
 > Who this is for: operators and security reviewers deciding whether Agent Taskbay's controls fit their deployment. You will have the assets, trust boundaries, threats, the control for each, and the residual risk.
 
-Agent Taskbay is a server that holds credentials for your agents and sends work to them on behalf of signed-in people. That makes it a high-value target. This page lists what it protects, who it trusts, and where the protection stops. It is pre-1.0 software and has not had an external security audit that we can point to. To report a problem, follow [SECURITY.md](../../SECURITY.md).
+Agent Taskbay is a server that holds credentials for your agents and sends work to them on behalf of signed-in people. That makes it a high-value target. This page lists what it protects, who it trusts, and where the protection stops. Version 1.0 is out of beta, but has not had an external security audit that we can point to. To report a problem, follow [SECURITY.md](../../SECURITY.md).
 
 ## Assets and trust boundaries
 
