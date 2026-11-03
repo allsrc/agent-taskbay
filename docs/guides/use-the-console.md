@@ -379,7 +379,7 @@ More symptoms are in [Troubleshooting](../operations/troubleshooting.md).
 
 ## Limits
 
-- Pre-1.0: labels, layouts and URLs can change.
+- Console labels, layouts and URLs are not part of the stable interface and can change in any release.
 - These screens are not covered by browser end-to-end tests. The structured-form and A2UI renderers have component tests, and the routes behind the screens are exercised by `npm run test:http`.
 - Conversations and the Orchestration view are built in your browser from the tasks it loads. The browser loads every task you can read, so very large task lists make them slow.
 - The **{ } Wire** panel and the chat options are per tab and are lost on reload.
