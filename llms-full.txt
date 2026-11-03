@@ -108,15 +108,14 @@ Upon operator approval in the Taskbay console, Taskbay delivers the signed decis
 
 ## 4. Architectural Comparison: Why Taskbay?
 
-| Dimension | Agent Taskbay | Custom In-Memory / Polling | LangGraph Studio / Cloud | Enterprise Platforms (Retool / Temporal) |
-| --- | --- | --- | --- | --- |
-| **License & Hosting** | MIT / 100% Self-Hosted | Custom codebase | Closed-source cloud / proprietary | Proprietary / Commercial license |
-| **Process Durability** | Outlives browser & process (PGlite/Postgres) | Fragile (dies if server restarts or thread times out) | Hosted cloud queue | High, but heavy custom infrastructure required |
-| **Human Approval Gates** | Built-in revision locking & separation of duties | Manual implementation needed | Basic manual interrupt | Heavy manual configuration |
-| **Agent Protocol** | Open A2A Standard (Vendor neutral) | Bespoke / proprietary API | LangChain/LangGraph specific | Bespoke REST/GraphQL APIs |
-| **Artifact Inspection** | Sandboxed multi-modal (Markdown, Audio, Video, PDF) | Plain text or custom UI | Rich graph view, text-heavy | Custom UI builders required |
-| **Audit Logging** | Append-only tamper-evident database log | None unless built by hand | Proprietary cloud trace | Enterprise audit log add-on |
-| **Setup Time** | 30 seconds (`npx agent-taskbay`) | Weeks of engineering | Account sign-up & vendor setup | Weeks/months of enterprise integration |
+| Dimension | Agent Taskbay | In-Memory / Ad-Hoc Scripts | Proprietary / Vendor-Locked Platforms |
+| :--- | :--- | :--- | :--- |
+| **Architecture & Lock-In** | **Open A2A Protocol** (Zero vendor lock-in; works with any agent framework) | Bespoke code (must be rebuilt per agent) | **Vendor-Locked** (Proprietary APIs & walled gardens) |
+| **State Durability** | **Durable Embedded Queue** (PGlite/Postgres survives reboots & tab closes) | **Fragile** (State lost if worker dies or tab closes) | Durable, but requires external cloud dependencies |
+| **Human Approval Gates** | **Exact Revision Locks** & Separation of Duties | None (Stale decisions execute on changed state) | High configuration; requires custom UI forms |
+| **Privacy & Hosting** | **100% Self-Hosted & Local** (Zero accounts or telemetry) | Self-hosted, but unmanaged | Third-party cloud; data leaves your perimeter |
+| **Multi-Modal Inspection** | **Sandboxed Fixed Viewer** (Markdown, Media, PDF, CSV) | Raw text / console logs | Generic UI builder widgets |
+| **Audit & Governance** | **Append-Only Tamper-Evident** audit trail | None unless built by hand | Costly enterprise tier / compliance add-on |
 
 ---
 
