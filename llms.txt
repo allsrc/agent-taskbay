@@ -1,0 +1,73 @@
+# Agent Taskbay
+
+> Agent Taskbay is a self-hosted, open-source human-in-the-loop (HITL) operations console for AI agents and Agent2Agent (A2A) workflows. It provides durable task persistence, selective human approval gates, multi-modal artifact review, and append-only audit logging.
+
+## Core Facts & Quickstart
+
+- **Type**: Self-hosted web application & background task worker runtime.
+- **License**: MIT (Created by Shashi Kanth G S, part of Allsrc).
+- **Default Port**: Web Console binds to `http://127.0.0.1:3002` (local embedded PGlite database).
+- **Sample Agents Port**: Demo fixtures bind to `http://127.0.0.1:4010`.
+- **CLI Commands**:
+  - `npx agent-taskbay` — Starts the web console on port 3002.
+  - `npx agent-taskbay demo-agent` — Starts five reference sample agents on port 4010.
+- **Protocol**: Standard [A2A (Agent2Agent) Protocol](https://a2a-protocol.org).
+- **Documentation**: [https://taskbay.allsrc.dev](https://taskbay.allsrc.dev)
+- **GitHub Repository**: [https://github.com/allsrc/agent-taskbay](https://github.com/allsrc/agent-taskbay)
+
+## Architecture
+
+- **State Durability**: Commands and task events are committed to the local embedded database (PGlite) or PostgreSQL before being dispatched. When the browser closes, tasks continue running in background workers.
+- **Single Source of Truth**: The browser never connects directly to autonomous agents and never holds agent credentials. The UI reads the database; background workers communicate with agents via HTTP streaming, push callbacks, and polling.
+- **Safe Multi-Modal Artifacts**: Previews text, Markdown, JSON, CSV, PNG/JPEG, audio, video, and PDF artifacts using fixed, sandboxed renderers without executing agent-supplied code.
+- **Separation of Duties & Revision Locks**: Human approval decisions are bound to the exact content revision proposed by the agent. If the task state shifts or expires, the decision is rejected.
+
+## Protocol & Agent Card Schema
+
+Any autonomous agent can connect to Agent Taskbay by publishing an Agent Card JSON at `/.well-known/agent.json` or `/card.json`:
+
+```json
+{
+  "name": "Production Deployer",
+  "description": "Orchestrates database migrations and infrastructure rollouts.",
+  "url": "http://127.0.0.1:4010/deployer",
+  "version": "1.0.0",
+  "capabilities": {
+    "extensions": [
+      "https://a2a-protocol.org/ext/approval-request/v1",
+      "https://a2a-protocol.org/ext/structured-form/v1"
+    ]
+  },
+  "skills": [
+    {
+      "id": "deploy",
+      "name": "Deploy Application",
+      "description": "Trigger an environment deployment requiring human review."
+    }
+  ]
+}
+```
+
+### Task Lifecycle States
+1. `submitted`: Created and enqueued in Taskbay database.
+2. `working`: Agent accepted task and is executing.
+3. `input-required`: Agent needs structured parameters or answers from a human operator.
+4. `auth-required`: Sensitive action requires authenticated human sign-off (with optional high-risk warning).
+5. `completed`: Final artifacts generated and task resolved.
+6. `failed` / `cancelled`: Terminated or operator-cancelled.
+
+## Framework Integrations
+
+- **LangGraph**: Use Taskbay as an out-of-process interrupt queue for sensitive tool invocations. Instead of pausing a long-running Python thread in memory for hours, emit an A2A task with an approval gate and resume upon callback.
+- **CrewAI**: Wrap sensitive tools with an approval check against Taskbay. The agent pauses, waits for the signed human review, and continues execution with the approved parameters.
+- **Python Agents**: Publish an HTTP endpoint serving an Agent Card and dispatching status updates to Taskbay.
+
+## Documentation Index
+
+- [Documentation Home](https://taskbay.allsrc.dev/docs): Overview of the console and concepts.
+- [Quickstart Guide](https://taskbay.allsrc.dev/docs/quickstart): Five-minute end-to-end setup.
+- [Concepts: Human in the Loop](https://taskbay.allsrc.dev/docs/concepts/human-in-the-loop): Detailed approval mechanics, expiration, and separation of duties.
+- [Concepts: Durable Tasks](https://taskbay.allsrc.dev/docs/concepts/durable-tasks): Multi-stage execution, reconciliation, and workers.
+- [Concepts: Alternative To Matrix](https://taskbay.allsrc.dev/docs/concepts/alternative-to): Architectural comparison with LangGraph Studio, proprietary platforms, and custom polling.
+- [Build an Agent for Taskbay](https://taskbay.allsrc.dev/docs/guides/build-an-agent-for-taskbay): Step-by-step agent integration guide.
+- [Production Deployment](https://taskbay.allsrc.dev/docs/guides/production-deployment): PostgreSQL, OIDC, and multi-process worker architecture.
