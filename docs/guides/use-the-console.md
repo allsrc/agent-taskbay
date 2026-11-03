@@ -2,7 +2,7 @@
 
 > Who this is for: anyone who works in the Taskbay console day to day. You will have a map of every screen, know what each control does, and know which actions your role allows.
 
-The console is the web app you open in the browser. The sidebar lists its screens. The server keeps every task, message and artifact, so you can close the tab and come back later. This page walks through each screen in sidebar order. Taskbay is pre-1.0 (version `0.2.0`), so labels and layouts can change between minor versions.
+The console is the web app you open in the browser. The sidebar lists its screens. The server keeps every task, message and artifact, so you can close the tab and come back later. This page walks through each screen in sidebar order. Taskbay is stable (version `1.0.0`), with labels and layouts that may evolve between minor versions.
 
 ## Before you start
 
@@ -24,7 +24,7 @@ The console is the web app you open in the browser. The sidebar lists its screen
 
 On a medium screen the sidebar shrinks to an icon rail; from a large screen it shows labels. The sidebar is grouped by what you are doing. Under no heading is your daily work: **Home**, **Inbox**, **Tasks** and **Chat**. Under **Agents** are **Agents**, **Find tasks** and **Orchestration**. Under **You** are **Notifications**, **Settings** (your own defaults) and, for administrators only, **Administration** (people, teams, agent access, policies and the audit trail). On a phone the bottom bar shows **Home**, **Inbox**, **Tasks** and **Chat**, plus a **More** tab that opens a sheet with the rest (**Agents**, **Find tasks**, **Orchestration**, **Notifications**, **Settings** and **Administration** for administrators), your identity menu and the theme switch. The **Inbox** tab shows a count of pending approvals, and **More** shows a dot when there are unread notifications.
 
-**Inbox** shows a badge with the number of pending approvals. **Notifications** shows your unread count (shown as "99+" above 99). The bottom of the sidebar shows your identity menu, a **Light** / **System** / **Dark** theme switch, the tenant of the first agent that reports one, and the version of Agent Taskbay that is running (the package version, for example `v0.2.0`).
+**Inbox** shows a badge with the number of pending approvals. **Notifications** shows your unread count (shown as "99+" above 99). The bottom of the sidebar shows your identity menu, a **Light** / **System** / **Dark** theme switch, the tenant of the first agent that reports one, and the version of Agent Taskbay that is running (the package version, for example `v1.0.0`).
 
 Opening the console root (`/`) takes you to **Chat**.
 

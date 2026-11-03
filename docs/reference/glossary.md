@@ -2,7 +2,7 @@
 
 > Who this is for: anyone reading the Taskbay docs who meets an unfamiliar term. You will have a short definition of each term and a link to the page that explains it in full.
 
-Terms are in alphabetical order. Taskbay is pre-1.0, so names and behavior can change between minor versions.
+Terms are in alphabetical order. Taskbay 1.0 is stable; experimental features are identified in the compatibility reference.
 
 ## On this page
 

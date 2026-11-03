@@ -51,7 +51,7 @@ A pull request that changes behavior and no page should say why in its descripti
 5. Be precise: defaults, units, ranges, error shapes, who is authorized. Tables for reference; prose for concepts.
 6. Tone: plain, short sentences, active voice. No marketing words.
 7. Do not describe internal process (phases, slices, requirement IDs, "spec-driven"). If a decision needs a rationale, write it in the page and link a decision record from `docs/archive/adr/` at most once, under "Further reading".
-8. Say the project is pre-1.0 where it matters.
+8. Distinguish stable functionality from experimental features and internal console routes where compatibility matters.
 9. Keep real names: environment variables keep the `A2A_` prefix; document identifiers as the code uses them.
 10. Code blocks are fenced and tagged (`bash`, `json`, `ts`, `text`, `mermaid`). Commands are copy-pasteable, one per block, without a `$` prompt. Include only commands you have verified exist, and expected output only if you ran it.
 11. End each page with 2 to 5 "Related" links.

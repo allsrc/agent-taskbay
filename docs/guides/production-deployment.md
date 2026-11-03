@@ -2,7 +2,7 @@
 
 > For operators putting Agent Taskbay on a shared server. At the end you will have a web process, a worker process and a PostgreSQL database running behind HTTPS, with people signing in through OIDC.
 
-Agent Taskbay is pre-1.0 (version 0.2.0). There is no packaged deployment: no container image, no Helm chart, no Compose file. You deploy it from a source checkout with a process supervisor. This page
+Agent Taskbay is stable (version 1.0.0). There is no packaged deployment: no container image, no Helm chart, no Compose file. You deploy it from a source checkout with a process supervisor. This page
 says exactly what that involves and what is missing. If you only want to try it on your own machine, use the [quickstart](../quickstart.md) instead.
 
 ## What you are deploying
@@ -188,7 +188,7 @@ More symptoms and messages: [Troubleshooting](../operations/troubleshooting.md).
 - Single organization per deployment (`A2A_AUTH_ORGANIZATION_SLUG`).
 - No automated deployment artifacts, no tested replica-failure behaviour, no built-in TLS: HTTPS is the proxy's job.
 - Filesystem artifact storage only, with a 16 MiB limit per object. The artifact store has no delete or retention methods, so the directory only grows.
-- Pre-1.0: migrations and configuration may change between minor versions. Read the changelog before upgrading.
+- Database upgrades may require migrations. Read the changelog before upgrading.
 
 ## Further reading
 

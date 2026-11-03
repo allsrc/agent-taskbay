@@ -2,7 +2,7 @@
 
 > Who this is for: someone deciding whether Agent Taskbay is mature enough for their use. You will have what works today and how to verify it, what is partial, what is planned, and what is parked.
 
-Agent Taskbay is **pre-1.0**. The package version is `0.2.0` and it is published to npm (see [CHANGELOG.md](../../CHANGELOG.md)). Interfaces, HTTP routes and stored data shapes may change between minor versions. There is no stable `/api/v1` yet. It has not been independently security-reviewed, and the only operating system the launcher package has been exercised on is Linux.
+Agent Taskbay is **stable and out of beta**. The package version is `1.0.0` and it is published to npm (see [CHANGELOG.md](../../CHANGELOG.md)). Stable functionality follows semantic versioning from 1.0.0. Experimental features and internal console HTTP routes are excluded from the public compatibility promise. There is no stable `/api/v1` yet. It has not been independently security-reviewed, and the only operating system the launcher package has been exercised on is Linux.
 
 This page describes the current checkout. Features listed under **Unreleased** in the [changelog](../../CHANGELOG.md#unreleased) require a source checkout until they are included in a published release.
 

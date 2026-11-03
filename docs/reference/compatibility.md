@@ -3,7 +3,7 @@
 > For anyone deciding whether Agent Taskbay fits their environment and agents: supported runtime versions, which A2A versions, transports and authentication schemes the gateway
 > handles or refuses, what is experimental, and a table of known limitations with issue links.
 
-Agent Taskbay is **pre-1.0** (package version `0.2.0`) and published to npm. Interfaces may change between minor versions. "Tested" in this page means what
+Agent Taskbay is **stable** (package version `1.0.0`) and published to npm. Stable functionality follows semantic versioning; experimental features and internal console routes may change between minor versions. "Tested" in this page means what
 the repository's own CI runs; nothing here is a claim about other versions or environments.
 
 ## On this page
@@ -21,10 +21,10 @@ the repository's own CI runs; nothing here is a claim about other versions or en
 | --- | --- | --- |
 | Node.js | `>=22.19.0` (the only version CI runs: `22.19.0`) | `engines` in `package.json`; `.nvmrc`; `.github/workflows/ci.yml` and `release.yml` |
 | PostgreSQL | CI runs `postgres:18-alpine`. No other version is tested. | `.github/workflows/ci.yml` |
-| Embedded database | PGlite `0.5.8` (through `@mikro-orm/pglite` `7.2.3`), single process only | `package-lock.json` |
+| Embedded database | PGlite `0.5.8` (through `@mikro-orm/pglite` `7.2.5`), single process only | `package-lock.json` |
 | A2A SDK | `@a2a-js/sdk` `^1.3.0` (locked at `1.3.0`) | `package.json`, `package-lock.json` |
-| Web framework | Next.js `16.3.6`, React `19.3.0` | `package.json` |
-| ORM | MikroORM `7.2.3` | `package.json` |
+| Web framework | Next.js `16.4.4`, React `19.3.0` | `package.json` |
+| ORM | MikroORM `7.2.5` | `package.json` |
 | Operating systems | The full suite runs on `ubuntu-latest`. An informational `platforms` job also runs lint, unit tests, the embedded-database lock and people tests and the build on macOS and Windows; it may fail without blocking a merge, so treat those systems as unverified until it has been green. The launcher has code to open a browser on macOS, Windows and Linux. | `ci.yml`, `bin/agent-taskbay.mjs` |
 | Browsers | Not verified. The repository declares no browser support list and has no cross-browser test suite. | `package.json` |
 
@@ -104,7 +104,7 @@ Credentials are bound to origins: a credential is sent only to the origins liste
 
 ## Experimental and stable
 
-"Stable" here means implemented and covered by the repository's automated tests, **not** that the interface is frozen. Nothing is frozen before 1.0.
+"Stable" here means implemented and covered by the repository's automated tests, **not** that the interface is frozen. From 1.0, stable functionality follows semantic versioning. Experimental features and internal console routes are excluded from that compatibility promise.
 
 | Feature | Status | Evidence in the repository |
 | --- | --- | --- |

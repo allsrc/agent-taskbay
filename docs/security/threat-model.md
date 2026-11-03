@@ -2,7 +2,7 @@
 
 > Who this is for: operators and security reviewers deciding whether Agent Taskbay's controls fit their deployment. You will have the assets, trust boundaries, threats, the control for each, and the residual risk.
 
-Agent Taskbay is a server that holds credentials for your agents and sends work to them on behalf of signed-in people. That makes it a high-value target. This page lists what it protects, who it trusts, and where the protection stops. It is pre-1.0 software and has not had an external security audit that we can point to. To report a problem, follow [SECURITY.md](../../SECURITY.md).
+Agent Taskbay is a server that holds credentials for your agents and sends work to them on behalf of signed-in people. That makes it a high-value target. This page lists what it protects, who it trusts, and where the protection stops. Version 1.0 is out of beta, but has not had an external security audit that we can point to. To report a problem, follow [SECURITY.md](../../SECURITY.md).
 
 ## Assets and trust boundaries
 
@@ -61,6 +61,10 @@ Each row names the control and where it is exercised. "Evidence" points at tests
 - **Not independently audited.** Treat the controls above as design intent backed by the listed tests.
 
 Changes to authentication, credentials, outbound requests, webhooks or artifact handling should update this page and add a regression test.
+
+## Release dependency review
+
+Version 1.0.0 updates Next.js to 16.4.4, Undici to 8.12.3 and MikroORM to 7.2.5, with compatible patches for Zod, gRPC and transitive dependencies. The shadcn generator is needed only to build the stylesheet and is a development dependency. Run `npm audit --omit=dev` against the release lockfile to check installed runtime dependencies; review the full audit separately for development tooling. At release preparation, the production audit reports zero findings. The full audit still reports low and moderate findings in development tooling (including the generator, linter and test tooling); there are no high or critical findings. These are not part of the published runtime dependency tree. An audit does not establish whether an advisory is reachable in a particular deployment.
 
 ## Related
 

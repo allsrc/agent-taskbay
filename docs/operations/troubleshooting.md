@@ -159,7 +159,7 @@ Collect: the message, which process printed it, the Taskbay version (`agent-task
 
 - Several messages are generic by design. This page lists causes rather than a single answer for those.
 - No log aggregation, tracing or metrics ship with the project.
-- Messages can change between minor versions while the project is pre-1.0.
+- Diagnostic wording can change between minor versions.
 
 ## Related
 

@@ -65,6 +65,8 @@ That runs, in order: `lint`, `test`, `test:db`, `db:migrate`, `db:schema:check`,
 
 A new database-backed test goes in a `*.db.test.ts` file and must also be added to the explicit file list in the `test:db` script in `package.json`; the script does not glob. A new HTTP suite is added to the `test:http` chain the same way.
 
+The shadcn generator is a development dependency: builds compile its stylesheet into the console; published installations do not need the generator. Run `npm audit --omit=dev` for runtime dependencies and `npm audit` separately for development tooling. Dependency patch reviews keep the MikroORM packages on the same version and align `eslint-config-next` with Next.js.
+
 ### PostgreSQL
 
 CI sets `A2A_TEST_POSTGRES_URL`, `A2A_DATABASE_PROFILE=postgresql` and `A2A_DATABASE_URL`. To reproduce locally:
