@@ -91,10 +91,10 @@
     "@base-ui/react": "^1.9.0",
     "@bufbuild/protobuf": "^2.13.0",
     "@grpc/grpc-js": "^1.14.7",
-    "@mikro-orm/core": "7.2.5",
-    "@mikro-orm/migrations": "7.2.5",
-    "@mikro-orm/pglite": "7.2.5",
-    "@mikro-orm/postgresql": "7.2.5",
+    "@mikro-orm/core": "7.2.8",
+    "@mikro-orm/migrations": "7.2.8",
+    "@mikro-orm/pglite": "7.2.8",
+    "@mikro-orm/postgresql": "7.2.8",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
@@ -117,7 +117,7 @@
     "zustand": "^5.0.2"
   },
   "devDependencies": {
-    "@mikro-orm/cli": "7.2.5",
+    "@mikro-orm/cli": "7.2.8",
     "@tailwindcss/postcss": "^4.0.9",
     "@types/node": "22.20.4",
     "@types/react": "^19",
